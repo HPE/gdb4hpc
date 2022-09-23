@@ -1435,6 +1435,68 @@ static std::string anonymizeThreadInfo(const std::string& val) {
     return os.str();
 }
 
+static std::string anonymizeCudaThreadInfo(const std::string& val) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+
+    static std::regex hdrRE{R"((\s*\S+\s+\S+).*)"};
+    static std::regex kernelRE{R"(^\s*Kernel .*)"};
+
+    // BlockId TheadIdx (to) BlockIdx ThreadIdx Count VirtualPC Filename Line
+    static std::regex threadRE{R"((\*?\s*[0-9(),]+\s+[0-9(),]+)\s+\S+\s+\S+\s+(\d+)\s+0x[[:xdigit:]]+\s+(.*))"};
+     
+    auto inStr = std::istringstream{val};
+    auto line = std::string{};
+
+    auto os = std::ostringstream{};
+    os << "Showing one thread per location; use -v for full list.\n";
+
+    auto locMap = std::map<std::string, std::pair<std::string,int>>{};
+
+    auto printMap = [&os, &locMap]() {
+         for (auto& [loc, pr] : locMap) {
+             os << pr.first << " " << std::setw(6) << pr.second << std::setw(0)
+                << " " << loc << "\n";
+         }};
+
+    bool readHdr = false;
+    std::smatch match;
+    while (std::getline(inStr, line)) {
+        if (!readHdr) {
+            if (line.find("BlockIdx") == std::string::npos &&
+                line.find("Virtual") == std::string::npos) {
+                DVPRINT("unrecognized header \"%s\"\n", line.c_str());
+                return val;
+            } else {
+                readHdr = true;
+                if (std::regex_match(line, match, hdrRE)) {
+                    os << match[1].str() << "   Count    Location\n";
+                }
+            }
+        } else if (std::regex_match(line, kernelRE)) {
+            printMap();
+            os << line << "\n";
+        } else if (std::regex_match(line, match, threadRE)) {
+            auto t = match[1].str();    // * (0,0,0)  (0,0,0)
+            auto n = std::stoi(std::string{match[2]});   // count
+            auto loc = std::string{match[3]}; // filename + line
+            if (auto [it,added] = locMap.insert(std::make_pair(loc,std::make_pair(t,n))); !added) {
+                it->second.second += n;
+            } else if (t[0] == '*') {
+                it->second.first = t; // prefer the thread marked as default
+            }
+        } else {
+            // unrecognized line
+            DVPRINT("unrecognized line \"%s\"\n", line.c_str());
+            return val;
+        }
+    }
+
+    printMap();
+
+    return os.str();
+
+}
+
 namespace {
 // Class for taking thread-id, value pairs and assembling id's with the same values
 // into equivalence sets.
@@ -2215,20 +2277,20 @@ bool DbgGdbMI::initOmpdL() {
     return ok;
 }
 
-// OpenMP debugger functions
+// Cuda debugger functions
 dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    DVPRINT("*** Dbg %s, %s \"%s\"\n", __FILE__, __func__, inOp);
 
     if (auto e = initOmpd()) return e;  // initOmpd returns nullptr on success
 
-    static std::regex verboseRE{R"(^\s*-v\s*)"};
+    static std::regex verboseRE{R"(\s*-v\b)"};
     auto isVerbose = bool{false};
     auto op = std::string{inOp};
 
     auto match = std::smatch{};
     if (std::regex_search(op, match, verboseRE)) {
         isVerbose = true;
-        op = match.suffix().str();
+        op = match.prefix().str() + match.suffix().str();
     }
 
     static const std::vector<std::string> subCmds{"help", "info", "set", "show"};
@@ -2262,10 +2324,11 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
     } else if (char* result = MICommandConsoleOOBMessages(cmd)) {
         e = NewEvent(DBGEV_THREADINFO);
 
-        if (isVerbose || op != "threads") {
+        DVPRINT("--- CUDA result op = \"%s\"\n", op.c_str()); 
+        if (isVerbose || op != "info threads") {
             e->ev_string = result;
         } else {
-            auto cresult = anonymizeThreadInfo(result);
+            auto cresult = anonymizeCudaThreadInfo(result);
             free(result);
             e->ev_string = strdup(cresult.c_str());
         }

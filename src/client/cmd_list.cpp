@@ -66,18 +66,18 @@ static int cmd_info_sources_cmd(rec_set_t *rec_set, int argc,
 
     ProcessErrorInRepSet(rep_set);
 
-    std::stringstream ss;
     // Need to loop this over each di in the rec_set
     for (auto&& recv_ptr : rec_set) {
         auto print_header = true;
 
         // process replies
         for (auto&& reply : rep_set) {
+            std::stringstream ss;
             if (recv_ptr->rec_di.handle() != reply->rep_di) {
                 continue;
             }
             // Only want to print the header message once
-            if (print_header && !Client.MI_mode) {
+            if (print_header) {
                 PrintOutMsg("\nSource files for $%s:\n",
                             recv_ptr->rec_di.handle().c_str());
                 print_header = false;
@@ -96,20 +96,18 @@ static int cmd_info_sources_cmd(rec_set_t *rec_set, int argc,
                         ss<<"[";
                     }
 
-                    //create message to send back to gui
-                    //ss<<"{proc_set=\""<<recv_ptr->rec_di.handle().name()<<"\",file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
                     ss<<"{file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
 
                     //save fullpath to source list
                     recv_ptr->rec_di.source_paths.storeSourcePath(s->sources_file);
                 }
             }
+            if (Client.MI_mode) {
+                if (ss.str().empty()) ss << "[";
+                ss<<"]";
+                PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",files=%s\n(gdb)\n",recv_ptr->rec_di.handle().c_str(),ss.str().c_str());
+            }
         }
-    }
-    if (Client.MI_mode) {
-        if (ss.str().empty()) ss << "[";
-        ss<<"]";
-        PrintOutMIResult(MIResult::DONE, "files=%s\n(gdb)\n",ss.str().c_str());
     }
 
     FreeRepSet(rep_set);
@@ -128,8 +126,8 @@ static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
         auto f = EVENT_FRAME(reply->rep_event);
         auto loc = f->getLoc();
         PrintOutMIResult(MIResult::DONE,
-                         "line=\"%d\",file=\"%s\",fullname=\"%s\"\n",
-                         loc.loc_line, loc.loc_file, loc.loc_file);
+                         "proc_set=\"%s\",line=\"%d\",file=\"%s\",fullname=\"%s\"\n",
+                         reply->rep_di.name(),loc.loc_line, loc.loc_file, loc.loc_file);
     } else {
         for (auto&& reply : rep_set) {
             // Point at the frame data

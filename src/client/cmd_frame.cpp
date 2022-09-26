@@ -118,7 +118,6 @@ static int movecmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int count = 0;
-    std::stringstream ss;
 
     if (argc >= 2) count = atoi(argv[1]);
 
@@ -138,6 +137,8 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
         // reply sets hold stack frames in "reverse" (deepest first) order, while
         // we want to print them in most shallow (i.e. main) first order.
         std::vector<BTTree> frames;
+
+         std::stringstream ss;
         
         for (const dbgframe_t* f = EVENT_FRAME(reply->rep_event); f != nullptr; f = f->getNext()) {
             // deepest (farthest from main) frame will be in the front
@@ -164,19 +165,21 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
 
         root.insertBacktrace(frames.back()); // insert into root tree and merge common paths
+
+        if (Client.MI_mode){
+            if (ss.str().empty()){
+                ss<<"[";
+            }
+            ss<<"]";
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",stack=%s\n(gdb)\n",reply->rep_di.c_str(),ss.str().c_str());
+        }
     }
 
     root.condenseTree();
     root.calculateTreeGroups();
     root.orderTree();
 
-    if (Client.MI_mode){
-        if (ss.str().empty()){
-            ss<<"[";
-        }
-        ss<<"]";
-        PrintOutMIResult(MIResult::DONE, "stack=%s\n(gdb)\n",ss.str().c_str());
-    }else{
+    if(!Client.MI_mode){
         root.print();
     }
 
@@ -204,9 +207,9 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
         auto f = EVENT_FRAME(reply->rep_event);
         auto loc = f->getLoc();
         PrintOutMIResult(MIResult::DONE,
-                        "frame={level=\"%d\",addr=\"%s\","
+                        "proc_set=\"%s\",frame={level=\"%d\",addr=\"%s\","
                         "func=\"%s\",file=\"%s\",fullname=\"%s\",line=\"%d\"}\n",
-                         f->getLevel(), loc.loc_addr,
+                         reply->rep_di.c_str(), f->getLevel(), loc.loc_addr,
                          loc.loc_func, loc.loc_file, loc.loc_file, loc.loc_line);
 
     } else {

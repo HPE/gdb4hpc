@@ -208,6 +208,7 @@ class DecompIterator {
 public:
     virtual void begin(bool isFortran) = 0;
     virtual bool next() = 0;
+    virtual int getDim() = 0;
     virtual ~DecompIterator() {}
     int streamIdx = 0;
     int len = 0;
@@ -905,6 +906,7 @@ public:
 
 protected:
     std::shared_ptr<ais::Array> m_array;
+    std::shared_ptr<ais::Array> m_arrayOfArray;
     std::shared_ptr<ais::DecompIterator> m_decompIter;
     char m_openChar;
     char m_closeChar;

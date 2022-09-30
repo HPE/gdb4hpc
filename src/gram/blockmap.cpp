@@ -565,7 +565,8 @@ namespace {
     public:
         BlockMapIterator(g_block_map_t* bm);
         void begin(bool isFortran) override;
-        bool next() override;;
+        bool next() override;
+        int getDim() override;
     private:
         size_t m_idx;
         size_t m_totElems;
@@ -602,6 +603,10 @@ void BlockMapIterator::begin(bool isFortran) {
 
     m_idx = 0;
     m_totElems = m_idcs[0].getTotalDataSize();
+}
+
+int BlockMapIterator::getDim() {
+    return m_idcs.size();
 }
 
 // Determine which rank the next chunk of elements will be coming from.

@@ -1110,7 +1110,17 @@ std::unique_ptr<ais::Printer> ais::CharArray::makePrinter(Printer& parent) const
 // Spcial type for dealing with an arrary decomposed across multiple ranks.
 ais::DecompArray::DecompArray(std::shared_ptr<ais::Array> array,
                               std::shared_ptr<ais::DecompIterator> decompIter)
-    : m_array(array), m_decompIter(decompIter), m_openChar('{'), m_closeChar('}') {}
+    : m_array(array), m_decompIter(decompIter), m_openChar('{'), m_closeChar('}') {
+    // The decomposition may have higher dimension than the input arrays, so
+    // for 2d and higher we *synthesize* the out types.   The main property we
+    // need to preserve is the 'fortran-ness' though here we distinguish the
+    // array-of-arrays because the can matter for printing.
+    if (decompIter->getDim() > 1) {
+        m_arrayOfArray = m_array->makeTyped(m_array);
+    } else {
+        m_arrayOfArray = m_array;
+    }
+}
 
 void ais::DecompArray::parseL(InterpretStream& in, Writer& out) const {
     // DecompArray is a client side feature, the parsing should happen as
@@ -1119,7 +1129,7 @@ void ais::DecompArray::parseL(InterpretStream& in, Writer& out) const {
 }
 
 std::unique_ptr<ais::Printer> ais::DecompArray::makePrinter(Printer& parent) const {
-    return m_array->makePrinter(parent);
+    return m_arrayOfArray->makePrinter(parent);
 }
 void ais::DecompArray::printIndex(int idx, std::ostream& out) const {
     m_array->printIndex(idx,out);
@@ -1131,12 +1141,22 @@ void ais::DecompArray::applyL(Reader& reader, Visitor& f) const {
         throw ais::Error("expected a decomp reader inside a block map");
     }
 
-    // determine the underling array and element types
+    // determine the underlying array and element types
+    const ais::Type* arrayOfArrayType = m_arrayOfArray.get();
     const ais::Type* arrayType = m_array.get();
     const ais::Type* elemType = arrayType;
     while (auto arr = dynamic_cast<const Array*>(elemType)) {
         elemType = arr->getElemType();
     }
+
+    // array types are largely synthetic for the output side of decompositions, but
+    // we do need to disinguish the innermost array type for makePrinter to work right.
+    auto getNestType = [elemType,arrayType,arrayOfArrayType](int level, int startLevel) {
+        if (level+1 == startLevel) return elemType;
+        else if (level+2 == startLevel) return static_cast<const ais::Type*>(arrayType);
+        else return arrayOfArrayType;
+    };
+    
 
     // DecompArray::apply is going to make it look to visitor like we are
     // processing the unified array.   m_decomIter defines the rank where the next
@@ -1166,7 +1186,7 @@ void ais::DecompArray::applyL(Reader& reader, Visitor& f) const {
             if (first) first = false;
             else f.start(arrayType);
             if (isFortran) f.addMetaInfo(this, std::make_pair(1,0));
-            f.nest( i+1 == it.startLevel ? elemType : arrayType);
+            f.nest(getNestType(i,it.startLevel));
         }
         outputLevel = it.startLevel;
         

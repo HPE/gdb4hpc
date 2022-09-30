@@ -309,5 +309,40 @@ b{0..1}: AroundStruct::Nested
 b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundStruct::VERONICA, AroundStruct::JUGHEAD}
 133: ptype AroundStruct::Nested
 b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundStruct::VERONICA, AroundStruct::JUGHEAD}
-104: q
+134: c
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/tests/gdb4hpc-4.14.4/bd_dt/C++/cpp_ds_test1.cpp:31
+135: up
+b{0..1}: #1  nestedTypedef at /home/users/jvogt/tests/gdb4hpc-4.14.4/bd_dt/C++/cpp_ds_test1.cpp:355
+136: p c2
+b{0..1}: {x = 5, y = -121, n = {ch_ch_ch_cherry_bomb = 15}, static zz = 1865}
+137: ptype c2
+b{0..1}: class Classy2 {
+  private:
+    Double x;
+    Double y;
+    Classy2::Nesty n;
+    static int zz;
+
+  public:
+    Classy2(Double, int);
+    static void setZZ(int);
+
+  private:
+    typedef double Double;
+}
+138: p c2.x
+b{0..1}: 5
+139: p c2.y
+b{0..1}: -121
+140: p c2.zz
+b{0..1}: 1865
+141: p c2.n
+b{0..1}: {ch_ch_ch_cherry_bomb = 15}
+142: p c2.n.ch_ch_ch_cherry_bomb
+b{0..1}: 15
+143: ptype Classy2::Double
+b{0..1}: double
+144: ptype Classy2::Nesty::Int
+b{0..1}: int
+145: q
 Shutting down debugger and killing application for 'b'.

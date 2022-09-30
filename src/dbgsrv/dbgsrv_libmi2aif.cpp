@@ -102,6 +102,11 @@ public:
 
     const std::vector<std::string>& parentClasses() const { return m_parentClasses; }
     const std::vector<std::string>& fields() const { return m_fields; }
+
+    // name, scope, type
+    std::tuple<std::string, std::string, std::string>
+    parseField(const char* scope, const std::string& type, const std::string& fieldStr);
+
 private:
     bool fieldIsFunction(const char* str) const;
     bool fieldIsTypedef(const char* str) const;
@@ -133,7 +138,7 @@ public:
     int getChildren(MIVar *);
     char* getVarValue(char *);
     MISession* getSession() const { return m_session; }
-    std::string getPTypeAlias(const std::string& type);
+    std::string getPTypeAlias(const std::string& type, bool strict);
     PTypeFields getPTypeFields(const std::string& type, bool isFortran);
 
     std::string nextSlice(ArraySlicer& slicer, bool& isFinal);
@@ -199,7 +204,8 @@ struct TypeName {
 class TypeParser {
 public:
     // Top level parsing function
-    static std::shared_ptr<ais::Type> getType(Mi2Aif& mi, MIVar* var, const char* typeStr);
+    static std::shared_ptr<ais::Type> getType(Mi2Aif& mi, MIVar* var, const char* scope,
+					      const char* typeStr);
 
     static std::shared_ptr<ais::Type> wrap(std::shared_ptr<ais::Type> elemType, TypeName t);
     static std::shared_ptr<ais::Type> ftnWrap(std::shared_ptr<ais::Type> elemType, TypeName t);
@@ -266,6 +272,8 @@ public:
     static Func m_complex4;
     static Func m_complex8;
     static Func m_complex16;
+private:
+    static std::shared_ptr<ais::Type> getNestedType(Mi2Aif&mi, std::string scope, const std::string& type);
 };
 
 TypeParser::Func TypeParser::m_logical = FtnWrap<ais::Logical>();
@@ -523,7 +531,7 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
     if (m_type) return m_type;
 
     if (m_var) {
-        m_type = TypeParser::getType(m_mi, m_var.get(), nullptr);
+        m_type = TypeParser::getType(m_mi, m_var.get(), nullptr, nullptr);
     } else {
         if (m_expr.empty()) {
             throwDbgError("No expression to create variable with.");
@@ -586,7 +594,7 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
             throw dbg_error.release();
         }
 
-        m_type = TypeParser::getType(m_mi, nullptr, strippedExprType.c_str());
+        m_type = TypeParser::getType(m_mi, nullptr, nullptr, strippedExprType.c_str());
         DVPRINT("Got type for %s: %s\n", m_expr.c_str(), m_type->getTypeName().c_str());
 
         // if we have a pointer with length meta info, we can apply it now
@@ -598,7 +606,7 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
             try {
                 auto appliedType = getGDBType(lengthened);
                 if (!appliedType.empty()) {
-                    m_type = TypeParser::getType(m_mi, nullptr, appliedType.c_str());
+                    m_type = TypeParser::getType(m_mi, nullptr, nullptr, appliedType.c_str());
                 }
             } catch (...) {}
         }
@@ -911,7 +919,7 @@ int Mi2Aif::getChildren(MIVar *var) {
 // Find the more fundamental description of a type.   This is for when the
 // application does something like "typedef int MyInt;
 // So this function will "MyInt" -> "int"
-std::string Mi2Aif::getPTypeAlias(const std::string& type) {
+std::string Mi2Aif::getPTypeAlias(const std::string& type, bool strict) {
     // gdb can't properly parse the closure of nested templates (">>")
     // without a space in between ("> >")
     auto fixedType = std::regex_replace(type, std::regex(">>"), "> >");
@@ -922,7 +930,7 @@ std::string Mi2Aif::getPTypeAlias(const std::string& type) {
     if (!MICommandResultOK(cmd)) {
         DVPRINT("GetStructInfo: CLIPtype call failed.\n");
         MICommandFree(cmd);
-        return type;
+        return (strict ? "" : type);
     }
 
     auto retType = type;
@@ -1495,7 +1503,55 @@ std::string TypeParser::sanitizeType(const std::string& type) {
     return sanType;
 }
 
-std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const char* inType) {
+// break a data member string into its name, scope, and type
+// scope and type describe the current class/struct, fieldStr is the description of a member
+std::tuple<std::string, std::string, std::string>
+PTypeFields::parseField(const char* scope, const std::string& type, const std::string& fieldStr) {
+    using RetType = std::tuple<std::string, std::string, std::string>;
+
+    // the field is type followed by name
+    auto namePos = fieldStr.rfind(' ');
+    if (namePos == std::string::npos) return RetType{};
+    
+    while (++namePos < fieldStr.size() && fieldStr[namePos] == '*') {}
+    auto isStatic = false;
+    size_t t0 = 0;
+    if (fieldStr.rfind("static ",0) == 0) {
+        t0 = 7;
+        isStatic = true;
+    }
+    auto fieldTypeStr = fieldStr.substr(t0,namePos-t0);
+    auto fieldName = fieldStr.substr(namePos);
+    
+    // gdb only use the class member notion of static. Here we are changing
+    // the member name from name to "static name" which *works* but does
+    // rely on the debugger printing *exactly* "static name = value" for the
+    // static member.   This path will need to be smarter if the convention changes.
+    if (isStatic) fieldName = "static " + fieldName;
+
+    DVPRINT("got field type \"%s\" name \"%s\"%s\n",
+            fieldTypeStr.c_str(), fieldName.c_str(), isStatic ? " STATIC" : "");
+
+    // nestedScope is parsed only by getType so intentionally *not* using '::'
+    auto nestedScope = type;
+    if (scope) {
+        nestedScope = std::string{scope} + "++";
+        auto cppscope = std::string{scope};
+        std::replace(cppscope.begin(), cppscope.end(), '+', ':');
+        if (auto loc = type.find(cppscope);
+            loc != std::string::npos
+            && (loc+=cppscope.size())+ 2 < type.size() && type[loc] == ':') {
+            nestedScope += type.substr(loc+2);
+        } else {
+            nestedScope += type;
+        }
+    }
+
+    return RetType{fieldName, nestedScope, fieldTypeStr};
+}
+
+std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const char* scope,
+					       const char* inType) {
     static bool isSorted = false;
     if (!isSorted) {
         std::sort(m_cppPrims.begin(), m_cppPrims.end(), comparePrims);
@@ -1506,9 +1562,8 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
 
     auto isId = [](int c) { return std::isalnum(c) || c == '_'; };
 
-    DVPRINT("TypeParser::getType var=\"%s\" inType=\"%s\"\n", 
-            var ? var->type : "", inType ? inType : "");
-
+    DVPRINT("TypeParser::getType var=\"%s\" inType=\"%s\" scope=\"%s\"\n", 
+            var ? var->type : "", inType ? inType : "", scope ? scope : "");
 
     const char* typeStr = inType ? inType : var->type;
     auto type = sanitizeType(typeStr);
@@ -1598,11 +1653,15 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         return mi.addKnownType(type, stdString(mi, TypeName{type,match[1].str().size()}));
     }
 
+    if (scope) {
+        if (auto nested = getNestedType(mi, scope, type)) return nested;
+    }
+        
     // possible typedef for a more fundamental type
-    auto aliasName = mi.getPTypeAlias(type);
+    auto aliasName = mi.getPTypeAlias(type, false);
     if (aliasName != type) {
         DVPRINT("got an alias \"%s\"\n", aliasName.c_str());
-        return getType(mi, var, aliasName.c_str());
+        return getType(mi, var, nullptr, aliasName.c_str());
     }
 
     // fortran compound types - these are reported as "Type typename"
@@ -1665,13 +1724,13 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
                 // normal child
                 DVPRINT("adding a child\n");
                 DVPRINT("member name is %s\n", getMemberName(child1).c_str());
-                stype->addMember(getMemberName(child1), getType(mi,child1,nullptr));
+                stype->addMember(getMemberName(child1), getType(mi,child1,nullptr,nullptr));
             } else if (!mi.getChildren(child1)) {
                 // child is public|protected|private - walk down another level
                 for (int j=0; j<child1->numchild; ++j) {
                     auto child2 = child1->children[j];
                     child2->expr = strdup(child2->name);
-                    stype->addMember(getMemberName(child2), getType(mi,child2,nullptr));
+                    stype->addMember(getMemberName(child2), getType(mi,child2,nullptr,nullptr));
                 }
             } else {
                 DVPRINT("getting children failed\n");
@@ -1682,21 +1741,14 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         auto ptfields = mi.getPTypeFields(type, isFortran);
         // parent classes
         for (const auto& parent : ptfields.parentClasses()) {
-            stype->addMember(parent, getType(mi, nullptr, parent.c_str()));
+            stype->addMember(parent, getType(mi, nullptr, nullptr, parent.c_str()));
         }
         // class members
         for (auto&& fieldStr : ptfields.fields()) {
-            // the field is type followed by name
-            auto namePos = fieldStr.rfind(' ');
-            if (namePos == std::string::npos) continue;
+            auto [fieldName, nestedScope, fieldTypeStr] = ptfields.parseField(scope, type, fieldStr);
+            if (fieldName.empty()) continue;
 
-            while (++namePos < fieldStr.size() && fieldStr[namePos] == '*') {}
-            auto fieldTypeStr = fieldStr.substr(0,namePos);
-            auto fieldName = fieldStr.substr(namePos);
-            DVPRINT("got field type \"%s\" name \"%s\"\n",
-                    fieldTypeStr.c_str(), fieldName.c_str());
-
-            stype->addMember(fieldName, getType(mi,nullptr,fieldTypeStr.c_str()));
+            stype->addMember(fieldName, getType(mi,nullptr,nestedScope.c_str(),fieldTypeStr.c_str()));
         }
     }
 
@@ -1705,6 +1757,32 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
 
     mi.addKnownType(baseType, stype);
     return wrap(stype, TypeName{type,static_cast<size_t>(typeLen)});
+}
+
+// look for matching types in local scopes
+std::shared_ptr<ais::Type>
+TypeParser::getNestedType(Mi2Aif&mi, std::string scope, const std::string& type)
+{
+    // look for the name in the enclosing scopes - we are using '++' instead of '::'
+    // for division to avoid confusion with template arguments etc.
+    auto nested = std::shared_ptr<ais::Type>{};
+
+    while (!nested && !scope.empty()) {
+        auto nestedType = scope + "::" + type;
+        std::replace(nestedType.begin(), nestedType.end(), '+', ':');
+
+        if (!mi.getPTypeAlias(nestedType,true).empty()) {
+            if (nested = getType(mi, nullptr, nullptr, nestedType.c_str())) {
+                DVPRINT("found a nested type for \"%s\"\n", nestedType.c_str());
+                break;
+            }
+        }
+
+        auto pos = scope.find_last_of('+');
+        scope.resize(pos == std::string::npos ? 0 : pos);
+    }
+
+    return nested;
 }
 
 // Handle decorations of the base type.  Like *,&,[], etc.
@@ -1864,7 +1942,7 @@ std::shared_ptr<ais::Type> TypeParser::stlContainer(Mi2Aif& mi, const ais::Array
     auto t2 = TypeName{t.type  + "<" + containedType + "," + templateArgs + ">",
                        std::move(decoration)};
 
-    auto elemType = getType(mi, nullptr, containedType.c_str());
+    auto elemType = getType(mi, nullptr, nullptr, containedType.c_str());
     auto vtype = ctype.makeTyped(elemType);
     return wrap(vtype, t2);
 }
@@ -1891,7 +1969,7 @@ std::shared_ptr<ais::Type> TypeParser::stdArray(Mi2Aif& mi, TypeName t) {
     auto t2 = TypeName{t.type  + "<" + containedType + "," + templateArgs + ">",
                        std::move(decoration)};
 
-    auto elemType = getType(mi, nullptr, containedType.c_str());
+    auto elemType = getType(mi, nullptr, nullptr, containedType.c_str());
     auto vtype = std::make_shared<ais::StdArray>(elemType,len);
     return wrap(vtype, t2);
 }
@@ -1999,7 +2077,7 @@ std::shared_ptr<ais::Type> TypeParser::wrapEnum(Mi2Aif& mi, TypeName t) {
     auto name = t.decoration.substr(namePos);
     return std::make_shared<ais::Enum>(name);
 }
-    
+
 std::shared_ptr<ais::Type> TypeParser::unimplemented(Mi2Aif& mi, TypeName t) {
     return std::make_unique<ais::Unimplemented>(t.type + t.decoration);
 }
@@ -2014,7 +2092,7 @@ std::unique_ptr<ArraySlicer> Mi2Aif::makeSlicer(const std::string& var) {
 // Create an ArraySlicer for a secondary reference.
 // Note: slicing of chain of values hasn't really been tested..
 std::unique_ptr<ArraySlicer> Mi2Aif::makeSlicer(std::shared_ptr<MIVar> mivar) {
-    auto origType = TypeParser::getType(*this, mivar.get(), nullptr);
+    auto origType = TypeParser::getType(*this, mivar.get(),nullptr,  nullptr);
     return std::make_unique<ArraySlicer>(*this, mivar, origType);
 }
 

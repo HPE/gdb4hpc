@@ -294,10 +294,6 @@ static void readInitCommandsFile() {
 }
 
 int main(int argc, char *argv[]) {
-    for (int i=0; i<argc; ++i) {
-        mi_log("arg: %s\n", argv[i]);
-    }
-    
     int c;
     double ulp;
     int opt_ind = 0;

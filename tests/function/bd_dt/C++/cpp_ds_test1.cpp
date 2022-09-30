@@ -25,7 +25,7 @@ static void f(const Struct1& s, const Classy& c);
 static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes();
-static void inheritanceTest(), enumTest();
+static void inheritanceTest(), enumTest(), nestedTypedef();
 
 static void trap() {
     std::cout << "trap function\n";
@@ -107,7 +107,7 @@ int main(int argc, char ** argv){
     templateClassTest();
     obscureDataTypes();
     templateClassTest2();
-    inheritanceTest(); nestedTemplateClassTest(); enumTest();
+    inheritanceTest(); nestedTemplateClassTest(); enumTest(); nestedTypedef();
     delete ll;
     MPI_Finalize();
     return 0;
@@ -328,3 +328,29 @@ static void enumTest() {
     AroundStruct::Nested n1 = AroundStruct::BETTY, n2 = AroundStruct::VERONICA, n3 = AroundStruct::JUGHEAD;
     trap();
 };
+
+class Classy2 {
+public:
+  using Double = double;
+  Classy2(Double ax, int ay) : x(ax), y(ay), n(15) {}
+
+  struct Nesty {
+	  typedef int Int;
+	  Nesty(Int a) : ch_ch_ch_cherry_bomb(a) {}
+	  Int ch_ch_ch_cherry_bomb;
+  };
+  static void setZZ(int val) { zz = val; }
+private:
+  Double x;
+  Double y;
+  Nesty n;
+  static int zz;
+};
+
+int Classy2::zz = 1;
+
+static void nestedTypedef() {
+  Classy2 c2{5.0, -121};
+  Classy2::setZZ(1865);
+  trap();
+}

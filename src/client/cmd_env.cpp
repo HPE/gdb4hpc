@@ -905,8 +905,6 @@ static int cmd_interpreter_exec_cmd(rec_set_t* rec_set, int argc, char** argv) {
 
     Client.MI_mode = false;
 
-    PrintOutMsg("~\"");
-
     auto command = std::string{};
     if (argc > 3 || argv[2][0] != '"') {
         command = ArgsToString(argv+2, argc-2);
@@ -915,8 +913,6 @@ static int cmd_interpreter_exec_cmd(rec_set_t* rec_set, int argc, char** argv) {
         command = std::string{argv[2]+1, std::max(size_t(2),len)-2};
     }
     ExecuteCommand(command.c_str());
-
-    PrintOutMsg("\"\n");
 
     Client.MI_mode = true;
 

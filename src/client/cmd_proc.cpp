@@ -225,6 +225,9 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
 
         return nullptr;
     };
+    
+    //print launch sequence to console
+    PrintOutMItoCli printMItoCli;
 
     if (!ps) return exitWithFailure();
 
@@ -371,9 +374,9 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
     DbgHandleEvent(di, EventCB);
     if (Client.MI_mode){
         PrintOutOk();  // LOOKAT: better way to suppress when in -iex
-    }else{
-        PrintOutMsg("Launch complete.\n");
     }
+    PrintOutMsg("Launch complete.\n");
+
     // Issue the startup command
     rep_set = DbgStartup(rec_set);
 
@@ -1269,40 +1272,41 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
         // Print location info
         if (frameLoc.loc_file && frameLoc.loc_func && frameLoc.loc_line > 0) {
             // See if we can get the source line
-            if (!Client.MI_mode){
-                auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
-                lineArg += "," + lineArg; // filename:xx,filename:xx
-                dbgevent_t *listResult = nullptr;
+        
+            auto lineArg = std::string{frameLoc.loc_file} + ":" + std::to_string(frameLoc.loc_line);
+            lineArg += "," + lineArg; // filename:xx,filename:xx
+            dbgevent_t *listResult = nullptr;
 
-                if (ev_set->di().d_frontend) {
-                    listResult = DbgFEList(ev_set->di().d_frontend, nullptr, lineArg.c_str());
-                }
+            if (ev_set->di().d_frontend) {
+                listResult = DbgFEList(ev_set->di().d_frontend, nullptr, lineArg.c_str());
+            }
 
-                if (listResult && listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
-                    // Print a frame if the last step event changed functions
-                    if (frame_changed) {
-                        PrintMsgWithSetInfo(
-                            ev_set->di().handle().c_str(), &ev_set->group(),
-                            "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
-                        );
-                    }
-
-                    auto line = std::string{listResult->ev_list->list_line};
-                    formatSourceLine(line);
-                    
-                    PrintMsgWithSetInfo(
-                        ev_set->di().handle().c_str(), &ev_set->group(),
-                        "%d\t%s\n", frameLoc.loc_line, line.c_str()
-                    );
-                } else {
-                    // For some reason we didn't get the right line, just print the frame
+            if (listResult && listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
+                // Print a frame if the last step event changed functions
+                if (frame_changed) {
                     PrintMsgWithSetInfo(
                         ev_set->di().handle().c_str(), &ev_set->group(),
                         "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
                     );
                 }
-                FreeEvent(listResult);
-            }else{
+
+                auto line = std::string{listResult->ev_list->list_line};
+                formatSourceLine(line);
+                
+                PrintMsgWithSetInfo(
+                    ev_set->di().handle().c_str(), &ev_set->group(),
+                    "%d\t%s\n", frameLoc.loc_line, line.c_str()
+                );
+            } else {
+                // For some reason we didn't get the right line, just print the frame
+                PrintMsgWithSetInfo(
+                    ev_set->di().handle().c_str(), &ev_set->group(),
+                    "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
+                );
+            }
+            FreeEvent(listResult);
+
+            if (Client.MI_mode){
                 // Print the source line
                 PrintMIStoppedMsg(ev_set, StoppedType::END_RANGE, frameLoc.loc_file, frameLoc.loc_func,
                                   std::to_string(frameLoc.loc_line), "");
@@ -1342,7 +1346,9 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
         reply_set.toSetString().c_str(), ev_set.di().handle().c_str());
 
     switch (ev_set.event()->ev_event) {
-        case DBGEV_EXIT:
+        case DBGEV_EXIT: {
+            //always print exits to console
+            PrintOutMItoCli printMItoCli;
             if (ev_set.event()->ev_exit == 0) {
                 PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
                                     "Program exited normally.\n");
@@ -1352,12 +1358,16 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                                     ev_set.event()->ev_exit);
             }
             break;
+        }
 
         case DBGEV_BPHIT: {
             // ensure the recv bp has a corresponding bp_set. If not, this is an
             // unknown breakpoint. If its unknown either its a breakpoint
             // encountered from ending the graph (graph breakpoints are hidden)
             // or an exit breakpoint that was set by the dbg servers.
+
+            //always print breakpoint hits to console
+            PrintOutMItoCli printMItoCli;
             auto bpset = ev_set.di().breakpoints().findByDbgBreakpoint(*ev_set.event()->ev_bp);
 
             if (!bpset) {
@@ -1521,13 +1531,12 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                     if (bpset->line() > 0) {
                         if (Client.MI_mode){
                             PrintMIStoppedMsg(&ev_set, StoppedType::BKPT_HIT, bpset->file(), bpset->function(), std::to_string(bpset->line()), std::to_string(bpset->id()));
-                        }else{
+                        }
                         PrintMsgWithSetInfo(
                             ev_set.di().handle().c_str(), &ev_set.group(),
                             "Breakpoint %d deleted, %s at %s:%d\n",
                             bpset->id(), bpset->function().c_str(),
                             bpset->file().c_str(), bpset->line());
-                        }
                     } else {
                         PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
                                             &ev_set.group(),
@@ -1569,7 +1578,9 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
             break;
         }
 
-        case DBGEV_SIGNAL:
+        case DBGEV_SIGNAL: {
+            //always print signals to console
+            PrintOutMItoCli printMItoCli;
             PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
                                 "Program received signal %s.\n",
                                 ev_set.event()->ev_sig_type);
@@ -1592,6 +1603,7 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
             }
 
             break;
+        }
 
         case DBGEV_STEP:
             if (Client.print_source_on_step)

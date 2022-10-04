@@ -292,6 +292,14 @@ private:
     FILE* prev;
 };
 
+// Print messages to cli output instead of MI for the lifetime (RAII)
+class PrintOutMItoCli {
+public:
+    PrintOutMItoCli();
+    ~PrintOutMItoCli();
+};
+
+
 enum class MIResult { DONE, STOPPED, CONTINUATION };
 extern void PrintOutMIResult(MIResult res, const char* format, ...) __attribute__((format (printf,2,3)));
 // Get/set the logging state 

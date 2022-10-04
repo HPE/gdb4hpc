@@ -40,6 +40,7 @@ static void vPrintOutMIMsg(const char *format, va_list arg_list);
  */
 static cli_stream_t *CurrentStream; /* Current cli stream */
 static std::vector<cli_stream_t*> AllStreams;
+static bool MIPrintToConsole = false;
 
 void InitCLI(cli_type_t default_type, interpreter_type interpreter,
              cli_stream_args_t *default_args) {
@@ -830,6 +831,16 @@ void XMLPrintStartGraphMsg(const char *set_name, const char *set_str) {
     }
 }
 
+static void ProgOutMITarget(DbgInvoke *di, const char* line) {
+    // ignoring embedded quotes for the moment
+    auto f = CurrentStream->cs_fpprog;
+    auto new_line=std::string{line};
+    for (std::size_t pos=0; (pos=new_line.find_first_of("\"\n\r",pos)) != std::string::npos; ) {
+        new_line.erase(pos,1);
+    }
+    fprintf(f, "@\"%s\"\n(gdb)\n", new_line.c_str());
+}
+
 // common code between ProgOutLineStream and ProgOutLineStrings
 static void ProgOutLine(DbgInvoke *di, const char* line) {
     auto f = CurrentStream->cs_fpprog;
@@ -837,6 +848,8 @@ static void ProgOutLine(DbgInvoke *di, const char* line) {
         fprintf(f, XML_PROG_OUTPUT_START, di->handle().c_str(), (unsigned int)strlen(line));
         fprintf(f, "%s", line);
         fprintf(f, XML_PROG_OUTPUT_END);
+    } else if (Client.MI_mode) {
+        ProgOutMITarget(di,line);
     } else {
         if (Client.cli_fpprog) f = Client.cli_fpprog;
         fprintf(f, "<$%s>: %s", di->handle().c_str(), line);
@@ -991,10 +1004,6 @@ void PrintOutMsg(const char *format, ...) {
 }
 
 void vPrintOutMsg(const char *format, va_list arg_list) {
-    if (Client.MI_mode) {
-        vPrintOutMIMsg(format, arg_list);
-        return;
-    }
 
     // ensure that there is an output stream to print to in the current stream
     if (!CurrentStream) {
@@ -1007,6 +1016,19 @@ void vPrintOutMsg(const char *format, va_list arg_list) {
         // restore input processing
         DbgUnmaskInput();
 
+        return;
+    }
+
+    if (Client.MI_mode) {
+        if (MIPrintToConsole){
+            int currStream=CurrentStream->cs_num;
+            DbgSwitchCurrentStream(AllStreams[0]);
+            // vfprintf the line we recieved
+            CurrentStream->cs_out.vprintf(format, arg_list);
+            DbgSwitchCurrentStream(AllStreams[currStream]);
+        }else{
+            vPrintOutMIMsg(format, arg_list);
+        }
         return;
     }
 
@@ -1023,9 +1045,23 @@ void PrintOutOk() {
 
 static void vPrintOutMIMsg(const char *format, va_list arg_list) {
     // ignoring embedded quotes for the moment
-    CurrentStream->cs_out("~\"");
-    CurrentStream->cs_out.vprintf(format, arg_list);
-    CurrentStream->cs_out("\"\n");
+    auto msgFmt=std::string{format};
+
+    for (std::size_t pos=0; (pos=msgFmt.find_first_of("\"\n",pos)) != std::string::npos; ) {
+        msgFmt.erase(pos,1);
+    }
+    if (msgFmt.empty()) return;
+    msgFmt = "~\"" + msgFmt + "\"\n(gdb)\n";
+
+    va_list args2;
+    va_copy(args2, arg_list);
+
+    CurrentStream->cs_out.vprintf(msgFmt.c_str(), arg_list);
+
+    mi_logv2("output mi:", msgFmt.c_str(), args2);
+    va_end(args2);
+    //CurrentStream->cs_out.vprintf(msgFmt.c_str(), arg_list);
+
 }
 
 void PrintOutMIResult(MIResult res, const char* format, ...)
@@ -1289,6 +1325,9 @@ SuppressPrintOutError::SuppressPrintOutError() : stream(CurrentStream), prev(nul
     if (stream) std::swap(stream->cs_fperr, prev);
 }
 SuppressPrintOutError::~SuppressPrintOutError() { if (stream) stream->cs_fperr=prev; };
+
+PrintOutMItoCli::PrintOutMItoCli() { MIPrintToConsole = true; }
+PrintOutMItoCli::~PrintOutMItoCli() { MIPrintToConsole = false; };
 
 cli_pipe::cli_pipe(const std::string& command) : m_stream(CurrentStream) {
     if (!m_stream) return;

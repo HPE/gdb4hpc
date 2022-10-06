@@ -81,7 +81,9 @@ int PrintVal(std::ostream& os, val_t *val, rec_set_t *rec_set, const std::string
                 auto diName = reply->rep_di.c_str();
 
                 auto label = GetProcSetString(diName, reply->rep_group.get(), threads);
-                if (!label.empty()) label += ": ";
+                if (label.empty()) ;
+                else if (format.find("csv") == std::string::npos) label += ": ";
+                else label = "\"" + label + "\",";
 
                 // Print the AIF value
                 // AIFPrint doesn't play nice with editline...

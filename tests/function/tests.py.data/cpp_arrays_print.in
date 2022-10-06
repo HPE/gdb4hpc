@@ -122,11 +122,11 @@ a{0..2}: {{00000000000000000000000000000001,00000000000000000000000000000010},{0
 Unrecognized format 'n'.
 Command resulted in an error: 61: p/n intarray2d
 62: p/csv intarray2d2
-a{0..2}: 1,2
-3,4
-5,6
+"a{0..2}",1,2
+"a{0..2}",3,4
+"a{0..2}",5,6
 63: print /csv floatarray
-a{0..2}: 1.1,2.2,3.3,4.4,5.5
+"a{0..2}",1.1,2.2,3.3,4.4,5.5
 64: p/1 intarray2d2
 a{0..2}: 1
 2
@@ -140,8 +140,8 @@ a{0..2}: "Hello"
 "Empty ->"
 ""
 66: p/csvx intarray2d
-a{0..2}: 0x1,0x2
-0x10f,0xffffffff
+"a{0..2}",0x1,0x2
+"a{0..2}",0x10f,0xffffffff
 67: p/x1 intarray2d
 a{0..2}: 0x1
 0x2

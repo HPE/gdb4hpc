@@ -865,13 +865,15 @@ std::unique_ptr<ais::Printer> ais::Array::makePrinter(Printer& parent) const {
     static const char* arr[3] = { "{", ",", "}" };  // open, separator, close
     static const char* one[3] = { "", "\n", "" };   // one per line
     static const char* csv[3] = { "", ",", "" };    // comma separated values
+    static const char* csv2[3] = { "", "L", "" };   // csv rows - L stands for "label"
     auto& fmt = parent.format();
     const char** f;
     if (fmt.onePerLine) f = one;
     else if (!fmt.csv) f = arr;
-    else if (dynamic_cast<ais::Array*>(m_elemType.get())) f = one;
+    else if (dynamic_cast<ais::Array*>(m_elemType.get())) f = csv2;
     else f = csv;
-    return std::make_unique<ArrayPrinter>(parent,f[0], f[1], f[2]);
+    auto sep = (f[1][0] != 'L') ? std::string{f[1]} : "\n" + parent.getLabel();
+    return std::make_unique<ArrayPrinter>(parent,f[0],sep,f[2]);
 }
 
 void ais::Array::applyL(Reader& reader, Visitor& f) const {
@@ -2055,7 +2057,7 @@ namespace ais {
             if (m_top) m_top->nest(t, refIdx);
             else {
                 out << m_label;
-                m_label.clear();
+                if (!m_formatter.csv) m_label.clear();
                 if (refIdx > 0) out << "\n  <" << refIdx << ">:";
                 Printer::nest(t,-1);
             }
@@ -2070,7 +2072,7 @@ namespace ais {
         void end() override { if (m_top) m_top->end(); }
         void startChild() override {}
         void endChild() override {}
-        std::string getLabel() override { auto label = std::string{}; m_label.swap(label); return label; }
+        std::string getLabel() override { return m_label; }
 
         Formatter& getFormatter() { return m_formatter; }
             

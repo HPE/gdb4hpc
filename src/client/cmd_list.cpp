@@ -127,7 +127,7 @@ static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
         auto loc = f->getLoc();
         PrintOutMIResult(MIResult::DONE,
                          "proc_set=\"%s\",line=\"%d\",file=\"%s\",fullname=\"%s\"\n",
-                         reply->rep_di.name(),loc.loc_line, loc.loc_file, loc.loc_file);
+                         reply->rep_di.name().c_str(),loc.loc_line, loc.loc_file, loc.loc_file);
     } else {
         for (auto&& reply : rep_set) {
             // Point at the frame data

@@ -981,6 +981,8 @@ void vPrintOutError(const char *format, va_list arg_list) {
         vfprintf(f, format, arg_list);
     }
 
+    if (!Client.MI_mode) cli_reset_stream();
+
     // restore input processing
     DbgUnmaskInput();
 }
@@ -1024,7 +1026,9 @@ void vPrintOutMsg(const char *format, va_list arg_list) {
             int currStream=CurrentStream->cs_num;
             DbgSwitchCurrentStream(AllStreams[0]);
             // vfprintf the line we recieved
+            cli_clear_line();
             CurrentStream->cs_out.vprintf(format, arg_list);
+            cli_reset_stream();
             DbgSwitchCurrentStream(AllStreams[currStream]);
         }else{
             vPrintOutMIMsg(format, arg_list);

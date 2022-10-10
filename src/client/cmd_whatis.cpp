@@ -162,7 +162,7 @@ static int cmd_info_locals_cmd(rec_set_t *rec_set, int argc,
             }
             if (Client.MI_mode && !ss.str().empty()){
                 ss<<"]}";
-                PrintOutMIResult(MIResult::DONE, "variables=%s\n(gdb)\n", ss.str().c_str());
+                PrintOutMIResult(MIResult::DONE, "variables=%s\n%s", ss.str().c_str(), GetMIEpilogue());
             }
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),

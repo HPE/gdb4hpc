@@ -888,7 +888,8 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                 ss<<"[";
             }
             ss<<"]}";
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", BreakpointTable={body=%s\n(gdb)\n",recv_ptr->rec_di.handle().c_str(),ss.str().c_str());
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", BreakpointTable={body=%s\n%s",
+                             recv_ptr->rec_di.handle().c_str(),ss.str().c_str(), GetMIEpilogue());
         }
     }
 

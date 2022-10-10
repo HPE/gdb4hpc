@@ -657,7 +657,7 @@ void ExecuteCommand(const char *line) {
                 PrintOutOk();
                 return;
             } else if (cliCmd.rfind("ok,", 0) == 0) {
-                PrintOutMIResult(MIResult::DONE, "%s\n(gdb)\n", cliCmd.substr(3).c_str());
+                PrintOutMIResult(MIResult::DONE, "%s\n%s", cliCmd.substr(3).c_str(),GetMIEpilogue());
                 return;
             } else if (cliCmd.rfind("error,", 0) == 0) {
                 PrintOutError("%s", cliCmd.substr(6).c_str());
@@ -673,17 +673,11 @@ void ExecuteCommand(const char *line) {
         std::string cmd_str = cmd;
 
         if (cmd_str.substr(0, cmd_str.find(" ")) == "-exec-run"){
-            PrintOutMIResult(MIResult::CONTINUATION, "^running\n(gdb)\n");
+            PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
             free(cmd);
             return;
         }else if (cmd_str.substr(0, cmd_str.find(" ")) == "focus"){
-            PrintOutMIResult(MIResult::CONTINUATION, "^running\n(gdb)\n");
-        }else if (strstr(cmd, " -a ")||strstr(cmd, " -v")){
-            //empty so it doesn't get caught in next else statement
-        }else if (strstr(cmd, "-")){
-            PrintOutOk();
-            free(cmd);
-            return;
+            PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
         }
     }
 
@@ -731,7 +725,7 @@ void ExecuteCommand(const char *line) {
     cli_end_response();
     if (Client.MI_mode){
         if (strstr(cmd, "-exec-continue")){
-            PrintOutMIResult(MIResult::CONTINUATION, "^running\n(gdb)\n");
+            PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
         } else if (strstr(cmd, "focus")){
             PrintOutOk();
         }

@@ -269,6 +269,7 @@ extern void DestroyCurrentCLIStream(void);
 extern void SetDefaultCLIStream(void);
 extern cli_stream_args_t *NewCLIArgs(cli_type_t, ...);
 extern void DestroyCLIArgs(cli_type_t, cli_stream_args_t *);
+extern const char* GetMIEpilogue();
 
 
 /*

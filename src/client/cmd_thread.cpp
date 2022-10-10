@@ -188,7 +188,8 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
 
         if (Client.MI_mode && !ss.str().empty()){
             ss<<"]},"<<current_thread_id.data()<<"\"";
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", threads=%s\n(gdb)\n",handle,ss.str().c_str());
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", threads=%s\n%s",handle,ss.str().c_str(),
+                             GetMIEpilogue());
         }
     }
 
@@ -246,9 +247,9 @@ static int cmd_set_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
     }
 
     bool isNonStop = false;
-    if (strcmp(argv[1],"off") == 0) {
+    if (strcmp(argv[1],"off") == 0 || strcmp(argv[1], "0") == 0) {
         isNonStop = false;
-    } else if (strcmp(argv[1],"on") == 0) {
+    } else if (strcmp(argv[1],"on") == 0 ||  strcmp(argv[1], "1") == 0) {
         isNonStop = true;
     } else {
         PrintOutError("Unknown mode %s\n", argv[1]);

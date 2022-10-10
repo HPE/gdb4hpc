@@ -745,7 +745,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (Client.MI_mode){
         if (argc - optind != 1) {
             PrintOutMsg("^error,msg=\"Invalid number of non-option arguments. See \"help attach\" for "
-                "usage.\nExpected 1, found %d.\"\n(gdb)\n", argc - optind);
+                        "usage.\nExpected 1, found %d.\"\n%s", argc - optind, GetMIEpilogue());
             return 0;
         }
     }else{

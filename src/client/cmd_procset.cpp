@@ -169,7 +169,7 @@ static int cmd_viewset_cmd(rec_set_t *rec_set, int argc, char **argv) {
             ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str.c_str()<<"\"}";
         }
         ss<<"]";
-        PrintOutMIResult(MIResult::DONE, "pe_sets=%s\n(gdb)\n",ss.str().c_str());
+        PrintOutMIResult(MIResult::DONE, "pe_sets=%s\n%s",ss.str().c_str(),GetMIEpilogue());
     }else{
         PrintOutMsg("Name       Procs\n");
         while ((procset = GetProcSet()) != nullptr) {

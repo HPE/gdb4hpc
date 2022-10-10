@@ -577,7 +577,7 @@ static int class_show_sub_cmd_prompt_cmd(rec_set_t *rec_set, int argc,
     if (!Client.MI_mode) {
         PrintOutMsg("dbg all>\n");
     } else {
-        PrintOutMIResult(MIResult::DONE, "value=\"(gdb)\"\n");
+        PrintOutMIResult(MIResult::DONE, "value=\"(gdb) \"\n");
     }
     return 1;
 }
@@ -875,32 +875,32 @@ static int cmd_set_inferior_tty_cmd(rec_set_t* rec_set, int argc, char** argv) {
         tty = argv[1];
     } else if (argc != 1) {
         PrintOutError("Unexpected arguments, expected [TTY].\n");
-        return 1;
+        return 0;
     }
 
     if (!SetProgramOutputFile(tty)) {
         PrintOutError("Could not open %s for output.\n", tty ? tty : "default location");
-        return 1;
+        return 0;
     }
 
     PrintOutOk();
-    return 0;
+    return 1;
 }
 
 static int cmd_interpreter_exec_cmd(rec_set_t* rec_set, int argc, char** argv) {
     if (argc < 3) {
         PrintOutError("Usage %s console|mi <command>.\n", argv[0]);
-        return 1;
+        return 0;
     }
 
     if (strcmp(argv[1],"console") != 0) {
         PrintOutError("Only console is supported.\n");
-        return 1;
+        return 0;
     }
 
     if (!Client.MI_mode) {
         PrintOutError("Only supported from MI mode.\n");
-        return 1;
+        return 0;
     }
 
     Client.MI_mode = false;
@@ -918,7 +918,7 @@ static int cmd_interpreter_exec_cmd(rec_set_t* rec_set, int argc, char** argv) {
 
     PrintOutOk();
 
-    return 0;
+    return 1;
 }
 
 void InitCmd_env(void) {

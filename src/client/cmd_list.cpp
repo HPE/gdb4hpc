@@ -105,7 +105,8 @@ static int cmd_info_sources_cmd(rec_set_t *rec_set, int argc,
             if (Client.MI_mode) {
                 if (ss.str().empty()) ss << "[";
                 ss<<"]";
-                PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",files=%s\n(gdb)\n",recv_ptr->rec_di.handle().c_str(),ss.str().c_str());
+                PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",files=%s\n%s",
+                                 recv_ptr->rec_di.handle().c_str(),ss.str().c_str(),GetMIEpilogue());
             }
         }
     }

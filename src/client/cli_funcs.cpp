@@ -838,7 +838,7 @@ static void ProgOutMITarget(DbgInvoke *di, const char* line) {
     for (std::size_t pos=0; (pos=new_line.find_first_of("\"\n\r",pos)) != std::string::npos; ) {
         new_line.erase(pos,1);
     }
-    fprintf(f, "@\"%s\"\n(gdb)\n", new_line.c_str());
+    fprintf(f, "@\"%s\"\n%s", new_line.c_str(), GetMIEpilogue());
 }
 
 // common code between ProgOutLineStream and ProgOutLineStrings
@@ -1043,7 +1043,7 @@ void vPrintOutMsg(const char *format, va_list arg_list) {
 void PrintOutOk() {
     if (Client.MI_mode) {
         //CurrentStream->cs_out("^done\n(gdb)\n");
-        CurrentStream->cs_out("%s^done\n(gdb)\n", cli_get_prefix().c_str());
+        CurrentStream->cs_out("%s^done\n%s", cli_get_prefix().c_str(), GetMIEpilogue());
     }
 }
 
@@ -1055,7 +1055,7 @@ static void vPrintOutMIMsg(const char *format, va_list arg_list) {
         msgFmt.erase(pos,1);
     }
     if (msgFmt.empty()) return;
-    msgFmt = "~\"" + msgFmt + "\"\n(gdb)\n";
+    msgFmt = "~\"" + msgFmt + "\"\n" + GetMIEpilogue();
 
     va_list args2;
     va_copy(args2, arg_list);
@@ -1229,6 +1229,21 @@ std::ostream& cli_out_t::ostream()
         m_ostream = std::make_shared<std::ostream>(m_buff.get());
     }
     return *m_ostream;
+}
+
+const char* GetMIEpilogue() {
+    static const char* epilogue = nullptr;
+    if (!epilogue) {
+        if (!AllStreams.empty() && AllStreams[0]->cs_interpreter == interpreter_type::MI) {
+            // This is probably a hack, but emacs-mi does not like the (gdb) at the
+            // end of response, so I'm using this criteria as a stand-in because
+            // gdb-mi uses -i=mi, while gdb-gui adds a separate tty for mi
+            epilogue = "";
+        } else {
+            epilogue = "(gdb)\n";
+        }
+    }
+    return epilogue;
 }
 
 /*

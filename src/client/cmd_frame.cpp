@@ -171,7 +171,8 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 ss<<"[";
             }
             ss<<"]";
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",stack=%s\n(gdb)\n",reply->rep_di.c_str(),ss.str().c_str());
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",stack=%s\n%s",
+                             reply->rep_di.c_str(),ss.str().c_str(),GetMIEpilogue());
         }
     }
 
@@ -203,15 +204,17 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
     ProcessErrorInRepSet(rep_set);
 
     if (Client.MI_mode && !rep_set->isEmpty()) {
-        auto reply = rep_set->getFirstReply();
-        auto f = EVENT_FRAME(reply->rep_event);
-        auto loc = f->getLoc();
-        PrintOutMIResult(MIResult::DONE,
-                        "proc_set=\"%s\",frame={level=\"%d\",addr=\"%s\","
-                        "func=\"%s\",file=\"%s\",fullname=\"%s\",line=\"%d\"}\n",
-                         reply->rep_di.c_str(), f->getLevel(), loc.loc_addr,
-                         loc.loc_func, loc.loc_file, loc.loc_file, loc.loc_line);
-
+        for (auto&& reply : rep_set) {
+            auto f = EVENT_FRAME(reply->rep_event);
+            auto loc = f->getLoc();
+            PrintOutMIResult(MIResult::DONE,
+                             "proc_set=\"%s\",frame={level=\"%d\",addr=\"%s\","
+                             "func=\"%s\",file=\"%s\",fullname=\"%s\",line=\"%d\"}\n",
+                             reply->rep_di.c_str(), f->getLevel(), loc.loc_addr,
+                             loc.loc_func, loc.loc_file, loc.loc_file, loc.loc_line);
+            break; // just print the first
+        }
+            
     } else {
         // process frame - there should only be one
         for (auto&& reply : rep_set) {

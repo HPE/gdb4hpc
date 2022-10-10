@@ -185,14 +185,14 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
         }
         // add a blank line to make the output more understandable
         PrintMsgWithSetInfo(handle, group, "\n");
+
+        if (Client.MI_mode && !ss.str().empty()){
+            ss<<"]},"<<current_thread_id.data()<<"\"";
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", threads=%s\n(gdb)\n",handle,ss.str().c_str());
+        }
     }
 
     FreeRepSet(rep_set);
-
-    if (Client.MI_mode && !ss.str().empty()){
-        ss<<"]},"<<current_thread_id.data()<<"\"";
-        PrintOutMIResult(MIResult::DONE, "threads=%s\n(gdb)\n",ss.str().c_str());
-    }
 
     return 1;
 }

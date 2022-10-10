@@ -6,8 +6,9 @@
 #include <map>
 #include <regex>
 
-std::string launcher_args;
-std::string num_ranks;
+static std::string launcher_args;
+static std::string num_ranks;
+static std::string procset;
 
 
 static std::string exec_args_cmd(const char *);
@@ -91,7 +92,9 @@ static std::string exec_args_cmd(const char * args){
     while (is >> token) {
         if (token == "-r") {
             is >> num_ranks;
-        } else {
+        } else if(token=="-proc"){
+            is >> procset;
+        }else {
             if (!launcher_args.empty()) {
                 launcher_args.append(" ");
             }
@@ -105,19 +108,23 @@ static std::string exec_args_cmd(const char * args){
 }
 
 static std::string file_exec_and_sym_cmd(const char * args){
-    auto app = std::to_string(launch_count);
+    //check a procset was received
+    if (procset.empty()){
+        return "error, no procset provided";
+    }
+    auto app=procset;
+    //add rank information if available
     if (!num_ranks.empty()){
         app.append("{");
         app.append(num_ranks);
         app.append("}");
     }
-    launch_count++;
 
     auto func = std::string{};
     if (!launcher_args.empty()){
-        return "launch $App"+app+" "+ args+ " -a \""+launcher_args+"\"";
+        return "launch $"+app+" " + args+ " -a \""+launcher_args+"\"";
     } else {
-        return "launch $App"+app+" "+ args;
+        return "launch $"+app+" " + args;
     }
 }
 
@@ -227,7 +234,7 @@ std::string Vars::create(const std::string& inname, const std::string& frame,
     // get the new current value
     auto value = GetMiValue(expression);
 
-    if (value.empty()) return "error,unable to evalute";
+    if (value.empty()) return "error,unable to evalute\n";
 
     os << "ok,name=\"" << name << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
 

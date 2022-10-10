@@ -619,10 +619,11 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
     };
 
     // Add entry to breakpoint table string for MI mode
-    auto addMiEntry = [&ss](const std::string &handle, 
-        const std::string &id, const std::string &type, const std::string &disp, 
-        const std::string &enabled, const std::string &func, const std::string &file, 
-        const std::string &fullpath, const std::string &line) 
+    auto addMiEntry = [&ss]( const std::string &id, 
+        const std::string &type, const std::string &disp, 
+        const std::string &enabled, const std::string &func, 
+        const std::string &file, const std::string &fullpath, 
+        const std::string &line) 
     {
         if (!ss.str().empty()){
             ss<<",";
@@ -630,8 +631,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
             ss<<"[";
         }
 
-        ss <<"bkpt={proc_set=\""<<handle
-           <<"\",number=\""<<id
+        ss <<"bkpt={number=\""<<id
            <<"\",type=\""<<type
            <<"\",disp=\""<<disp
            <<"\",enabled=\""<<enabled
@@ -699,8 +699,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             expression << bpset.watchExpression() << bpThread;
 
                             if (Client.MI_mode){
-                                addMiEntry(recv_ptr->rec_di.handle().c_str(),
-                                    std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
                                     BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
                                     bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
                                     "");
@@ -723,8 +722,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             expression << bpset.watchExpression() << bpThread;
 
                             if (Client.MI_mode){
-                                addMiEntry(recv_ptr->rec_di.handle().c_str(),
-                                    std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
                                     BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
                                     bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
                                     "");
@@ -754,8 +752,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "at " << bpset.statement() << bpThread << " <PENDING>";
 
                                 if (Client.MI_mode){
-                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
-                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
                                         BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
                                         bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
                                         "");
@@ -779,8 +776,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "at " << bpset.statement() << bpThread << " <PENDING>";
 
                                 if (Client.MI_mode){
-                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
-                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
                                         BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
                                         bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
                                         "");
@@ -800,8 +796,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "in " << bpset.function() << " at "
                                          << bpset.file() << ":" << bpset.line() << bpThread;
                                 if (Client.MI_mode){
-                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
-                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
                                         BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
                                         bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
                                         std::to_string(bpset.line()));
@@ -825,8 +820,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "in " << bpset.function() << " at "
                                          << bpset.file() << ":" << bpset.line() << bpThread;
                                 if (Client.MI_mode){
-                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
-                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
                                         BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
                                         bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
                                         std::to_string(bpset.line()));
@@ -845,8 +839,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "in " << bpset.function() << bpThread;
 
                                 if (Client.MI_mode){
-                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
-                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
                                         BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
                                         bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
                                         "");
@@ -870,8 +863,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                 location << "in " << bpset.function() << bpThread;
 
                                 if (Client.MI_mode){
-                                    addMiEntry(recv_ptr->rec_di.handle().c_str(),
-                                        std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
                                         BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
                                         bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
                                         "");
@@ -890,15 +882,16 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
             if (bid >= 0 && bpset.id() == bid) break;
         }
-    }
-    
-    if (Client.MI_mode){
-        if (ss.str().empty()){
-            ss<<"[";
+
+        if (Client.MI_mode){
+            if (ss.str().empty()){
+                ss<<"[";
+            }
+            ss<<"]}";
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", BreakpointTable={body=%s\n(gdb)\n",recv_ptr->rec_di.handle().c_str(),ss.str().c_str());
         }
-        ss<<"]}";
-        PrintOutMIResult(MIResult::DONE, "BreakpointTable={body=%s\n(gdb)\n",ss.str().c_str());
     }
+
     return 1;
 }
 

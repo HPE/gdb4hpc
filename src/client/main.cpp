@@ -17,6 +17,9 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#define DOCTEST_CONFIG_IMPLEMENT
+#include "doctest.h"
+
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -41,6 +44,7 @@
 #include "client.h"
 #include "script_client.h"
 #include "useful.h"
+#include "unit_tests.h"
 
 /*
  * External Global Variables
@@ -301,6 +305,15 @@ int main(int argc, char *argv[]) {
     char *in_file = NULL;
     char *out_file = NULL;
     bool should_read_init = true; // read gdb4hpc_init?
+
+    if (argc >= 2 && strcmp(argv[1], "--has-tests") == 0) {
+        return hasUnitTests();
+    }
+
+    if (argc >= 2 && strcmp(argv[1], "--test") == 0) {
+        argv[1] = argv[0];
+        return runUnitTests(argc - 1, &argv[1]);
+    }
 
     // Ensure the environment has been setup, otherwise set it up and re-exec
     // This is required because otherwise dlopen's will be fubared.

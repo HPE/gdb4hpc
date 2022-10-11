@@ -86,6 +86,28 @@ AC_ARG_WITH([zmqnet],
 	    [zmqnet_mode=no]
 	    )
 
+dnl Check for --with-doctest
+dnl Note: this must always be passed. To disable doctest, provide this argument
+dnl so that no headers get lost, and then also provide --disable-doctest.
+AC_ARG_WITH([doctest],
+            [AS_HELP_STRING([--with-doctest],
+			    [Enable unit tests.]
+			    )
+	    ],
+        [doctest_mode=yes
+         doctest_root=$withval
+	    ],
+        [doctest_mode=no]
+	    )
+
+dnl Check for --disable-doctest
+AC_ARG_ENABLE(doctest, "Controls compilation of unit tests in binary.",
+    if test "x$enableval" != xyes; then
+        AC_DEFINE([DOCTEST_CONFIG_DISABLE], [1], [If defined, all doctest material is removed from the binary.])
+    fi,
+    AC_DEFINE([DOCTEST_CONFIG_DISABLE], [1], [If defined, all doctest material is removed from the binary.])
+)
+
 dnl Check for --with-gdbmi
 AC_ARG_WITH([gdbmi],
 	    [AS_HELP_STRING([--with-gdbmi],
@@ -300,6 +322,10 @@ if test "x$zmqnet_mode" = xyes; then
 	AC_SUBST([zmqnet_root], ["$zmqnet_root"])
 fi
 
+if test "x$doctest_mode" = xyes; then
+    AC_SUBST([doctest_root], ["$doctest_root"])
+fi
+
 dnl Conditional check for pkg-config libs
 
 dnl
@@ -450,6 +476,7 @@ AM_CONDITIONAL([CRAY], [test "x$with_cray" != xno])
 dnl DbgSrv proto conds
 AM_CONDITIONAL([MRNET], [test "x$mrnet_mode" != xno])
 AM_CONDITIONAL([ZMQNET], [test "x$zmqnet_mode" != xno])
+AM_CONDITIONAL([DOCTEST], [test "x$doctest_mode" != xno])
 
 ################
 ### Finalize ###
@@ -473,6 +500,5 @@ AC_CONFIG_FILES([
 	src/dbgsrv/Makefile
 	src/gram/Makefile
 	src/useful/Makefile
-	tests/unit/Makefile
 ])
 AC_OUTPUT

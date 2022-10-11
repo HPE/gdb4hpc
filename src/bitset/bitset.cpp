@@ -5,6 +5,7 @@
 #include "defs.h"
 
 #include <sstream>
+#include <limits>
 
 namespace bitset {
 
@@ -21,6 +22,8 @@ std::unique_ptr<Bitset> fromOr(const Bitset& l, const Bitset &r) {
 }
 
 } // bitset
+
+const size_t Bitset::None = std::numeric_limits<size_t>::max();
 
 bool Bitset::isEmpty() const {
 	for (size_t i = 0, n = sizeInBits(); i < n; i++) {

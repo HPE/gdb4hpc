@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <cmath>
 
+#include "bitset_tests.h"
+TEST_CASE_TEMPLATE_INVOKE(libbitset, DenseBitset);
+
 DenseBitset::DenseBitset(size_t nbits)
 	: m_bs_nbits{nbits}
 	, m_bs_bits{}
@@ -197,7 +200,7 @@ std::string DenseBitset::toString() const {
 Bitset::Serialized DenseBitset::serialize() const {
 	std::string serialized = toString();
 	auto len = serialized.size() + 1; // +1 for \0
-	auto result = new char[len];
+	auto result = (char*)malloc(sizeof(char) * len);
 	snprintf(result, len, "%s", serialized.c_str());
 
 	return Bitset::Serialized(result, std::free);

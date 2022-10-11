@@ -4,8 +4,9 @@ DBGCOMM	= @gdb4hpc_srcdir@/dbgcomm
 MRNET_ROOT	= @mrn_root@
 BITSET  = @gdb4hpc_srcdir@/bitset
 ZMQNET_ROOT  = @zmqnet_root@
+TESTS_ROOT   = @doctest_root@/doctest
 
-AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM)
+AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(TESTS_ROOT)
 AM_LIBTOOLFLAGS = --silent
 
 ######################

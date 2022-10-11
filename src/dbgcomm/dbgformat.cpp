@@ -27,6 +27,501 @@
 #include "defs.h"
 #include "useful.h"
 
+#include "doctest.h"
+
+TEST_CASE("EventToSocProto/SocProtoToEvent") {
+    SUBCASE("DBGEV_NONE") {
+        auto e = NewEvent(DBGEV_NONE);
+        auto soc = EventToSocProto(e); // frees e
+        auto e2 = SocProtoToEvent(soc);
+        CHECK(e2 == nullptr);
+        free(soc);
+    }
+
+    SUBCASE("Events with nothing on the heap") {
+        auto test = [](dbgev type) {
+            auto e = NewEvent(type);
+            e->ev_u.ev_u_int = 0;
+            auto soc = EventToSocProto(e); // frees e
+            auto e2 = SocProtoToEvent(soc);
+
+            CHECK(e2->ev_event == type);
+            FreeEvent(e2);
+            free(soc);
+        };
+
+        SUBCASE("DBGEV_OK") {test(DBGEV_OK);}
+        SUBCASE("DBGEV_EXIT") {test(DBGEV_EXIT);}
+    }
+
+    SUBCASE("String-y events") {
+        auto test = [](dbgev type, std::string str) {
+            auto e = NewEvent(type);
+            e->ev_u.ev_u_string = strdup(str.c_str());
+            auto soc = EventToSocProto(e); // frees e and string
+            auto e2 = SocProtoToEvent(soc);
+
+            CHECK(e2->ev_event == type);
+            CHECK(std::string(e2->ev_u.ev_u_string) == str);
+
+            FreeEvent(e2);
+            free(soc);
+        };
+
+        SUBCASE("DBGEV_SOURCEPATH") {test(DBGEV_SOURCEPATH, "source path");}
+        SUBCASE("DBGEV_TYPE") {test(DBGEV_TYPE, "type");}
+        SUBCASE("DBGEV_CMD") {test(DBGEV_CMD, "cmd");}
+        SUBCASE("DBGEV_THREADINFO") {test(DBGEV_THREADINFO, "thread info");}
+        SUBCASE("DBGEV_STRING") {test(DBGEV_STRING, "string");}
+    }
+
+    SUBCASE("Breakpoint-y events") {
+        auto test = [](dbgev type, dbgbp_t* bp) {
+            auto e = NewEvent(type);
+            e->ev_u.ev_u_bp = DupBP(bp);
+            auto soc = EventToSocProto(e); // frees e and bp
+            CAPTURE(std::string(soc));
+            auto e2 = SocProtoToEvent(soc);
+
+            auto* bp2 = e2->ev_u.ev_u_bp;
+
+            // basic types
+            CHECK(e2->ev_event == type);
+            CHECK(bp2->bp_id == bp->bp_id);
+            CHECK(bp2->bp_enabled == bp->bp_enabled);
+            CHECK(bp2->bp_disp == bp->bp_disp);
+            CHECK(bp2->bp_type == bp->bp_type);
+
+            // strings
+            CHECK(std::string(bp2->bp_exp) == std::string(bp->bp_exp));
+            CHECK(std::string(bp2->bp_threadId) == std::string(bp->bp_threadId));
+
+            // loc
+            // SocProtoToEvent will find the full path
+            CHECK(bp2->bp_loc.loc_file == doctest::Contains(bp->bp_loc.loc_file));
+            CHECK(std::string(bp2->bp_loc.loc_func) == std::string(bp->bp_loc.loc_func));
+            CHECK(bp2->bp_loc.loc_line == bp->bp_loc.loc_line);
+
+            if (type != DBGEV_BPHIT && type != DBGEV_BPDEL) {
+                // BPHIT and BPDEL have certain elements omitted in serialization
+
+                CHECK(bp2->bp_ignore == bp->bp_ignore);
+                CHECK(bp2->bp_pending == bp->bp_pending);
+                CHECK(std::string(bp2->bp_stmt) == std::string(bp->bp_stmt));
+                CHECK(std::string(bp2->bp_loc.loc_addr) == std::string(bp->bp_loc.loc_addr));
+                CHECK(bp2->bp_hits == bp->bp_hits);
+            }
+
+            FreeEvent(e2);
+            free(soc);
+        };
+
+        auto bp = NewBP(7);
+
+        bp->bp_ignore = 1;
+        bp->bp_deleted = 2; // This is never serialized
+        bp->bp_enabled = 3;
+        bp->bp_pending = 4;
+        bp->bp_hits = 5;
+
+        bp->bp_disp = DBGBP_DELETE_DISP;
+        bp->bp_type = DBGBP_CATCH_TYPE;
+
+        bp->bp_loc.loc_file = strdup("main.cpp");
+        bp->bp_loc.loc_func = strdup("main");
+        bp->bp_loc.loc_addr = strdup("0xffff");
+        bp->bp_loc.loc_line = 197;
+
+        bp->bp_exp = strdup("myVar");
+        bp->bp_threadId = strdup("0xaaaa");
+        bp->bp_stmt = strdup("callMyFunction();");
+
+        // bp_deleted, bp_commands, and bp_comminfo are never serialized
+
+        SUBCASE("DBGEV_BPHIT") {test(DBGEV_BPHIT, bp);}
+        SUBCASE("DBGEV_BPINFO") {test(DBGEV_BPINFO, bp);}
+        SUBCASE("DBGEV_BPSET") {test(DBGEV_BPSET, bp);}
+        SUBCASE("DBGEV_BPDEL") {test(DBGEV_BPDEL, bp);}
+
+        FreeBP(bp);
+    }
+
+    SUBCASE("Frame-y events") {
+        // thread a
+        auto loc0a = dbgloc(strdup("dbgformat.cpp"), strdup("FreeEvent"), strdup("0xaaaa"), 180);
+        auto loc1a = dbgloc(strdup("dbgformat.cpp"), strdup("FreeBp"), strdup("0xbbbb") ,200);
+        auto loc2a = dbgloc(strdup("dbgformat.cpp"), strdup("EventToSocProto"), strdup("0xcccc"), 60);
+        // thread b
+        auto loc0b = dbgloc(strdup("dbgevent.cpp"), strdup("FreeEvent"), strdup("0xdddd"), 20);
+        auto loc1b = dbgloc(strdup("dbgevent.cpp"), strdup("FreeBp"), strdup("0xeeee"), 210);
+        auto loc2b = dbgloc(strdup("dbgevent.cpp"), strdup("EventToSocProto"), strdup("0xffff"), 90);
+
+        auto frame2b = new dbgframe_t(2, loc2a, nullptr, "thread b", nullptr);
+        auto frame1b = new dbgframe_t(1, loc1a, frame2b, "thread b", nullptr);
+        auto frame0b = new dbgframe_t(0, loc0a, frame1b, "thread b", nullptr);
+
+        auto frame2a = new dbgframe_t(2, loc2a, nullptr, "thread a", nullptr);
+        auto frame1a = new dbgframe_t(1, loc1a, frame2a, "thread a", nullptr);
+        auto frame0a = new dbgframe_t(0, loc0a, frame1a, "thread a", frame0b);
+
+        auto sameFrame = [](const dbgframe_t& l, const dbgframe_t& r) {
+            auto str = [](const char* s) { return s ? std::string(s) : ""; };
+            auto* lthf = &l;
+            auto* rthf = &r;
+            for (; lthf && rthf; lthf=lthf->getNextThreadFrame(), rthf=rthf->getNextThreadFrame()) {
+                auto* lf = lthf;
+                auto* rf = rthf;
+                for (; lf && rf; lf = lf->getNext(), rf = rf->getNext()) {
+                    const auto &lloc = lf->getLoc();
+                    const auto lfile = str(lloc.loc_file);
+                    const auto lfunc = str(lloc.loc_func);
+                    const auto laddr = str(lloc.loc_addr);
+                    const auto lthreads = str(lf->getThreads());
+
+                    const auto &rloc = rf->getLoc();
+                    const auto rfile = str(rloc.loc_file);
+                    const auto rfunc = str(rloc.loc_func);
+                    const auto raddr = str(rloc.loc_addr);
+                    const auto rthreads = str(rf->getThreads());
+
+                    CHECK(lfile == rfile);
+                    CHECK(lfunc == rfunc);
+                    CHECK(laddr == raddr);
+                    CHECK(lthreads == rthreads);
+                }
+                CHECK_MESSAGE(lf == nullptr, "Check that backtraces have same number of frames");
+                CHECK_MESSAGE(rf == nullptr, "Check that backtraces have same number of frames");
+            }
+            CHECK_MESSAGE(lthf == nullptr, "Check that frames have same number of threads");
+            CHECK_MESSAGE(rthf == nullptr, "Check that frames have same number of threads");
+        };
+
+        SUBCASE("DBGEV_FRAME") {
+            auto e = NewEvent(DBGEV_FRAME);
+            e->ev_u.ev_u_frame = frame0a->clone();
+            auto* soc = EventToSocProto(e); // frees e and frame
+            auto* e2 = SocProtoToEvent(soc);
+
+            sameFrame(*frame0a, *e2->ev_u.ev_u_frame);
+
+            FreeEvent(e2);
+            free(soc);
+        }
+
+        SUBCASE("DBGEV_SIGNAL") {
+            auto e = NewEvent(DBGEV_SIGNAL);
+            auto& sig = e->ev_u.ev_u_sig;
+
+            sig.sig_type = strdup("SIGCONT");
+            sig.sig_line = strdup("77");
+            sig.sig_frame = frame0a->clone();
+
+            auto* soc = EventToSocProto(e); // frees e and frame
+            auto* e2 = SocProtoToEvent(soc);
+            auto& e2sig = e2->ev_u.ev_u_sig;
+
+            CHECK(std::string(e2sig.sig_type) == "SIGCONT");
+            CHECK(std::string(e2sig.sig_line) == "77");
+            sameFrame(*frame0a, *e2->ev_u.ev_u_sig.sig_frame);
+
+            FreeEvent(e2);
+            free(soc);
+        }
+
+        SUBCASE("DBGEV_STEP") {
+            auto* e = NewEvent(DBGEV_STEP);
+
+            e->ev_u.ev_u_step.step_frame_changed = true;
+            e->ev_u.ev_u_step.step_frame = frame0a->clone();
+
+            auto* soc = EventToSocProto(e); // frees e and frame
+            auto* e2 = SocProtoToEvent(soc);
+
+            CHECK(e2->ev_u.ev_u_step.step_frame_changed == true);
+            sameFrame(*frame0a, *e2->ev_u.ev_u_step.step_frame);
+
+            FreeEvent(e2);
+            free(soc);
+        }
+
+        delete frame0a;
+    }
+
+    SUBCASE("Location-y events") {
+        auto tloc = new dbgloc();
+        tloc->loc_file = strdup("main.cpp");
+        tloc->loc_func = strdup("main");
+        tloc->loc_addr = strdup("0xffff");
+        tloc->loc_line = 197;
+
+        SUBCASE("DBGEV_CHECKPOINT") {
+            auto* e = NewEvent(DBGEV_CHECKPOINT);
+            e->ev_u.ev_u_checkpoint = new dbgcheckpoint_t {
+                .id = 29,
+                .location = *tloc,
+            };
+
+            auto* soc = EventToSocProto(e); // frees e and its checkpoint
+            auto* e2 = SocProtoToEvent(soc);
+            auto* eChp2 = e2->ev_u.ev_u_checkpoint;
+
+            CHECK(eChp2->id == 29);
+            // SocProtoToEvent will find the full path of the filename
+            CHECK(doctest::Contains("main.cpp") == eChp2->location.loc_file);
+            CHECK(std::string(eChp2->location.loc_func) == "main");
+            CHECK(std::string(eChp2->location.loc_addr) == "0xffff");
+            CHECK(eChp2->location.loc_line == 197);
+
+            FreeEvent(e2);
+            free(soc);
+        }
+
+        SUBCASE("DBGEV_STAT") {
+            auto* e = NewEvent(DBGEV_STAT);
+            // FreeStatus calls free()
+            e->ev_u.ev_u_status = (dbgstatus_t*)malloc(sizeof(dbgstatus_t));
+            e->ev_u.ev_u_status->stat = DBGSTAT_RUNNING;
+            e->ev_u.ev_u_status->stat_loc = DupLocation(tloc);
+
+            auto* soc = EventToSocProto(e); // frees e and its status
+            auto* e2 = SocProtoToEvent(soc);
+            auto* eStat2 = e2->ev_u.ev_u_status;
+
+            CHECK(eStat2->stat == DBGSTAT_RUNNING);
+            // SocProtoToEvent will find the full path of the filename
+            CHECK(doctest::Contains("main.cpp") == eStat2->stat_loc->loc_file);
+            CHECK(std::string(eStat2->stat_loc->loc_func) == "main");
+            CHECK(std::string(eStat2->stat_loc->loc_addr) == "0xffff");
+            CHECK(eStat2->stat_loc->loc_line == 197);
+
+            FreeEvent(e2);
+            free(soc);
+        }
+
+        SUBCASE("DBGEV_HALT") {
+            auto* e = NewEvent(DBGEV_HALT);
+            e->ev_u.ev_u_loc = new dbgloc(*tloc);
+
+            auto* soc = EventToSocProto(e); // frees e and its location
+            auto* e2 = SocProtoToEvent(soc);
+            auto* eLoc2 = e2->ev_u.ev_u_loc;
+
+            // SocProtoToEvent will find the full path of the filename
+            CHECK(doctest::Contains("main.cpp") == eLoc2->loc_file);
+            CHECK(std::string(eLoc2->loc_func) == "main");
+            CHECK(std::string(eLoc2->loc_addr) == "0xffff");
+            CHECK(eLoc2->loc_line == 197);
+
+            FreeEvent(e2);
+            free(soc);
+        }
+
+        SUBCASE("DBGEV_LOC") {
+            auto* e = NewEvent(DBGEV_LOC);
+            e->ev_u.ev_u_loc = new dbgloc(*tloc);
+
+            auto* soc = EventToSocProto(e); // frees e and its location
+            auto* e2 = SocProtoToEvent(soc);
+            auto* eLoc2 = e2->ev_u.ev_u_loc;
+
+            // SocProtoToEvent will find the full path of the filename
+            CHECK(doctest::Contains("main.cpp") == eLoc2->loc_file);
+            CHECK(std::string(eLoc2->loc_func) == "main");
+            CHECK(std::string(eLoc2->loc_addr) == "0xffff");
+            CHECK(eLoc2->loc_line == 197);
+
+            FreeEvent(e2);
+            free(soc);
+        }
+
+        delete tloc;
+    }
+
+    SUBCASE("DBGEV_VARS") {
+        auto makeVar = [](const char* name, const char* type, dbgvars_t* next) {
+            auto* v = (dbgvars_t*)malloc(sizeof(dbgvars_t));
+            v->var_name = name ? strdup(name) : nullptr;
+            v->var_type = type ? strdup(type) : nullptr;
+            v->var_next = next;
+            return v;
+        };
+
+        auto* v4 = makeVar("var4", "char *", nullptr);
+        auto* v3 = makeVar(nullptr, "float", v4); // note that var with a null name will be skipped
+        auto* v2 = makeVar("var2", "double", v3);
+        auto* v1 = makeVar("var1", "int", v2);
+        auto* e = NewEvent(DBGEV_VARS);
+        e->ev_u.ev_u_vars = v1;
+
+        auto* soc = EventToSocProto(e); // frees e and vars
+        auto* e2 = SocProtoToEvent(soc);
+
+        auto count = 0;
+        for (auto* v = e2->ev_u.ev_u_vars; v; v = v->var_next, ++count) {
+            if (count == 0) {
+                CHECK(std::string(v->var_name) == "var1");
+                CHECK(std::string(v->var_type) == "int");
+            } else if (count == 1) {
+                CHECK(std::string(v->var_name) == "var2");
+                CHECK(std::string(v->var_type) == "double");
+            } else if (count == 2) {
+                CHECK(std::string(v->var_name) == "var4");
+                CHECK(std::string(v->var_type) == "char *");
+            } else {
+                FAIL("count should not be > 2");
+            }
+        }
+
+        FreeEvent(e2);
+        free(soc);
+    }
+
+    SUBCASE("DBGEV_LIST") {
+        auto makeList = [](int lno, const char* line, const char* threads) {
+            auto* l = (dbglist_t*)malloc(sizeof(dbglist_t));
+            l->list_lno = lno;
+            l->list_line = strdup(line);
+            l->list_threads = strdup(threads); // not serialized
+            l->list_next = nullptr;
+            return l;
+        };
+
+        const char* const lines[] = {
+            "auto* l = (dbglist_t*)malloc(sizeof(dbglist_t));",
+            "l->list_lno = lno;",
+            "l->list_line = strdup(line);",
+            "l->list_threads = strdup(threads); // not serialized",
+            "l->list_next = nullptr;",
+            "return l;"
+        };
+
+        auto* l381 = makeList(381, lines[0], "0xffff");
+        auto* l382 = makeList(382, lines[1], "0xffff");
+        auto* l383 = makeList(383, lines[2], "0xffff");
+        auto* l384 = makeList(384, lines[3], "0xffff");
+        auto* l385 = makeList(385, lines[4], "0xffff");
+        auto* l386 = makeList(386, lines[5], "0xffff");
+
+        l381->list_next = l382;
+        l382->list_next = l383;
+        l383->list_next = l384;
+        l384->list_next = l385;
+        l385->list_next = l386;
+
+        auto* e = NewEvent(DBGEV_LIST);
+        e->ev_u.ev_u_list = l381;
+        auto* soc = EventToSocProto(e); // frees e/list
+        auto* e2 = SocProtoToEvent(soc);
+
+        auto count = 0;
+        for (auto* l = e2->ev_u.ev_u_list; l; l = l->list_next, ++count) {
+            CHECK(l->list_lno == 381 + count);
+            CHECK(std::string(l->list_line) == std::string(lines[count]));
+        }
+        CHECK(count == 6);
+
+        FreeEvent(e2);
+        free(soc);
+    }
+
+    SUBCASE("DBGEV_ERROR") {
+        auto* e = NewEvent(DBGEV_ERROR);
+        auto& err = e->ev_u.ev_u_err;
+
+        err.err_str = strdup("Your free trial has expired");
+        err.err_errno = DBGERR_NOTRUN;
+
+        auto* soc = EventToSocProto(e); // frees e and internals
+        auto* e2 = SocProtoToEvent(soc);
+        auto& e2err = e2->ev_u.ev_u_err;
+
+        CHECK(std::string(e2err.err_str) == "Your free trial has expired");
+        CHECK(e2err.err_errno == DBGERR_NOTRUN);
+
+        FreeEvent(e2);
+        free(soc);
+    }
+
+    SUBCASE("DBGEV_VERS") {
+        auto* e = NewEvent(DBGEV_VERS);
+        auto& vers = e->ev_u.ev_u_vers;
+
+        vers.vers_version = strdup("4.14.5");
+        vers.vers_arch = strdup("aarch64");
+
+        auto* soc = EventToSocProto(e); // frees e and internals
+        auto* e2 = SocProtoToEvent(soc);
+        auto& vers2 = e2->ev_u.ev_u_vers;
+
+        CHECK(std::string(vers2.vers_version) == "4.14.5");
+        CHECK(std::string(vers2.vers_arch) == "aarch64");
+
+        FreeEvent(e2);
+        free(soc);
+    }
+
+    SUBCASE("DBGEV_SOURCES") {
+        auto makeSources = [](const char* src, dbgsources_t* next) {
+            auto* s = (dbgsources_t*)malloc(sizeof(dbgsources_t));
+            *s = {
+                .sources_file = strdup(src),
+                .sources_next = next
+            };
+            return s;
+        };
+
+        const char* const sources[] = {
+            "alloc.cpp",
+            "args.cpp",
+            "debug.cpp",
+            "error.cpp",
+            "exec.cpp",
+        };
+
+        auto* s4 = makeSources(sources[4], nullptr);
+        auto* s3 = makeSources(sources[3], s4);
+        auto* s2 = makeSources(sources[2], s3);
+        auto* s1 = makeSources(sources[1], s2);
+        auto* s0 = makeSources(sources[0], s1);
+
+        auto* e = NewEvent(DBGEV_SOURCES);
+        e->ev_u.ev_u_sources = s0;
+        auto* soc = EventToSocProto(e); // frees e and internals
+        auto* e2 = SocProtoToEvent(soc);
+
+        auto i = 0;
+        for (auto* s = e2->ev_u.ev_u_sources; s; s = s->sources_next, ++i) {
+            CHECK(std::string(s->sources_file) == sources[i]);
+        }
+
+        FreeEvent(e2);
+        free(soc);
+    }
+}
+
+TEST_CASE("CommandToSocProto") {
+    SUBCASE("Single argument") {
+        auto req = CommandToSocProto(DBGCMD_STARTUP);
+        auto istr = soc::ISocStream(req);
+        CHECK(istr.getCmd() == DBGCMD_STARTUP);
+    }
+
+    SUBCASE("Multiple arguments") {
+        auto req = CommandToSocProto(DBGCMD_EVALEXPR, "2 + 2", 11ul);
+
+        auto istr = soc::ISocStream(req);
+
+        CHECK(istr.getCmd() == DBGCMD_EVALEXPR);
+
+        std::string expr;
+        size_t id;
+        istr.get(expr, id);
+
+        CHECK(expr == "2 + 2");
+        CHECK(id == 11ul);
+    }
+}
+
 // Static prototypes
 static char *getstring(const char *&);
 static unsigned long getUnsignedInt(const char *&);
@@ -515,51 +1010,6 @@ static char *EventDataToSocProto(dbgev ev, AIFStream *stream) {
     return MakeSocStr(ev, "%s", slice.c_str());
 }
 
-OSocStream::OSocStream(dbgcmd cmd) : m_cmd(cmd) {}
-
-OSocStream& OSocStream::operator<<(int i) { m_str << " " << i; return *this; }
-OSocStream& OSocStream::operator<<(unsigned int i) { m_str << " " << i; return *this; }
-OSocStream& OSocStream::operator<<(long i) { m_str << " " << i; return *this; }
-OSocStream& OSocStream::operator<<(size_t i) { m_str << " " << i; return *this; }
-
-
-OSocStream& OSocStream::operator<<(const char*s) {
-    if (s) {
-        m_str << " " << strlen(s) << " " << s;
-    } else {
-        m_str << " 0 ";
-    }
-    return *this;
-}
-OSocStream& OSocStream::operator<<(const std::string& s) {
-    m_str << " " << s.size() << " " << s;
-    return *this;
-}
-OSocStream& OSocStream::operator<<(const std::pair<int,char**>& args) {
-    int argc = args.first;
-    *this << argc;
-    for (int i=0; i<argc; ++i) {
-        *this << args.second[i];
-    }
-    return *this;
-}
-
-std::string OSocStream::str() {
-    auto s = m_str.str();
-    m_str.str("");
-    m_str << m_cmd;
-    if (!s.empty()) {
-        // the commands are/were sent like a single string; that is preceded by the
-        // length as usual.   I don't quite want to call the normal << operator because s has
-        // an extra space on the front.
-        m_str << " " << s.size()-1 << s;
-    }
-    // else, commands with no arguments just send the command id.
-
-    return m_str.str();
-}
-
-
 /*********************************
 ** From network proto functions **
 *********************************/
@@ -604,13 +1054,12 @@ static dbgerr_t SocProtoToErr(const char *s) {
 }
 
 static dbgloc_t *SocProtoToLoc(const char *s) {
-    dbgloc_t *res;
     char *tmp_file;
 
     NULL_GUARD(s);
 
     // allocate the res
-    res = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
+    auto* res = new dbgloc;
 
     // set the members
     res->loc_file = getstring(s);
@@ -652,11 +1101,6 @@ static dbgvars_t *SocProtoToVars(const char *s) {
 
     return res;
 }
-
-AIFStream *SocProtoToAIF(const char *s) {
-    return new AIFStream{s, false};
-}
-
 
 static AIFStream *SocProtoToAIFStream(const char *s) {
     return new AIFStream{s, false};
@@ -787,7 +1231,7 @@ static dbgcheckpoint_t *SocProtoToCheckpoint(const char *s) {
     };
 
     free(lstr);
-    free(loc);
+    FreeLocation(loc);
 
     return res;
 }
@@ -1104,4 +1548,3 @@ dbgevent_t *SocProtoToEvent(const char *s) {
 
     return e;
 }
-

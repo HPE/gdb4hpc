@@ -44,8 +44,6 @@ void ParseHistogramArgs(char *, int *, double *, double *);
 void ParseBlockMapArgs(char *, blockmap_info *);
 void ParseP2PArgs(char *, char *, int *, blockmap_info *, blockmap_info *);
 
-AIFStream *SliceSocketReceive(void);
-
 // Get the size of the virtual data segment of the current process
 // in megabytes.
 unsigned long GetProcSize();

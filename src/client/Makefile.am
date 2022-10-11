@@ -6,8 +6,9 @@ MRNET_ROOT	= @mrn_root@
 BITSET	= @gdb4hpc_srcdir@/bitset
 SCRIPT	= @gdb4hpc_srcdir@/script
 ZMQNET_ROOT  = @zmqnet_root@
+TESTS_ROOT   = @doctest_root@/doctest
 
-AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM) -I$(BITSET) -I$(SCRIPT)
+AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM) -I$(BITSET) -I$(SCRIPT) -I$(TESTS_ROOT)
 AM_LIBTOOLFLAGS = --quiet
 
 #################################

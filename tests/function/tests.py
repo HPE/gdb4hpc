@@ -1,5 +1,5 @@
 '''
- * Copyright 2020-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -569,6 +569,26 @@ class Gdb4hpcTest(Test):
 
         # set startup timeout env var to speed up failures
         os.environ["GDB4HPC_STARTUP_TIMEOUT"] = "20" # seconds
+
+def run_unit_tests(test: Gdb4hpcTest, binary: str):
+    p = subprocess.run([binary, "--has-tests"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if p.returncode == 0:
+        p = subprocess.run([binary, "--test"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if p.returncode != 0:
+            with open(getOut(test, test.__class__.__name__), "w") as f:
+                f.write(p.stdout.decode())
+            test.fail("Failed unit tests")
+    else:
+        test.cancel("Not compiled with unit tests")
+
+class unit_gdb4hpc(Gdb4hpcTest):
+    def test(self):
+        run_unit_tests(self, "gdb4hpc")
+
+class unit_dbgsrv(Gdb4hpcTest):
+    def test(self):
+        dbgsrv = os.path.dirname(shutil.which("gdb4hpc")) + "/../libexec/dbgsrv"
+        run_unit_tests(self, dbgsrv)
 
 class c_assign(Gdb4hpcTest):
     def test(self):

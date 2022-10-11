@@ -245,7 +245,14 @@ check_exit_status
 autoreconf -ifv
 check_exit_status
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall ${mrnet_cflags}" CXXFLAGS="-g -O2 -Wall -Werror ${mrnet_cxxflags}" LDFLAGS=${mrnet_ldflags} ./configure --prefix=$install_dir --with-rd --with-mrnet=${mrnet_base_directory} --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray
+# disable unit tests on release builds
+if [ "$branch_type" != "release" ]; then
+  doctest_flag="--enable-doctest"
+else
+  doctest_flag="--disable-doctest"
+fi
+
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall ${mrnet_cflags}" CXXFLAGS="-g -O2 -Wall -Werror ${mrnet_cxxflags}" LDFLAGS=${mrnet_ldflags} ./configure --prefix=$install_dir --with-rd --with-mrnet=${mrnet_base_directory} --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-doctest=${top_level}/external/doctest ${doctest_flag}
 
 check_exit_status
 
@@ -268,7 +275,6 @@ cp -a $top_level/doc/*.md $install_dir/share/doc/.
 check_exit_status
 cp -a $top_level/doc/*.html $install_dir/share/doc/.
 check_exit_status
-
 
 echo "############################################"
 echo "#              Done with build             #"

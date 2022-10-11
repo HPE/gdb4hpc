@@ -10,8 +10,9 @@
 # in any form.
 
 GUARD=@gdb4hpc_srcdir@
+TESTS_ROOT=@doctest_root@/doctest
 
-AM_CXXFLAGS = -I$(GUARD)
+AM_CXXFLAGS = -I$(GUARD) -I$(TESTS_ROOT)
 
 if MRNET
 MRNET_BITSETS = sparse_bitset.cpp bitset_convert.cpp

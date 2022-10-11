@@ -5,7 +5,6 @@
 
 #include <memory>
 #include <string>
-#include <limits>
 #include <set>
 #include <stdexcept>
 
@@ -57,7 +56,7 @@ public:
     virtual size_t numSet() const;
 
     // used to indicate "no bits" in operations such as firstSet()
-    static const size_t None = std::numeric_limits<size_t>::max();
+    static const size_t None;
 
     // returns the offset of the first set bit. offset starts from LSB. if no
     // bit is set, returns Bitset::None.
@@ -109,6 +108,7 @@ public:
     // returns Bitset::None when no more bits are left
     class SetBitsIterator {
     public:
+        virtual ~SetBitsIterator() = default;
         virtual size_t operator*() const = 0;
         virtual SetBitsIterator& operator++() = 0;
     };

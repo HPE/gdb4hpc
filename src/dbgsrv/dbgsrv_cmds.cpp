@@ -28,62 +28,12 @@
 #include <string>
 #include <memory>
 
-namespace {
-// Holder struct for argc/argv.
-// (Doing a one-off as the stuff in useful/args.h doesn't manage memory)
-struct CmdArgs {
-    int argc;
-    char** argv;
-    CmdArgs() : argc(0), argv(nullptr) {}
-    ~CmdArgs();
-    CmdArgs(const CmdArgs&) = delete;
-    CmdArgs& operator=(const CmdArgs&) = delete;
-};
-
-struct OptionalString {
-    std::string str;
-    operator const char*() { return str.empty() ? nullptr : str.c_str(); }
-};
-
-// Socket prototype string reader.
-class ISocStream {
-    dbgcmd m_cmd;
-    std::istringstream m_str;
-public:
-    // Prepare to read the socket string
-    ISocStream(const std::string& str);
-
-    // Get the index of the command
-    dbgcmd getCmd() { return m_cmd; }
-
-    // Get the rest of the commands; the caller just has to
-    // declare the arguments with the correct type, and it will
-    // fill it in.
-    // Fixme - add error checking here.
-    template<typename ...Targs>
-    void get(Targs&&... args) {
-        (void) (*this >> ... >> std::forward<Targs>(args));
-    };
-
-private:
-    // read typed arguments from the string.  When a new type of data is
-    // passed through the socket, we need to add the appopriate data type here.
-    ISocStream& operator>>(int& i);
-    ISocStream& operator>>(unsigned int& ui);
-    ISocStream& operator>>(bool& b);
-    ISocStream& operator>>(size_t& sz);
-    ISocStream& operator>>(std::string& s);
-    ISocStream& operator>>(OptionalString& s);
-    ISocStream& operator>>(CmdArgs& args);
-};
-}
-
 std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci) {
 
     DVPRINT("dbgsrv_dispatch_cmds received: %s\n", msg);
 
     // ISocStream manages the parsing
-    ISocStream is(msg);
+    soc::ISocStream is(msg);
 
     dbgcmd cmd = is.getCmd();
 
@@ -193,14 +143,14 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_GO: {
-            bool all; OptionalString threads;
+            bool all; soc::OptionalString threads;
             is.get(all, threads);
             e = DbgGo(all, threads);
             break;
         }
 
         case DBGCMD_FINISH: {
-            OptionalString threads;
+            soc::OptionalString threads;
             is.get(threads);
             e = DbgFinishFunc(threads);
             break;
@@ -214,28 +164,28 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_STEP: {
-            int count, stepInto; OptionalString threads;
+            int count, stepInto; soc::OptionalString threads;
             is.get(count,stepInto, threads);
             e = DbgStep(count, stepInto, threads);
             break;
         }
 
         case DBGCMD_MOVEFRAME: {
-            int count; bool up; OptionalString threads;
+            int count; bool up; soc::OptionalString threads;
             is.get(count, up, threads);
             e = DbgMoveFrame(count, up, threads);
             break;
         }
 
         case DBGCMD_SHOWFRAME: {
-            int count; OptionalString threads;
+            int count; soc::OptionalString threads;
             is.get(count, threads);
             e = DbgShowFrame(count, threads);
             break;
         }
 
         case DBGCMD_GETFRAME: {
-            bool verbose; OptionalString threads;
+            bool verbose; soc::OptionalString threads;
             is.get(verbose, threads);
             e = DbgGetFrame(verbose, threads);
             break;
@@ -285,7 +235,7 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_SETVAR: {
-            std::string var, val; OptionalString threads;
+            std::string var, val; soc::OptionalString threads;
             is.get(var, val, threads);
             e = DbgSetVar(var.c_str(), val.c_str(), threads);
             break;
@@ -301,7 +251,7 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_GETTYPE: {
-            std::string var; bool isType; OptionalString threads;
+            std::string var; bool isType; soc::OptionalString threads;
             is.get(var, isType, threads);
             e = DbgGetType(var.c_str(), isType, threads);
             break;
@@ -313,14 +263,14 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_GETVARS: {
-            OptionalString threads;
+            soc::OptionalString threads;
             is.get(threads);
             e = DbgGetVars(threads);
             break;
         }
 
         case DBGCMD_GETARGS: {
-            OptionalString threads;
+            soc::OptionalString threads;
             is.get(threads);
             e = DbgGetArgs(threads);
             break;
@@ -342,7 +292,7 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_DIRECT: {
-            CmdArgs args;
+            soc::CmdArgs args;
             is.get(args);
             e = DbgDirectCmd(args.argc, args.argv);
             break;
@@ -452,7 +402,7 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_SHELL: {
-            CmdArgs args;
+            soc::CmdArgs args;
             is.get(args);
             e = DbgShell(args.argc, args.argv);
             break;
@@ -480,62 +430,5 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
     DVPRINT("done with dispatch\n");
 
     return resp;
-}
-
-ISocStream::ISocStream(const std::string& str) : m_str(str) {
-    int cmdId;
-    m_str >> cmdId;
-    m_cmd = static_cast<dbgcmd>(cmdId);
-
-    // the protocol has put the arguments into a string -- if there are any.   We're not currently
-    // using that to skip over the result, so here we'll just read the arg len and ignore it.
-    int len;
-    m_str >> len;  // this command will fail for commands with no arguments, but it's harmless
-}
-
-ISocStream& ISocStream::operator>>(int& i) { m_str >> i; return *this; }
-ISocStream& ISocStream::operator>>(unsigned int& ui) { m_str >> ui; return *this; }
-ISocStream& ISocStream::operator>>(bool& b) { int i; m_str >> i; b = i; return *this; }
-ISocStream& ISocStream::operator>>(size_t& sz) { m_str >> sz; return *this; }
-ISocStream& ISocStream::operator>>(std::string& s) {
-    size_t len = 0;
-    m_str >> len;
-    
-    char c = '\0';
-    m_str.get(c); // the space between the length an the string
-    s.resize(len);
-    if (len) m_str.read(&s[0], len);
-
-    return *this;
-}
-
-ISocStream& ISocStream::operator>>(OptionalString& s) {
-    return *this >> s.str;
-}
-
-ISocStream& ISocStream::operator>>(CmdArgs& args) {
-    int n;
-    *this >> n;
-    args.argc = n;
-
-    if (n <= 0) {
-        args.argv = nullptr;
-        return *this;
-    }
-    args.argv = (char**)malloc(n * sizeof(char*));
-
-    for (int i=0; i<n; ++i) {
-        std::string s;
-        *this >> s;
-        args.argv[i] = strdup(s.c_str());
-    }
-
-    return *this;
-}
-
-CmdArgs::~CmdArgs()
-{
-    for (int i=0; i<argc; ++i) free(argv[i]);
-    free(argv);
 }
 

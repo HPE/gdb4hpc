@@ -4,10 +4,6 @@
 [submodule "external/libmi"]
 	path = external/libmi
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-libmi.git
-[submodule "tests/unit/googletest"]
-	path = tests/unit/googletest
-	url = git@github.hpe.com:hpe/hpc-pe-cdst-googletest.git
-	branch = cdst_external
 [submodule "rpmbuild/SOURCES/set_default"]
 	path = rpmbuild/SOURCES/set_default
 	url = git@github.hpe.com:hpe/hpc-pe-cenv-set_default.git
@@ -35,3 +31,6 @@
 [submodule "external/changelog"]
 	path = external/changelog
 	url = git@github.hpe.com:hpe/hpc-pe-cdst-changelog.git
+[submodule "external/doctest"]
+	path = external/doctest
+	url = git@github.hpe.com:hpe/hpc-pe-cdst-doctest.git

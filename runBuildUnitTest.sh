@@ -22,22 +22,31 @@ source ./external/cdst_build_library/build_lib
 
 setup_modules
 
+source $top_level/release_versioning
+gdb4hpc_version=
+branch_name=$(get_branch_info)
+branch_type=$(echo "$branch_name" | cut -d'/' -f1)
+if [ "$branch_type" != "release" ]; then
+  gdb4hpc_version="$major.$minor.$revision.$build_number"
+else
+  gdb4hpc_version="$major.$minor.$revision"
+fi
+echo "gdb4hpc version: \"$gdb4hpc_version\""
+install_dir="/opt/cray/pe/gdb4hpc/$gdb4hpc_version"
+echo "Install dir: \"$install_dir\""
+
 echo "############################################"
-echo "#           Building Unit Tests            #"
+echo "#       Running Client Unit Tests          #"
 echo "############################################"
 
-cd $top_level/tests/unit
-
-make $cdst_j_flags
+$install_dir/bin/gdb4hpc --test
 check_exit_status
 
 echo "############################################"
-echo "#            Running Unit Tests            #"
+echo "#       Running Server Unit Tests          #"
 echo "############################################"
 
-cd $top_level/tests/unit
-
-./unit_tests
+$install_dir/libexec/dbgsrv --test
 check_exit_status
 
 echo "############################################"

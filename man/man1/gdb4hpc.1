@@ -55,40 +55,70 @@ For further information on CCDB, see \f[B]ccdb\f[R](1).
 .SS Options
 .PP
 The \f[B]gdb4hpc\f[R] debugger accepts the following options:
-.TP
+.PP
 \f[B]--help\f[R], \f[B]-h\f[R]
+.PD 0
+.P
+.PD
 Display help text.
-.TP
+.PP
 \f[B]--no-init\f[R], \f[B]-n\f[R]
+.PD 0
+.P
+.PD
 Don\[cq]t execute any commands from the gdb4hpc_init file.
 (By default, $HOME/.gdb4hpc/gdb4hpc_init)
-.TP
+.PP
 \f[B]--silent\f[R], \f[B]-s\f[R]
+.PD 0
+.P
+.PD
 Suppress version banner on startup.
-.TP
+.PP
 \f[B]--version\f[R], \f[B]-v\f[R]
+.PD 0
+.P
+.PD
 Display version.
-.TP
+.PP
 \f[B]--attach=JOBID\f[R], \f[B]-j\f[R]
+.PD 0
+.P
+.PD
 Immediately attach to application with JOBID.
-.TP
+.PP
 \f[B]--exec=CMD\f[R], \f[B]-x\f[R]
+.PD 0
+.P
+.PD
 Execute CMD at startup.
 This option can be used multiple times.
 Commands passed here are executed after commands in gdb4hpc_init.
 .SS Batch mode options:
-.TP
+.PP
 \f[B]--batch=FILE\f[R], \f[B]-b\f[R]
+.PD 0
+.P
+.PD
 Execute debugger commands from FILE and exit.
-.TP
+.PP
 \f[B]--output=FILE\f[R], \f[B]-o\f[R]
+.PD 0
+.P
+.PD
 Redirect stdout/stderr to FILE.
 Must be used with --batch.
-.TP
+.PP
 \f[B]--keep-going\f[R], \f[B]-k\f[R]
+.PD 0
+.P
+.PD
 In batch mode, don\[cq]t exit when an error is encountered.
-.TP
+.PP
 \f[B]--echo\f[R], \f[B]-e\f[R]
+.PD 0
+.P
+.PD
 In batch mode, echo each command before executing it.
 .SS \f[B]gdb4hpc\f[R] Usage
 .PP
@@ -132,10 +162,12 @@ Interactive batch: Prior to launching \f[B]gdb4hpc\f[R], request the
 compute node resources required for the debugging session.
 For example, if PBS Pro is the site\[aq]s batch system, enter this
 command:
-.RS 2
-.PP
-% qsub -IV -l mppwidth=w
-.RE
+.IP
+.nf
+\f[C]
+    % qsub -IV -l mppwidth=w
+\f[R]
+.fi
 .PP
 Where \f[I]w\f[R] is the number of ranks required.
 Then after initiating \f[B]gdb4hpc\f[R], subsequent use of
@@ -549,8 +581,12 @@ The \f[B]launch\f[R] command also accepts the following optional
 arguments.
 Option values must be enclosed within quotation marks, such as
 \[dq]args.\[dq]
-.TP
-\f[B]--launcher=\f[R]\[dq]\f[I]launcher_name\f[R]\[dq] | \f[B]-l\f[R] \[lq]\f[I]launcher_name\f[R]\[rq]
+.PP
+\f[B]--launcher=\f[R]\[dq]\f[I]launcher_name\f[R]\[dq] | \f[B]-l\f[R]
+\[lq]\f[I]launcher_name\f[R]\[rq]
+.PD 0
+.P
+.PD
 Launches the job with the launcher specified by \f[I]launcher_name\f[R].
 This option is not commonly needed and should be used with care.
 This option specifies the name of the application launcher executable as
@@ -562,43 +598,69 @@ running workload manager (such as mpiexec.hydra on a slurm system), this
 variable should be using in conjunction with setting CRAY_CTI_WLM to
 \[dq]generic\[dq] to ensure the launch mechanisms work with the
 specified launcher.
-.TP
-\f[B]--launcher-args=\f[R] \[dq]\f[I]launcher_args\f[R]\[dq] | \f[B]-g\f[R] \[dq]\f[I]launcher_args\f[R]\[dq]
+.PP
+\f[B]--launcher-args=\f[R] \[dq]\f[I]launcher_args\f[R]\[dq] |
+\f[B]-g\f[R] \[dq]\f[I]launcher_args\f[R]\[dq]
+.PD 0
+.P
+.PD
 Passes \f[I]launcher_args\f[R] to the WLM job launch command.
-.TP
-\f[B]--launcher-input=\f[R] \[dq]\f[I]input_file\f[R]\[dq] | \f[B]-i\f[R] \[dq]\f[I]input_file\f[R]\[dq]
+.PP
+\f[B]--launcher-input=\f[R] \[dq]\f[I]input_file\f[R]\[dq] |
+\f[B]-i\f[R] \[dq]\f[I]input_file\f[R]\[dq]
+.PD 0
+.P
+.PD
 Redirects the \f[B]stdin\f[R] of the WLM job launch command to be
 \f[I]input_file\f[R].
 This is useful for applications requiring input from \f[B]stdin\f[R].
-.TP
-\f[B]--args=\f[R] \[dq]\f[I]app_args\f[R]\[dq] | \f[B]-a\f[R] \[dq]\f[I]app_args\f[R]\[dq]
+.PP
+\f[B]--args=\f[R] \[dq]\f[I]app_args\f[R]\[dq] | \f[B]-a\f[R]
+\[dq]\f[I]app_args\f[R]\[dq]
+.PD 0
+.P
+.PD
 Passes \f[I]app_args\f[R] to the application executable.
-.TP
+.PP
 \f[B]--env=\f[R]\[dq]\f[I]name\f[R]=\f[I]value\f[R]\[dq],\f[B]--env=\f[R]\[dq]\f[I]name\f[R]=\f[I]value\f[R]\[dq],\&...
+.PD 0
+.P
+.PD
 Sets the environment variable (defined by \f[I]name\f[R]) to
 \f[I]value\f[R], for this job session instance.
 Note that \f[B]--env=\f[R] can be used more than once to set multiple
 environment variables.
-.TP
+.PP
 \f[B]--gpu\f[R]
+.PD 0
+.P
+.PD
 Enables the use of an OpenACC supported version of \f[B]gdb\f[R] for
 debugging on a Nvidia CUDA 5.5 or above GPU.
 Sets several environment variables for debugging.
-.RS
 .PP
 \f[B]Note:\f[R] OpenACC debugging is only supported through the
 \f[B]launch\f[R] command.
-.RE
-.TP
+.PP
 \f[B]--qsub=\f[R]\[dq]\f[I]batch_template\f[R]\[dq]
+.PD 0
+.P
+.PD
 Submits \f[I]batch_template\f[R] as a PBS job from which an application
 will launch for debugging.
-.TP
+.PP
 \f[B]--sbatch=\f[R]\[dq]\f[I]batch_template\f[R]\[dq]
+.PD 0
+.P
+.PD
 Submits \f[I]batch_template\f[R] as a SLURM job from which an
 application will launch for debugging.
-.TP
-\f[B]--workdir=\f[R] \[dq]\f[I]work_path\f[R]\[dq] | \f[B]-d\f[R] \[dq]\f[I]work_path\f[R]\[dq]
+.PP
+\f[B]--workdir=\f[R] \[dq]\f[I]work_path\f[R]\[dq] | \f[B]-d\f[R]
+\[dq]\f[I]work_path\f[R]\[dq]
+.PD 0
+.P
+.PD
 Changes the current working directory, relative to its present setting
 where \f[B]gbd4hpc\f[R] was invoked, to \f[I]work_path\f[R].
 This is useful for applications that write files to the current working
@@ -742,53 +804,61 @@ dgb all> launch $a{128} --launcher-args=\[dq]-N32\[dq] a.out
 command is interrupted before completion, the job reservation must be
 manually deleted from the queueing system.
 .SH ENVIRONMENT VARIABLES
-.TP
+.PP
 \f[B]CRAY_APRUN_PATH\f[R]
+.PD 0
+.P
+.PD
 Defines the location of the Cray-provided \f[B]aprun\f[R] binary.
 Used if the \f[B]aprun\f[R] binary has been renamed or moved from its
 default location.
-.RS
 .PP
 Default: not defined
-.RE
-.TP
+.PP
 \f[B]GDB4HPC_CFG_DIRECTORY\f[R]
+.PD 0
+.P
+.PD
 Defines the general gdb4hpc configuration directory.
 This directory is where the gdb4hpc_init file is read from, and where
 the history file is stored by default.
-.RS
 .PP
 Default: $HOME/.gdb4hpc
-.RE
-.TP
+.PP
 \f[B]GDB4HPC_HIST_DIR\f[R]
+.PD 0
+.P
+.PD
 Defines the directory into which the \f[B].gbd4hpc_history\f[R] file is
 located.
-.RS
 .PP
 Default: not set.
 If not set, GDB4HPC_CFG_DIRECTORY will be used.
-.RE
-.TP
+.PP
 \f[B]GDB4HPC_PMI_INIT_SLEEP\f[R]
+.PD 0
+.P
+.PD
 Sets extra time (in seconds) to sleep after finding the
 \f[B]pmi_attribs\f[R] file during early attach.
 This should only be set if \f[B]gbd4hpc\f[R] is attaching to the
 application during the \f[B]pmi_init\f[R] function and causing the
 debugger to hang.
-.RS
 .PP
 Default: not set
-.RE
-.TP
+.PP
 \f[B]GDB4HPC_STARTUP_TIMEOUT\f[R]
+.PD 0
+.P
+.PD
 Sets the MRNet startup timeout in seconds.
-.RS
 .PP
 Default: not set
-.RE
-.TP
+.PP
 \f[B]CRAY_CTI_WLM\f[R]
+.PD 0
+.P
+.PD
 Sets the workload manager that gbd4hpc will use to launch or attach to
 an application.
 Accepts one of three values: \[dq]alps\[dq], \[dq]slurm\[dq], or
@@ -800,12 +870,13 @@ Using \[dq]generic\[dq] requires setting up paswordless ssh to the
 compute nodes as it uses ssh to launch the debuggers.
 Use of \[dq]generic\[dq] also requires CRAY_CTI_LAUNCHER_NAME to be set
 to the name of the application launcher to use.
-.RS
 .PP
 Default: not set
-.RE
-.TP
+.PP
 \f[B]CRAY_CTI_LAUNCHER_NAME\f[R]
+.PD 0
+.P
+.PD
 Sets the launcher executable to use for application launch.
 This can be the name of an executable reachable in PATH or an absolute
 path.
@@ -816,20 +887,23 @@ running workload manager (such as mpiexec.hydra on a slurm system), this
 variable should be used in conjunction with setting CRAY_CTI_WLM to
 \[dq]generic\[dq] to ensure the launch mechanisms work with the
 specified launcher.
-.RS
 .PP
 Default: not set
-.RE
-.TP
+.PP
 \f[B]Other CRAY_CTI_.. variables\f[R]
+.PD 0
+.P
+.PD
 cray-cti defines many more environment variables for less common
 situations.
 If there are problems with launch or attach, for extended CTI options
 see:
-.RS
-.PP
+.IP
+.nf
+\f[C]
 module load cray-cti; man cti
-.RE
+\f[R]
+.fi
 .SH EXAMPLES
 .PP
 A demo directory with sample codes is included in the \f[B]gbd4hpc\f[R]

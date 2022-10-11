@@ -3,15 +3,11 @@
 % 02-08-2021
 
 <!--
-We generate the man page from this markdown file using pandoc.
+We generate the man page and html documentation from this markdown file using pandoc.
 
-This document is written in standard markdown plus two pandoc extensions:
+Lines beginning with % are pandoc comments.
 
-* Line blocks
-    Line blocks preserve leading spaces. You use this in the synopsis section.
-* Definition lists
-    Definition lists format definitions nicely. We use them for arguments and
-    environment variable definitions.
+The comments at the top are special and will fill in that information in the generated man page.
 -->
 
 # NAME
@@ -20,12 +16,13 @@ This document is written in standard markdown plus two pandoc extensions:
 
 # SYNOPSIS
 
-| **gdb4hpc**
-| [ **\--help** | **-h** ] [ **\--version** | **-v** ]
-| [ **\--no-init** | **-n** ] [ **\--silent** | **-s** ]
-| [ **\--attach=JOBID** | **-j** ] [ **\--exec=CMD** | **-x** ]
-| [ **\--batch=FILE** | **-b** ] [ **\--output=FILE** | **-o** ]
-| [ **\--keep-going** | **-k** ] [ **\--echo** | **-e** ]
+<!-- two spaces are added to the end of each line to preserve line breaks -->
+**gdb4hpc**  
+[ **\--help** | **-h** ] [ **\--version** | **-v** ]  
+[ **\--no-init** | **-n** ] [ **\--silent** | **-s** ]  
+[ **\--attach=JOBID** | **-j** ] [ **\--exec=CMD** | **-x** ]  
+[ **\--batch=FILE** | **-b** ] [ **\--output=FILE** | **-o** ]  
+[ **\--keep-going** | **-k** ] [ **\--echo** | **-e** ]
 
 # IMPLEMENTATION
 
@@ -51,38 +48,38 @@ capabilities of **gdb4hpc**. For further information on CCDB, see
 The **gdb4hpc** debugger accepts the following options:
 
 **\--help**, **-h**           
-: Display help text.
+Display help text.
 
 **\--no-init**, **-n**        
-: Don't execute any commands from the gdb4hpc_init file. (By default, $HOME/.gdb4hpc/gdb4hpc_init)
+Don't execute any commands from the gdb4hpc_init file. (By default, $HOME/.gdb4hpc/gdb4hpc_init)
 
 **\--silent**, **-s**         
-: Suppress version banner on startup.
+Suppress version banner on startup.
 
 **\--version**, **-v**        
-: Display version.
+Display version.
 
 **\--attach=JOBID**, **-j**   
-: Immediately attach to application with JOBID.
+Immediately attach to application with JOBID.
 
 **\--exec=CMD**, **-x**       
-: Execute CMD at startup. This option can be used
-  multiple times. Commands passed here are executed
-  after commands in gdb4hpc_init.
+Execute CMD at startup. This option can be used
+multiple times. Commands passed here are executed
+after commands in gdb4hpc_init.
 
 ### Batch mode options:
 
 **\--batch=FILE**, **-b**     
-: Execute debugger commands from FILE and exit.
+Execute debugger commands from FILE and exit.
 
 **\--output=FILE**, **-o**    
-: Redirect stdout/stderr to FILE. Must be used with -\-batch.
+Redirect stdout/stderr to FILE. Must be used with -\-batch.
 
 **\--keep-going**, **-k**     
-: In batch mode, don't exit when an error is encountered.
+In batch mode, don't exit when an error is encountered.
 
 **\--echo**, **-e**           
-: In batch mode, echo each command before executing it.
+In batch mode, echo each command before executing it.
 
 ## **gdb4hpc** Usage
 
@@ -113,7 +110,9 @@ systems (ALPS, hybrid SLURM, and native SLURM):
     compute node resources required for the debugging session. For
     example, if PBS Pro is the site\'s batch system, enter this command:
 
+```
     % qsub -IV -l mppwidth=w
+```
 
 Where *w* is the number of ranks required. Then after initiating
 **gdb4hpc**, subsequent use of **gdb4hpc** commands will employ
@@ -427,57 +426,59 @@ will launch the application **tstapp** via the WLM job launcher with
 The **launch** command also accepts the following optional arguments.
 Option values must be enclosed within quotation marks, such as \"args.\"
 
-**\--launcher=**\"*launcher_name*\" \| **-l** "*launcher_name*"
-:   Launches the job with the launcher specified by *launcher_name*.
-    This option is not commonly needed and should be used with care.
-    This option specifies the name of the application launcher
-    executable as either an absolute path or the name of an executable
-    reachable in PATH. Setting this option only affects the name of the
-    launcher executable itself and does not change the launch system. To
-    launch with a non default launcher that is not related to the
-    default running workload manager (such as mpiexec.hydra on a slurm
-    system), this variable should be using in conjunction with setting
-    CRAY_CTI_WLM to \"generic\" to ensure the launch mechanisms work
-    with the specified launcher.
+<!-- two spaces at the end of each title to preserve line breaks -->
 
-**\--launcher-args=** \"*launcher_args*\" \| **-g** \"*launcher_args*\"
-:   Passes *launcher_args* to the WLM job launch command.
+**\--launcher=**\"*launcher_name*\" \| **-l** "*launcher_name*"  
+Launches the job with the launcher specified by *launcher_name*.
+This option is not commonly needed and should be used with care.
+This option specifies the name of the application launcher
+executable as either an absolute path or the name of an executable
+reachable in PATH. Setting this option only affects the name of the
+launcher executable itself and does not change the launch system. To
+launch with a non default launcher that is not related to the
+default running workload manager (such as mpiexec.hydra on a slurm
+system), this variable should be using in conjunction with setting
+CRAY_CTI_WLM to \"generic\" to ensure the launch mechanisms work
+with the specified launcher.
 
-**\--launcher-input=** \"*input_file*\" \| **-i** \"*input_file*\"
-:   Redirects the **stdin** of the WLM job launch command to be
-    *input_file*. This is useful for applications requiring input from
-    **stdin**.
+**\--launcher-args=** \"*launcher_args*\" \| **-g** \"*launcher_args*\"  
+Passes *launcher_args* to the WLM job launch command.
 
-**\--args=** \"*app_args*\" \| **-a** \"*app_args*\"
-:   Passes *app_args* to the application executable.
+**\--launcher-input=** \"*input_file*\" \| **-i** \"*input_file*\"  
+Redirects the **stdin** of the WLM job launch command to be
+*input_file*. This is useful for applications requiring input from
+**stdin**.
 
-**\--env=**\"*name*=*value*\",**\--env=**\"*name*=*value*\",...
-:   Sets the environment variable (defined by *name*) to *value*, for
-    this job session instance. Note that **\--env=** can be used more
-    than once to set multiple environment variables.
+**\--args=** \"*app_args*\" \| **-a** \"*app_args*\"  
+Passes *app_args* to the application executable.
 
-**\--gpu**
-:   Enables the use of an OpenACC supported version of **gdb** for
-    debugging on a Nvidia CUDA 5.5 or above GPU. Sets several
-    environment variables for debugging.
+**\--env=**\"*name*=*value*\",**\--env=**\"*name*=*value*\",...  
+Sets the environment variable (defined by *name*) to *value*, for
+this job session instance. Note that **\--env=** can be used more
+than once to set multiple environment variables.
 
-    **Note:** OpenACC debugging is only supported through the **launch** command.
+**\--gpu**  
+Enables the use of an OpenACC supported version of **gdb** for
+debugging on a Nvidia CUDA 5.5 or above GPU. Sets several
+environment variables for debugging.
 
-**\--qsub=**\"*batch_template*\"
-:   Submits *batch_template* as a PBS job from which an application will
-    launch for debugging.
+**Note:** OpenACC debugging is only supported through the **launch** command.
 
-**\--sbatch=**\"*batch_template*\"
-:   Submits *batch_template* as a SLURM job from which an application
-    will launch for debugging.
+**\--qsub=**\"*batch_template*\"  
+Submits *batch_template* as a PBS job from which an application will
+launch for debugging.
 
-**\--workdir=** \"*work_path*\" \| **-d** \"*work_path*\"
-:   Changes the current working directory, relative to its present
-    setting where **gbd4hpc** was invoked, to *work_path*. This is
-    useful for applications that write files to the current working
-    directory. By default, if the **\--workdir=** option is specified
-    without a path, the current working directory will be changed to the
-    location of the application\'s executable file.
+**\--sbatch=**\"*batch_template*\"  
+Submits *batch_template* as a SLURM job from which an application
+will launch for debugging.
+
+**\--workdir=** \"*work_path*\" \| **-d** \"*work_path*\"  
+Changes the current working directory, relative to its present
+setting where **gbd4hpc** was invoked, to *work_path*. This is
+useful for applications that write files to the current working
+directory. By default, if the **\--workdir=** option is specified
+without a path, the current working directory will be changed to the
+location of the application\'s executable file.
 
 ## Caveat for Launching a Serial Application
 
@@ -576,68 +577,69 @@ interrupted before completion, the job reservation must be manually
 deleted from the queueing system.
 
 # ENVIRONMENT VARIABLES
+<!-- two spaces at the end of each title to preserve line breaks -->
 
-**CRAY_APRUN_PATH**
-:   Defines the location of the Cray-provided **aprun** binary. Used if
-    the **aprun** binary has been renamed or moved from its default
-    location.
+**CRAY_APRUN_PATH**  
+Defines the location of the Cray-provided **aprun** binary. Used if
+the **aprun** binary has been renamed or moved from its default
+location.
 
-    Default: not defined
+Default: not defined
 
-**GDB4HPC_CFG_DIRECTORY**
-:   Defines the general gdb4hpc configuration directory. This directory is
-    where the gdb4hpc_init file is read from, and where the history file
-    is stored by default.
+**GDB4HPC_CFG_DIRECTORY**  
+Defines the general gdb4hpc configuration directory. This directory is
+where the gdb4hpc_init file is read from, and where the history file
+is stored by default.
 
-    Default: $HOME/.gdb4hpc
+Default: $HOME/.gdb4hpc
 
-**GDB4HPC_HIST_DIR**
-:   Defines the directory into which the **.gbd4hpc_history** file is
-    located.
+**GDB4HPC_HIST_DIR**  
+Defines the directory into which the **.gbd4hpc_history** file is
+located.
 
-    Default: not set. If not set, GDB4HPC_CFG_DIRECTORY will be used.
+Default: not set. If not set, GDB4HPC_CFG_DIRECTORY will be used.
 
-**GDB4HPC_PMI_INIT_SLEEP**
-:   Sets extra time (in seconds) to sleep after finding the
-    **pmi_attribs** file during early attach. This should only be set if
-    **gbd4hpc** is attaching to the application during the **pmi_init**
-    function and causing the debugger to hang.
+**GDB4HPC_PMI_INIT_SLEEP**  
+Sets extra time (in seconds) to sleep after finding the
+**pmi_attribs** file during early attach. This should only be set if
+**gbd4hpc** is attaching to the application during the **pmi_init**
+function and causing the debugger to hang.
 
-    Default: not set
+Default: not set
 
-**GDB4HPC_STARTUP_TIMEOUT**
-:   Sets the MRNet startup timeout in seconds.
+**GDB4HPC_STARTUP_TIMEOUT**  
+Sets the MRNet startup timeout in seconds.
 
-    Default: not set
+Default: not set
 
-**CRAY_CTI_WLM**
-:   Sets the workload manager that gbd4hpc will use to launch or attach
-    to an application. Accepts one of three values: \"alps\", \"slurm\",
-    or \"generic\". \"generic\" uses a more portable launch system that
-    can be used on many types of systems and application launchers but
-    can be less performant. Using \"generic\" requires setting up
-    paswordless ssh to the compute nodes as it uses ssh to launch the
-    debuggers. Use of \"generic\" also requires CRAY_CTI_LAUNCHER_NAME
-    to be set to the name of the application launcher to use.
+**CRAY_CTI_WLM**  
+Sets the workload manager that gbd4hpc will use to launch or attach
+to an application. Accepts one of three values: \"alps\", \"slurm\",
+or \"generic\". \"generic\" uses a more portable launch system that
+can be used on many types of systems and application launchers but
+can be less performant. Using \"generic\" requires setting up
+paswordless ssh to the compute nodes as it uses ssh to launch the
+debuggers. Use of \"generic\" also requires CRAY_CTI_LAUNCHER_NAME
+to be set to the name of the application launcher to use.
 
-    Default: not set
+Default: not set
 
-**CRAY_CTI_LAUNCHER_NAME**
-:   Sets the launcher executable to use for application launch. This can
-    be the name of an executable reachable in PATH or an absolute path.
-    Setting this option only affects the name of the launcher executable
-    itself and does not change the launch system. To launch with a non
-    default launcher that is not related to the default running workload
-    manager (such as mpiexec.hydra on a slurm system), this variable
-    should be used in conjunction with setting CRAY_CTI_WLM to
-    \"generic\" to ensure the launch mechanisms work with the specified
-    launcher.
+**CRAY_CTI_LAUNCHER_NAME**  
+Sets the launcher executable to use for application launch. This can
+be the name of an executable reachable in PATH or an absolute path.
+Setting this option only affects the name of the launcher executable
+itself and does not change the launch system. To launch with a non
+default launcher that is not related to the default running workload
+manager (such as mpiexec.hydra on a slurm system), this variable
+should be used in conjunction with setting CRAY_CTI_WLM to
+\"generic\" to ensure the launch mechanisms work with the specified
+launcher.
 
-    Default: not set
+Default: not set
 
-**Other CRAY_CTI_.. variables**
-:   cray-cti defines many more environment variables for less common situations.
-    If there are problems with launch or attach, for extended CTI options see:
+**Other CRAY_CTI_.. variables**  
+cray-cti defines many more environment variables for less common situations.
+If there are problems with launch or attach, for extended CTI options see:
 
     module load cray-cti; man cti
 

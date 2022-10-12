@@ -3490,7 +3490,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
         auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_LIST);
 
         // merge the results
-        result = MergeRepSet(result, tmp_result);
+        result = (result ? MergeRepSet(result, tmp_result) : tmp_result);;
     }
 
     FreeRecSet(to_send);

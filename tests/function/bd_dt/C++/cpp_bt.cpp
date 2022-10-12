@@ -55,7 +55,7 @@ void rare_branch(int rank) {
 }
 
 void merge(int rank) {
-    // serves as an easy point to set a single breakboint
+    int i=0; // serves as an easy point to set a single breakboint
 }
 
 void step_one(int rank) {

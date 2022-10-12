@@ -47,13 +47,7 @@ public:
 
     // returns a vector of const char *, passable to cti and others by calling .data()
     // on the resulting vector
-    const std::vector<const char *> c_strs(size_t start) const {
-        std::vector<const char *> c_strs;
-        std::transform(m_argv.begin() + start, m_argv.end(), 
-            std::back_inserter(c_strs), [](const std::string &s){return s.c_str();});
-        c_strs.push_back(nullptr);
-        return c_strs;
-    };
+    const std::vector<const char *> c_strs(size_t start) const;
 
     const std::vector<const char*> c_strs() const {
         return c_strs(0);
@@ -61,63 +55,11 @@ public:
 
     // parses a string as a list of arguments separated by spaces and adds them
     // to the current list of arguments
-    void parseAndAppendArgs(const std::string_view& args) {
-        std::stringstream arg;
-
-        for (size_t i = 0; i < args.size(); i++) {
-            if (isspace(args[i])) continue;
-            
-            arg.str("");
-            arg.clear();
-            
-            bool single_quote = false;
-            bool double_quote = false;
-            bool backslash = false;
-
-            for (; i < args.size(); i++) {
-                if (isspace(args[i]) && !single_quote && !double_quote && !backslash) break;
-
-                if (backslash) {
-                    backslash = false;
-                } else if (args[i] == '\\') {
-                    backslash = true;
-                } else if (single_quote && args[i] == '\'') {
-                    single_quote = false;
-                } else if (double_quote && args[i] == '"') {
-                    double_quote = false;
-                } else {
-                    if (args[i] == '\'')
-                        single_quote = true;
-                    else if (args[i] == '"')
-                        double_quote = true;
-                }
-
-                arg << args[i];
-            }
-
-            if (arg.tellp() != 0) {
-                m_argv.push_back(arg.str());
-            }
-        }
-    }
+    void parseAndAppendArgs(const std::string_view& args);
 
     // returns arguments separated by delimiter as a string. if a stored argument
     // contains delimiter, it will be surrounded with double quotes.
-    std::string asString(size_t start = 0, size_t stop_after = ULONG_MAX, char delim=' ') const {
-        std::stringstream ss;
-        std::string delimStr = "";
-
-        for (size_t i = start; i < m_argv.size() && stop_after > 0; i++, stop_after--) {
-            if (std::string_view(m_argv[i]).find(delim) != std::string::npos) {
-                ss << delimStr << std::quoted(m_argv[i]);
-            } else {
-                ss << delimStr << m_argv[i];
-            }
-            delimStr = delim;
-        }
-
-        return ss.str();
-    }
+    std::string asString(size_t start = 0, size_t stop_after = ULONG_MAX, char delim=' ') const;
 
     // allocates a buffer containing a copy of the arguments in the
     // ArgvStream, separated by spaces. 

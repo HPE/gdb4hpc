@@ -113,11 +113,15 @@ static int cmd_focus_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     SetCurrentProcSet(procset);
-    std::string proc_str = ProcSetToString(procset);
-    std::stringstream ss;
-    ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str.c_str()<<"\"}";
 
-    PrintOutMIResult(MIResult::DONE, "focus=%s\n(gdb)\n",ss.str().c_str());
+    if (Client.MI_mode) {
+        std::string proc_str = ProcSetToString(procset);
+        std::stringstream ss;
+        ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str<<"\"}";
+
+        PrintOutMIResult(MIResult::DONE, "focus=%s\n%s",ss.str().c_str(),
+                         GetMIEpilogue());
+    }
 
     return 1;
 }

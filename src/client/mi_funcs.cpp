@@ -10,7 +10,6 @@ static std::string launcher_args;
 static std::string num_ranks;
 static std::string procset;
 
-
 static std::string exec_args_cmd(const char *);
 static std::string file_exec_and_sym_cmd(const char *);
 static std::string var_create_cmd(const char *);
@@ -85,24 +84,36 @@ std::string convertMiToCli(const std::string& cmdLine) {
     }
 }
 
-static std::string exec_args_cmd(const char * args){
-    auto is = std::istringstream{args};
-    auto token = std::string{};
+static std::string exec_args_cmd(const char * in_args){
+    static std::regex procRE{R"((\$\w+)\{(\d+)\})"};
 
-    while (is >> token) {
-        if (token == "-r") {
-            is >> num_ranks;
-        } else if(token=="-proc"){
-            is >> procset;
-        }else {
-            if (!launcher_args.empty()) {
-                launcher_args.append(" ");
-            }
-            launcher_args.append(token);
+    ArgvStream args;
+    args.parseAndAppendArgs(in_args);
+    
+    std::ostringstream argstr;
+    num_ranks = "1";
+    procset = "";
+    std::smatch match;
+
+    // recognize -n <num-ranks> -p <proc-set-name> or
+    // $<proc-set-name>{<num-ranks>} and pass any other arguments to gdb4hpc
+    // this will mean they need to use --args and/or --launcher-args
+    for (size_t argc=args.argc(), i=0; i<argc; ++i) {
+        auto arg = args[i];
+        if (arg == "-n" && i+1 < argc) {
+            num_ranks = args[++i];
+        } else if (arg == "-p" && i+1 < argc) {
+            procset = args[++i];
+            if (procset[0] != '$') procset = "$" + procset;
+        } else if (std::regex_match(arg, match, procRE)) {
+            procset = match[1];
+            num_ranks = match[2];
+        } else {
+            argstr << " " << arg;
         }
     }
-    launcher_args.erase(std::remove(launcher_args.begin(), launcher_args.end(), '\n'),
-        launcher_args.end());
+                
+    launcher_args = argstr.str();
     //this command sets launcher args and does not need to be processed. Setting to exit will skip command processing
     return "ok";
 }
@@ -110,7 +121,8 @@ static std::string exec_args_cmd(const char * args){
 static std::string file_exec_and_sym_cmd(const char * args){
     //check a procset was received
     if (procset.empty()){
-        return "error, no procset provided";
+        // create a default if one wasn't specified
+        procset = "$App";
     }
     auto app=procset;
     //add rank information if available
@@ -121,14 +133,9 @@ static std::string file_exec_and_sym_cmd(const char * args){
     }
 
     auto func = std::string{};
-    if (!launcher_args.empty()){
-        return "launch $"+app+" " + args+ " -a \""+launcher_args+"\"";
-    } else {
-        return "launch $"+app+" " + args;
-    }
+
+    return "launch " + app + launcher_args;
 }
-
-
 
 void mi_logv2(const char* tag, const char* format, va_list arg_list) {
     if (auto dir = ::getenv("CRAY_DBG_LOG_DIR")) {

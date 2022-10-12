@@ -29,6 +29,10 @@
 #include "common_tools_be.h"
 #include "defs.h"
 #include "useful.h"
+#include "unit_tests.h"
+
+#define DOCTEST_CONFIG_IMPLEMENT
+#include "doctest.h"
 
 #define DBGSRV "dbgsrv"
 #define PID_BUFSIZ 64
@@ -140,6 +144,15 @@ int main(int argc, char **argv) {
     int len;
 // End UPC addition
 #endif*/
+
+    if (argc >= 2 && strcmp(argv[1], "--has-tests") == 0) {
+        return hasUnitTests();
+    }
+
+    if (argc >= 2 && strcmp(argv[1], "--test") == 0) {
+        argv[1] = argv[0];
+        return runUnitTests(argc - 1, &argv[1]);
+    }
 
 #ifdef DEBUG
     debug_flag = 1;

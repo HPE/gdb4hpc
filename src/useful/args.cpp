@@ -147,3 +147,68 @@ char *ArgsToBuf(const char * const * argv, int argc) {
 std::string ArgsToString(const char * const * argv, int argc) {
     return ArgvStream(argc, argv).asString(0, argc);
 }
+
+const std::vector<const char *> ArgvStream::c_strs(size_t start) const {
+    std::vector<const char *> c_strs;
+    std::transform(m_argv.begin() + start, m_argv.end(), 
+                   std::back_inserter(c_strs), [](const std::string &s){return s.c_str();});
+    c_strs.push_back(nullptr);
+    return c_strs;
+};
+
+void ArgvStream::parseAndAppendArgs(const std::string_view& args) {
+    std::stringstream arg;
+
+    for (size_t i = 0; i < args.size(); i++) {
+        if (isspace(args[i])) continue;
+            
+        arg.str("");
+        arg.clear();
+            
+        bool single_quote = false;
+        bool double_quote = false;
+        bool backslash = false;
+
+        for (; i < args.size(); i++) {
+            if (isspace(args[i]) && !single_quote && !double_quote && !backslash) break;
+
+            if (backslash) {
+                backslash = false;
+            } else if (args[i] == '\\') {
+                backslash = true;
+            } else if (single_quote && args[i] == '\'') {
+                single_quote = false;
+            } else if (double_quote && args[i] == '"') {
+                double_quote = false;
+            } else {
+                if (args[i] == '\'')
+                    single_quote = true;
+                else if (args[i] == '"')
+                    double_quote = true;
+            }
+
+            arg << args[i];
+        }
+
+        if (arg.tellp() != 0) {
+            m_argv.push_back(arg.str());
+        }
+    }
+}
+
+std::string ArgvStream::asString(size_t start, size_t stop_after, char delim) const {
+    std::stringstream ss;
+    std::string delimStr = "";
+        
+    for (size_t i = start; i < m_argv.size() && stop_after > 0; i++, stop_after--) {
+        if (std::string_view(m_argv[i]).find(delim) != std::string::npos) {
+            ss << delimStr << std::quoted(m_argv[i]);
+        } else {
+            ss << delimStr << m_argv[i];
+        }
+        delimStr = delim;
+    }
+
+    return ss.str();
+}
+

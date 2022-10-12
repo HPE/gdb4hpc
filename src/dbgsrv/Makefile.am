@@ -51,7 +51,7 @@ endif
 dbgsrv_trampoline_SOURCES = dbgsrv_trampoline.c
 dbgsrv_trampoline_LDFLAGS = -O0
 
-dbgsrv_alps_LDADD	= $(USEFUL)/libuseful.a $(CRAYTOOL_LIBS)
+dbgsrv_alps_LDADD	= $(USEFUL)/libuseful.a $(CRAYTOOL_LIBS) $(DBGCOMM)/libdbg.a
 dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
 endif
 

@@ -12,7 +12,8 @@
 #include <iostream>
 
 #include "bitset_tests.h"
-TEST_CASE_TEMPLATE_INVOKE(libbitset, LRunLEBitset);
+// disabled until PE-43612 is resolved
+// TEST_CASE_TEMPLATE_INVOKE(libbitset, LRunLEBitset);
 
 LRunLEBitset::LRunLEBitset(size_t nbits)
     : m_nbits{nbits}

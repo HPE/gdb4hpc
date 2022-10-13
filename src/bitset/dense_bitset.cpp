@@ -9,7 +9,8 @@
 #include <cmath>
 
 #include "bitset_tests.h"
-TEST_CASE_TEMPLATE_INVOKE(libbitset, DenseBitset);
+// disabled until PE-43612 is resolved
+// TEST_CASE_TEMPLATE_INVOKE(libbitset, DenseBitset);
 
 DenseBitset::DenseBitset(size_t nbits)
 	: m_bs_nbits{nbits}

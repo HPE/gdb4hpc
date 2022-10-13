@@ -2,6 +2,10 @@
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
+// disabled until PE-43612 is resolved
+
+/*
+
 #include "bitset.h"
 
 #ifdef HAVE_CONFIG_H
@@ -412,3 +416,4 @@ TEST_CASE_TEMPLATE_DEFINE("libbitset", BitsetT, libbitset) {
     }
 }
 
+*/

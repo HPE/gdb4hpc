@@ -233,8 +233,16 @@ int DebugClientProtocol::exit(DbgInvoke *di, int detach) {
         // was set, and it's possible that it ran until complete exit by now. We
         // still try to send a signal, but only print an error if we launched the app.
         if (cti_killApp(di->d_appid, SIGCONT) && di->d_type == DBG_LAUNCHED) {
-            PrintOutError("Warning: an error occurred during release of $%s.\n", di->handle().c_str());
+            PrintOutError("Warning: an error occurred during release of $%s.\n",
+                          di->handle().c_str());
             PrintOutError("The job might be stuck waiting for a SIGCONT.\n");
+        }
+        // Now that the app is running again, release it from cti so it won't be
+        // killed when cti is killed
+        if (cti_releaseApp(di->d_appid)) {
+            PrintOutError("Warning: an error occured during release of $%s.\n",
+                          di->handle().c_str());
+            PrintOutError("The job might be killed before completing.\n");
         }
     } else {
         if (cti_killApp(di->d_appid, SIGKILL) && di->d_type == DBG_LAUNCHED) {

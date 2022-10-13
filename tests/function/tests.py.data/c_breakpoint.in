@@ -1,48 +1,85 @@
-16: maint set sync on
-19: # launch 3 instances of the application
-20: launch $a{3}   bd_dt/c/c_type_test.x
+1: maint set sync on
+2: # launch 3 instances of the application
+3: launch $a{3}   bd_dt/c/c_type_test.x
 Starting application, please wait...
+Launched application...
+0/3 ranks connected... (timeout in 299 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:58
-23: # Set a breakpoint at specified line numbers:
-24: break c_type_test.c:198
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 198.
-26: break c_type_test.c:228
-a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 228.
-29: # Run to breakpoint 1:
-30: continue
-<$a>: Hello World! from process 0
-<$a>: Hello World! from process 1
-<$a>: Hello World! from process 2
-<$a>: Hello World! from process 3
-<$a>: Hello World! from process 4
-<$a>: Hello World! from process 5
-a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:198
-32: #list breakpoints
-33: info breakpoint
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:58
+4: # Set a breakpoint at specified line numbers:
+5: break c_type_test.c:198
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c, line 198.
+6: break c_type_test.c:219
+a{0..2}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c, line 219.
+7: # Run to breakpoint 1:
+8: continue
+a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+9: #list breakpoints
+10: info breakpoint
 Procset         Num Type           Disp Enb What
-a{0..2}         1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:198
-a{0..2}         2   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:228
-35: # Test disable command
-36: disable 2
-38: #test has breakpoint 3 been disabled?
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+11: # Test disable command
+12: disable 2
+13: #test has breakpoint 2 been disabled?
+14: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep n   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+15: # set breakpoint 3 and ignore it
+16: b 204
+a{0..2}: Breakpoint 3: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c, line 204.
+17: ignore 3 4
+18: c
+a{0..2}: Breakpoint 3, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:204
+19: p ii
+a{0..2}: 4
+20: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep n   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+a{0..2}         3   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:204
+21: # delete the breakpoint
+22: del 3
+23: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep n   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+24: # Test enable command
+25: enable 2  
+26: #has breakpoint 3 been enabled?
+27: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+28: # make sure we now stop at the enabled breakpoint
+29: c
+a{0..2}: Breakpoint 2, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+30: p ii
+a{0..2}: 4
+31: p jj
+a{0..2}: 0
+32: p kk
+a{0..2}: 0
+33: c
+a{0..2}: Breakpoint 2, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+34: p kk
+a{0..2}: 1
+35: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+37: delete 2 
+38: #has breakpoint 2 been deleted?
 39: info breakpoint
 Procset         Num Type           Disp Enb What
-a{0..2}         1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:198
-a{0..2}         2   breakpoint     keep n   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:228
-41: # Test enable command
-42: enable 2  
-44: #has breakpoint 3 been enabled?
-45: info breakpoint
-Procset         Num Type           Disp Enb What
-a{0..2}         1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:198
-a{0..2}         2   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:228
-47: # Test delete command.  This will delete a specified breakpoint in the breakpoint list
-48: delete 2 
-50: #has breakpoint 3 been deleted?
-51: info breakpoint
-Procset         Num Type           Disp Enb What
-a{0..2}         1   breakpoint     keep y   in main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:198
-54: #exit lgdb
-55: q
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+40: # we should now hit no more breakpoints
+41: c
+a{0..2}: The application has reached an exit breakpoint.
+42: #exit gdb4hpc
+43: q
 Shutting down debugger and killing application for 'a'.

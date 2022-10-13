@@ -569,6 +569,36 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+static int cmd_ignore_cmd(rec_set_t *rec_set, int argc, char **argv) {
+
+    if (argc != 3) {
+        PrintOutError("Arguments required <breakpoint-number> <ignore-count>.\n");
+        return 0;
+    }
+
+    char* ep;
+    int bp_id = strtol(argv[1], &ep, 10);
+    if (bp_id <= 0 || *ep) {
+        PrintOutError("Invalid breakpoint number %s.\n", argv[1]);
+        return 0;
+    }
+    int n = strtol(argv[2], &ep, 10);
+    if (n < 0 || *ep) {
+        PrintOutError("Invalid ignore count %s.\n", argv[2]);
+        return 0;
+    }
+
+    // The dbg_client layer handles all the of the details here
+    if (auto rep_set = DbgIgnoreBreak(rec_set, bp_id, n)) {
+        ProcessErrorInRepSet(rep_set);
+        FreeRepSet(rep_set);
+        return 0;
+    }
+
+    return 1;
+}
+
+
 static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     if (Client.MI_mode && !rec_set) {
@@ -670,9 +700,9 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
         for (const auto &bpset : recv_ptr->rec_di.breakpoints()) {
             if (bid > 0 && bpset.id() != bid) continue;
 
-            auto group = bitset::fromAnd(*bpset.ranksSet(), *recv_ptr->rec_group);
+            auto ranks = bitset::fromAnd(*bpset.ranksSet(), *recv_ptr->rec_group);
 
-            if (group->isEmpty()) {
+            if (ranks->isEmpty()) {
                 continue;
             }
 
@@ -680,218 +710,87 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
             if (!bpset.threadId().empty())
                 bpThread = " thread " + bpset.threadId();
 
-            // The info we print is dependent on the type of breakpoint and the
-            // enabled/disabled setting and disposition
-            switch (bpset.type()) {
-                case DBGBP_WATCH_TYPE:
-                case DBGBP_AWATCH_TYPE:
-                case DBGBP_RWATCH_TYPE:
-                case DBGBP_CATCH_TYPE:
-                    // loop over the disposition list
-                    for (const auto &disp_set : bpset.dispSetList()) {
-                        auto disp_group = bitset::fromAnd(*disp_set.group, *group);
-                        auto enabled_group =
-                            bitset::fromAnd(*bpset.enabledSet(), *disp_group);
+            // loop over the disposition list
+            for (const auto &disp_set : bpset.dispSetList()) {
+                auto disp_group = bitset::fromAnd(*disp_set.group, *ranks);
+                auto enabled_group =
+                    bitset::fromAnd(*bpset.enabledSet(), *disp_group);
 
-                        if (!enabled_group->isEmpty()) {
-                            // First print out watchpoints that are enabled
-                            auto expression = std::ostringstream{};
-                            expression << bpset.watchExpression() << bpThread;
+                auto disabled_group = disp_group->clone();
+                *disabled_group -= *enabled_group;
 
-                            if (Client.MI_mode){
-                                addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
-                                    BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
-                                    bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
-                                    "");
-                            }else{
-                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                    enabled_group.get(), std::to_string(bpset.id()), 
-                                    BPTypeToStr(bpset.type()), 
-                                    BPDispToStr(disp_set.disp), 
-                                    "y", expression.str());
-                            }
-                        }
+                for (auto isEnabled = 2; isEnabled--; ) {
+                    const auto* group = isEnabled ? enabled_group.get() : disabled_group.get();
+                    if (group->isEmpty()) continue;
 
-                        // Compute the disabled set
-                        enabled_group->invert();
-                        auto disabled_group = bitset::fromAnd(*enabled_group, *disp_group);
+                    auto enabled = std::string{isEnabled ? "y" : "n"};
+                    
+                    // The info we print is dependent on the type of breakpoint and the
+                    // enabled/disabled setting and disposition
+                    switch (bpset.type()) {
+                    case DBGBP_WATCH_TYPE:
+                    case DBGBP_AWATCH_TYPE:
+                    case DBGBP_RWATCH_TYPE:
+                    case DBGBP_CATCH_TYPE:
 
-                        if (!disabled_group->isEmpty()) {
-                            // Next print out watchpoints that are disabled
-                            auto expression = std::ostringstream{};
-                            expression << bpset.watchExpression() << bpThread;
-
-                            if (Client.MI_mode){
-                                addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
-                                    BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
-                                    bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
-                                    "");
-                            }else{
-                                printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                    disabled_group.get(), std::to_string(bpset.id()), 
-                                    BPTypeToStr(bpset.type()), 
-                                    BPDispToStr(disp_set.disp), 
-                                    "n", expression.str());
-                            }
-                        }
-                    }
-                    break;
-
-                case DBGBP_BREAK_TYPE:
-                default:
-                    // loop over the disposition list
-                    for (const auto &disp_set : bpset.dispSetList()) {
-                        auto disp_group = bitset::fromAnd(*disp_set.group, *group);
-                        auto enabled_group =
-                            bitset::fromAnd(*bpset.enabledSet(), *disp_group);
-
-                        if (bpset.isPending()) {
-                            if (!enabled_group->isEmpty()) {
-                                // First print out breakpoints that are enabled
-                                auto location = std::ostringstream{};
-                                location << "at " << bpset.statement() << bpThread << " <PENDING>";
-
-                                if (Client.MI_mode){
-                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
-                                        BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
-                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
-                                        "");
-                                }else{
-                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                        enabled_group.get(), std::to_string(bpset.id()), 
-                                        BPTypeToStr(bpset.type()), 
-                                        BPDispToStr(disp_set.disp), 
-                                        "y", location.str());
-                                }
-                            }
-
-                            // Compute the disabled set
-                            enabled_group->invert();
-                            auto disabled_group =
-                                bitset::fromAnd(*enabled_group, *disp_group);
-
-                            if (!disabled_group->isEmpty()) {
-                                // Next print out breakpoints that are disabled
-                                auto location = std::ostringstream{};
-                                location << "at " << bpset.statement() << bpThread << " <PENDING>";
-
-                                if (Client.MI_mode){
-                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
-                                        BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
-                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
-                                        "");
-                                }else{
-                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                        disabled_group.get(), std::to_string(bpset.id()), 
-                                        BPTypeToStr(bpset.type()), 
-                                        BPDispToStr(disp_set.disp), 
-                                        "n", location.str());
-                                }
-                            }
-                        }
-                        else if (bpset.line() > 0) {
-                            if (!enabled_group->isEmpty()) {
-                                // First print out breakpoints that are enabled
-                                auto location = std::ostringstream{};
-                                location << "in " << bpset.function() << " at "
-                                         << bpset.file() << ":" << bpset.line() << bpThread;
-                                if (Client.MI_mode){
-                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
-                                        BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
-                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
-                                        std::to_string(bpset.line()));
-                                } else{
-                                    printTableEntry(recv_ptr->rec_di.handle().c_str(),
-                                                    enabled_group.get(), std::to_string(bpset.id()), 
-                                                    BPTypeToStr(bpset.type()), 
-                                                    BPDispToStr(disp_set.disp), 
-                                                    "y", location.str());
-                                }
-                            }
-
-                            // Compute the disabled set
-                            enabled_group->invert();
-                            auto disabled_group =
-                                bitset::fromAnd(*enabled_group, *disp_group);
-
-                            if (!disabled_group->isEmpty()) {
-                                // Next print out breakpoints that are disabled
-                                auto location = std::ostringstream{};
-                                location << "in " << bpset.function() << " at "
-                                         << bpset.file() << ":" << bpset.line() << bpThread;
-                                if (Client.MI_mode){
-                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
-                                        BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
-                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
-                                        std::to_string(bpset.line()));
-                                }else{
-                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                        disabled_group.get(), std::to_string(bpset.id()), 
-                                        BPTypeToStr(bpset.type()), 
-                                        BPDispToStr(disp_set.disp), 
-                                        "n", location.str());
-                                }
-                            }
+                        if (Client.MI_mode) {
+                            addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                       BPDispToStr(disp_set.disp),enabled,
+                                       bpset.function(),
+                                       bpset.file().c_str(),
+                                       recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                       "");
                         } else {
-                            if (!enabled_group->isEmpty()) {
-                                // First print out breakpoints that are enabled
-                                auto location = std::ostringstream{};
-                                location << "in " << bpset.function() << bpThread;
+                            auto expression = std::ostringstream{};
+                            expression << bpset.watchExpression() << bpThread;
 
-                                if (Client.MI_mode){
-                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
-                                        BPDispToStr(disp_set.disp),"y",bpset.function().c_str(),
-                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
-                                        "");
-                                }else{
-                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                        enabled_group.get(), std::to_string(bpset.id()), 
-                                        BPTypeToStr(bpset.type()), 
-                                        BPDispToStr(disp_set.disp),
-                                        "y", location.str());
-                                }
-                            }
-
-                            // Compute the disabled set
-                            enabled_group->invert();
-                            auto disabled_group =
-                                bitset::fromAnd(*enabled_group, *disp_group);
-
-                            if (!disabled_group->isEmpty()) {
-                                // Next print out breakpoints that are disabled
-                                auto location = std::ostringstream{};
-                                location << "in " << bpset.function() << bpThread;
-
-                                if (Client.MI_mode){
-                                    addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
-                                        BPDispToStr(disp_set.disp),"n",bpset.function().c_str(),
-                                        bpset.file().c_str(),recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
-                                        "");
-                                }else{
-                                    printTableEntry(recv_ptr->rec_di.handle().c_str(), 
-                                        disabled_group.get(), std::to_string(bpset.id()), 
-                                        BPTypeToStr(bpset.type()), 
-                                        BPDispToStr(disp_set.disp), 
-                                        "n", location.str());
-                                }
-                            }
+                            printTableEntry(recv_ptr->rec_di.handle().c_str(), 
+                                            enabled_group.get(), std::to_string(bpset.id()), 
+                                            BPTypeToStr(bpset.type()), 
+                                            BPDispToStr(disp_set.disp), 
+                                            enabled, expression.str());
                         }
-                    }
-                    break;
-            }
+                        break;
 
+                    case DBGBP_BREAK_TYPE:
+                    default:
+                        if (Client.MI_mode) {
+                            addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
+                                       BPDispToStr(disp_set.disp),enabled,bpset.function(),
+                                       bpset.file(),
+                                       recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                       std::to_string(bpset.line()));
+                        } else {
+                            auto location = std::ostringstream{};
+                            if (bpset.isPending()) {
+                                location << "at " << bpset.statement() << bpThread << " <PENDING>";
+                            } else if (bpset.line() > 0) {
+                                location << "in " << bpset.function() << " at "
+                                         << bpset.file() << ":" << bpset.line() << bpThread;
+                            } else {
+                                location << "in " << bpset.function() << bpThread;
+                            }
+                            printTableEntry(recv_ptr->rec_di.handle().c_str(), 
+                                            group, std::to_string(bpset.id()), 
+                                            BPTypeToStr(bpset.type()), 
+                                            BPDispToStr(disp_set.disp),
+                                            enabled, location.str());
+                        }
+                        break;
+                    } // switch (bpset.type)
+                } // for (isEnabled)
+            }
             if (bid >= 0 && bpset.id() == bid) break;
-        }
+        } // for (const auto &bpset : recv_ptr->rec_di.breakpoints())
 
         if (Client.MI_mode){
-            if (ss.str().empty()){
-                ss<<"[";
-            }
+            if (!ss.tellp()) ss<<"[";
             ss<<"]}";
             PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", BreakpointTable={body=%s\n%s",
                              recv_ptr->rec_di.handle().c_str(),ss.str().c_str(), GetMIEpilogue());
         }
-    }
+
+    } // for (auto&& recv_ptr : rec_set) {
 
     return 1;
 }
@@ -957,6 +856,8 @@ void InitCmd_break(void) {
                cmd_disable_help, "Disable a breakpoint.");
     AddCommand("enable", nullptr, proc_required, 0, cmd_enable_cmd,
                cmd_enable_help, "Enable a breakpoint.");
+    AddCommand("ignore", nullptr, proc_required, 0, cmd_ignore_cmd,
+               cmd_ignore_help, "Ignore a breakpoint a number of times.");
     AddCommand("tbreak", nullptr, proc_required, 0, cmd_tbreak_cmd,
                cmd_tbreak_help,
                "Set a temporary breakpoint at specified line or function.");

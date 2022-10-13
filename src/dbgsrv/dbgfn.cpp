@@ -193,6 +193,11 @@ dbgevent_t *DbgEnableBreak(int bp, bool once, bool del) {
     return DbgBackendSW->enableBreak(bp, once, del);
 }
 
+dbgevent_t *DbgIgnoreBreak(int bp, int n) {
+    DBG_READY();
+    return DbgBackendSW->ignoreBreak(bp, n);
+}
+
 dbgevent_t *DbgLastBreak(void) {
     DBG_READY();
     return DbgBackendSW->lastBreak();

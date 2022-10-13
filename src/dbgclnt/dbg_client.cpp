@@ -2818,6 +2818,7 @@ rep_set_t *DbgShell(rec_set_t* recSet, int argc, char **argv){
     auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_STRING);
     return result;
 }
+
 /*
 ** DBG_DELETEBREAK: Delete a breakpoint.
 */
@@ -2952,10 +2953,14 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
     return result;
 }
 
-/*
-** DBG_DISABLEBREAK: Disable a breakpoint.
-*/
-rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
+// Apply a modifying operation to a breakpoint, or possible all breakpoints
+// 
+static rep_set_t* DbgModifyBreak(
+    rec_set_t *set,
+    int bp_set_num,
+    const std::function<std::string(int)>& makeRequest,  // it is the (backend)  bp-id
+    const std::function<void(MappedBreakpoint&,const Bitset*)>& updateBPs) {
+
     if (!set) return nullptr;
 
     rep_set_t *result = nullptr;
@@ -2979,8 +2984,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                     }
 
                     // Create the request for this group
-                    auto request =
-                        CommandToSocProto(DBGCMD_DISABLEBREAK, id_set.id);
+                    auto request = makeRequest(id_set.id);
 
                     // Create the new rec set for this group
                     auto new_rec_set = NewRecSet();
@@ -2992,8 +2996,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                     // We expect this to return nullptr on success, handle the case
                     // were things worked
                     if (tmp_result == nullptr) {
-                        // mark the breakpoint as enabled for this group
-                        bp_set.markDisabled(group.get());
+                        updateBPs(bp_set, group.get());
                     }
 
                     // Add this to the overall result
@@ -3009,10 +3012,10 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                 }
             }
         } else {
-            MappedBreakpoint *bp_set;
+            auto bp_set = recv_ptr->rec_di.breakpoints().findByLogicalID(bp_set_num);
 
             // find the bp_set for the bp_set_num
-            if ((bp_set = recv_ptr->rec_di.breakpoints().findByLogicalID(bp_set_num)) == nullptr) {
+            if (!bp_set) {
                 // Error case: the provided bp_set_num does not exist
                 dbgevent_t *e;
 
@@ -3043,8 +3046,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                 }
 
                 // Create the request for this group
-                auto request =
-                    CommandToSocProto(DBGCMD_DISABLEBREAK, id_set.id);
+                auto request = makeRequest(id_set.id);
 
                 // Create the new rec set for this group
                 auto new_rec_set = NewRecSet();
@@ -3056,8 +3058,8 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
                 // We expect this to return nullptr on success, handle the case
                 // were things worked
                 if (tmp_result == nullptr) {
-                    // mark the breakpoint as disabled for this group
-                    bp_set->markDisabled(group.get());
+                    // mark the breakpoint as changed for this group
+                    updateBPs(*bp_set, group.get());
                 }
 
                 // Add this to the overall result
@@ -3074,143 +3076,48 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 
     return result;
 }
+    
+/*
+** DBG_DISABLEBREAK: Disable a breakpoint.
+*/
+rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
+    auto makeRequest = [](int id) { return CommandToSocProto(DBGCMD_DISABLEBREAK, id); };
+    auto disableBP = [](MappedBreakpoint& bp_set, const Bitset* group) { bp_set.markDisabled(group); };
+
+    return DbgModifyBreak(set, bp_set_num, makeRequest, disableBP);
+}
 
 /*
 ** DBG_ENABLEBREAK: Enable a breakpoint.
 */
 rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
-    if (!set) return nullptr;
-
-    rep_set_t *result = nullptr;
-
-    // if bp_set_num is 0, we want this to apply to every breakpoint associated
-    // with each dbginvoke_t
-    for (auto&& recv_ptr : set) {
-        if (bp_set_num == 0) {
-            for (auto &bp_set : recv_ptr->rec_di.breakpoints()) {
-                // We send the command to the backend based on the backend gdb
-                // id. Loop over this list
-                for (const auto &id_set : bp_set.idSetList()) {
-                    // Get the new group, based on the intersection between the
-                    // bp_set and the rec_set.
-                    auto group = bitset::fromAnd(*id_set.group, *recv_ptr->rec_group);
-
-                    // Ensure that there are ranks in the bitset, otherwise
-                    // continue
-                    if (group->isEmpty()) {
-                        continue;
-                    }
-
-                    // Create the request for this group
-                    auto request = CommandToSocProto(DBGCMD_ENABLEBREAK,
-                                                id_set.id, once, del);
-
-                    // Create the new rec set for this group
-                    auto new_rec_set = NewRecSet();
-                    AddReceiverToSet(new_rec_set, NewGroupReceiver(recv_ptr->rec_di, group.get()));
-
-                    auto tmp_result =
-                        DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
-
-                    // We expect this to return nullptr on success, handle the case
-                    // were things worked
-                    if (tmp_result == nullptr) {
-                        // mark the breakpoint as enabled for this group
-                        bp_set.markEnabled(group.get());
+    auto makeRequest = [once, del](int id) {
+                           return CommandToSocProto(DBGCMD_ENABLEBREAK, id, once, del); };
+    auto enableBP = [once, del](MappedBreakpoint& bp_set, const Bitset* group) {
+                        bp_set.markEnabled(group);
                         // Set the disposition for this group
                         if (once) {
-                            bp_set.markDisposition(group.get(), DBGBP_DISABLE_DISP);
+                            bp_set.markDisposition(group, DBGBP_DISABLE_DISP);
                         } else if (del) {
-                            bp_set.markDisposition(group.get(), DBGBP_DELETE_DISP);
+                            bp_set.markDisposition(group, DBGBP_DELETE_DISP);
                         }
-                    }
+                    };
 
-                    // Add this to the overall result
-                    if (result == nullptr) {
-                        result = tmp_result;
-                    } else {
-                        if (tmp_result != nullptr) {
-                            result = MergeRepSet(result, tmp_result);
-                        }
-                    }
-
-                    FreeRecSet(new_rec_set);
-                }
-            }
-        } else {
-            MappedBreakpoint *bp_set;
-
-            // find the bp_set for the bp_set_num
-            if ((bp_set = recv_ptr->rec_di.breakpoints().findByLogicalID(bp_set_num)) == nullptr) {
-                // Error case: the provided bp_set_num does not exist
-                dbgevent_t *e;
-
-                // Create a new error event
-                EVENT_ERROR(e, DBGERR_DEBUGGER, "No breakpoint number %d.\n",
-                            bp_set_num);
-                // Add the event to the result based on its type
-                auto group_rep =
-                    NewGroupReply(recv_ptr->rec_di.handle(), recv_ptr->rec_group->clone(), e);
-                // Create a new result and return it
-                if (result == nullptr) {
-                    result = NewRepSet();
-                }
-                AddErrToSet(result, group_rep);
-                continue;
-            }
-
-            // Need to loop over the idSetList() to operate on the correct
-            // breakpoint number in the backend
-            for (const auto &id_set : bp_set->idSetList()) {
-                // Get the new group, based on the intersection between the
-                // bp_set and the rec_set.
-                auto group = bitset::fromAnd(*id_set.group, *recv_ptr->rec_group);
-
-                // Ensure that there are ranks in the bitset, otherwise continue
-                if (group->isEmpty()) {
-                    continue;
-                }
-
-                // Create the request for this group
-                auto request = CommandToSocProto(DBGCMD_ENABLEBREAK, id_set.id,
-                                            once, del);
-
-                // Create the new rec set for this group
-                auto new_rec_set = NewRecSet();
-                AddReceiverToSet(new_rec_set, NewGroupReceiver(recv_ptr->rec_di, group.get()));
-
-                auto tmp_result =
-                    DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK);
-
-                // We expect this to return nullptr on success, handle the case
-                // were things worked
-                if (tmp_result == nullptr) {
-                    // mark the breakpoint as enabled for this group
-                    bp_set->markEnabled(group.get());
-                    // Set the disposition for this group
-                    if (once) {
-                        bp_set->markDisposition(group.get(), DBGBP_DISABLE_DISP);
-                    } else if (del) {
-                        bp_set->markDisposition(group.get(), DBGBP_DELETE_DISP);
-                    }
-                }
-
-                // Add this to the overall result
-                if (result == nullptr) {
-                    result = tmp_result;
-                } else {
-                    if (tmp_result != nullptr) {
-                        result = MergeRepSet(result, tmp_result);
-                    }
-                }
-
-                FreeRecSet(new_rec_set);
-            }
-        }
-    }
-
-    return result;
+    return DbgModifyBreak(set, bp_set_num, makeRequest, enableBP);
 }
+
+/*
+** DBG_IGNOREBREAK: Set an ignore count on a breakpoint
+*/
+rep_set_t *DbgIgnoreBreak(rec_set_t *set, int bp_set_num, int n) {
+    auto makeRequest = [n](int id) {
+                           return CommandToSocProto(DBGCMD_IGNOREBREAK, id, n); };
+    auto ignoreBP = [n](MappedBreakpoint& bp_set, const Bitset* group) {
+                        // not marking it locally yet
+                    };
+    return DbgModifyBreak(set, bp_set_num, makeRequest, ignoreBP);
+}
+    
 
 /*
 ** DBG_LIST: List specified function or line.

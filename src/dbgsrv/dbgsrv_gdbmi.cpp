@@ -741,6 +741,26 @@ dbgevent_t *DbgGdbMI::enableBreak(int bid, bool once, bool del) {
     return NewEvent(DBGEV_OK);
 }
 
+// ignore the next n occurrences of a breakpoint 
+dbgevent_t *DbgGdbMI::ignoreBreak(int bid, int n) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+
+    auto bidStr = std::to_string(bid);
+    auto nStr = std::to_string(n);
+
+    const char* cmd_args[3] = { "ignore", bidStr.c_str(), nStr.c_str() };
+    auto cmd = CLIBypassc(3, cmd_args);
+
+    SendMICommand(GDBMISession, cmd);
+    if (!MICommandResultOK(cmd)) {
+        MICommandFree(cmd);
+        return NewErrorEvent(DBGERR_DEBUGGER, "Ignore breakpoint failed.");
+    }
+
+    MICommandFree(cmd);
+    return NewEvent(DBGEV_OK);
+}
+
 /*
 ** Return id of last breakpoint to be hit.
 */

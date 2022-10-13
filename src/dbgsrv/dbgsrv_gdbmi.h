@@ -37,6 +37,7 @@ public:
     virtual dbgevent_t *deleteBreak(int bid) override;
     virtual dbgevent_t *disableBreak(int bid) override;
     virtual dbgevent_t *enableBreak(int bid, bool once, bool del) override;
+    virtual dbgevent_t *ignoreBreak(int bid, int n) override;
     virtual dbgevent_t *lastBreak() override;
     virtual dbgevent_t *list(const char *str) override;
     virtual dbgevent_t *getSources() override;

@@ -125,6 +125,13 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             break;
         }
 
+        case DBGCMD_IGNOREBREAK: {
+            int bpid, n;
+            is.get(bpid, n);
+            e = DbgIgnoreBreak(bpid, n);
+            break;
+        }
+
         case DBGCMD_LASTBREAK: {
             e = DbgLastBreak();
             break;

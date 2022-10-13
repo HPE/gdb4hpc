@@ -312,6 +312,16 @@ const char* const cmd_enable_help[] = {
     "to be disabled when it is hit.",
     0};
 
+const char* const cmd_ignore_help[] = {
+    "Summary: ignore next n triggers of a breakpoint.",
+    "Usage: ignore <breakpoint> <count>",
+    "Example command: ignore 1 100",
+    "",
+    "Ignore the next count occurrences of breakpoint <breakpoint>.",
+    "Using count 0 will stop the program the next time the breakpoint",
+    "is hit.",
+    0};
+
 const char* const cmd_finish_help[] = {
     "Summary: Finish function execution command.",
     "Usage: finish",

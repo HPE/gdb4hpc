@@ -23,6 +23,7 @@ frame           Print the currently selected stack frame.
 gdbmode         Enter direct gdb mode (experimental).
 halt            Halt execution of attached/launched application.
 help            Display help information about commands.
+ignore          Ignore a breakpoint a number of times.
 info            Display information about the application being debugged.
 kill            Kill attached/launched application.
 launch          Launch an application.

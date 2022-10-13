@@ -38,6 +38,7 @@ extern const char* const cmd_focus_help[];
 extern const char* const cmd_frame_help[];
 extern const char* const cmd_halt_help[];
 extern const char* const cmd_help_help[];
+extern const char* const cmd_ignore_help[];
 extern const char* const cmd_launch_help[];
 extern const char* const cmd_run_help[];
 extern const char* const cmd_kill_help[];

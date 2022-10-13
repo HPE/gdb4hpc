@@ -39,6 +39,7 @@ public:
     virtual dbgevent_t *deleteBreak(int bid) = 0;
     virtual dbgevent_t *disableBreak(int bid) = 0;
     virtual dbgevent_t *enableBreak(int bid, bool once, bool del) = 0;
+    virtual dbgevent_t *ignoreBreak(int bid, int n) = 0;
     virtual dbgevent_t *lastBreak() = 0;
     virtual dbgevent_t *list(const char *str) = 0;
     virtual dbgevent_t *getSources() = 0;
@@ -118,6 +119,7 @@ extern dbgevent_t *DbgDeleteCheckpoint(unsigned int id);
 extern dbgevent_t *DbgDeleteBreak(int);
 extern dbgevent_t *DbgDisableBreak(int);
 extern dbgevent_t *DbgEnableBreak(int, bool, bool);
+extern dbgevent_t *DbgIgnoreBreak(int, int);
 extern dbgevent_t *DbgShowBreak(void);
 extern dbgevent_t *DbgLastBreak(void);
 extern dbgevent_t *DbgList(const char *);

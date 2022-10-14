@@ -8,7 +8,6 @@
 # no part of this work or its content may be used, reproduced or disclosed
 # in any form.
 #
-
 AC_PREREQ([2.63])
 
 AC_INIT([gdb4hpc], m4_esyscmd([source $PWD/release_versioning; echo $major.$minor | tr -d '\n']),[john.leroy.vogt@hpe.com])
@@ -107,6 +106,9 @@ AC_ARG_ENABLE(doctest, "Controls compilation of unit tests in binary.",
     fi,
     AC_DEFINE([DOCTEST_CONFIG_DISABLE], [1], [If defined, all doctest material is removed from the binary.])
 )
+
+dnl Put doctest.h into build directory. This simplifies what test writers have to #include
+AC_CONFIG_LINKS([src/unittest/doctest.h:$doctest_root/doctest/doctest.h])
 
 dnl Check for --with-gdbmi
 AC_ARG_WITH([gdbmi],
@@ -489,6 +491,7 @@ fi
 AC_CONFIG_FILES([
 	Makefile
 	src/Makefile
+	src/unittest/Makefile
 	src/bitset/Makefile
 	src/filters/Makefile
 	src/filters/mrnet/Makefile

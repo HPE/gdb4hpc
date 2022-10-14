@@ -13,12 +13,9 @@
  *
  *********************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
 #include "args.h"
-#include "doctest.h"
+
+#include "unittest_macros.h"
 
 TEST_CASE("ArgsToBuf") {
     char* hello = strdup("hello");

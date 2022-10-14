@@ -2,12 +2,8 @@
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
 #include "socstream.h"
-#include "doctest.h"
+#include "unittest_macros.h"
 
 #include <cstring>
 #include <limits>

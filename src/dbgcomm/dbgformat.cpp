@@ -27,7 +27,7 @@
 #include "defs.h"
 #include "useful.h"
 
-#include "doctest.h"
+#include "unittest_macros.h"
 
 TEST_CASE("EventToSocProto/SocProtoToEvent") {
     SUBCASE("DBGEV_NONE") {

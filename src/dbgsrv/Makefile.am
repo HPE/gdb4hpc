@@ -4,9 +4,9 @@ DBGCOMM	= @gdb4hpc_srcdir@/dbgcomm
 MRNET_ROOT	= @mrn_root@
 BITSET  = @gdb4hpc_srcdir@/bitset
 ZMQNET_ROOT  = @zmqnet_root@
-TESTS_ROOT   = @doctest_root@/doctest
+UNITTEST   = @gdb4hpc_srcdir@/unittest
 
-AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(TESTS_ROOT)
+AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(UNITTEST)
 AM_LIBTOOLFLAGS = --silent
 
 ######################
@@ -51,8 +51,11 @@ endif
 dbgsrv_trampoline_SOURCES = dbgsrv_trampoline.c
 dbgsrv_trampoline_LDFLAGS = -O0
 
-dbgsrv_alps_LDADD	= $(USEFUL)/libuseful.a $(CRAYTOOL_LIBS) $(DBGCOMM)/libdbg.a
-dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
+dbgsrv_alps_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(USEFUL)/libuseful.a $(CRAYTOOL_LIBS) \
+					  $(DBGCOMM)/libdbg.a
+dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
+					  -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 \
+					  -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
 endif
 
 ################
@@ -61,7 +64,10 @@ endif
 
 libexec_PROGRAMS= dbgsrv $(CRAY_PROGS) dbgsrv_trampoline
 dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp \
-		$(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
-dbgsrv_LDADD	= $(USEFUL)/libuseful.a $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
-		$(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) -lm $(CRAYTOOL_LIBS) -lstdc++ -lstdc++fs -lpthread
-dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
+				  $(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
+dbgsrv_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(USEFUL)/libuseful.a $(GRAM)/libgram.a \
+				  $(DBGCOMM)/libdbg.a $(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) -lm \
+				  $(CRAYTOOL_LIBS) -lstdc++ -lstdc++fs -lpthread
+dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
+				  -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 \
+				  -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags

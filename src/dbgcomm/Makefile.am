@@ -3,9 +3,9 @@ GRAM	= @gdb4hpc_srcdir@/gram
 MRNET_ROOT	= @mrn_root@
 SDM	    = @gdb4hpc_srcdir@/sdm
 ZMQNET_ROOT  = @zmqnet_root@
-TESTS_ROOT = @doctest_root@/doctest
+UNITTEST = @gdb4hpc_srcdir@/unittest
 
-AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM) -I$(TESTS_ROOT)
+AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM) -I$(UNITTEST)
 AM_LIBTOOLFLAGS = --quiet
 
 #################################
@@ -36,4 +36,5 @@ endif
 ##############################
 
 noinst_LIBRARIES = libdbg.a
-libdbg_a_SOURCES = dbgbp.cpp dbgevent.cpp dbgformat.cpp AIFStream.cpp ais.cpp unit_tests.cpp $(ZMQNET_FILES) socstream.cpp
+libdbg_a_SOURCES = dbgbp.cpp dbgevent.cpp dbgformat.cpp AIFStream.cpp ais.cpp \
+				   $(ZMQNET_FILES) socstream.cpp

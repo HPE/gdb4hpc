@@ -17,8 +17,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#define DOCTEST_CONFIG_IMPLEMENT
-#include "doctest.h"
+#include "unittest_drivers.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -44,7 +43,6 @@
 #include "client.h"
 #include "script_client.h"
 #include "useful.h"
-#include "unit_tests.h"
 
 /*
  * External Global Variables

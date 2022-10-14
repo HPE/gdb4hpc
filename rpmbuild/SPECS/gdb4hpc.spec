@@ -93,6 +93,7 @@
 %global privlibs %{privlibs}|libzmqnet.*
 %global privlibs %{privlibs}|libzmqnetagg.*
 %global privlibs %{privlibs}|libstdc++.*
+%global privlibs %{privlibs}|libgdb4_unittest.*
 %global __requires_exclude ^(%{privlibs})\\.so*
 %global __provides_exclude ^(%{privlibs})\\.so*
 
@@ -181,6 +182,7 @@ Tests for Cray gdb4hpc parallel debugger
 
 # Libraries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_unittest.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libbitset.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libdbgagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libmi.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
@@ -586,6 +588,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc_scripts
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{release_info_name}
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{attributions_name}
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_unittest.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libdbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libmi.so

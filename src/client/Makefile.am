@@ -6,9 +6,10 @@ MRNET_ROOT	= @mrn_root@
 BITSET	= @gdb4hpc_srcdir@/bitset
 SCRIPT	= @gdb4hpc_srcdir@/script
 ZMQNET_ROOT  = @zmqnet_root@
-TESTS_ROOT   = @doctest_root@/doctest
+UNITTEST     = @gdb4hpc_srcdir@/unittest
 
-AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM) -I$(BITSET) -I$(SCRIPT) -I$(TESTS_ROOT)
+AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM) \
+			  -I$(BITSET) -I$(SCRIPT) -I$(UNITTEST)
 AM_LIBTOOLFLAGS = --quiet
 
 #################################
@@ -52,7 +53,10 @@ gdb4hpc_SOURCES	= main.cpp class_cmd.cpp cli_funcs.cpp cmd.cpp help_dict.cpp cmd
 		  cmd_comp.cpp cmd_env.cpp cmd_frame.cpp cmd_func.cpp cmd_go.cpp cmd_list.cpp cmd_print.cpp cmd_proc.cpp \
 		  cmd_procset.cpp cmd_source.cpp cmd_step.cpp cmd_thread.cpp cmd_whatis.cpp cli_readline.cpp cli_socket.cpp cli_file.cpp \
 		  cmd_passthru.cpp cmd_script.cpp cmd_blockmap.cpp compare_util.cpp mi_funcs.cpp
-gdb4hpc_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/gcc-libs -Wl,--enable-new-dtags
-gdb4hpc_LDADD	= $(GUARD_RD_LIBS) $(GRAM)/libgram.a $(DBGCLNT)/libdbgclnt.a \
-		  $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
-		  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(ZMQN_LIBS) $(MI_LIBS) $(SSH2_LIBS) $(BITSET)/libbitset.la -lm -lstdc++ -lstdc++fs -lpthread
+gdb4hpc_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
+				  -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/gcc-libs \
+				  -Wl,--enable-new-dtags
+gdb4hpc_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(GUARD_RD_LIBS) $(GRAM)/libgram.a \
+				  $(DBGCLNT)/libdbgclnt.a $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
+				  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(ZMQN_LIBS) $(MI_LIBS) \
+				  $(SSH2_LIBS) $(BITSET)/libbitset.la -lm -lstdc++ -lstdc++fs -lpthread

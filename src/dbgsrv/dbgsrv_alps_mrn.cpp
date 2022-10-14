@@ -29,10 +29,8 @@
 #include "common_tools_be.h"
 #include "defs.h"
 #include "useful.h"
-#include "unit_tests.h"
 
-#define DOCTEST_CONFIG_IMPLEMENT
-#include "doctest.h"
+#include "unittest_drivers.h"
 
 #define DBGSRV "dbgsrv"
 #define PID_BUFSIZ 64

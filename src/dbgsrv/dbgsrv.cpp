@@ -44,10 +44,8 @@
 #include "defs.h"
 #include "mparch.h"
 #include "useful.h"
-#include "unit_tests.h"
 
-#define DOCTEST_CONFIG_IMPLEMENT
-#include "doctest.h"
+#include "unittest_drivers.h"
 
 #include "common_tools_be.h"
 

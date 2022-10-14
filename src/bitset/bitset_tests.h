@@ -8,12 +8,9 @@
 
 #include "bitset.h"
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-#include "doctest.h"
-
 #include <unordered_set>
+
+#include "unittest_macros.h"
 
 TEST_CASE_TEMPLATE_DEFINE("libbitset", BitsetT, libbitset) {
     const size_t SIZE = 128;

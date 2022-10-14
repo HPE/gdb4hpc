@@ -10,9 +10,9 @@
 # in any form.
 
 GUARD=@gdb4hpc_srcdir@
-TESTS_ROOT=@doctest_root@/doctest
+UNITTEST=@gdb4hpc_srcdir@/unittest
 
-AM_CXXFLAGS = -I$(GUARD) -I$(TESTS_ROOT)
+AM_CXXFLAGS = -I$(GUARD) -I$(UNITTEST)
 
 if MRNET
 MRNET_BITSETS = sparse_bitset.cpp bitset_convert.cpp
@@ -32,5 +32,5 @@ lib_LTLIBRARIES = libbitset.la
 AM_LIBTOOLFLAGS = --quiet
 
 libbitset_la_SOURCES 	= bitset.cpp dense_bitset.cpp $(MRNET_BITSETS) $(ZMQNET_BITSETS)
-libbitset_la_LDFLAGS	= $(LDFLAGS) $(ZMQNET_LDFLAG) -shared -avoid-version 
-libbitset_la_LIBADD     = $(ZMQNET_LIB)
+libbitset_la_LDFLAGS	= $(LDFLAGS) $(ZMQNET_LDFLAG) -shared -avoid-version
+libbitset_la_LIBADD     = $(ZMQNET_LIB) $(UNITTEST)/libgdb4_unittest.la

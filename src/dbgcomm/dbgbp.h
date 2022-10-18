@@ -41,7 +41,8 @@ typedef enum dbgbp_disp dbgbp_disp;
 class dbgcomm_info;
 
 struct dbgbp_t {
-    int bp_id;
+    int bp_fe_id;
+    int bp_be_id;
     int bp_ignore;
     int bp_deleted;
     int bp_enabled;
@@ -56,18 +57,17 @@ struct dbgbp_t {
     char *bp_stmt;
     char **bp_commands;
     dbgcomm_info *bp_comminfo;  // owned by this object
-    struct dbgbp_t *bp_next;
 };
 typedef struct dbgbp_t dbgbp_t;
 
-extern dbgbp_t *NewBP(int);
+extern dbgbp_t *NewBP(int feId, int beId);
 extern void DumpBP(dbgbp_t *bp);
 extern void CleanupBP(list_t *);
 extern void FreeBP(dbgbp_t *);
 extern dbgbp_t *DupBP(dbgbp_t *);
-extern void RemoveBP(list_t *, int);
+extern void RemoveBP(list_t *, int feId, int beId);
 extern dbgbp_t *FindBPByFunc(list_t *, char *);
-extern dbgbp_t *FindBPByID(list_t *, int);
+extern dbgbp_t *FindBPByID(list_t *, int feId, int beId);
 extern dbgbp_t *GenBPList(list_t *);
 extern const char *BPTypeToStr(dbgbp_type);
 extern const char *BPDispToStr(dbgbp_disp);

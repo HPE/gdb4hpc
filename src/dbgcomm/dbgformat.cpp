@@ -87,7 +87,8 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
 
             // basic types
             CHECK(e2->ev_event == type);
-            CHECK(bp2->bp_id == bp->bp_id);
+            CHECK(bp2->bp_fe_id == bp->bp_fe_id);
+            CHECK(bp2->bp_be_id == 0);
             CHECK(bp2->bp_enabled == bp->bp_enabled);
             CHECK(bp2->bp_disp == bp->bp_disp);
             CHECK(bp2->bp_type == bp->bp_type);
@@ -116,7 +117,7 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
             free(soc);
         };
 
-        auto bp = NewBP(7);
+        auto bp = NewBP(7,0);
 
         bp->bp_ignore = 1;
         bp->bp_deleted = 2; // This is never serialized
@@ -704,14 +705,14 @@ static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
 
         stres = MakeSocStr(ev,
                  "%d %d %d %d %d %d %s %d %d %d %d %s %d %s %d %s %d %d %s %d %s",
-                 be->bp_id, simplified, be->bp_pending, be->bp_ignore, be->bp_hits,
+                 be->bp_fe_id, simplified, be->bp_pending, be->bp_ignore, be->bp_hits,
                  (int)strlen(st_stmt), st_stmt, be->bp_enabled, be->bp_disp,
                  be->bp_type, (int)strlen(st_file), st_file,
                  (int)strlen(st_func), st_func, (int)strlen(st_addr), st_addr,
                            be->bp_loc.loc_line, (int)strlen(st_exp), st_exp,
                            strlen(threadId), threadId);
     } else {
-        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s %d %s", be->bp_id,
+        stres = MakeSocStr(ev,"%d %d %d %d %d %d %s %d %s %d %d %s %d %s", be->bp_fe_id,
                  simplified, be->bp_enabled, be->bp_disp, be->bp_type,
                  (int)strlen(st_file), st_file, (int)strlen(st_func), st_func,
                            be->bp_loc.loc_line, (int)strlen(st_exp), st_exp,
@@ -1142,7 +1143,7 @@ static dbgbp_t *SocProtoToBP(const char *s) {
     id = getint(s);
 
     // Create the new breakpoint
-    res = NewBP(id);
+    res = NewBP(id,0); // only the front-end id serialized
 
     // Get value of simplified
     simple = getint(s);
@@ -1175,8 +1176,6 @@ static dbgbp_t *SocProtoToBP(const char *s) {
         t = nullptr;
     }
     res->bp_threadId = t;
-
-    res->bp_next = (dbgbp_t *)NULL;
 
     // We should try to resolve the realpath of file on this end. If it fails,
     // we will use the original value.

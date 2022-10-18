@@ -141,26 +141,26 @@ dbgevent_t *DbgStartup(void) {
     return DbgBackendSW->startup();
 }
 
-dbgevent_t *DbgSetLineBreak(int allowPending, const char *file, int line,
+dbgevent_t *DbgSetLineBreak(int id, int allowPending, const char *file, int line,
                             const char* threadSet, const dbgcomm_info *ci) {
     DBG_READY();
-    return DbgBackendSW->setLineBreak(allowPending, file, line, threadSet, ci);
+    return DbgBackendSW->setLineBreak(id, allowPending, file, line, threadSet, ci);
 }
 
-dbgevent_t *DbgSetFuncBreak(int allowPending, const char *file, const char *func,
+dbgevent_t *DbgSetFuncBreak(int id, int allowPending, const char *file, const char *func,
                             const char* threadSet, const dbgcomm_info *ci) {
     DBG_READY();
-    return DbgBackendSW->setFuncBreak(allowPending, file, func, threadSet, ci);
+    return DbgBackendSW->setFuncBreak(id, allowPending, file, func, threadSet, ci);
 }
 
-dbgevent_t *DbgSetWatch(int type, const char *expr, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetWatch(int id, int type, const char *expr, const dbgcomm_info *ci) {
     DBG_READY();
-    return DbgBackendSW->setWatch(type, expr, ci);
+    return DbgBackendSW->setWatch(id, type, expr, ci);
 }
 
-dbgevent_t *DbgSetCatch(const std::string &event, const std::string &regex, const dbgcomm_info *ci) {
+dbgevent_t *DbgSetCatch(int id, const std::string &event, const std::string &regex, const dbgcomm_info *ci) {
     DBG_READY();
-    return DbgBackendSW->setCatch(event, regex, ci);
+    return DbgBackendSW->setCatch(id, event, regex, ci);
 }
 
 dbgevent_t *DbgSetCheckpoint() {

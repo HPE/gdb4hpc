@@ -764,7 +764,7 @@ static DbgInvoke::EventSet *AddEvent(DbgInvoke *di, const Bitset *group, dbgeven
                     // been deleted out from under us.
                     // comparing backend breakpoint ids is a pretty bad
                     // fallback, but it's the best we can do here
-                    return left.ev_bp->bp_id == right.ev_bp->bp_id;
+                    return left.ev_bp->bp_fe_id == right.ev_bp->bp_fe_id;
                 }
             }
 
@@ -2390,6 +2390,12 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
     return result;
 }
 
+static int nextBPID(rec_set_t* set) {
+    auto id = int{1};
+    for (auto rec : set) id = std::max(id, rec->rec_di.breakpoints().getNextID());
+    return id;
+}
+
 /*
 ** DBG_SETLINEBREAK: Set a breakpoint in program at
 **			specified line.
@@ -2397,7 +2403,9 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, const char *file, int line,
                            const char* threadSet) {
 
-    auto request = CommandToSocProto(DBGCMD_SETLINEBREAK, allowPending, file, line, threadSet);
+    auto id = nextBPID(set);
+
+    auto request = CommandToSocProto(DBGCMD_SETLINEBREAK, id, allowPending, file, line, threadSet);
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
@@ -2417,7 +2425,9 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, const char *file, i
 rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, const char *file, 
         const char *func, const char* threadSet) {
 
-    auto request = CommandToSocProto(DBGCMD_SETFUNCBREAK, allowPending, file, func, threadSet);
+    auto id = nextBPID(set);
+
+    auto request = CommandToSocProto(DBGCMD_SETFUNCBREAK, id, allowPending, file, func, threadSet);
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
@@ -2436,7 +2446,9 @@ rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, const char *file,
 */
 rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
 
-    auto request = CommandToSocProto(DBGCMD_SETWATCH, type, expr);
+    auto id = nextBPID(set);
+
+    auto request = CommandToSocProto(DBGCMD_SETWATCH, id, type, expr);
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
@@ -2450,7 +2462,8 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
 }
 
 rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex) {
-    auto request = CommandToSocProto(DBGCMD_SETCATCH, event, regex);
+    auto id = nextBPID(recSet);
+    auto request = CommandToSocProto(DBGCMD_SETCATCH, id, event, regex);
     auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_BPSET);
 
     // process catchpoint information

@@ -39,7 +39,7 @@ b{0..2}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:58
 25: # Set a breakpoint at specified line numbers:
 26: break c_type_test.c:198
 a{0..2}: Breakpoint 4: file /bd_dt/c/c_type_test.c, line 198.
-b{0..2}: Breakpoint 1: file /bd_dt/c/c_type_test.c, line 198.
+b{0..2}: Breakpoint 4: file /bd_dt/c/c_type_test.c, line 198.
 30: #Test assign command
 31: focus $b
 33: # Run procset b to breakpoint 1:  
@@ -47,7 +47,7 @@ b{0..2}: Breakpoint 1: file /bd_dt/c/c_type_test.c, line 198.
 <$b>: Hello World! from process 0
 <$b>: Hello World! from process 1
 <$b>: Hello World! from process 2
-b{0..2}: Breakpoint 1, main at /bd_dt/c/c_type_test.c:198
+b{0..2}: Breakpoint 4, main at /bd_dt/c/c_type_test.c:198
 36: focus $all
 38: # Run procset a to breakpoint 4:  
 39: continue

@@ -33,8 +33,7 @@ a{0}: #0  main at /bd_dt/c/c_half_exit.c:23
 Procset         Num Type           Disp Enb What
 a{0..3}         1   breakpoint     keep y   in main at /bd_dt/c/c_half_exit.c:22
 16: break 6
-a{2..3}: Breakpoint 3: file /bd_dt/c/c_half_exit.c, line 6.
-a{0..1}: Breakpoint 3: file /bd_dt/c/c_half_exit.c, line 6.
+a{0..3}: Breakpoint 4: file /bd_dt/c/c_half_exit.c, line 6.
 17: build $unknbp
 18:     # true, but $a{2} will hit an unexpected breakpoint before the assert
 19:     assert $a{2}::myRank@"c_half_exit.c":26 != $a{3}::myRank@"c_half_exit.c":26
@@ -52,6 +51,6 @@ a{3}: #0  main at /bd_dt/c/c_half_exit.c:26
 23: info break
 Procset         Num Type           Disp Enb What
 a{0..3}         1   breakpoint     keep y   in main at /bd_dt/c/c_half_exit.c:22
-a{0..3}         3   breakpoint     keep y   in foo at /bd_dt/c/c_half_exit.c:6
+a{0..3}         4   breakpoint     keep y   in foo at /bd_dt/c/c_half_exit.c:6
 24: q
 Shutting down debugger and killing application for 'a'.

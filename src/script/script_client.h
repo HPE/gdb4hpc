@@ -211,8 +211,7 @@ public:
     bool isReady() const;
 
     // check if a breakpoint event is relevant to the internal expression. if it
-    // is, returns the MappedBreakpoint that matches it. if it isn't, returns nullptr.
-    const MappedBreakpoint* BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const;
+    bool BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const;
 
     // check if a set of ranks is relevant to the internal expression.
     bool dbgInvokeIsRelevant(const DbgInvoke& di, const Bitset& bitset) const;

@@ -84,7 +84,7 @@ extern appInfo_t other_app;
 
 static dbgevent_t *WaitEvent(dbgevent_t *e);
 static dbgevent_t *WaitOmpdEvent(dbgevent_t *e);
-static dbgevent_t *CheckBreak(MICommand *, const dbgcomm_info *);
+static dbgevent_t *CheckBreak(int feId, MICommand *, const dbgcomm_info *, int& beId);
 
 static dbgevent_t *threadEventToFrame(dbgevent_t* threadEvent);
 static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=false);
@@ -210,7 +210,8 @@ bool DbgGdbMI::bufferReady(void) {
 /*
 ** Set breakpoint at specified line.
 */
-dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int lno,
+dbgevent_t *DbgGdbMI::setLineBreak(int feId,
+                                   const int allowPending, const char *file, int lno,
                                    const char* threadSet, const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     auto where = std::to_string(lno);
@@ -218,13 +219,14 @@ dbgevent_t *DbgGdbMI::setLineBreak(const int allowPending, const char *file, int
         where = std::string{file} + ":" + where;
     }
 
-    return setBreak(allowPending, where, threadSet, commInfo);
+    return setBreak(feId, allowPending, where, threadSet, commInfo);
 }
 
 /*
 ** Set breakpoint at start of specified function.
 */
-dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, const char *func,
+dbgevent_t *DbgGdbMI::setFuncBreak(int feId,
+                                   const int allowPending, const char *file, const char *func,
                                    const char*  threadSet,
                                    const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
@@ -237,12 +239,13 @@ dbgevent_t *DbgGdbMI::setFuncBreak(const int allowPending, const char *file, con
         where = func;
     }
 
-    return setBreak(allowPending, where, threadSet, commInfo);
+    return setBreak(feId, allowPending, where, threadSet, commInfo);
 }
 
 // Common work for setting a function or line breakpoing.   Argument \a where
 // contains the proper break expression in either case.
-dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
+dbgevent_t *DbgGdbMI::setBreak(int feId,
+                               const int allowPending, const std::string& where,
                                const char*  threadSet,
                                const dbgcomm_info *commInfo) {
     std::vector<int> threads;
@@ -290,9 +293,9 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
                 if (MICommandResultOK(cmd)) tbEvent.reset();
             }
         }
-
+        int beId = 0;
         if (!tbEvent) {
-            tbEvent.reset(CheckBreak(cmd, commInfo));
+            tbEvent.reset(CheckBreak(feId, cmd, commInfo, beId));
         }
 
         MICommandFree(cmd);
@@ -301,7 +304,7 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
             event.reset(NewErrorEvent(DBGERR_DEBUGGER, "Cannot create breakpoint."));
             break;
         } else {
-            bpIds.push_back(EVENT_BP(tbEvent)->bp_id);
+            bpIds.push_back(beId);
             if (!event) {
                 event = std::move(tbEvent);
             }
@@ -325,15 +328,6 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
         return event.release();
     } 
 
-    // guard-gdb only supports a thread specific breakpoint only for a single thread, so
-    // we return the first and track the others via m_multiThreadBreaks.
-    if (bpIds.size() > 1) {
-        DVPRINT("adding multiThreadBreaks\n");
-        int id = bpIds.front();
-        bpIds.erase(bpIds.begin());
-        m_multiThreadBreaks.insert(std::make_pair(id, bpIds));
-    }
-
     // add the thread info if this is a thread specific breakpoint
     if (threadSet && !threads.empty() && threads[0] != -1) {
         auto bp = EVENT_BP(event);
@@ -348,7 +342,7 @@ dbgevent_t *DbgGdbMI::setBreak(const int allowPending, const std::string& where,
 /*
 ** Set watchpoint at specified expression.
 */
-dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *commInfo) {
+dbgevent_t *DbgGdbMI::setWatch(int feId, int type, const char *expr, const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s expr=%s\n", __FILE__, __func__, expr);
     dbgevent_t *event;
     MICommand *cmd;
@@ -410,7 +404,8 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 
     // Now check the breakpoint. It has all the info we need.
 
-    event = CheckBreak(cmd, commInfo);
+    int beId;
+    event = CheckBreak(feId, cmd, commInfo, beId);
 
     if (event == NULL) {
         EVENT_ERROR(event, DBGERR_DEBUGGER,
@@ -425,7 +420,8 @@ dbgevent_t *DbgGdbMI::setWatch(int type, const char *expr, const dbgcomm_info *c
 // Used in DbgGdbMI::setCatch to transfer data from a libMI callback. Don't use elsewhere.
 static MIList *MICallbackResult = nullptr;
 
-dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const std::string &regex, const dbgcomm_info *commInfo) {
+dbgevent_t *DbgGdbMI::setCatch(int feId, const std::string &event,
+                               const std::string &regex, const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s event=%s regex=\"%s\" \n", __FILE__, __func__, event.c_str(), regex.c_str());
     
     using CommandPtr = std::unique_ptr<MICommand, decltype(&MICommandFree)>;
@@ -502,7 +498,8 @@ dbgevent_t *DbgGdbMI::setCatch(const std::string &event, const std::string &rege
     }
 
     // Now check the breakpoint. It has all the info we need.
-    auto dbgEvent = CheckBreak(breakInfoCommand.get(), commInfo);
+    int beId = 0;
+    auto dbgEvent = CheckBreak(feId, breakInfoCommand.get(), commInfo, beId);
 
     if (dbgEvent == nullptr) {
         dbgevent_t *errorEvent;
@@ -608,66 +605,48 @@ dbgevent_t *DbgGdbMI::deleteCheckpoint(unsigned int id) {
     return NewEvent(DBGEV_OK);
 }
 
-// If break bid is the breakpoint that has been applied to a thread list, then DbgGdbMI
-// is maintaining the set of *additional* gdb breakpoints - one per thread - otherwise return
-// an empty list.   If remove is true, erase the recorded list.
-std::vector<int> DbgGdbMI::getMultiThreadBreaks(int bid, bool remove) {
-    std::vector<int> ids;
-    auto multiLoc = m_multiThreadBreaks.find(bid);
-    if (multiLoc != m_multiThreadBreaks.end()) {
-        ids = multiLoc->second;
-        if (remove) m_multiThreadBreaks.erase(multiLoc);
-    }
-    return ids;
-}
-
 /*
 ** Delete a breakpoint.
 */
-dbgevent_t *DbgGdbMI::deleteBreak(int bid) {
+dbgevent_t *DbgGdbMI::deleteBreak(int feBid) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
-    applyMultiThreadBreak(bid, true, [this](int id) { FreeEvent(this->deleteBreak(id)); });
+    auto found = false;
+    while (auto bp = FindBPByID(BP, feBid, 0)) {
+        found = true;
+        auto bpid = bp->bp_be_id;
 
-    auto bp = FindBPByID(BP, bid);
+        auto cmd = MIBreakDelete(1, &bpid);
+        SendMICommand(GDBMISession, cmd);
 
-    if (bp == NULL) {
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            return NewErrorEvent(DBGERR_DEBUGGER, "Delete breakpoint failed.");
+        }
+
+        MICommandFree(cmd);
+        RemoveBP(BP, 0, bpid);
+    }
+
+    if (!found) {
         return NewErrorEvent(DBGERR_NOBP, "Invalid breakpoint id.");
     }
 
-    auto bpid = bid;
-
-    auto cmd = MIBreakDelete(1, &bpid);
-    SendMICommand(GDBMISession, cmd);
-
-    if (!MICommandResultOK(cmd)) {
-        MICommandFree(cmd);
-        return NewErrorEvent(DBGERR_DEBUGGER, "Delete breakpoint failed.");
-    }
-
-    RemoveBP(BP, bid);
-
-    auto e = NewEvent(DBGEV_OK);
-
-    MICommandFree(cmd);
-
-    return e;
+    return NewEvent(DBGEV_OK);
 }
 
 /*
 ** Disable a breakpoint.
 */
-dbgevent_t *DbgGdbMI::disableBreak(int bid) {
+dbgevent_t *DbgGdbMI::disableBreak(int feId) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
-    applyMultiThreadBreak(bid, false, [this](int id) { FreeEvent(this->disableBreak(id));});
-
-    auto bp = FindBPByID(BP, bid);
-    if (bp == NULL) {
+    auto bp = FindBPByID(BP, feId, 0);
+    if (!bp) {
         return NewErrorEvent(DBGERR_NOBP, "Invalid breakpoint id.");
     }
 
-    auto bpid = bid;
+    auto bpid = bp->bp_be_id;
 
     auto cmd = MIBreakDisable(1, &bpid);
     SendMICommand(GDBMISession, cmd);
@@ -688,14 +667,11 @@ dbgevent_t *DbgGdbMI::disableBreak(int bid) {
 dbgevent_t *DbgGdbMI::enableBreak(int bid, bool once, bool del) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
-    applyMultiThreadBreak(bid, false,
-                          [this,once,del](int id) { FreeEvent(this->enableBreak(id,once,del)); });
-
-    auto bp = FindBPByID(BP, bid);
+    auto bp = FindBPByID(BP, bid, 0);
     if (!bp) {
         return NewErrorEvent(DBGERR_NOBP, "Invalid breakpoint id.");
     }
-
+    
     // cannot set once and del at the same time
     if (once && del) {
         return NewErrorEvent(DBGERR_NOBP, "Invalid arguments.");
@@ -707,18 +683,18 @@ dbgevent_t *DbgGdbMI::enableBreak(int bid, bool once, bool del) {
     if (once) {
         cmd_args[0] = "enable";
         cmd_args[1] = "once";
-        snprintf(cmd_bpid, 30, "%d", bid);
+        snprintf(cmd_bpid, 30, "%d", bp->bp_be_id);
         cmd_args[2] = cmd_bpid;
         cmd = CLIBypassc(3, cmd_args);
     } else if (del) {
         cmd_args[0] = "enable";
         cmd_args[1] = "delete";
-        snprintf(cmd_bpid, 30, "%d", bid);
+        snprintf(cmd_bpid, 30, "%d", bp->bp_be_id);
         cmd_args[2] = cmd_bpid;
         cmd = CLIBypassc(3, cmd_args);
     } else {
         // this is needed...
-        auto bpid = bid;
+        auto bpid = bp->bp_be_id;
         cmd = MIBreakEnable(1, &bpid);
     }
 
@@ -737,13 +713,19 @@ dbgevent_t *DbgGdbMI::enableBreak(int bid, bool once, bool del) {
         bp->bp_disp = DBGBP_DELETE_DISP;
 
     MICommandFree(cmd);
-
     return NewEvent(DBGEV_OK);
 }
 
 // ignore the next n occurrences of a breakpoint 
-dbgevent_t *DbgGdbMI::ignoreBreak(int bid, int n) {
+dbgevent_t *DbgGdbMI::ignoreBreak(int feId, int n) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+
+    auto bp = FindBPByID(BP, feId, 0);
+    if (!bp) {
+        return NewErrorEvent(DBGERR_NOBP, "Invalid breakpoint id.");
+    }
+
+    auto bid = bp->bp_be_id;
 
     auto bidStr = std::to_string(bid);
     auto nStr = std::to_string(n);
@@ -3139,7 +3121,7 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
 
             // short circuit during the process of finding the starting breakpoint
             if (Status == DBGSTAT_INITIALISING) {
-                bp = NewBP(idNumber);
+                bp = NewBP(0, idNumber); // internal BP, so no front end id
                 e->ev_event = DBGEV_BPHIT;
                 e->ev_bp = bp;
                 return e;
@@ -3147,13 +3129,15 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
 
             Status = DBGSTAT_STOPPED;
 
-            bp = FindBPByID(BP, idNumber);
+            bp = FindBPByID(BP, 0, idNumber); 
             exitBPs = m_initializer->getExitBPs();
+
+            DVPRINT("BPMgr: Looking for BP be:%d\n", idNumber);
 
             // We want to check for an exit breakpoint if we didn't find it in
             // the normal BP list.
             if (bp == nullptr) {
-                bp = FindBPByID(exitBPs, idNumber);
+                bp = FindBPByID(exitBPs, 0, idNumber);
                 // set the status to exit if we are at an exit breakpoint
                 if (bp != nullptr) {
                     Status = DBGSTAT_EXIT;
@@ -3162,11 +3146,14 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
 
             // If bp is still null, we have a problem.
             if (bp == nullptr) {
+                DVPRINT("BPMgr: Could not find be breakpoint %d\n", idNumber);
                 e = ChangeEvent(e, DBGEV_ERROR);
                 e->ev_errno = DBGERR_DEBUGGER;
                 EventErrStr(e, unknownBPErrorMsg);
                 return e;
             }
+
+            DVPRINT("BPMgr: Got BP fe:%d\n", bp->bp_fe_id);
 
             bp->bp_hits++;
             CurrBP = bp;
@@ -3219,8 +3206,8 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
                     // NOTE: We don't know if the evt->bkptno is in BP or
                     // exit_BP, so we
                     //       try to remove from both. Its okay to do this.
-                    RemoveBP(BP, evt->bkptno);
-                    RemoveBP(exitBPs, evt->bkptno);
+                    RemoveBP(BP, 0, evt->bkptno);
+                    RemoveBP(exitBPs, 0, evt->bkptno);
                     CurrBP = NULL;
                     break;
                 case DBGBP_DISABLE_DISP:
@@ -3239,7 +3226,7 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
             DVPRINT("MIEventTypeWatchpointScope\n");
             DVPRINT("Breakpoint id is %d\n", evt->number);
 
-            bp = FindBPByID(BP, evt->number);
+            bp = FindBPByID(BP, 0, evt->number);
 
             // If bp is null, we have a problem.
             if (bp == NULL) {
@@ -3336,9 +3323,8 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
 ** extract appropriate information. Returns breakpoint
 ** id in bid. Adds to breakpoint list if necessary.
 */
-static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
+static dbgevent_t *CheckBreak(int feId, MICommand *cmd, const dbgcomm_info *commInfo, int& beId) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    int id;
     dbgbp_t *bp;
     dbgevent_t *e;
     MIBreakpoint *bpt;
@@ -3353,9 +3339,9 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
     MIListSet(bpts);
     bpt = (MIBreakpoint *)MIListGet(bpts);
 
-    id = bpt->number;
+    beId = bpt->number;
 
-    bp = NewBP(id);
+    bp = NewBP(feId, beId);
 
     if (bpt->isWpt) {
         if (bpt->isWWpt) {
@@ -3444,6 +3430,7 @@ static dbgevent_t *CheckBreak(MICommand *cmd, const dbgcomm_info *commInfo) {
     /*
     ** Link a copy of the breakpoint onto BP.
     */
+    DVPRINT("BPMgr: Adding breakpoint fe:%d, be:%d **\n", bp->bp_fe_id, bp->bp_be_id);
     AddToList(BP, (void *)bp);
 
     /*

@@ -54,34 +54,33 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_SETLINEBREAK: {
-            int allowPending; std::string file; int line; std::string threadSet;
+            int allowPending; std::string file; int line, id; std::string threadSet;
             DVPRINT("std\n");
-            is.get(allowPending, file, line, threadSet);
-            e = DbgSetLineBreak(allowPending, file.c_str(), line, threadSet.c_str(), ci);
+            is.get(id, allowPending, file, line, threadSet);
+            e = DbgSetLineBreak(id, allowPending, file.c_str(), line, threadSet.c_str(), ci);
             break;
         }
 
         case DBGCMD_SETFUNCBREAK: {
-            int allowPending; std::string file, func, threadSet;
-            is.get(allowPending, file, func, threadSet);
-            e = DbgSetFuncBreak(allowPending, file.c_str(), func.c_str(),
+            int allowPending, id; std::string file, func, threadSet;
+            is.get(id, allowPending, file, func, threadSet);
+            e = DbgSetFuncBreak(id, allowPending, file.c_str(), func.c_str(),
                                 threadSet.c_str(), ci);
             break;
         }
 
         case DBGCMD_SETWATCH: {
-            int type; std::string expr;
-            is.get(type, expr);
-            e = DbgSetWatch(type, expr.c_str(), ci);
+            int id, type; std::string expr;
+            is.get(id, type, expr);
+            e = DbgSetWatch(id, type, expr.c_str(), ci);
             break;
         }
 
         case DBGCMD_SETCATCH: {
-            std::string eventType;
-            std::string regex;
-            is.get(eventType);
-            is.get(regex);
-            e = DbgSetCatch(eventType, regex, ci);
+            int id;
+            std::string eventType, regEx;
+            is.get(id, eventType, regEx);
+            e = DbgSetCatch(id, eventType, regEx, ci);
             break;
         }
 

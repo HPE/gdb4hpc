@@ -41,12 +41,13 @@ const char *dbgbp_disp_str[] = {"keep", "del", "dis", "unk", NULL};
 /*
 ** Create a new breakpoint.
 */
-dbgbp_t *NewBP(int id) {
+dbgbp_t *NewBP(int feId, int beId) {
     dbgbp_t *bp;
 
     bp = (dbgbp_t *)Alloc(sizeof(dbgbp_t));
 
-    bp->bp_id = id;
+    bp->bp_fe_id = feId;
+    bp->bp_be_id = beId;
     bp->bp_ignore = 0;
     bp->bp_deleted = 0;
     bp->bp_enabled = 1;
@@ -63,7 +64,6 @@ dbgbp_t *NewBP(int id) {
     bp->bp_stmt = NULL;
     bp->bp_commands = (char **)NULL;
     bp->bp_comminfo = NULL;
-    bp->bp_next = (dbgbp_t *)NULL;
 
     return bp;
 }
@@ -94,7 +94,7 @@ dbgbp_t *DupBP(dbgbp_t *bp) {
     char **p;
     dbgbp_t *b;
 
-    b = NewBP(bp->bp_id);
+    b = NewBP(bp->bp_fe_id, bp->bp_be_id);
 
     b->bp_ignore = bp->bp_ignore;
     b->bp_deleted = bp->bp_deleted;
@@ -154,16 +154,18 @@ void FreeBP(dbgbp_t *bp) {
 /*
 ** Remove a breakpoint from the list.
 */
-void RemoveBP(list_t *bplist, int bid) {
-    dbgbp_t *bp;
+void RemoveBP(list_t *bplist, int feId, int beId) {
 
-    SetList(bplist);
+    for (auto done=false; !done; ) {
+        done = true;
+        SetList(bplist);
 
-    while ((bp = (dbgbp_t *)GetListElement(bplist)) != (dbgbp_t *)NULL) {
-        if (bp->bp_id == bid) {
-            RemoveFromList(bplist, (void *)bp);
-            FreeBP(bp);
-            return;
+        while (auto bp = (dbgbp_t *)GetListElement(bplist)) {
+            if ((feId && bp->bp_fe_id == feId) || (beId && bp->bp_be_id == beId)) {
+                RemoveFromList(bplist, (void *)bp);
+                FreeBP(bp);
+                done = false;
+            }
         }
     }
 }
@@ -188,13 +190,13 @@ dbgbp_t *FindBPByFunc(list_t *bplist, char *func) {
 /*
 ** Find a breakpoint by its id.
 */
-dbgbp_t *FindBPByID(list_t *bplist, int bid) {
+dbgbp_t *FindBPByID(list_t *bplist, int feId, int beId) {
     dbgbp_t *bp;
 
     SetList(bplist);
 
     while ((bp = (dbgbp_t *)GetListElement(bplist)) != (dbgbp_t *)nullptr)
-        if (bid == bp->bp_id) return bp;
+        if ((feId && feId == bp->bp_fe_id) || (beId && beId == bp->bp_be_id)) return bp;
 
     return (dbgbp_t *)nullptr;
 }
@@ -210,7 +212,8 @@ const char *BPTypeToStr(dbgbp_type type) { return dbgbp_type_str[type]; }
 const char *BPDispToStr(dbgbp_disp disp) { return dbgbp_disp_str[disp]; }
 
 void DumpBP(dbgbp_t *bp) {
-    PrintOutMsg("id=%d,", bp->bp_id);
+    PrintOutMsg("feId=%d,", bp->bp_fe_id);
+    PrintOutMsg("beId=%d,", bp->bp_be_id);
     PrintOutMsg("ign=%s,", bp->bp_ignore ? "true" : "false");
     PrintOutMsg("del=%s,", bp->bp_deleted ? "true" : "false");
     PrintOutMsg("enb=%s,", bp->bp_enabled ? "true" : "false");

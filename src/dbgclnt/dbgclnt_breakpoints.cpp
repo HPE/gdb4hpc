@@ -34,7 +34,7 @@ MappedBreakpoint::MappedBreakpoint(int bp_id, const Bitset *group, const dbgbp_t
     m_dispList.emplace_back(group, bp.bp_disp);
 
     // Set the id unique to the rank
-    m_idList.emplace_back(group, bp.bp_id);
+    m_idList.emplace_back(group, bp.bp_fe_id);
 
     if (m_locLine >= 0) {
         m_locFile = bp.bp_loc.loc_file;
@@ -120,12 +120,12 @@ void MappedBreakpoint::addBreakpoint(const Bitset *group, const dbgbp_t &bp) {
     // Add internal gdb id to the bp_id_list
     auto found_id_set = std::find_if(m_idList.begin(), m_idList.end(),
     [&](const auto &id_set) {
-        return id_set.id == bp.bp_id;
+        return id_set.id == bp.bp_fe_id;
     });
 
     if (found_id_set == m_idList.end()) {
         // no existing internal gdb id found, add it.
-        m_idList.emplace_back(group, bp.bp_id);
+        m_idList.emplace_back(group, bp.bp_fe_id);
     } else {
         // existing internal gdb id found, add group to existing id_set
         *found_id_set->group |= *group;
@@ -205,63 +205,6 @@ void MappedBreakpoint::removeGroup(const Bitset *group) {
     });
 }
 
-bool MappedBreakpoint::contains(const dbgbp_t &bp) const {
-    // Do not check the state of the enabled since this can be different for every rank.
-    // Do not check the state of the disposition since this can be different for every rank. 
-    
-    // check if both are the same type
-    if (m_type != bp.bp_type) return false;
-
-    // Here we only want to check locale info if it is a breakpoint, otherwise
-    // if its a watchpoint we want to check the expression.
-    switch (bp.bp_type) {
-        case DBGBP_BREAK_TYPE:
-            // check if both are pending and have the same stmt
-            if (bp.bp_pending && bp.bp_stmt != nullptr && m_pending) {
-                if (strcmp(statement().c_str(), bp.bp_stmt)) return false;
-            }
-            // check if both have the same file name and line number
-            if (bp.bp_loc.loc_file != nullptr && bp.bp_loc.loc_line >= 0) {
-                // First check if the file name matches.
-                if (strcmp(file().c_str(), bp.bp_loc.loc_file)) return false;
-                // The file name matches, so we can now safely check the line
-                // number.
-                if (line() != bp.bp_loc.loc_line) return false;
-            }
-
-            // check if both have the same address
-            if (bp.bp_loc.loc_addr != nullptr) {
-                if (strcmp(address().c_str(), bp.bp_loc.loc_addr)) return false;
-            }
-
-            // check the thread
-            {
-                const char* t2 = bp.bp_threadId;
-                if ( (m_threadId.empty() ^ !t2) || (t2 && strcmp(m_threadId.c_str(),t2))) return false;
-            }
-            break;
-
-        case DBGBP_WATCH_TYPE:
-        case DBGBP_AWATCH_TYPE:
-        case DBGBP_RWATCH_TYPE:
-        case DBGBP_CATCH_TYPE:
-            // check if both have the same bp expression
-            if (bp.bp_exp != nullptr) {
-                if (strcmp(m_watchExp.c_str(), bp.bp_exp)) return false;
-            }
-
-            break;
-
-        case DBGBP_EXIT_TYPE:
-        case DBGBP_UNKNOWN_TYPE:
-            // FIXME: What to do here???
-            return false;
-    }
-
-    // If we reach this point, everything matches
-    return true;
-}
-
 bool BreakpointManager::isEmpty() const {
     return m_breakpoints.empty();
 }
@@ -275,7 +218,8 @@ void BreakpointManager::recordBreakpoint(const dbgbp_t &bp, const Bitset *group)
         set->addBreakpoint(group, bp);
     } else {
         // create a new breakpoint for this group based on the bp
-        m_breakpoints.emplace_back(m_nextID++, group, bp);
+        if (bp.bp_fe_id >= m_nextID) m_nextID = bp.bp_fe_id + 1;
+        m_breakpoints.emplace_back(bp.bp_fe_id, group, bp);
     }
 }
 
@@ -307,7 +251,7 @@ void BreakpointManager::fixupPendingBreakpoints(const dbgbp_t &bp, const Bitset 
                     // see if this bp_id is in the id list and matches our search group
                     auto found_id_set = std::find_if(bp_set.idSetList().begin(), bp_set.idSetList().end(), 
                     [&](const auto &id_set) {
-                        return id_set.id == bp.bp_id && search_group->hasCommonBits(*id_set.group);
+                        return id_set.id == bp.bp_fe_id && search_group->hasCommonBits(*id_set.group);
                     });
 
                     // See if we found a matching bp_id for group
@@ -349,12 +293,7 @@ MappedBreakpoint* BreakpointManager::findByLogicalID(int id) {
 }
 
 MappedBreakpoint* BreakpointManager::findByDbgBreakpoint(const dbgbp_t &bp) {
-    auto it = std::find_if(m_breakpoints.begin(), m_breakpoints.end(),
-    [&](const auto &mbp) {
-        return mbp.contains(bp);
-    });
-
-    return it != m_breakpoints.end() ? &(*it) : nullptr;
+    return findByLogicalID(bp.bp_fe_id);
 }
 
 const MappedBreakpoint* BreakpointManager::findByDbgBreakpoint(const dbgbp_t &bp) const {

@@ -474,10 +474,10 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
             DVPRINT("got breakpoint hit event\n");
             // If we hit a main breakpoint, we are done (unset finish).
             // Otherwise check parallel breakpoints
-            if (dbgbp_t *bp = FindBPByID(main_entry_BP, evt->bkptno)) {
+            if (dbgbp_t *bp = FindBPByID(main_entry_BP, 0, evt->bkptno)) {
                 atEntry = true;
                 finish = false;
-            } else if ((bp = FindBPByID(parallel_entry_BP, evt->bkptno))) {
+            } else if ((bp = FindBPByID(parallel_entry_BP, 0, evt->bkptno))) {
                 // If we hit a parallel breakpoint, we need to finish
                 atEntry = finish = true;
             } else {
@@ -1383,7 +1383,7 @@ dbgevent_t *DbgGdbMI::Initializer::delete_internal_breakpoints(list_t *bplist) {
 
     while ((bp = (dbgbp_t *)GetListElement(bplist)) != (dbgbp_t *)NULL) {
         // send the delete command
-        cmd = MIBreakDelete(1, &bp->bp_id);
+        cmd = MIBreakDelete(1, &bp->bp_be_id);
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
             MICommandFree(cmd);
@@ -1417,7 +1417,7 @@ static dbgbp_t *get_dbgbp(MICommand *cmd) {
     MIListSet(bpts);
     bpt = (MIBreakpoint *)MIListGet(bpts);
 
-    bp = NewBP(bpt->number);
+    bp = NewBP(0, bpt->number);
 
     if (bpt->isWpt) {
         if (bpt->isWWpt) {
@@ -1453,7 +1453,7 @@ static dbgbp_t *get_dbgbp(MICommand *cmd) {
     if (bpt->func != NULL) bp->bp_loc.loc_func = strdup(bpt->func);
     if (bpt->address != NULL) bp->bp_loc.loc_addr = strdup(bpt->address);
 
-    DVPRINT("get_dbgbp: bp_id is %d\n", bp->bp_id);
+    DVPRINT("get_dbgbp: bp_be_id is %d\n", bp->bp_be_id);
     //DVPRINT("%s: DumpingBP:", __func__);
     //DumpBP(bp);
 

@@ -40,6 +40,7 @@ public:
     const std::string& filename() const;
     int lineNumber() const;
     std::string getLogString() const;
+    bool matches(const std::string& file, int lineNum) const;
 
 private:
     DbgInvoke::Handle m_dbgInvoke;

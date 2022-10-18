@@ -52,6 +52,17 @@ std::string ProgramLocation::getLogString() const {
     return std::string{"$"} + m_dbgInvoke.name() + bitset().toSetString() + "::" + filename() + ":" + std::to_string(lineNumber());
 }
 
+bool ProgramLocation::matches(const std::string& file, int lineNum) const
+{
+    if (lineNum != m_linenum) return false;
+    if (file == m_filename) return true;
+
+    // file make be a full path
+    if (auto loc = file.rfind(m_filename);
+        loc + m_filename.size() == file.size() && loc != 0 && file[loc-1] == '/') return true;
+    return false;
+}
+
 Assertion::Assertion(size_t id, settings::Assertion settings, std::string&& exprString)
     : m_id{id}
     , m_string{std::move(exprString)}

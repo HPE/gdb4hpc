@@ -40,15 +40,6 @@ static dbgevent_t *DbgGDBMIGetSourcePath_fe(dbgfrontend_sw *);
 static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *, const char *);
 static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *);
 
-static dbgbp_t *get_dbgbp(MICommand *);
-
-/* auxiliary functions */
-/*
-static void		event_callback(MIEvent *);
-static void		console_callback(char *);
-static void		log_callback(char *);
-static void		target_callback(char *);
-*/
 static dbgevent_t *setup_gdbmi_environment(MISession *);
 static void SendMICommand_fe(MISession *sess, MICommand *cmd);
 
@@ -617,139 +608,62 @@ static const std::array<std::string, 16> parallel_entry_pt_strs
 
 static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
     MISession *sess = (MISession *)fe_obj->dbg_session;
-    dbgevent_t *e;
-    MICommand *cmd;
 
     DPRINT("*** DbgGDBMICheckStartupFunc_fe\n");
 
     // set the lang to c. We always want to do this!!
-    cmd = MIGDBSet("lang", "c");
+    auto cmd = MIGDBSet("lang", "c");
     SendMICommand_fe(sess, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
-        return e;
+        return NewErrorEvent(DBGERR_DEBUGGER, "Gdb set lang command failed.");
     }
     MICommandFree(cmd);
 
-    list_t *parallel_entry_BP = NewList();
-
-    dbgbp_t *bp_res;
+    auto foundBP = false;
+    
     for (auto&& str: parallel_entry_pt_strs) {
         cmd = MIBreakInsert(0, 0, 0, NULL, 0, str.c_str(), 0);
         SendMICommand_fe(sess, cmd);
-        // Note we only want to insert the breakpoint into our internal list if the
-        // command succeeded. We expect many of these to fail.
-        if (MICommandResultOK(cmd)) {
-            if ((bp_res = get_dbgbp(cmd)) != NULL) {
-                AddToList(parallel_entry_BP, (void *)bp_res);
-                MICommandFree(cmd);
-                break;
-            }
+        // We expect many of these to fail - only one has to exist
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            continue;
         }
-        MICommandFree(cmd);
-    }
+        // undo the breakpoint
+        auto bpts = MIBreakpointGetBreakInsertInfo(cmd);
+        MIListSet(bpts);
+        for (MIBreakpoint* bp; (bp = (MIBreakpoint *)MIListGet(bpts)); ) {
+            auto id = bp->number;
+            auto delCmd = MIBreakDelete(1, &id);
+            SendMICommand_fe(sess, delCmd);
+            if (!MICommandResultOK(delCmd)) {
+                MICommandFree(delCmd);
+                return NewErrorEvent(DBGERR_NOBP, "Delete internal breakpoint failed.");
+            }
+            MICommandFree(delCmd);
+        }
 
+        MICommandFree(cmd);
+        foundBP = true;
+        break;
+    }
 
     // set the lang back to auto. We always want to do this!!
     cmd = MIGDBSet("lang", "auto");
     SendMICommand_fe(sess, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set lang command failed.");
-        return e;
+        return NewErrorEvent(DBGERR_DEBUGGER, "Gdb set lang command failed.");
     }
     MICommandFree(cmd);
 
-    if (EmptyList(parallel_entry_BP) == 1) {
+    if (!foundBP) {
         // If we get here, no known startup function was found.
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Missing PMI or MPI entrypoint symbol!");
-        return e;
-    } else {
-        dbgbp_t *bp;
-        // If we get here, we found a known startup function. Clear the list, delete it.
-        SetList(parallel_entry_BP);
-        while ((bp = (dbgbp_t *)GetListElement(parallel_entry_BP)) != (dbgbp_t *)NULL) {
-            // send the delete command
-            cmd = MIBreakDelete(1, &bp->bp_id);
-            SendMICommand_fe(sess, cmd);
-            if (!MICommandResultOK(cmd)) {
-                MICommandFree(cmd);
-                EVENT_ERROR(e, DBGERR_NOBP, "Delete internal breakpoint failed.");
-                return e;
-            }
-            MICommandFree(cmd);
-
-            // remove the breakpoint from the internal list and delete it
-            RemoveFromList(parallel_entry_BP, (void *)bp);
-            FreeBP(bp);
-        }
+        return NewErrorEvent(DBGERR_DEBUGGER, "Missing PMI or MPI entrypoint symbol!");
     }
-
-    DestroyList(parallel_entry_BP, NULL);
-
+    
     // startup function was found
     return NewEvent(DBGEV_OK);
 }
 
-static dbgbp_t *get_dbgbp(MICommand *cmd) {
-    DPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgbp_t *bp;
-    MIBreakpoint *bpt;
-    MIList *bpts;
-
-    if (cmd == NULL) return NULL;
-
-    bpts = MIBreakpointGetBreakInsertInfo(cmd);
-
-    if (bpts == NULL) {
-        return NULL;
-    }
-
-    MIListSet(bpts);
-    bpt = (MIBreakpoint *)MIListGet(bpts);
-
-    bp = NewBP(bpt->number);
-
-    if (bpt->isWpt) {
-        if (bpt->isWWpt) {
-            if (bpt->isRWpt)
-                bp->bp_type = DBGBP_AWATCH_TYPE;
-            else
-                bp->bp_type = DBGBP_WATCH_TYPE;
-        } else if (bpt->isRWpt) {
-            bp->bp_type = DBGBP_RWATCH_TYPE;
-        } else {
-            bp->bp_type = DBGBP_WATCH_TYPE;
-        }
-    } else if (bpt->catchType != nullptr) {
-        bp->bp_type = DBGBP_CATCH_TYPE;
-    } else {
-        bp->bp_type = DBGBP_BREAK_TYPE;
-    }
-
-    bp->bp_enabled = bpt->enabled;
-
-    // set the breakpoint disposition
-    if (strncmp(bpt->disp, "keep", 4) == 0)
-        bp->bp_disp = DBGBP_KEEP_DISP;
-    else if (strncmp(bpt->disp, "del", 3) == 0)
-        bp->bp_disp = DBGBP_DELETE_DISP;
-    else if (strncmp(bpt->disp, "dis", 3) == 0)
-        bp->bp_disp = DBGBP_DISABLE_DISP;
-    else
-        bp->bp_disp = DBGBP_UNKNOWN_DISP;
-
-    bp->bp_loc.loc_line = bpt->line;
-    if (bpt->file != NULL) bp->bp_loc.loc_file = strdup(bpt->file);
-    if (bpt->func != NULL) bp->bp_loc.loc_func = strdup(bpt->func);
-    if (bpt->address != NULL) bp->bp_loc.loc_addr = strdup(bpt->address);
-
-    DPRINT("get_dbgbp: bp_id is %d\n", bp->bp_id);
-    //DPRINT("%s: DumpingBP:", __func__);
-    //DumpBP(bp);
-
-    MIListFree(bpts, (void (*)())MIBreakpointFree);
-
-    return bp;
-}

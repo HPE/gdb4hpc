@@ -208,8 +208,6 @@ public:
     // This function can modify internal lists and should not be used while iterating
     // over one.
     void removeGroup(const Bitset *group);
-    // Returns true if this logical breakpoint maps to passed breakpoint
-    bool contains(const dbgbp_t &breakpoint) const;
 
 private:
     // private data
@@ -274,6 +272,8 @@ public:
     // matches the passed dbgbp_t. Returns nullptr if none exist.
     MappedBreakpoint* findByDbgBreakpoint(const dbgbp_t &bp);
     const MappedBreakpoint* findByDbgBreakpoint(const dbgbp_t &bp) const;
+
+    int getNextID() const { return m_nextID; }
 
     // allow range based iteration
     auto begin() { return m_breakpoints.begin(); }

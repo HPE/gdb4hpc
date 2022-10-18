@@ -1030,7 +1030,7 @@ bool SR::Assertion::deleteBreakpoints() {
 bool SR::Assertion::notify(const DbgInvoke& di, const Bitset &bitset, const dbgbp_t& dbgBp) {
     LOG(m_assert.string() << " notified of " << di.handle().name() << ": "
                           << bitset.toSetString() << " at backend breakpoint "
-                          << dbgBp.bp_id);
+                          << dbgBp.bp_fe_id);
     LOG("bitset before " << m_waitingFor.at(di.handle())->toSetString());
 
     *m_waitingFor.at(di.handle()) -= bitset;
@@ -1057,32 +1057,36 @@ bool SR::Assertion::isReady() const {
     return !foundNotReady;
 }
 
-const MappedBreakpoint* SR::Assertion::BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const {
+bool SR::Assertion::BPIsRelevant(const DbgInvoke& di, const Bitset& bitset, const dbgbp_t& dbgBp) const {
     auto it = m_waitingFor.find(di.handle());
     if (it == m_waitingFor.end()) {
         // irrelevant di
-        return nullptr;
+        return false;
     }
 
-    for (auto& [bpid, loc] : m_breakpointLocs) {
-        if (!loc->bitset().hasCommonBits(bitset)) {
-            // irrelevant bitset
-            continue;
-        }
+    const auto& dbgLoc = dbgBp.bp_loc;
 
+    for (auto& [bpid, loc] : m_breakpointLocs) {
         if (loc->dbgInvoke() != di.handle()) {
             // irrelevant di
             continue;
         }
 
-        const auto* mappedBP = di.breakpoints().findByDbgBreakpoint(dbgBp);
-        if (mappedBP && mappedBP->id() == bpid) {
-            return mappedBP;
+        // Changing the breakpoint hit event to potentially contain multiple bp's would
+        // be a more robust way to handle multiple breakpoints at the same PC.  
+        if (dbgBp.bp_fe_id != bpid && !loc->matches(dbgLoc.loc_file, dbgLoc.loc_line)) {
+            continue;
         }
-        // irrelevant breakpoint
+
+        if (!loc->bitset().hasCommonBits(bitset)) {
+            // irrelevant bitset
+            continue;
+        }
+
+        return true;
     }
 
-    return nullptr;
+    return false;
 }
 
 bool SR::Assertion::dbgInvokeIsRelevant(const DbgInvoke& di, const Bitset& bitset) const {

@@ -16,7 +16,7 @@ a{0..2}: Breakpoint 1: Pending at dlopened_function.
 <$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
 <$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
 <$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
-a{0..2}: Breakpoint 2, %(in )?%dlopened_function%( at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
+a{0..2}: Breakpoint 1, %(in )?%dlopened_function%( at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
 25: # backtrace
 26: bt???
 a{0..2}: #1  main
@@ -25,21 +25,21 @@ a{0..2}: #0  dlopened_function
 28: #list breakpoints
 29: info breakpoint
 Procset         Num Type           Disp Enb What
-a{0..2}         2   breakpoint     keep y   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
+a{0..2}         1   breakpoint     keep y   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
 31: # Test disable command
-32: disable 2
+32: disable 1
 34: #test has breakpoint 3 been disabled?
 35: info breakpoint
 Procset         Num Type           Disp Enb What
-a{0..2}         2   breakpoint     keep n   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
+a{0..2}         1   breakpoint     keep n   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
 37: # Test enable command
-38: enable 2  
+38: enable 1  
 40: #has breakpoint 3 been enabled?
 41: info breakpoint
 Procset         Num Type           Disp Enb What
-a{0..2}         2   breakpoint     keep y   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
+a{0..2}         1   breakpoint     keep y   in dlopened_function%( at /lus/sonexion/jvogt/tests/gdb4hpc/bd_dt/c/libdlopen_test.c:13)?%
 43: # Test delete command.  This will delete a specified breakpoint in the breakpoint list
-44: delete 2 
+44: delete 1 
 46: #has breakpoint 3 been deleted?
 47: info breakpoint
 Procset         Num Type           Disp Enb What

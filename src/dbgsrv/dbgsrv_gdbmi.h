@@ -27,10 +27,10 @@ public:
     virtual int read(int) override;
     virtual bool bufferReady() override;
     virtual int progioHook(int) override;   //!!! careful - potentially unimplemented
-    virtual dbgevent_t *setLineBreak(const int allowPending, const char *file, int lno, const char* threadId, const dbgcomm_info *commInfo) override;
-    virtual dbgevent_t *setFuncBreak(const int allowPending, const char *file, const char *func, const char* threadId, const dbgcomm_info *commInfo) override;
-    virtual dbgevent_t *setWatch(int type, const char *expr, const dbgcomm_info *commInfo) override;
-    virtual dbgevent_t *setCatch(const std::string &event, const std::string &regex, const dbgcomm_info *commInfo) override; // TODO is commInfo needed?
+    virtual dbgevent_t *setLineBreak(int id, const int allowPending, const char *file, int lno, const char* threadId, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setFuncBreak(int id, const int allowPending, const char *file, const char *func, const char* threadId, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setWatch(int id, int type, const char *expr, const dbgcomm_info *commInfo) override;
+    virtual dbgevent_t *setCatch(int id, const std::string &event, const std::string &regex, const dbgcomm_info *commInfo) override; // TODO is commInfo needed?
     virtual dbgevent_t *setCheckpoint() override;
     virtual dbgevent_t *restoreCheckpoint(unsigned int id) override;
     virtual dbgevent_t *deleteCheckpoint(unsigned int id) override;
@@ -110,21 +110,16 @@ public:
 private:
     class Initializer;
 
-    dbgevent_t* setBreak(const int allowPending, const std::string& where,
+    dbgevent_t* setBreak(int feId,
+                         const int allowPending, const std::string& where,
                          const char* threadSet, const dbgcomm_info* commInfo);
     dbgevent_t* evalExprWithThreads(const char *expr, const char* threads);
     std::vector<int> getThreadSet(const std::string& threadId, std::string* suffix, std::string& error);
     std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet,
                                    bool &isVerbose, size_t& numThreads);
-    std::vector<int> getMultiThreadBreaks(int bid, bool remove);
-    template<typename FUNC> void applyMultiThreadBreak(int bid, bool remove, FUNC&& op) {
-        auto ids = getMultiThreadBreaks(bid,remove);
-        for (auto it = ids.rbegin(); it != ids.rend(); ++it) op(*it);
-    }
     dbgevent_t*  initOmpd();
     bool initOmpdL();
 
-    std::map<int,std::vector<int>> m_multiThreadBreaks;
     std::unique_ptr<Initializer> m_initializer;
     bool m_ompdIsInitialized;
     bool m_ompdIsAvail;

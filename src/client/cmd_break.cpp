@@ -92,7 +92,7 @@ force_pending_break:
             PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                   "ERROR: cannot find breakpoint [%d: file %s, "
                                   "line %d] in BPSetList.\n",
-                                  bp->bp_id, bp->bp_loc.loc_file,
+                                  bp->bp_fe_id, bp->bp_loc.loc_file,
                                   bp->bp_loc.loc_line);
             continue;
         }
@@ -220,7 +220,7 @@ force_pending_tbreak:
             PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                   "ERROR: cannot find breakpoint [%d: file %s, "
                                   "line %d] in BPSetList.\n",
-                                  bp->bp_id, bp->bp_loc.loc_file,
+                                  bp->bp_fe_id, bp->bp_loc.loc_file,
                                   bp->bp_loc.loc_line);
             FreeRecSet(new_rec);
             continue;
@@ -357,7 +357,7 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
             PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                   "ERROR: cannot find watchpoint [%d: variable "
                                   "%s] in BPSetList.\n",
-                                  bp->bp_id, bp->bp_exp);
+                                  bp->bp_fe_id, bp->bp_exp);
         }
     }
 
@@ -422,7 +422,7 @@ static int cmd_catch_cmd(rec_set_t *rec_set, int argc, char **argv) {
         } else {
             PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                 "ERROR: cannot find catchpoint [%d: event "
-                "%s] in BPSetList.\n", bp->bp_id, bp->bp_exp);
+                "%s] in BPSetList.\n", bp->bp_fe_id, bp->bp_exp);
         }
     }
     

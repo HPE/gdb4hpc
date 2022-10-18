@@ -123,7 +123,7 @@ static int cmd_usage_dim_order_cmd(rec_set_t *rec_set, int argc,
  * Regular commands
  ********************************/
 
-static int cmd_blockmap_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_decomposition_cmd(rec_set_t *rec_set, int argc, char **argv) {
     expr_t *e;
     val_t *v;
 
@@ -898,7 +898,7 @@ void InitCmd_blockmap(void) {
 
     // regular commands
     AddCommand("decomposition", NULL, proc_ignore, 0,
-               cmd_blockmap_cmd, cmd_blockmap_help,
+               cmd_decomposition_cmd, cmd_blockmap_help,
                "Define a decomposition scheme.");
 
     // blockmap alt commands

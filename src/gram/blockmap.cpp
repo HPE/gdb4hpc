@@ -170,6 +170,16 @@ int VerifyBlockMap(hentry_t *sym) {
         }
     }
 
+    // check that the dimension in each direction is a multiple of the number of ranks
+    for (i=0; i<m->m_rank; ++i) {
+        if (m->m_distribute[i] != CT_STAR &&
+            m->m_data[i] % m->m_procs[i] != 0) {
+            SetError("dimension size %d is not a multiple of proc_grid %d.",
+                     m->m_data[i], m->m_procs[i]);
+            return 0;
+        }
+    }
+
     return 1;
 }
 
@@ -270,10 +280,10 @@ indexer1D::indexer1D(const g_block_map_t* m, int d) :
     m_dimIdx(d),
     m_distribute(m->m_distribute[d]),
     m_len(m->m_data[d]),
-    m_numProcs(m->m_procs[d]),
+    m_numProcs(std::max(m->m_procs[d],1)),
     m_blockCyclic(m->m_blockcyclic_val[d]),
     m_dimOrder(m->m_dim_order[d]),
-    m_blockLen(m_len / m_numProcs),
+    m_blockLen(std::max(m_len / m_numProcs,size_t{1})),
     m_totalProcSize(m_numProcs),
     m_dataScale(1),
     m_procScale(1)

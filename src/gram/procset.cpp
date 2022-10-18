@@ -546,9 +546,9 @@ int FinalizeProcSetForInvoke(dbgprocset_t *ps, DbgInvoke *di) {
     }
 
     // reconcile the nprocs with the di, it is our master
-    ps->s_nproc = di->d_nproc;
+    ps->s_nproc = di->numRanks();
 
-    over_set = NewOverlaySet(di->handle(), di->d_bitset_full->clone(), 0);
+    over_set = NewOverlaySet(di->handle(), di->fullBitset()->clone(), 0);
     AddToList(ps->s_over_set_list, over_set);
     // increment num sets
     ps->s_num_sets++;

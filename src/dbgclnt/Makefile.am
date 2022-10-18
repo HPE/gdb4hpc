@@ -6,8 +6,9 @@ SCRIPT  = @gdb4hpc_srcdir@/script
 MRNET_ROOT	= @mrn_root@
 BITSET  = @gdb4hpc_srcdir@/bitset
 ZMQNET_ROOT  = @zmqnet_root@
+UNITTEST = @gdb4hpc_srcdir@/unittest
 
-AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(SCRIPT)
+AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(SCRIPT) -I$(UNITTEST)
 AM_LIBTOOLFLAGS = --quiet
 
 ######################

@@ -99,7 +99,7 @@ static int cmd_info_sources_cmd(rec_set_t *rec_set, int argc,
                     ss<<"{file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
 
                     //save fullpath to source list
-                    recv_ptr->rec_di.source_paths.storeSourcePath(s->sources_file);
+                    recv_ptr->rec_di.sourcePaths().storeSourcePath(s->sources_file);
                 }
             }
             if (Client.MI_mode) {

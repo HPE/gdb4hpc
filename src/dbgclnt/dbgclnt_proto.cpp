@@ -98,7 +98,7 @@ static int CheckForProtoStartupEvent(DbgInvoke *di) {
      notification fd. If a event notification fd can be used, then it should 
      be added to the sw_evfd list and sw_checkevents should simply return 0.
     */
-    if (di->d_proto->checkEvents(di) > 0) {
+    if (di->proto().checkEvents(di) > 0) {
         DPRINT("DbgCheckEvents: sw_checkevents returned 1\n");
         return 1;  // there is a proto event to handle. Return immediately.
     }
@@ -108,10 +108,10 @@ static int CheckForProtoStartupEvent(DbgInvoke *di) {
     *on.
     ** This enables protocol events.
     */
-    if (di->d_evfds != NULL) {
-        SetList(di->d_evfds);
+    if (di->eventFds() != NULL) {
+        SetList(di->eventFds());
 
-        while ((ev_fd = (int *)GetListElement(di->d_evfds)) != (int *)NULL) {
+        while ((ev_fd = (int *)GetListElement(di->eventFds())) != (int *)NULL) {
             if (proto_high_fd < *ev_fd) {
                 proto_high_fd = *ev_fd;
             }
@@ -172,20 +172,20 @@ static void DispatchProtoStartupEvent(DbgInvoke *di) {
     // notification fd's. We should try to check to see if each one is set,
     // and if so call the protocol specific dispatch function with the event
     // fd as an argument
-    if (di->d_evfds != NULL) {
-        SetList(di->d_evfds);
+    if (di->eventFds() != NULL) {
+        SetList(di->eventFds());
 
-        while ((ev_fd = (int *)GetListElement(di->d_evfds)) !=
+        while ((ev_fd = (int *)GetListElement(di->eventFds())) !=
                 (int *)NULL) {
             if (FD_ISSET(*ev_fd, &proto_dispatch_fds)) {
                 // dispatch each of the set notification fds one at a time.
-                di->d_proto->dispatchEvents(di, *ev_fd);
+                di->proto().dispatchEvents(di, *ev_fd);
             }
         }
     } else {
         // event notification fd's not in use by this protocol, so call
         // the generic dispatch function with -1 for event fd arg.
-        di->d_proto->dispatchEvents(di, -1);
+        di->proto().dispatchEvents(di, -1);
     }
 }
 
@@ -232,34 +232,32 @@ int DebugClientProtocol::exit(DbgInvoke *di, int detach) {
         // If we attached to the app instead of launched it, no exit breakpoint
         // was set, and it's possible that it ran until complete exit by now. We
         // still try to send a signal, but only print an error if we launched the app.
-        if (cti_killApp(di->d_appid, SIGCONT) && di->d_type == DBG_LAUNCHED) {
+        auto Launched = DbgInvoke::ProcessType::Launched;
+        if (cti_killApp(di->appId(), SIGCONT) && di->processType() == Launched) {
             PrintOutError("Warning: an error occurred during release of $%s.\n",
                           di->handle().c_str());
             PrintOutError("The job might be stuck waiting for a SIGCONT.\n");
         }
         // Now that the app is running again, release it from cti so it won't be
         // killed when cti is killed
-        if (cti_releaseApp(di->d_appid)) {
+        if (cti_releaseApp(di->appId())) {
             PrintOutError("Warning: an error occured during release of $%s.\n",
                           di->handle().c_str());
             PrintOutError("The job might be killed before completing.\n");
         }
     } else {
-        if (cti_killApp(di->d_appid, SIGKILL) && di->d_type == DBG_LAUNCHED) {
+        auto Launched = DbgInvoke::ProcessType::Launched;
+        if (cti_killApp(di->appId(), SIGKILL) && di->processType() == Launched) {
             PrintOutError("Warning: an error occurred during cleanup of $%s.\n", di->handle().c_str());
             PrintOutError("Your job might still be running.\n");
         }
     }
 
-    cti_deregisterApp(di->d_appid);
+    cti_deregisterApp(di->appId());
 
-    di->d_appid = 0;
+    di->setAppId(0);
 
-    // Destroy the program output object
-    DbgFreeGenericProgOutp(di->d_proto_outp);
-
-    // clear the program output object
-    di->d_proto_outp = nullptr;
+    di->destroyProtoOutput();
 
     return 0;
 }

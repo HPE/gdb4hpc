@@ -158,7 +158,7 @@ std::unique_ptr<Bitset> ZMQNetClientProtocol::sendCommand(DbgInvoke *di, const B
                              const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
-    if (di->d_isShutdown) return nullptr;
+    if (di->isShutdown()) return nullptr;
 
     return getNetwork<ZMQNetNetwork>(di).sendCommand(target, request);
 }
@@ -167,7 +167,7 @@ std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(DbgInvoke *di,
                                             const Bitset *target, Bitset &received) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
-    if (di->d_isShutdown) {
+    if (di->isShutdown()) {
         return {};
     }
 
@@ -221,21 +221,21 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
 
     // figure out our appid
     if (appid != 0) {
-        di->d_appid = appid;
+        di->setAppId(appid);
     } else if (app_ident == nullptr) {
         PrintOutError("Can't parse appid from nullptr.\n");
         return 1;
     } else {
-        di->d_appid = parseAndRegisterAppId(app_ident); 
-        if (di->d_appid == 0) {
+        di->setAppId(parseAndRegisterAppId(app_ident));
+        if (di->appId() == 0) {
             PrintOutError("Failed to parse appid.\n");
             return 1;
         }
     }
 
     // figure out how many ranks there are
-    if (di->d_nproc == 0) {
-        if ((di->d_nproc = cti_getNumAppPEs(di->d_appid)) == 0) {
+    if (di->numRanks() == 0) {
+        if (di->setNumRanks(cti_getNumAppPEs(di->appId())); di->numRanks() == 0) {
             PrintOutError("Failed to retrieve nproc.\n");
             PrintOutError("CTI error: %s\n", cti_error_str());
             return 1;
@@ -244,7 +244,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
 
     // ship required backend files /////////////////////////////////////////////
 
-    const auto session_id = cti_createSession(di->d_appid);
+    const auto session_id = cti_createSession(di->appId());
     if (session_id == 0) {
         PrintOutError("Failed to create CTI session.\n");
         PrintOutError("CTI error: %s\n", cti_error_str());
@@ -314,13 +314,11 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     }
     LOG("\n");
 #endif
-    auto num_be = di->d_nproc;
-    di->d_bitset_full = std::make_unique<DenseBitset>(num_be);
-    di->d_bitset_full->invert();
+    auto num_be = di->numRanks();
+    di->setFullBitset(std::make_unique<DenseBitset>(num_be, DenseBitset::InitialState::Full));
+    di->setLaunchedBitset(std::make_unique<DenseBitset>(num_be));
 
-    di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
-
-    auto zmqnet = makeZmqnetFrontend(num_be, di->d_appid, session_id, manifest_id, dbgsrvArgs.c_strs().data());
+    auto zmqnet = makeZmqnetFrontend(num_be, di->appId(), session_id, manifest_id, dbgsrvArgs.c_strs().data());
 
     if (!zmqnet) {
         // error message printed in makeZmqnetFrontend
@@ -328,17 +326,18 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
         return 1;
     }
 
-    di->d_proto_net = std::make_unique<ZMQNetNetwork>(std::move(zmqnet), std::move(output), di->d_bitset_full->clone());
+    di->setNetwork(std::make_unique<ZMQNetNetwork>(std::move(zmqnet), std::move(output),
+                                                   di->fullBitset()->clone()));
 
     PrintOutMsg("Created network...\n");
 
     // send invoke
     auto invoke = CommandToSocProto(DBGCMD_INVOKE, num_be);
-    sendCommand(di, di->d_bitset_full.get(), invoke.c_str());
+    sendCommand(di, di->fullBitset(), invoke.c_str());
 
     // wait for response
     auto received{DenseBitset(num_be)};
-    receiveReply(di, di->d_bitset_full.get(), received);
+    receiveReply(di, di->fullBitset(), received);
 
     if (!received.isFull()) {
         PrintOutError("Error: not all ranks received startup message. Attempting to clean up...\n");
@@ -348,7 +347,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
 
     PrintOutMsg("Connected to application...\n");
 
-    di->d_started = 1;
+    di->setStarted();
 
     return 0;
 }
@@ -373,8 +372,10 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
     // this will eventually be given to the ZMQNetNetwork object.
     auto output = ZMQNetNetwork::OutputPtr(DbgCreateGenericProgOutp(), DbgFreeGenericProgOutp);
 
-    auto launcherArgs = ArgvStream("-n", di->d_nproc, arch_args, prog, argv);
-    if ((di->d_appid = cti_launchAppBarrier(launcherArgs.c_strs().data(), output->p_o_wfd, output->p_o_wfd, arch_input, cwd, env)) == 0) {
+    auto launcherArgs = ArgvStream("-n", di->numRanks(), arch_args, prog, argv);
+    di->setAppId(cti_launchAppBarrier(launcherArgs.c_strs().data(), output->p_o_wfd,
+                                      output->p_o_wfd, arch_input, cwd, env));
+    if (di->appId() == 0) {
         PrintOutError("Failed to launch CTI app.\n");
         PrintOutError("CTI error: %s\n", cti_error_str());
         return 1;
@@ -383,26 +384,28 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
     PrintOutMsg("Launched application...\n");
 
     // attach to launched application
-    if (internalAttach(di, prog, nullptr, di->d_appid, std::move(output), arch, backend, gdb, gpu_flag, debug_flag, early_entry_flag, isNonStop, non_mpi_flag)) {
+    if (internalAttach(di, prog, nullptr, di->appId(), std::move(output), arch, backend,
+                       gdb, gpu_flag, debug_flag, early_entry_flag, isNonStop,
+                       non_mpi_flag)) {
         PrintOutError("Failed to attach to application. Cleaning up...\n");
 
-        if (di->d_appid != 0) {
-            cti_releaseAppBarrier(di->d_appid);
-            cti_killApp(di->d_appid, SIGKILL);
-            cti_deregisterApp(di->d_appid);
-            di->d_appid = 0;
+        if (di->appId() != 0) {
+            cti_releaseAppBarrier(di->appId());
+            cti_killApp(di->appId(), SIGKILL);
+            cti_deregisterApp(di->appId());
+            di->setAppId(0);
         }
 
         return 1;
     }
 
     // tell CTI to release the application from the startup barrier
-    if (cti_releaseAppBarrier(di->d_appid)) {
+    if (cti_releaseAppBarrier(di->appId())) {
         PrintOutError(
             "Could not release application from the startup barrier.\n");
         PrintOutError("CTI error: %s\n", cti_error_str());
-        cti_killApp(di->d_appid, SIGKILL);
-        di->d_appid = 0;
+        cti_killApp(di->appId(), SIGKILL);
+        di->setAppId(0);
         return 1;
     }
 
@@ -412,7 +415,7 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
 void ZMQNetClientProtocol::destroyClient(DbgInvoke *di) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
-    if (di->d_proto_net) {
+    if (di->network()) {
         exit(di, 0);
     }
 }
@@ -426,7 +429,7 @@ int ZMQNetClientProtocol::exit(DbgInvoke *di, int detach) {
     }
 
     getNetwork<ZMQNetNetwork>(di).exit();
-    di->d_proto_net.reset();
+    di->setNetwork(nullptr);
 
     return DebugClientProtocol::exit(di, detach);
 }

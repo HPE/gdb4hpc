@@ -108,11 +108,11 @@ protected:
     // helper to extract a reference to a network object from a di.
     template <typename Net>
     Net& getNetwork(DbgInvoke *di) {
-        if (di->d_proto_net == nullptr) {
+        if (di->network() == nullptr) {
             throw std::runtime_error("Tried to extract a network from a nullptr.");
         }
 
-        return dynamic_cast<Net&>(*di->d_proto_net);
+        return dynamic_cast<Net&>(*di->network());
     }
 
     // helper function for attach to parse out the appId from appIdent and

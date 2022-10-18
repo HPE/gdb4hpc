@@ -95,7 +95,7 @@ public:
             "and adding --debug to your launch/attach statement. Submit the\n");
         PrintOutError("generated logs with the bugreport.\n\n");
 
-        di->d_isShutdown = 1;
+        di->setShutdown();
         m_enabled = false;
 
         // Force ccdb to shutdown

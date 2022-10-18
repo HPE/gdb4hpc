@@ -54,7 +54,7 @@ enum class StoppedType { END_RANGE, EXIT, BKPT_HIT};
 
 void PrintMIStoppedMsg(const DbgInvoke::EventSet *ev_set, StoppedType type, std::string file, std::string func, std::string line, std::string bkpt_id){
     std::ostringstream ss;
-    auto fullpath = ev_set->di().source_paths.getFullPath(file);
+    auto fullpath = ev_set->di().sourcePaths().getFullPath(file);
     switch(type){
         case StoppedType::BKPT_HIT:{
             ss << "reason=\"breakpoint-hit\",bkptno=\"" <<bkpt_id
@@ -108,7 +108,7 @@ static int cmd_info_application_cmd(rec_set_t *rec_set, int argc,
         while ((over_set = GetNextOverlaySetForProcSet(ps)) != NULL) {
             // point at the di
             auto* di = over_set->s_di.lock();
-            PrintOutMsg("$%-9s %-10d ", di->handle().c_str(), di->d_nproc);
+            PrintOutMsg("$%-9s %-10d ", di->handle().c_str(), di->numRanks());
 
             // reset found, we only print n if the di is not in the over_set
             found = 0;
@@ -124,7 +124,7 @@ static int cmd_info_application_cmd(rec_set_t *rec_set, int argc,
                 PrintOutMsg("%-5s ", "n");
             }
 
-            PrintOutMsg("%s\n", di->d_launch.app_argv.asString().c_str());
+            PrintOutMsg("%s\n", di->launchOptions().app_argv.asString().c_str());
         }
     }
 
@@ -282,8 +282,8 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
             }
 
             // Continue job past barrier and into main
-            if (cti_killApp(newHandle.lock()->d_appid, SIGCONT)) {
-                PrintOutError("Failed to continue ID %lu\n", newHandle.lock()->d_appid);
+            if (cti_killApp(newHandle.lock()->appId(), SIGCONT)) {
+                PrintOutError("Failed to continue ID %lu\n", newHandle.lock()->appId());
             }
 
             free(pbs_job_id);
@@ -361,7 +361,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
 
     // Create a rec_set based on the di
     rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->d_bitset_full.get()));
+    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
 
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
@@ -423,7 +423,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
         }
     }
 
-    di->d_atInitialBreakpoint = true;
+    di->setAtInitialBreakpoint(true);
 
     // ensure the new process has the current print elements setting
     // 0 is the default value set up by the dbgsrv, so if the setting is already
@@ -464,16 +464,16 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         return nullptr;
     }
 
-    if (oldDi->d_type == DBG_ATTACHED) {
+    if (oldDi->processType() == DbgInvoke::ProcessType::Attached) {
         PrintOutError("Can't re-launch attached programs.\n");
         return nullptr;
     }
 
-    auto newArgs = DbgInvoke::LaunchOpts(oldDi->d_launch);
+    auto newArgs = DbgInvoke::LaunchOpts(oldDi->launchOptions());
     newArgs.procset_name = (cloneName ? cloneName : "$tmp_clone");
     newArgs.procset_name += "{" + std::to_string(oldProcset->s_nproc) + "}";
 
-    newArgs.app_argv = oldDi->d_launch.run_argv;
+    newArgs.app_argv = oldDi->launchOptions().run_argv;
 
     dbgprocset_t* newProcset = nullptr;
 
@@ -639,7 +639,7 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
                 // we can't restart only part of a di, so a procset
                 // is invalid if it only includes a subset of a di.
                 auto* di = os->s_di.lock();
-                if (validProcset && *os->s_di_bs != *di->d_bitset_full) {
+                if (validProcset && *os->s_di_bs != *di->fullBitset()) {
                     PrintOutError("Error: $%s contains only a subset (%s) of $%s.\n",
                         oldProcset->s_name, os->s_di_bs->toSetString().c_str(), os->s_di.c_str());
                     validProcset = false;
@@ -821,7 +821,7 @@ static int DoAttach(const char *proto, dbgprocset_t *ps,
 
     // Create the rec_set based on the di
     rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->d_bitset_full.get()));
+    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
 
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
@@ -1073,14 +1073,14 @@ static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
                 break;
             case DBG_DEFAULT:
                 // use di instead
-                switch (di->d_type) {
-                    case DBG_ATTACHED:
+                switch (di->processType()) {
+                    case DbgInvoke::ProcessType::Attached:
                         PrintOutMsg(
                             "Shutting down debugger and resuming application "
                             "for \'%s\'.\n",
                             di->handle().c_str());
                         break;
-                    case DBG_LAUNCHED:
+                    case DbgInvoke::ProcessType::Launched:
                         PrintOutMsg(
                             "Shutting down debugger and killing application "
                             "for \'%s\'.\n",
@@ -1097,7 +1097,7 @@ static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
 
         // Create the rec_set based on the di
         rec_set = NewRecSet();
-        AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->d_bitset_full.get()));
+        AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
 
         rep_set = DbgQuit(rec_set, quit_type);
 
@@ -1208,9 +1208,9 @@ static int set_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
     // set args
     for (auto di : dis) {
         // remember argv[0]
-        auto argv0 = di->d_launch.run_argv[0];
-        di->d_launch.run_argv.clear();
-        di->d_launch.run_argv << argv0;
+        auto argv0 = di->launchOptions().run_argv[0];
+        di->launchOptions().run_argv.clear();
+        di->launchOptions().run_argv << argv0;
         if (!onlyReset) {
             for (int i = 1 /* because argv[0] == "args" */; i < argc; i++) {
                 // the command layer above will correctly parse quoted
@@ -1222,7 +1222,7 @@ static int set_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
                 if (window.size() > 1 && window.front() == '"' && window.back() == '"') {
                     window = window.substr(1, window.size() - 2);
                 }
-                di->d_launch.run_argv << window;
+                di->launchOptions().run_argv << window;
             }
         }
     }
@@ -1236,7 +1236,7 @@ static int set_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
 
 static int show_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
     for (const auto* rec : recSet) {
-        const auto& dargv = rec->rec_di.d_launch.run_argv;
+        const auto& dargv = rec->rec_di.launchOptions().run_argv;
         // start printing args from argv[1]
         PrintMsgWithSetInfo(rec->rec_di.handle().c_str(), rec->rec_group.get(), 
             "\"%s\"\n", dargv.asString(1).c_str());
@@ -1277,8 +1277,8 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
             lineArg += "," + lineArg; // filename:xx,filename:xx
             dbgevent_t *listResult = nullptr;
 
-            if (ev_set->di().d_frontend) {
-                listResult = DbgFEList(ev_set->di().d_frontend, nullptr, lineArg.c_str());
+            if (ev_set->di().frontendGdb()) {
+                listResult = DbgFEList(ev_set->di().frontendGdb(), nullptr, lineArg.c_str());
             }
 
             if (listResult && listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
@@ -1645,7 +1645,7 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
             rec_set = NewRecSet();
             AddReceiverToSet(
                 rec_set,
-                NewGroupReceiver(ev_set.di(), ev_set.di().d_bitset_full.get()));
+                NewGroupReceiver(ev_set.di(), ev_set.di().fullBitset()));
 
             // Query the new status from the backends, note that for this we
             // want to grab the location information

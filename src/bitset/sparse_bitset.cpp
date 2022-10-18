@@ -27,8 +27,7 @@
 #include "sparse_bitset.h"
 
 #include "bitset_tests.h"
-// disabled until PE-43612 is resolved
-// TEST_CASE_TEMPLATE_INVOKE(libbitset, SparseBitset);
+TEST_CASE_TEMPLATE_INVOKE(libbitset, SparseBitset);
 
 SparseBitset::SparseBitset(size_t num_bits) 
 	: m_sb_num_bits{num_bits}

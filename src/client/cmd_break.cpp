@@ -110,7 +110,7 @@ force_pending_break:
         else if (bpset->line() >= 0) {
             if (Client.MI_mode){
                 std::stringstream ss;
-                auto fullpath = reply->rep_di.lock()->source_paths.getFullPath(bpset->file());
+                auto fullpath = reply->rep_di.lock()->sourcePaths().getFullPath(bpset->file());
                 ss << "proc_set=\"" << reply->rep_di.name()
                    << "\",bkpt={number=\"" << bpset->id()
                    << "\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""
@@ -738,7 +738,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                        BPDispToStr(disp_set.disp),enabled,
                                        bpset.function(),
                                        bpset.file().c_str(),
-                                       recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                       recv_ptr->rec_di.sourcePaths().getFullPath(bpset.file()),
                                        "");
                         } else {
                             auto expression = std::ostringstream{};
@@ -758,7 +758,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                             addMiEntry(std::to_string(bpset.id()),BPTypeToStr(bpset.type()),
                                        BPDispToStr(disp_set.disp),enabled,bpset.function(),
                                        bpset.file(),
-                                       recv_ptr->rec_di.source_paths.getFullPath(bpset.file()),
+                                       recv_ptr->rec_di.sourcePaths().getFullPath(bpset.file()),
                                        std::to_string(bpset.line()));
                         } else {
                             auto location = std::ostringstream{};

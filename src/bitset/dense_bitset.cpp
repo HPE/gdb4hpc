@@ -9,16 +9,27 @@
 #include <cmath>
 
 #include "bitset_tests.h"
-// disabled until PE-43612 is resolved
-// TEST_CASE_TEMPLATE_INVOKE(libbitset, DenseBitset);
+TEST_CASE_TEMPLATE_INVOKE(libbitset, DenseBitset);
 
-DenseBitset::DenseBitset(size_t nbits)
+TEST_CASE("Initial state constructor argument") {
+	auto empty = DenseBitset(128);
+	auto empty2 = DenseBitset(128, DenseBitset::InitialState::Empty);
+	auto full = DenseBitset(128, DenseBitset::InitialState::Full);
+
+	CHECK(empty.numSet() == 0);
+	CHECK(empty2.numSet() == 0);
+	CHECK(full.numSet() == 128);
+}
+
+DenseBitset::DenseBitset(size_t nbits, DenseBitset::InitialState init)
 	: m_bs_nbits{nbits}
 	, m_bs_bits{}
 {
 	if (nbits != 0) {
 		m_bs_bits = std::vector<Bits>(BIT_INDEX(nbits-1) + 1, 0);
 	}
+
+	if (init == InitialState::Full) invert();
 }
 
 DenseBitset::DenseBitset(SerializedPtr serialized) {

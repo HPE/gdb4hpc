@@ -119,7 +119,7 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(DbgInvoke *di, const Bits
     auto &network = getNetwork<MRNetNetwork>(di);
 
     // send command only if not already in a shutdown state
-    if (di->d_isShutdown) {
+    if (di->isShutdown()) {
         return nullptr;
     }
 
@@ -135,7 +135,7 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(DbgInvoke *di, const Bits
 
         int *eventFdPtr = (int *)Alloc(sizeof(int));
         *eventFdPtr = eventFd;
-        AddToList(di->d_evfds, eventFdPtr);
+        AddToList(di->eventFds(), eventFdPtr);
     }
 
     return received;
@@ -147,7 +147,7 @@ std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(DbgInvoke *di,
     int full = 0;
 
     // recv reply only if not already in a shutdown state
-    if (di->d_isShutdown) {
+    if (di->isShutdown()) {
         return {};
     }
 
@@ -190,10 +190,10 @@ std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(DbgInvoke *di,
 
 void MRNClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     auto &network = getNetwork<MRNetNetwork>(di);
-    g_progoutp_t *po = (g_progoutp_t *)di->d_proto_outp;
+    auto* po = di->protoOutput();
 
     // dispatch application output if started
-    if (di->d_started && (po != nullptr) && (po->p_o_rfd == ev_fd)) {
+    if (di->isStarted() && (po != nullptr) && (po->p_o_rfd == ev_fd)) {
         // Call the protocol specific callback function to handle the output on
         // the stream
         DbgDispatchProtoOutput(di, po->p_o_stream);
@@ -206,7 +206,7 @@ void MRNClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     // not appropriate to handle client events in this layer.
     {
         auto io_res = network.dispatch_io(ev_fd);
-        if (di->d_started && io_res) {
+        if (di->isStarted() && io_res) {
             // process each io message in the list
             for (const auto &msg : *io_res) {
                 auto msg_bitset = msg.getBitset();
@@ -314,7 +314,7 @@ int MRNClientProtocol::attach(DbgInvoke *di,
     DPERFLOG(SetTimerStart("Attach total"));
 #endif /* PERFLOG */
 
-    if (di->d_appid = parseAndRegisterAppId(app_ident); di->d_appid == 0) {
+    if (di->setAppId(parseAndRegisterAppId(app_ident)); di->appId() == 0) {
         PrintOutError("Failed to parse appid.\n");
         goto attach_error;
     }
@@ -326,7 +326,7 @@ int MRNClientProtocol::attach(DbgInvoke *di,
 
     // Create a new session based on the appid. We need to remember this for
     // later
-    if ((sid = cti_createSession(di->d_appid)) == 0) {
+    if ((sid = cti_createSession(di->appId())) == 0) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to create a cti_session_id_t.\n");
         goto attach_error;
@@ -387,7 +387,7 @@ OMPD support will not be available.\n");
     PrintOutMsg("Creating MRNet communication network...\n");
 
     // get the number of processes associated with this application
-    if ((di->d_nproc = cti_getNumAppPEs(di->d_appid)) == 0) {
+    if (di->setNumRanks(cti_getNumAppPEs(di->appId())); di->numRanks() == 0) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to retrieve nproc.\n");
         goto attach_error;
@@ -400,11 +400,11 @@ OMPD support will not be available.\n");
         goto attach_error;
     }
 
-    DPRINT("Application has apid[%lu]\n", di->d_appid);
+    DPRINT("Application has apid[%lu]\n", di->appId());
     DPRINT("Root has a hostname of [%s]\n", root);
 
     // get a list of the nid hostnames for topology creation
-    if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == nullptr) {
+    if ((machine_hosts = cti_getAppHostsList(di->appId())) == nullptr) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to retrieve nid hostname list.\n");
         goto attach_error;
@@ -420,7 +420,7 @@ OMPD support will not be available.\n");
 #endif /* DEBUG */
 
     // create the topology file used to create the mrnet front end network
-    if (create_mrnet_topology(di->d_nproc, root, machine_hosts, 1)) {
+    if (create_mrnet_topology(di->numRanks(), root, machine_hosts, 1)) {
         PrintOutError(
             "ERROR: DbgMRNAttach failed to create MRNet topology file!\n");
         goto attach_error;
@@ -443,7 +443,7 @@ OMPD support will not be available.\n");
 
     // We let MRNet send the contents of the manifest for us
     network = std::unique_ptr<MRNetNetwork>
-        (MRNetNetwork::create_network_no_be(topology_name, mrn_topology, di->d_appid, mid));
+        (MRNetNetwork::create_network_no_be(topology_name, mrn_topology, di->appId(), mid));
     
     if (network == nullptr) {
         // error already printed
@@ -456,7 +456,7 @@ OMPD support will not be available.\n");
 
     // create the backend attach file which the compute nodes will use to hook
     // up to the network
-    if (create_parents_info(mrn_topology, di->d_nproc) < 1) {
+    if (create_parents_info(mrn_topology, di->numRanks()) < 1) {
         PrintOutError(
             "ERROR: DbgMRNAttach cannot create infomation for MRNet "
             "attachment!\n");
@@ -489,19 +489,19 @@ OMPD support will not be available.\n");
     if (dbg) {
         if (gpu_flag) {
             argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend, "--gpu",
+                         di->proto().name(), "-e", backend, "--gpu",
                          "--debug");
         } else {
             argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend, "--debug");
+                         di->proto().name(), "-e", backend, "--debug");
         }
     } else {
         if (gpu_flag) {
             argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend, "--gpu");
+                         di->proto().name(), "-e", backend, "--gpu");
         } else {
             argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->d_proto->name(), "-e", backend);
+                         di->proto().name(), "-e", backend);
         }
     }
 
@@ -569,7 +569,7 @@ OMPD support will not be available.\n");
     env_var_cnt = 0;
 
     // wait for the debug servers to connect to the mrnet tree
-    rtn = network->attach_be(di->d_nproc, mrnet_timeout);
+    rtn = network->attach_be(di->numRanks(), mrnet_timeout);
     if (rtn) {
         if (rtn > 0) {
             PrintOutError(
@@ -603,25 +603,23 @@ OMPD support will not be available.\n");
 
     network->enable_failure_callback(di);
 
-    if ((num_be = network->get_num_of_be()) != di->d_nproc) {
+    if ((num_be = network->get_num_of_be()) != di->numRanks()) {
         PrintOutError(
             "ERROR: MRNet has an incorrect number of debug servers.\n");
-        PrintOutError("\tExpected [%d] found [%d]\n", di->d_nproc, num_be);
+        PrintOutError("\tExpected [%d] found [%d]\n", di->numRanks(), num_be);
         goto attach_error;
     }
 
     DPRINT("num_be is %d\n", num_be);
 
-    di->d_bitset_full = std::make_unique<DenseBitset>(num_be);
-    di->d_bitset_full->invert();
-
-    di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
+    di->setFullBitset(std::make_unique<DenseBitset>(num_be, DenseBitset::InitialState::Full));
+    di->setLaunchedBitset(std::make_unique<DenseBitset>(num_be));
 
     DPRINT("DbgMRNAttach: MRNet initialization succeded! network:[%p]\n",
            network.get());
 
     // create the d_evfds list for the di
-    di->d_evfds = NewList();
+    di->initializeEventFds();
 
     // setup the event notification fd for the io stream
     event_fd = network->get_io_notificationfd();
@@ -633,7 +631,7 @@ OMPD support will not be available.\n");
 
     // Add the io_stream fd to the d_evfds list
     // This allows DbgCheckEvents to select on MRNet protocol events
-    AddToList(di->d_evfds, (void *)ev_fd_ptr);
+    AddToList(di->eventFds(), (void *)ev_fd_ptr);
 
     // setup the event notification fd for the event stream
     event_fd = network->get_event_notificationfd();
@@ -644,7 +642,7 @@ OMPD support will not be available.\n");
 
     // Add the event_stream fd to the d_evfds list
     // This allows DbgCheckEvents to select on MRNet protocol events
-    AddToList(di->d_evfds, (void *)ev_fd_ptr);
+    AddToList(di->eventFds(), (void *)ev_fd_ptr);
 
     /*broadcast an INVOKE command to complete the attach callback*/
     request = CommandToSocProto(DBGCMD_INVOKE, num_be);
@@ -656,7 +654,7 @@ OMPD support will not be available.\n");
     }
 
     // hand the network over to the di
-    di->d_proto_net = std::move(network);
+    di->setNetwork(std::move(network));
 
     // wait for the DBG_OK response from the dbgsrv's indicating they have
     // finished starting up
@@ -670,7 +668,7 @@ OMPD support will not be available.\n");
 
     // Here we want to wait for the dbginvoke to start as long as the callback
     // is still valid
-    while (di->d_started == 0) {
+    while (!di->isStarted()) {
         if (WaitForProtoStartupEvent(di) == -1) {
             PrintOutError("Could not receive launch callbacks!\n");
             goto attach_error;
@@ -688,9 +686,9 @@ OMPD support will not be available.\n");
 
 attach_error:
 
-    if (di->d_appid != 0) {
-        cti_deregisterApp(di->d_appid);
-        di->d_appid = 0;
+    if (di->appId() != 0) {
+        cti_deregisterApp(di->appId());
+        di->setAppId(0);
     }
 
     if (root != nullptr) Free(root);
@@ -792,7 +790,7 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
     snprintf(logfile, PATH_MAX + 1, "%s/mrnet_perf_frontend.log", envDir);
 
     DPERFLOG(CreateTimerLog(logfile));
-    DPERFLOG(SetLogInfo("Invoking %d processes, GPU is %s\n", di->d_nproc,
+    DPERFLOG(SetLogInfo("Invoking %d processes, GPU is %s\n", di->numRanks(),
                         gpu_flag ? "on" : "off"));
     DPERFLOG(SetTimerStart("Invoke total"));
 #endif /* PERFLOG */
@@ -800,7 +798,7 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
     // create the argv for the app launcher note that here argv[0] should not be
     // the program name this is to address the fact that guard should be
     // ignorant of the starter applications real name.
-    snprintf(sn, sizeof(sn), "%d", di->d_nproc);
+    snprintf(sn, sizeof(sn), "%d", di->numRanks());
     app_argv = ArgvStream("-n", sn, arch_args, prog, argv);
 #ifdef DEBUG
     DPRINT("application launcher args: ");
@@ -809,8 +807,8 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
 
     // create the output stream to redirect stdout/stderr to
     // Note that this will be a g_progoutp_t in this proto definition
-    if ((di->d_proto_outp = DbgCreateGenericProgOutp()) != nullptr) {
-        po = di->d_proto_outp;
+    if (di->initializeProtoOutput(); di->protoOutput() != nullptr) {
+        po = di->protoOutput();
         prog_outp = po->p_o_wfd;
     }
 
@@ -839,9 +837,9 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
 
     // launch the application using the tool interface
     // Note that the prog_outp is the WRITE END OF THE PIPE!!!!
-    if ((di->d_appid = cti_launchAppBarrier(app_argv.c_strs().data(), prog_outp,
-                                            prog_outp, arch_input, cwd,
-                                            (const char *const *)env)) == 0) {
+    di->setAppId(cti_launchAppBarrier(app_argv.c_strs().data(), prog_outp, prog_outp,
+                                      arch_input, cwd, (const char* const*)env));
+    if (di->appId() == 0) {
         int n = 0, r;
         char *read_buf;
 
@@ -881,7 +879,7 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
 
     // Create a new session based on the appid. We need to remember this for
     // later
-    if ((sid = cti_createSession(di->d_appid)) == 0) {
+    if ((sid = cti_createSession(di->appId())) == 0) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to create a cti_session_id_t.\n");
         goto invoke_error;
@@ -946,11 +944,11 @@ OMPD support will not be available.\n");
         goto invoke_error;
     }
 
-    DPRINT("Application has apid[%d]\n", (int)di->d_appid);
+    DPRINT("Application has apid[%d]\n", (int)di->appId());
     DPRINT("Root has a hostname of [%s]\n", root);
 
     // get a list of the nid hostnames for topology creation
-    if ((machine_hosts = cti_getAppHostsList(di->d_appid)) == (char **)nullptr) {
+    if ((machine_hosts = cti_getAppHostsList(di->appId())) == (char **)nullptr) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to retrieve nid hostname list.\n");
         goto invoke_error;
@@ -966,7 +964,7 @@ OMPD support will not be available.\n");
 #endif /* DEBUG */
 
     // create the topology file used to create the mrnet front end network
-    if (create_mrnet_topology(di->d_nproc, root, machine_hosts, 1)) {
+    if (create_mrnet_topology(di->numRanks(), root, machine_hosts, 1)) {
         PrintOutError(
             "ERROR: DbgMRNInvoke failed to create MRNet topology file!\n");
         goto invoke_error;
@@ -988,7 +986,7 @@ OMPD support will not be available.\n");
     DPERFLOG(SetTimerStart("Create mrnet network and ship dependencies"));
 
     network = std::unique_ptr<MRNetNetwork>
-        (MRNetNetwork::create_network_no_be(topology_name, mrn_topology, di->d_appid, mid));
+        (MRNetNetwork::create_network_no_be(topology_name, mrn_topology, di->appId(), mid));
     
     if (network == nullptr) {
         // error already printed
@@ -999,7 +997,7 @@ OMPD support will not be available.\n");
 
     // create the backend attach file which the compute nodes will use to hook
     // up to the network
-    if (create_parents_info(mrn_topology, di->d_nproc) < 1) {
+    if (create_parents_info(mrn_topology, di->numRanks()) < 1) {
         PrintOutError(
             "ERROR: DbgMRNInvoke cannot create infomation for MRNet "
             "attachment!\n");
@@ -1055,7 +1053,7 @@ OMPD support will not be available.\n");
     // gpu_flag This now adds the early entry flag...
 
     dbgsrv_alps_argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                 di->d_proto->name(), "-e", backend);
+                 di->proto().name(), "-e", backend);
     if (gpu_flag)         dbgsrv_alps_argv << "--gpu";
     if (dbg)              dbgsrv_alps_argv << "--debug";
     if (non_mpi_flag)     dbgsrv_alps_argv << "--non-mpi";
@@ -1108,7 +1106,7 @@ OMPD support will not be available.\n");
     }
 
     // wait for the debug servers to connect to the mrnet tree
-    rtn = network->attach_be(di->d_nproc, mrnet_timeout);
+    rtn = network->attach_be(di->numRanks(), mrnet_timeout);
     if (rtn) {
         if (rtn > 0) {
             PrintOutError(
@@ -1142,27 +1140,23 @@ OMPD support will not be available.\n");
 
     network->enable_failure_callback(di);
 
-    if ((num_be = network->get_num_of_be()) != di->d_nproc) {
+    if ((num_be = network->get_num_of_be()) != di->numRanks()) {
         PrintOutError(
             "ERROR: MRNet has an incorrect number of debug servers.\n");
-        PrintOutError("\tExpected [%d] found [%d]\n", di->d_nproc, num_be);
+        PrintOutError("\tExpected [%d] found [%d]\n", di->numRanks(), num_be);
         goto invoke_error;
     }
 
     DPRINT("num_be is %d\n", num_be);
 
-    // Create the full bitset based on the number of ranks
-    di->d_bitset_full = std::make_unique<DenseBitset>(num_be);
-    di->d_bitset_full->invert();
-
-    // Create the empty launched bitset
-    di->d_bitset_launched = std::make_unique<DenseBitset>(num_be);
+    di->setFullBitset(std::make_unique<DenseBitset>(num_be, DenseBitset::InitialState::Full));
+    di->setLaunchedBitset(std::make_unique<DenseBitset>(num_be));
 
     DPRINT("DbgMRNInvoke: MRNet initialization succeded! network:[%p]\n",
            network.get());
 
     // create the d_evfds list for the di
-    di->d_evfds = NewList();
+    di->initializeEventFds();
 
     // setup the event notification fd for the io stream
     event_fd = network->get_io_notificationfd();
@@ -1174,7 +1168,7 @@ OMPD support will not be available.\n");
 
     // Add the io_stream fd to the d_evfds list
     // This allows DbgCheckEvents to select on MRNet protocol events
-    AddToList(di->d_evfds, (void *)ev_fd_ptr);
+    AddToList(di->eventFds(), (void *)ev_fd_ptr);
 
     // setup the event notification fd for the event stream
     event_fd = network->get_event_notificationfd();
@@ -1185,7 +1179,7 @@ OMPD support will not be available.\n");
 
     // Add the event_stream fd to the d_evfds list
     // This allows DbgCheckEvents to select on MRNet protocol events
-    AddToList(di->d_evfds, (void *)ev_fd_ptr);
+    AddToList(di->eventFds(), (void *)ev_fd_ptr);
 
     // broadcast an INVOKE command to complete the invoke callback
     request = CommandToSocProto(DBGCMD_INVOKE, num_be);
@@ -1197,7 +1191,7 @@ OMPD support will not be available.\n");
     }
 
     // hand the network over to the di
-    di->d_proto_net = std::move(network);
+    di->setNetwork(std::move(network));
 
     // wait for the DBG_OK response from the dbgsrv's indicating they have
     // finished starting up
@@ -1211,7 +1205,7 @@ OMPD support will not be available.\n");
 
     // Here we want to wait for the dbginvoke to start as long as the callback
     // is still valid
-    while (di->d_started == 0) {
+    while (!di->isStarted()) {
         if (WaitForProtoStartupEvent(di) == -1) {
             PrintOutError("Could not receive launch callbacks!\n");
             goto invoke_error;
@@ -1227,7 +1221,7 @@ OMPD support will not be available.\n");
 
         // Add the p_o_rfd to the d_evfds list
         // This allows DbgCheckEvents to select on application output events
-        AddToList(di->d_evfds, (void *)ev_fd_ptr);
+        AddToList(di->eventFds(), (void *)ev_fd_ptr);
     }
 
     // All done. Everything is ready to go at this point.
@@ -1239,10 +1233,10 @@ OMPD support will not be available.\n");
 
 invoke_error:
 
-    if (di->d_appid != 0) {
-        cti_killApp(di->d_appid, SIGKILL);
-        cti_deregisterApp(di->d_appid);
-        di->d_appid = 0;
+    if (di->appId() != 0) {
+        cti_killApp(di->appId(), SIGKILL);
+        cti_deregisterApp(di->appId());
+        di->setAppId(0);
     }
 
     if (machine_hosts != nullptr) {
@@ -1263,8 +1257,8 @@ int MRNClientProtocol::exit(DbgInvoke *di, int detach) {
     }
 
     // shutdown mrnet only if not already in a shutdown state
-    if (!di->d_isShutdown) {
-        di->d_proto_net.reset();
+    if (!di->isShutdown()) {
+        di->setNetwork(nullptr);
     }
 
     return DebugClientProtocol::exit(di, detach);
@@ -1272,7 +1266,7 @@ int MRNClientProtocol::exit(DbgInvoke *di, int detach) {
 
 void MRNClientProtocol::destroyClient(DbgInvoke *di) {
     // Check to see if the network type has been destroyed
-    if (di->d_proto_net != nullptr) {
+    if (di->network() != nullptr) {
         // call the exit function to force the application to quit
         exit(di, 0);
     }
@@ -1321,7 +1315,7 @@ int MRNAttachHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg.getMessage());
 
-        *di->d_bitset_launched |= *msg.getBitset();
+        di->orLaunchedBitset(*msg.getBitset());
 
         if (e->ev_event != DBGEV_OK) {
             err = 1;
@@ -1335,15 +1329,15 @@ int MRNAttachHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
 
     if (err) return 1;
 
-    DPRINT("cbMRNAttach received responses [%s]!\n", di->d_bitset_launched->toString().c_str());
+    DPRINT("cbMRNAttach received responses [%s]!\n", di->launchedBitset()->toString().c_str());
 
     // Check if we have received a message from every rank
-    if (*di->d_bitset_launched == *di->d_bitset_full) {
+    if (*di->launchedBitset() == *di->fullBitset()) {
         // Reset the protocol event callback to the dbgclient default
-        di->d_proto->resetProtocolEventHandler();
+        di->proto().resetProtocolEventHandler();
 
         // Set the started bit in the di
-        di->d_started = 1;
+        di->setStarted();
 
         DPERFLOG(SetTimerStopAndLog("stream_init"));
 
@@ -1367,7 +1361,7 @@ int MRNLaunchHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
         // convert this protocol msg string to an event
         e = SocProtoToEvent(msg.getMessage());
 
-        *di->d_bitset_launched |= *msg.getBitset();
+        di->orLaunchedBitset(*msg.getBitset());
 
         if (e->ev_event != DBGEV_OK) {
             err = 1;
@@ -1381,15 +1375,15 @@ int MRNLaunchHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
 
     if (err) return 1;
 
-    DPRINT("cbMRNInvoke received responses [%s]!\n", di->d_bitset_launched->toString().c_str());
+    DPRINT("cbMRNInvoke received responses [%s]!\n", di->launchedBitset()->toString().c_str());
 
     // Check if we have received a message from every rank
-    if (*di->d_bitset_launched == *di->d_bitset_full) {
+    if (*di->launchedBitset() == *di->fullBitset()) {
         // Reset the protocol event callback to the dbgclient default
-        di->d_proto->resetProtocolEventHandler();
+        di->proto().resetProtocolEventHandler();
 
         // Set the started bit in the di
-        di->d_started = 1;
+        di->setStarted();
 
         DPERFLOG(SetTimerStopAndLog("stream_init"));
 
@@ -1398,11 +1392,11 @@ int MRNLaunchHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
 
 #ifdef ALPS
         // tell CTI to release the application from the startup barrier
-        if (cti_releaseAppBarrier(di->d_appid)) {
+        if (cti_releaseAppBarrier(di->appId())) {
             PrintOutError("CTI error: %s\n", cti_error_str());
             PrintOutError(
                 "Could not release application from the startup barrier.\n");
-            cti_killApp(di->d_appid, SIGKILL);
+            cti_killApp(di->appId(), SIGKILL);
             return 1;
         }
 #endif

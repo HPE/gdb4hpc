@@ -356,7 +356,7 @@ bool ScriptRunner::allDbgInvokesAtInitialBreakpoint() const {
         [](const auto& pair) {
             const auto& loc = pair.second;
             if (auto dih = loc->dbgInvoke(); auto* di = dih.lock()) {
-                return di->d_atInitialBreakpoint;
+                return di->isAtInitialBreakpoint();
             } else {
                 return true;
             }
@@ -782,11 +782,11 @@ bool ScriptRunner::setEventHandlers() {
     // for each di, install new event handler and keep track of old one
     for (auto dih : getDisFromScript()) {
         if (auto* diptr = dih.lock()) {
-            m_oldEventHandlers.insert({dih, diptr->d_clnt_ev_callback});
-            diptr->d_clnt_ev_callback = [this](DbgInvoke::EventSet& e, const Bitset& b) {
+            m_oldEventHandlers.insert({dih, diptr->getAsyncEventCallback()});
+            diptr->setAsyncEventCallback([this](DbgInvoke::EventSet& e, const Bitset& b) {
                 LOG("Passing to handleEvent");
                 return handleEvent(this->getEventInterface(), e, b);
-            };
+            });
         } else {
             LOG("Null handle? " << dih.name());
         }
@@ -800,7 +800,7 @@ bool ScriptRunner::restoreOldEventHandlers() {
         if (auto diptr = dih.lock()) {
             auto it = m_oldEventHandlers.find(dih);
             if (it != m_oldEventHandlers.end()) {
-                diptr->d_clnt_ev_callback = it->second;
+                diptr->setAsyncEventCallback(it->second);
                 LOG("Restored old event handler for " << dih.name());
             } else {
                 LOG("No old event handler found for " << dih.name());

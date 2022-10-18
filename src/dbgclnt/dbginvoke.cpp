@@ -11,6 +11,94 @@
 #include <filesystem>
 #include <cassert>
 
+#include "unittest_macros.h"
+
+TEST_CASE("DbgInvoke: operator==") {
+    // operator== relies on the DbgInvoke having a handle. DbgInvokes get handles by
+    // registering themselves in the global DbgInvoke list.
+
+    auto Launched = DbgInvoke::ProcessType::Launched;
+    auto di = std::make_unique<DbgInvoke>(Launched, 4, *findClientProtoByName("zmqnet"));
+    auto di2 = std::make_unique<DbgInvoke>(Launched, 4, *findClientProtoByName("zmqnet"));
+
+    auto dih = DbgInvoke::activate("test_di", std::move(di));
+    auto dih2 = DbgInvoke::activate("test_di_2", std::move(di2));
+
+    SUBCASE("operator==") {
+        auto dip = dih.lock();
+        auto dip2 = dih.lock(); // same di
+        REQUIRE(dip != nullptr);
+        REQUIRE(dip2 != nullptr);
+
+        CHECK(*dip == *dip2);
+    }
+
+    SUBCASE("operator!=") {
+        auto dip = dih.lock();
+        auto dip2 = dih2.lock(); // different di
+        REQUIRE(dip != nullptr);
+        REQUIRE(dip2 != nullptr);
+
+        CHECK(*dip != *dip2);
+    }
+
+    // clean up as to not affect other tests
+    DbgInvoke::deactivateAll();
+}
+
+TEST_CASE("DbgInvoke: set/get/unset frontendGdb") {
+    using DI = DbgInvoke;
+    auto di = DbgInvoke(DI::ProcessType::Launched, 4, *findClientProtoByName("zmqnet"));
+
+    REQUIRE(di.frontendGdb() == nullptr);
+
+    SUBCASE("Instantiate, deinstantiate with nullptr") {
+        auto r = di.instantiateFrontendGdb("gdbmi");
+        CHECK(r != nullptr);
+        REQUIRE(di.frontendGdb() != nullptr);
+
+        auto r2 = di.instantiateFrontendGdb(nullptr);
+        CHECK(di.frontendGdb() == nullptr);
+        CHECK(r2 == nullptr);
+    }
+
+    SUBCASE("Instantiate, deinstantiate with invalid impl") {
+        auto r = di.instantiateFrontendGdb("gdbmi");
+        CHECK(r != nullptr);
+        REQUIRE(di.frontendGdb() != nullptr);
+
+        auto r2 = di.instantiateFrontendGdb("not real");
+        CHECK(r2 == nullptr);
+        CHECK(di.frontendGdb() == nullptr);
+    }
+}
+
+TEST_CASE("DbgInvoke: set/call/unset event callback function") {
+    auto fn = [](DbgInvoke::EventSet& es, const Bitset& bitset) {
+        return 1;
+    };
+    auto Launched = DbgInvoke::ProcessType::Launched;
+    auto di = DbgInvoke(Launched, 4, *findClientProtoByName("zmqnet"));
+    auto bs = DenseBitset(8);
+    auto es = DbgInvoke::EventSet(di, bs, nullptr);
+
+    REQUIRE(di.getAsyncEventCallback() == nullptr);
+
+    // set
+    di.setAsyncEventCallback(fn);
+    REQUIRE(di.getAsyncEventCallback() != nullptr);
+    CHECK(di.callAsyncEventCallback(es, bs) == 1);
+
+    // unset
+    di.setAsyncEventCallback(nullptr);
+    REQUIRE(di.getAsyncEventCallback() == nullptr);
+    CHECK_THROWS_AS(di.callAsyncEventCallback(es, bs), std::bad_function_call);
+}
+
+TEST_CASE("DbgInvoke: check that no other tests polluted global registry") {
+    CHECK(DbgInvoke::getAll().size() == 0);
+}
+
 // Public API for accessing dbginvoke table
 
 namespace {
@@ -91,75 +179,67 @@ std::vector<DbgInvoke::Handle>& DbgInvoke::getAll() {
     return g_allHandles;
 }
 
-DbgInvoke::DbgInvoke(dbgproc_type type, int nproc, DebugClientProtocol * const proto)
-    : d_appid{0}
-    , d_type{type}
-    , d_started{0}
-    , d_isShutdown{0}
-    , d_nproc{nproc}
-    , d_stat{0}
-    , d_evfds{nullptr}
-    , d_bitset_full{nullptr}
-    , d_bitset_launched{nullptr}
-    , d_proto_id{0}
-    , d_proto_net{nullptr}
-    , d_proto_outp{nullptr}
-    , d_proto{proto}
-    , d_clnt_ev_callback{nullptr}
-    , d_frontend{nullptr}
-    , d_eventset_list{}
-    , d_breakpoints{}
-    , d_checkpoints{}
-    , m_handle(nullptr)
+DbgInvoke::DbgInvoke(ProcessType type, int nproc, DebugClientProtocol& proto)
+    : m_type{type}
+    , m_nproc{nproc}
+    , m_proto{proto}
 {};
 
 DbgInvoke::DbgInvoke(DbgInvoke&& o)
-    : d_appid{o.d_appid}
-    , d_type{o.d_type}
-    , d_started{o.d_started}
-    , d_isShutdown{o.d_isShutdown}
-    , d_launch{std::move(o.d_launch)}
-    , d_nproc{o.d_nproc}
-    , d_stat{o.d_stat}
-    , d_evfds{o.d_evfds}
-    , d_bitset_full{std::move(o.d_bitset_full)}
-    , d_bitset_launched{std::move(o.d_bitset_launched)}
-    , d_proto_id{o.d_proto_id}
-    , d_proto_net{std::move(o.d_proto_net)}
-    , d_proto_outp{o.d_proto_outp}
-    , d_proto{o.d_proto}
-    , d_clnt_ev_callback{std::move(o.d_clnt_ev_callback)}
-    , d_frontend{o.d_frontend}
-    , d_eventset_list{std::move(o.d_eventset_list)}
-    , d_breakpoints{std::move(o.d_breakpoints)}
-    , d_checkpoints{std::move(o.d_checkpoints)}
+    : m_appid{o.m_appid}
+    , m_type{o.m_type}
+    , m_started_flag{o.m_started_flag}
+    , m_at_init_breakpoint_flag{o.m_at_init_breakpoint_flag}
+    , m_shutdown_flag{o.m_shutdown_flag}
+    , m_launch_opts{std::move(o.m_launch_opts)}
+    , m_nproc{o.m_nproc}
+    , m_evfds{o.m_evfds}
+    , m_proto_outp{o.m_proto_outp}
+    , m_bitset_full{std::move(o.m_bitset_full)}
+    , m_bitset_launched{std::move(o.m_bitset_launched)}
+    , m_proto{o.m_proto}
+    , m_proto_net{std::move(o.m_proto_net)}
+    , m_frontend_gdb{o.m_frontend_gdb}
+    , m_clnt_ev_callback{std::move(o.m_clnt_ev_callback)}
+    , m_source_paths{std::move(o.m_source_paths)}
+    , m_breakpoints{std::move(o.m_breakpoints)}
+    , m_checkpoints{std::move(o.m_checkpoints)}
+    , m_eventset_list{std::move(o.m_eventset_list)}
     , m_handle{std::move(o.m_handle)}
 {
-    o.d_appid = 0;
-    o.d_started = 0;
-    o.d_isShutdown = 1;
-    o.d_nproc = 0;
-    o.d_evfds = nullptr;
-    o.d_proto_outp = nullptr;
-    o.d_frontend = nullptr;
+    o.m_appid = 0;
+    o.m_started_flag = false;
+    o.m_shutdown_flag = true;
+    o.m_nproc = 0;
+    o.m_evfds = nullptr;
+    o.m_proto_outp = nullptr;
+    o.m_frontend_gdb = nullptr;
 }
 
 DbgInvoke::~DbgInvoke() {
     HoldSignals();
 
     // XXX has large side effects. does it belong in this dtor?
-    d_proto->destroyClient(this);
+    proto().destroyClient(this);
 
     // Quit the debug frontend if there is one
-    if (d_frontend != nullptr) {
-        auto e = DbgDestroyFE(d_frontend);
+    if (m_frontend_gdb) {
+        auto e = DbgDestroyFE(m_frontend_gdb);
         FreeEvent(e);
     }
 
     // remove any event fds from the proto
-    DestroyList(d_evfds, free);
+    DestroyList(m_evfds, free);
 
     ReleaseSignals();
+}
+
+bool DbgInvoke::operator==(const DbgInvoke& other) const {
+    return m_handle == other.m_handle;
+}
+
+bool DbgInvoke::operator!=(const DbgInvoke& other) const {
+    return !(*this == other);
 }
 
 DbgInvoke::Handle DbgInvoke::handle() {
@@ -174,6 +254,104 @@ const DbgInvoke::Handle DbgInvoke::handle() const {
     // OK as long as handle() never gains any side effects
     return const_cast<DbgInvoke*>(this)->handle();
 }
+
+uint64_t DbgInvoke::appId() const { return m_appid; }
+void DbgInvoke::setAppId(uint64_t id) { m_appid = id; }
+
+DbgInvoke::ProcessType DbgInvoke::processType() const { return m_type; }
+
+bool DbgInvoke::isStarted() const { return m_started_flag; }
+void DbgInvoke::setStarted() { m_started_flag = true; }
+
+bool DbgInvoke::isAtInitialBreakpoint() const { return m_at_init_breakpoint_flag; }
+void DbgInvoke::setAtInitialBreakpoint(bool at) { m_at_init_breakpoint_flag = at; }
+
+bool DbgInvoke::isShutdown() const { return m_shutdown_flag; }
+void DbgInvoke::setShutdown() { m_shutdown_flag = true; }
+
+int DbgInvoke::numRanks() const { return m_nproc; }
+void DbgInvoke::setNumRanks(int n) { m_nproc = n; }
+
+list_t* DbgInvoke::eventFds() { return m_evfds; }
+void DbgInvoke::initializeEventFds() {
+    DestroyList(m_evfds, free); // nullptr is OK
+    m_evfds = NewList();
+}
+
+const Bitset* DbgInvoke::fullBitset() const { return m_bitset_full.get(); }
+void DbgInvoke::setFullBitset(std::unique_ptr<Bitset>&& bitset) {
+    m_bitset_full = std::move(bitset);
+}
+
+const Bitset* DbgInvoke::launchedBitset() const { return m_bitset_launched.get(); }
+void DbgInvoke::setLaunchedBitset(std::unique_ptr<Bitset>&& bitset) {
+    m_bitset_launched = std::move(bitset);
+}
+void DbgInvoke::orLaunchedBitset(const Bitset& rhs) {
+    if (!m_bitset_launched) return;
+    *m_bitset_launched |= rhs;
+}
+
+g_progoutp_t* DbgInvoke::protoOutput() { return m_proto_outp; }
+void DbgInvoke::initializeProtoOutput() {
+    destroyProtoOutput();
+    m_proto_outp = DbgCreateGenericProgOutp();
+}
+void DbgInvoke::destroyProtoOutput() {
+    DbgFreeGenericProgOutp(m_proto_outp);
+    m_proto_outp = nullptr;
+}
+
+const DbgInvoke::LaunchOpts& DbgInvoke::launchOptions() const { return m_launch_opts; }
+DbgInvoke::LaunchOpts& DbgInvoke::launchOptions() { return m_launch_opts; }
+
+DebugClientProtocol& DbgInvoke::proto() { return m_proto; }
+
+DebugClientNetwork* DbgInvoke::network() const { return m_proto_net.get(); }
+
+void DbgInvoke::setNetwork(std::unique_ptr<DebugClientNetwork>&& net) {
+    m_proto_net = std::move(net);
+}
+
+dbgfrontend_sw* DbgInvoke::instantiateFrontendGdb(const char* impl) {
+    if (m_frontend_gdb) {
+        auto e = DbgDestroyFE(m_frontend_gdb);
+        FreeEvent(e);
+    }
+
+    if (impl) {
+        m_frontend_gdb = DbgInstantiateFE(impl);
+    } else {
+        m_frontend_gdb = nullptr;
+    }
+
+    return m_frontend_gdb;
+}
+
+dbgfrontend_sw* DbgInvoke::frontendGdb() const { return m_frontend_gdb; }
+
+DbgInvoke::AsyncEventCallback DbgInvoke::getAsyncEventCallback() const {
+    return m_clnt_ev_callback;
+}
+
+void DbgInvoke::setAsyncEventCallback(DbgInvoke::AsyncEventCallback func) {
+    m_clnt_ev_callback = func;
+}
+
+int DbgInvoke::callAsyncEventCallback(DbgInvoke::EventSet& es, const Bitset& bitset) const {
+    return m_clnt_ev_callback(es, bitset);
+}
+
+DbgInvoke::SourcePaths& DbgInvoke::sourcePaths() { return m_source_paths; }
+const DbgInvoke::SourcePaths& DbgInvoke::sourcePaths() const { return m_source_paths; }
+
+BreakpointManager& DbgInvoke::breakpoints() { return m_breakpoints; }
+const BreakpointManager& DbgInvoke::breakpoints() const { return m_breakpoints; }
+
+CheckpointManager& DbgInvoke::checkpoints() { return m_checkpoints; }
+const CheckpointManager& DbgInvoke::checkpoints() const { return m_checkpoints; }
+
+std::list<DbgInvoke::EventSet>& DbgInvoke::eventSets() { return m_eventset_list; }
 
 DbgInvoke::Handle::Handle(std::string name, std::shared_ptr<DbgInvoke> parent) {
     if (parent == nullptr) {

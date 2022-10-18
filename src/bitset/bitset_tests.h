@@ -2,10 +2,6 @@
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
-// disabled until PE-43612 is resolved
-
-/*
-
 #include "bitset.h"
 
 #include <unordered_set>
@@ -412,5 +408,3 @@ TEST_CASE_TEMPLATE_DEFINE("libbitset", BitsetT, libbitset) {
         CHECK(count == 1u);
     }
 }
-
-*/

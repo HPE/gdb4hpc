@@ -33,7 +33,12 @@ public:
         size_t m_next_bits_i;
     };
 
-    explicit DenseBitset(size_t nbits);
+    enum class InitialState {
+        Empty,
+        Full,
+    };
+
+    explicit DenseBitset(size_t nbits, InitialState init = InitialState::Empty);
     explicit DenseBitset(SerializedPtr serialized);
 
     virtual std::unique_ptr<Bitset> clone() const override;

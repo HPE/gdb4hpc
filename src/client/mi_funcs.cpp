@@ -113,7 +113,7 @@ static std::string exec_args_cmd(const char * in_args){
         }
     }
                 
-    launcher_args = argstr.str();
+    launcher_args = argstr.str() + " ";
     //this command sets launcher args and does not need to be processed. Setting to exit will skip command processing
     return "ok";
 }
@@ -124,6 +124,7 @@ static std::string file_exec_and_sym_cmd(const char * args){
         // create a default if one wasn't specified
         procset = "$App";
     }
+    
     auto app=procset;
     //add rank information if available
     if (!num_ranks.empty()){
@@ -134,7 +135,7 @@ static std::string file_exec_and_sym_cmd(const char * args){
 
     auto func = std::string{};
 
-    return "launch " + app + launcher_args;
+    return "launch " + app + launcher_args + args;
 }
 
 void mi_logv2(const char* tag, const char* format, va_list arg_list) {

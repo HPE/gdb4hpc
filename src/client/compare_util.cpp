@@ -20,19 +20,39 @@ void printCompareResult(val_t* result, val_t* difference, rec_set_t& recSet) {
             a->toInt(res);
             switch (res) {
                 case 0:
-                    PrintOutMsg("Comparison is true.\n");
+                    if (Client.MI_mode){
+                        PrintOutMIResult(MIResult::DONE,"compare={result=\"True. \"}\n");
+                    }else{
+                        PrintOutMsg("Comparison is true.\n");
+                    }
                     break;
                 case -1:
                 case 1:
-                    PrintOutMsg(
-                        "Comparison is false. The difference delta is:\n");
-                    if (PrintVal(os, difference, &recSet, "") < 0) PrintError();
+                    if (Client.MI_mode){
+                        std::ostringstream buf;
+                        if (PrintVal(buf, difference, &recSet, "") < 0) PrintError();
+                        std::string buf_str = buf.str();
+                        buf_str.pop_back();
+                        PrintOutMIResult(MIResult::DONE,"compare={result=\"False. The difference delta is: %s\"}\n", buf_str.c_str());
+                    }else{
+                        PrintOutMsg(
+                            "Comparison is false. The difference delta is:\n");
+                        if (PrintVal(os, difference, &recSet, "") < 0) PrintError();
+                    }
                     break;
                 case -2:
                 case 2:
-                    PrintOutMsg(
-                        "Comparison is warn. The difference delta is:\n");
-                    if (PrintVal(os, difference, &recSet, "") < 0) PrintError();
+                    if (Client.MI_mode){
+                        std::ostringstream buf;
+                        if (PrintVal(buf, difference, &recSet, "") < 0) PrintError();
+                        std::string buf_str = buf.str();
+                        buf_str.pop_back();
+                        PrintOutMIResult(MIResult::DONE,"compare={result=\"Warn. The difference delta is: %s\"}\n", buf_str.c_str());
+                    }else{
+                        PrintOutMsg(
+                            "Comparison is warn. The difference delta is:\n");
+                        if (PrintVal(os, difference, &recSet, "") < 0) PrintError();
+                    }
                     break;
                 case 3:
                     PrintOutMsg(
@@ -45,6 +65,7 @@ void printCompareResult(val_t* result, val_t* difference, rec_set_t& recSet) {
         case rval_reply: {
             // Point at the reply set
             auto rep_set = RVAL_REPLY(result);
+            std::stringstream mi_result;
 
             std::unique_ptr<DenseBitset> true_bitset = nullptr;
             std::unique_ptr<DenseBitset> false_bitset = nullptr;
@@ -125,24 +146,50 @@ void printCompareResult(val_t* result, val_t* difference, rec_set_t& recSet) {
 
             // print the result summary
             if (true_bitset != nullptr) {
-                PrintMsgWithSetInfo("", true_bitset.get(), "Comparison is true.\n");
+                if (Client.MI_mode){
+                    mi_result<<"True. ";
+                }else{
+                    PrintMsgWithSetInfo("", true_bitset.get(), "Comparison is true.\n");
+                }
             }
             if (false_bitset != nullptr) {
-                PrintMsgWithSetInfo("", false_bitset.get(), "Comparison is false.\n");
+                if (Client.MI_mode){
+                    mi_result<<"False. ";
+                }else{
+                    PrintMsgWithSetInfo("", false_bitset.get(), "Comparison is false.\n");
+                }
             }
             if (warn_bitset != nullptr) {
-                PrintMsgWithSetInfo("", warn_bitset.get(), "Comparison is warn.\n");
+                if (Client.MI_mode){
+                    mi_result<<"Warn. ";
+                }else{
+                    PrintMsgWithSetInfo("", warn_bitset.get(), "Comparison is warn.\n");
+                }
             }
             if (indet_bitset != nullptr) {
-                PrintMsgWithSetInfo(
-                    "", indet_bitset.get(),
-                    "Comparison is indeterminate due to pointers.\n");
+                if (Client.MI_mode){
+                    mi_result<<"Indeterminate. ";
+                }else{
+                    PrintMsgWithSetInfo(
+                        "", indet_bitset.get(),
+                        "Comparison is indeterminate due to pointers.\n");
+                }
             }
-
             // print out the difference deltas once
             if (print_diff) {
-                PrintOutMsg("The difference delta is:\n");
-                if (PrintVal(os, difference, &recSet, "") < 0) PrintError();
+                if (Client.MI_mode){
+                    std::ostringstream buf;
+                    if (PrintVal(buf, difference, &recSet, "") < 0) PrintError();
+                    std::string buf_str = buf.str();
+                    buf_str.pop_back();
+                    mi_result <<"The difference delta is: "<<buf_str;
+                    PrintOutMIResult(MIResult::DONE,"compare={result=\"%s\"}\n", mi_result.str().c_str());
+                }else{
+                    PrintOutMsg("The difference delta is:\n");
+                    if (PrintVal(os, difference, &recSet, "") < 0) PrintError();
+                }
+            }else{
+                PrintOutMIResult(MIResult::DONE,"compare={result=\"%s\"}\n", mi_result.str().c_str());
             }
             break;
         }

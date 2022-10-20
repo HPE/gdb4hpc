@@ -25,17 +25,14 @@
 #include <string.h>
 
 struct dbgloc {
-    dbgloc() = default;
+    dbgloc() : loc_file(nullptr), loc_func(nullptr), loc_addr(nullptr), loc_line(0) {}
     // takes ownership of the passed pointers
     dbgloc(char* file, char* func, char* addr, int line)
         : loc_file{file}, loc_func{func}, loc_addr{addr}, loc_line{line} {}
 
-    dbgloc(const dbgloc &other)
-        : loc_file{other.loc_file ? strdup(other.loc_file) : nullptr}
-        , loc_func{other.loc_func ? strdup(other.loc_func) : nullptr}
-        , loc_addr{other.loc_addr ? strdup(other.loc_addr) : nullptr}
-        , loc_line{other.loc_line}
-    {};
+    dbgloc(const dbgloc &other);
+
+    dbgloc& operator=(const dbgloc &other);
 
     dbgloc(dbgloc &&other)
         : loc_file{other.loc_file}, loc_func{other.loc_func}
@@ -44,20 +41,21 @@ struct dbgloc {
         other.loc_file = nullptr;
         other.loc_func = nullptr;
         other.loc_addr = nullptr;
-    };
+    }
 
     ~dbgloc() {
         free(loc_file);
         free(loc_addr);
         free(loc_func);
-    };
+    }
 
     char* loc_file;
     char* loc_func;
     char* loc_addr;
     int loc_line;
 };
-typedef struct dbgloc dbgloc_t;
+
+using dbgloc_t = dbgloc;
 
 // kept as independent functions (rather than e.g. a clone method and destructor)
 // since the old c-style event interface still calls these in DupEvent and FreeEvent

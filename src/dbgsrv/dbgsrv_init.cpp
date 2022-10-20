@@ -47,8 +47,8 @@ void SendMICommand(MISession *, MICommand *);
 enum class GdbVersion { GDB_100, CUDA_101, ROC_GDB, CUSTOM};
 static GdbVersion gdb_vers = GdbVersion::GDB_100;
 
-static list_t *main_entry_BP = nullptr;
-static list_t *parallel_entry_BP = nullptr;
+static std::vector<dbgbp_t*> main_entry_BP;
+static std::vector<dbgbp_t*> parallel_entry_BP;
 
 static const char* ProgMain = nullptr;
 
@@ -66,7 +66,7 @@ static int dbgsrv_fd;
 #endif
 
 DbgGdbMI::Initializer::Initializer(DbgGdbMI& dbg)
-    : m_dbg(dbg), m_session(nullptr), m_exitBP(nullptr), m_pid(0)
+    : m_dbg(dbg), m_session(nullptr), m_pid(0)
 {}
 
 dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
@@ -789,19 +789,14 @@ static const std::array<std::string, 6> exit_pt_strs =
 };
 
 bool DbgGdbMI::Initializer::entryBPsAreSet() {
-    return (main_entry_BP && parallel_entry_BP &&
-            (!EmptyList(main_entry_BP) || !EmptyList(parallel_entry_BP)));
+    return !main_entry_BP.empty() || !parallel_entry_BP.empty();
 }
 
 std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     // this function may be called more than once
-    if (!main_entry_BP) {
-        main_entry_BP = NewList();
-        parallel_entry_BP = NewList();
-        m_exitBP = NewList();
-    } else if (entryBPsAreSet()) {
+    if (entryBPsAreSet()) {
         return std::make_pair(true, nullptr);  // already set
     }
 
@@ -823,15 +818,15 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
         // command succeeded. We expect many of these to fail.
         if (MICommandResultOK(cmd)) {
             if (auto bp_res = get_dbgbp(cmd)) {
-                auto bps = (str == "main" ? main_entry_BP : parallel_entry_BP);
-                AddToList(bps, bp_res);
+                auto& bps = (str == "main" ? main_entry_BP : parallel_entry_BP);
+                bps.push_back(bp_res);
             }
         }
         MICommandFree(cmd);
     }
 
     // set up the exit breakpoints
-    if (EmptyList(m_exitBP)) {
+    if (m_exitBP.empty()) {
         // install the breakpoints as potentially pending since the exit point
         // might be in a shared library
         for (auto&& str : exit_pt_strs) {
@@ -842,7 +837,7 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
             if (MICommandResultOK(cmd)) {
                 if (auto bp_res = get_dbgbp(cmd)) {
                     bp_res->bp_type = DBGBP_EXIT_TYPE;
-                    AddToList(m_exitBP, bp_res);
+                    m_exitBP.push_back(bp_res);
                 }
             }
             MICommandFree(cmd);
@@ -1373,31 +1368,28 @@ void DbgGdbMI::Initializer::setSourceOpen(bool doOpen) {
     MICommandFree(cmd);
 }
 
-dbgevent_t *DbgGdbMI::Initializer::delete_internal_breakpoints(list_t *bplist) {
+dbgevent_t *DbgGdbMI::Initializer::delete_internal_breakpoints(std::vector<dbgbp_t*>& bplist) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-    MICommand *cmd;
-    dbgbp_t *bp;
 
-    SetList(bplist);
+    dbgevent_t *e = nullptr;
 
-    while ((bp = (dbgbp_t *)GetListElement(bplist)) != (dbgbp_t *)NULL) {
+    while (!bplist.empty()) {
+        auto bp = bplist.back();
+        bplist.pop_back();
+        
         // send the delete command
-        cmd = MIBreakDelete(1, &bp->bp_be_id);
+        auto cmd = MIBreakDelete(1, &bp->bp_be_id);
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
-            MICommandFree(cmd);
-            EVENT_ERROR(e, DBGERR_NOBP, "Delete internal breakpoint failed.");
-            return e;
+            if (!e) e = NewErrorEvent(DBGERR_NOBP, "Delete internal breakpoint failed.");
         }
         MICommandFree(cmd);
 
         // remove the breakpoint from the internal list and delete it
-        RemoveFromList(bplist, (void *)bp);
-        FreeBP(bp);
+        delete bp;
     }
 
-    return (dbgevent_t *)NULL;
+    return e;
 }
 
 static dbgbp_t *get_dbgbp(MICommand *cmd) {
@@ -1417,7 +1409,7 @@ static dbgbp_t *get_dbgbp(MICommand *cmd) {
     MIListSet(bpts);
     bpt = (MIBreakpoint *)MIListGet(bpts);
 
-    bp = NewBP(0, bpt->number);
+    bp = new dbgbp_t(0, bpt->number);
 
     if (bpt->isWpt) {
         if (bpt->isWWpt) {

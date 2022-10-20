@@ -18,6 +18,7 @@
 
 #include "dbgloc.h"
 #include "list.h"
+#include <string>
 
 enum dbgbp_type {
     DBGBP_BREAK_TYPE,
@@ -41,34 +42,34 @@ typedef enum dbgbp_disp dbgbp_disp;
 class dbgcomm_info;
 
 struct dbgbp_t {
+    dbgbp_t(int feId, int beId);
+    ~dbgbp_t();
+    dbgbp_t(const dbgbp_t&) = delete;
+    dbgbp_t* operator=(const dbgbp_t&) = delete;
+
+    dbgbp_t* clone() const;
+    
     int bp_fe_id;
     int bp_be_id;
     int bp_ignore;
-    int bp_deleted;
-    int bp_enabled;
-    int bp_pending;
+    int bp_hits;
+    bool bp_deleted;
+    bool bp_enabled;
+    bool bp_pending;
     dbgbp_disp bp_disp;
     dbgbp_type bp_type;
     dbgloc_t bp_loc;
-    char *bp_exp;  // Should this be a part of bp_loc?? Its used to hold the
-                   // watchpoint expression.
-    char* bp_threadId;
-    int bp_hits;
-    char *bp_stmt;
-    char **bp_commands;
+    std::string bp_exp;
+    std::string bp_threadId;
+    std::string bp_stmt;
+    std::vector<std::string> bp_commands;
     dbgcomm_info *bp_comminfo;  // owned by this object
 };
-typedef struct dbgbp_t dbgbp_t;
 
-extern dbgbp_t *NewBP(int feId, int beId);
 extern void DumpBP(dbgbp_t *bp);
-extern void CleanupBP(list_t *);
-extern void FreeBP(dbgbp_t *);
-extern dbgbp_t *DupBP(dbgbp_t *);
-extern void RemoveBP(list_t *, int feId, int beId);
-extern dbgbp_t *FindBPByFunc(list_t *, char *);
-extern dbgbp_t *FindBPByID(list_t *, int feId, int beId);
-extern dbgbp_t *GenBPList(list_t *);
+extern void RemoveBP(std::vector<dbgbp_t*>&, int feId, int beId);
+extern dbgbp_t *FindBPByFunc(std::vector<dbgbp_t*>&, char *);
+extern dbgbp_t *FindBPByID(std::vector<dbgbp_t*>&, int feId, int beId);
 extern const char *BPTypeToStr(dbgbp_type);
 extern const char *BPDispToStr(dbgbp_disp);
 

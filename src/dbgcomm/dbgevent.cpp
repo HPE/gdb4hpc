@@ -134,7 +134,7 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
         case DBGEV_BPINFO:
         case DBGEV_BPSET:
         case DBGEV_BPDEL:
-            e->ev_bp = DupBP(event->ev_bp);
+            e->ev_bp = event->ev_bp->clone();
             break;
 
         case DBGEV_SIGNAL:
@@ -409,7 +409,7 @@ void FreeEvent(dbgevent_t *event) {
         case DBGEV_BPINFO:
         case DBGEV_BPSET:
         case DBGEV_BPDEL:
-            FreeBP(event->ev_bp);
+            delete event->ev_bp;
             break;
 
         case DBGEV_SIGNAL:

@@ -357,7 +357,7 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
             PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                   "ERROR: cannot find watchpoint [%d: variable "
                                   "%s] in BPSetList.\n",
-                                  bp->bp_fe_id, bp->bp_exp);
+                                  bp->bp_fe_id, bp->bp_exp.c_str());
         }
     }
 
@@ -422,7 +422,7 @@ static int cmd_catch_cmd(rec_set_t *rec_set, int argc, char **argv) {
         } else {
             PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                 "ERROR: cannot find catchpoint [%d: event "
-                "%s] in BPSetList.\n", bp->bp_fe_id, bp->bp_exp);
+                "%s] in BPSetList.\n", bp->bp_fe_id, bp->bp_exp.c_str());
         }
     }
     

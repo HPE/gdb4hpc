@@ -62,7 +62,7 @@ static MISession *GDBMISession;
 static dbgstat Status;
 static int MPArch;
 static dbgbp_t *CurrBP = (dbgbp_t *)NULL;
-static list_t *BP;
+static std::vector<dbgbp_t*> BP;
 
 static int AsynchEventWaiting = 0;
 static MIEvent *PendingEvent = NULL;
@@ -145,7 +145,6 @@ static MICommand *_MIGDBSet(const char *var, const char *val) {
 dbgevent_t *DbgGdbMI::init(int *dfd, int *iofd, char **env) {
     DVPRINT("*** Dbg %s::%s\n", __FILE__, __func__);
 
-    BP = NewList();
     Status = DBGSTAT_INITIALISING;
 
     auto event = m_initializer->init(dfd, iofd, env);
@@ -331,9 +330,7 @@ dbgevent_t *DbgGdbMI::setBreak(int feId,
     // add the thread info if this is a thread specific breakpoint
     if (threadSet && !threads.empty() && threads[0] != -1) {
         auto bp = EVENT_BP(event);
-        char* ts = strdup(threadSet);
-        std::swap(ts, bp->bp_threadId);
-        free(ts);
+        bp->bp_threadId = threadSet;
     } 
 
     return event.release();
@@ -3071,7 +3068,6 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
 
     dbgbp_t *bp = NULL;
     MIEvent *evt = PendingEvent;
-    list_t* exitBPs = nullptr;
     
     static auto lastKnownFrame = std::make_unique<dbgframe_t>(
         0, dbgloc_t{nullptr, nullptr, nullptr, 0}, nullptr, nullptr, nullptr
@@ -3121,7 +3117,7 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
 
             // short circuit during the process of finding the starting breakpoint
             if (Status == DBGSTAT_INITIALISING) {
-                bp = NewBP(0, idNumber); // internal BP, so no front end id
+                bp = new dbgbp_t(0, idNumber); // internal BP, so no front end id
                 e->ev_event = DBGEV_BPHIT;
                 e->ev_bp = bp;
                 return e;
@@ -3130,7 +3126,7 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
             Status = DBGSTAT_STOPPED;
 
             bp = FindBPByID(BP, 0, idNumber); 
-            exitBPs = m_initializer->getExitBPs();
+            auto exitBPs = m_initializer->getExitBPs();
 
             DVPRINT("BPMgr: Looking for BP be:%d\n", idNumber);
 
@@ -3192,7 +3188,7 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
             }
 
             e->ev_event = DBGEV_BPHIT;
-            e->ev_bp = DupBP(bp);
+            e->ev_bp = bp->clone();
 
             // Check to see if disposition was set to disable or delete
             // We have to do this now because if the bp was set to delete we
@@ -3238,7 +3234,7 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
 
             // event type: breakpoint deleted
             e->ev_event = DBGEV_BPDEL;
-            e->ev_bp = DupBP(bp);
+            e->ev_bp = bp->clone();
 
             Status = DBGSTAT_STOPPED;
             return e;
@@ -3341,7 +3337,7 @@ static dbgevent_t *CheckBreak(int feId, MICommand *cmd, const dbgcomm_info *comm
 
     beId = bpt->number;
 
-    bp = NewBP(feId, beId);
+    bp = new dbgbp_t(feId, beId);
 
     if (bpt->isWpt) {
         if (bpt->isWWpt) {
@@ -3431,14 +3427,14 @@ static dbgevent_t *CheckBreak(int feId, MICommand *cmd, const dbgcomm_info *comm
     ** Link a copy of the breakpoint onto BP.
     */
     DVPRINT("BPMgr: Adding breakpoint fe:%d, be:%d **\n", bp->bp_fe_id, bp->bp_be_id);
-    AddToList(BP, (void *)bp);
+    BP.push_back(bp);
 
     /*
     ** Now create a fake event and make it
     ** look like a BPSET.
     */
     e = NewEvent(DBGEV_BPSET);
-    e->ev_bp = DupBP(bp);
+    e->ev_bp = bp->clone();
 
     MIListFree(bpts, (void (*)())MIBreakpointFree);
 

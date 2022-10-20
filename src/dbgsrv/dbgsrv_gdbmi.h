@@ -140,7 +140,7 @@ public:
     void setSourceOpen(bool doOpen);
         
     MISession* getMISession() const { return m_session; }
-    list_t* getExitBPs() const { return m_exitBP; }
+    const std::vector<dbgbp_t*>& getExitBPs() const { return m_exitBP; }
     void resetPId() { m_pid = 0; }
 
     // If true, the initializer is in a state during startup where SIGSTOPS should be ignored.
@@ -160,7 +160,7 @@ private:
 
     dbgevent_t* setup_gdbmi_environment();
     dbgevent_t* setup_gdbmi_signals();
-    dbgevent_t* delete_internal_breakpoints(list_t *bplist);
+    dbgevent_t* delete_internal_breakpoints(std::vector<dbgbp_t*>& bplist);
     std::pair<bool,dbgevent_t*>  setEntryBPs();
     dbgevent_t* continueToEntryPoint();
     dbgevent_t* trampolineToEntryPoint();
@@ -178,7 +178,7 @@ private:
 
     DbgGdbMI& m_dbg;
     MISession* m_session;
-    list_t *m_exitBP;
+    std::vector<dbgbp_t*> m_exitBP;
     int m_pid;
     char* m_runArgs;
     std::string m_executable;

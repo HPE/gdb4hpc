@@ -78,7 +78,7 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
     SUBCASE("Breakpoint-y events") {
         auto test = [](dbgev type, dbgbp_t* bp) {
             auto e = NewEvent(type);
-            e->ev_u.ev_u_bp = DupBP(bp);
+            e->ev_u.ev_u_bp = bp->clone();
             auto soc = EventToSocProto(e); // frees e and bp
             CAPTURE(std::string(soc));
             auto e2 = SocProtoToEvent(soc);
@@ -117,7 +117,7 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
             free(soc);
         };
 
-        auto bp = NewBP(7,0);
+        auto bp = new dbgbp_t(7,0);
 
         bp->bp_ignore = 1;
         bp->bp_deleted = 2; // This is never serialized
@@ -144,7 +144,7 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
         SUBCASE("DBGEV_BPSET") {test(DBGEV_BPSET, bp);}
         SUBCASE("DBGEV_BPDEL") {test(DBGEV_BPDEL, bp);}
 
-        FreeBP(bp);
+        delete bp;
     }
 
     SUBCASE("Frame-y events") {
@@ -676,6 +676,26 @@ static char *getstring(const char *&res_buf) {
     return res;
 }
 
+static std::string getStdString(const char *&res_buf) {
+    res_buf = skipspace(res_buf);
+
+    // First get the length of the string - Note that this can be 0
+    char *endptr = nullptr;
+    auto len = strtol(res_buf, &endptr, 10);
+
+    // Skip past the space between the length and the start of the string
+    ++endptr;
+
+    // Now create a new buffer and memcpy
+    auto res = std::string{endptr, endptr+len};
+
+    // set res_buf past string
+    res_buf = endptr + len;
+
+    return res;
+}
+    
+
 /*******************************
 ** To network proto functions **
 *******************************/
@@ -695,12 +715,12 @@ static char *EventBPToSocProto(dbgev ev, dbgbp_t *be, int simplified) {
 
     const char* st_file = StrSoc(be->bp_loc.loc_file);
     const char* st_func = StrSoc(be->bp_loc.loc_func);
-    const char* st_exp = StrSoc(be->bp_exp);
-    const char* threadId = StrSoc(be->bp_threadId);
+    const char* st_exp = be->bp_exp.c_str();
+    const char* threadId = be->bp_threadId.c_str();
 
     char *stres = nullptr;
     if (!simplified) {
-        const char* st_stmt = StrSoc(be->bp_stmt);
+        const char* st_stmt = be->bp_stmt.c_str();
         const char* st_addr = StrSoc(be->bp_loc.loc_addr);
 
         stres = MakeSocStr(ev,
@@ -1143,7 +1163,7 @@ static dbgbp_t *SocProtoToBP(const char *s) {
     id = getint(s);
 
     // Create the new breakpoint
-    res = NewBP(id,0); // only the front-end id serialized
+    res = new dbgbp_t(id,0); // only the front-end id serialized
 
     // Get value of simplified
     simple = getint(s);
@@ -1168,14 +1188,8 @@ static dbgbp_t *SocProtoToBP(const char *s) {
     }
 
     res->bp_loc.loc_line = getint(s);
-    res->bp_exp = getstring(s);
-
-    char* t = getstring(s);
-    if (t && !t[0]) {
-        free(t);
-        t = nullptr;
-    }
-    res->bp_threadId = t;
+    res->bp_exp = getStdString(s);
+    res->bp_threadId = getStdString(s);
 
     // We should try to resolve the realpath of file on this end. If it fails,
     // we will use the original value.

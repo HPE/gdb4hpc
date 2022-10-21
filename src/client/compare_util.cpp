@@ -188,7 +188,7 @@ void printCompareResult(val_t* result, val_t* difference, rec_set_t& recSet) {
                     PrintOutMsg("The difference delta is:\n");
                     if (PrintVal(os, difference, &recSet, "") < 0) PrintError();
                 }
-            }else{
+            }else if (Client.MI_mode){
                 PrintOutMIResult(MIResult::DONE,"compare={result=\"%s\"}\n", mi_result.str().c_str());
             }
             break;

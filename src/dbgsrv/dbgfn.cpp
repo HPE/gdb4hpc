@@ -23,29 +23,30 @@
 #include "dbgfn.h"
 #include "dbgsrv_defs.h"
 #include "defs.h"
+#include "dbgsrv_gdbmi.h"
 
 /*
 ** Setup debug backend defs
 */
 struct backend_tab {
     const char *backend_name;
-    dbgbackend_sw *backend_def;
+    DbgGdbMI *backend_def;
 };
 typedef struct backend_tab backend_tab;
 
 // external debug backend def
-extern dbgbackend_sw* DbgGdbMIGetSingleton();
+extern DbgGdbMI* DbgGdbMIGetSingleton();
 
 // table of backend defs
 static backend_tab DbgBackendTab[] = {
     {"gdbmi", DbgGdbMIGetSingleton()},
-    {NULL, (dbgbackend_sw *)NULL}};
+    {nullptr, nullptr}};
 
 /*
 ** Set default debug backend
 ** This defines the current debug backend in use
 */
-static dbgbackend_sw *DbgBackendSW = DbgGdbMIGetSingleton();
+static DbgGdbMI *DbgBackendSW = DbgGdbMIGetSingleton();
 
 /*
 ** The following functions are used to startup/init the debug backend and not
@@ -198,9 +199,9 @@ dbgevent_t *DbgIgnoreBreak(int bp, int n) {
     return DbgBackendSW->ignoreBreak(bp, n);
 }
 
-dbgevent_t *DbgLastBreak(void) {
+dbgevent_t *DbgInfoBreak(void) {
     DBG_READY();
-    return DbgBackendSW->lastBreak();
+    return DbgBackendSW->infoBreak();
 }
 
 dbgevent_t *DbgList(const char *str) {

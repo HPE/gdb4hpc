@@ -21,6 +21,7 @@ a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/te
 10: info breakpoint
 Procset         Num Type           Disp Enb What
 a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+    already hit 1 time
 a{0..2}         2   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
 11: # Test disable command
 12: disable 2
@@ -28,55 +29,70 @@ a{0..2}         2   breakpoint     keep y   in main at /home/users/jvogt/rpm_ins
 14: info breakpoint
 Procset         Num Type           Disp Enb What
 a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+    already hit 1 time
 a{0..2}         2   breakpoint     keep n   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
 15: # set breakpoint 3 and ignore it
 16: b 204
 a{0..2}: Breakpoint 3: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c, line 204.
 17: ignore 3 4
-18: c
-a{0..2}: Breakpoint 3, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:204
-19: p ii
-a{0..2}: 4
-20: info breakpoint
+18: info br
 Procset         Num Type           Disp Enb What
 a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+    already hit 1 time
 a{0..2}         2   breakpoint     keep n   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
 a{0..2}         3   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:204
-21: # delete the breakpoint
-22: del 3
-23: info breakpoint
-Procset         Num Type           Disp Enb What
-a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
-a{0..2}         2   breakpoint     keep n   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
-24: # Test enable command
-25: enable 2  
-26: #has breakpoint 3 been enabled?
-27: info breakpoint
-Procset         Num Type           Disp Enb What
-a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
-a{0..2}         2   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
-28: # make sure we now stop at the enabled breakpoint
-29: c
-a{0..2}: Breakpoint 2, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
-30: p ii
+    ignore next 4 hits
+19: c
+a{0..2}: Breakpoint 3, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:204
+20: p ii
 a{0..2}: 4
-31: p jj
-a{0..2}: 0
-32: p kk
-a{0..2}: 0
-33: c
-a{0..2}: Breakpoint 2, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
-34: p kk
-a{0..2}: 1
-35: info breakpoint
+21: info breakpoint
 Procset         Num Type           Disp Enb What
 a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+    already hit 1 time
+a{0..2}         2   breakpoint     keep n   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+a{0..2}         3   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:204
+    already hit 5 times
+22: # delete the breakpoint
+23: del 3
+24: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+    already hit 1 time
+a{0..2}         2   breakpoint     keep n   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+25: # Test enable command
+26: enable 2  
+27: #has breakpoint 3 been enabled?
+28: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+    already hit 1 time
 a{0..2}         2   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+29: # make sure we now stop at the enabled breakpoint
+30: c
+a{0..2}: Breakpoint 2, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+31: p ii
+a{0..2}: 4
+32: p jj
+a{0..2}: 0
+33: p kk
+a{0..2}: 0
+34: c
+a{0..2}: Breakpoint 2, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+35: p kk
+a{0..2}: 1
+36: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+    already hit 1 time
+a{0..2}         2   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:219
+    already hit 2 times
 37: delete 2 
 38: #has breakpoint 2 been deleted?
 39: info breakpoint
 Procset         Num Type           Disp Enb What
 a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:198
+    already hit 1 time
 40: # we should now hit no more breakpoints
 41: c
 a{0..2}: The application has reached an exit breakpoint.

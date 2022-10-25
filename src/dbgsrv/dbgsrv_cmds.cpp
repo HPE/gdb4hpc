@@ -131,8 +131,8 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             break;
         }
 
-        case DBGCMD_LASTBREAK: {
-            e = DbgLastBreak();
+        case DBGCMD_INFOBREAK: {
+            e = DbgInfoBreak();
             break;
         }
 

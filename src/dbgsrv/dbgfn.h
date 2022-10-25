@@ -22,83 +22,6 @@ class dbgcomm_info;
 
 extern void AsyncCheck(dbgevent_t *(*)(dbgevent_t *), dbgevent_t *);
 
-class dbgbackend_sw {
-public:
-    virtual dbgevent_t *init(int *dfd, int *iofd, char **env) = 0;
-    virtual dbgevent_t *startup() = 0;
-    virtual int read(int) = 0;
-    virtual bool bufferReady() = 0;
-    virtual int progioHook(int) = 0;   //!!! careful - potentially unimplemented
-    virtual dbgevent_t *setLineBreak(int id, const int, const char *file, int lno, const char* threadSet, const dbgcomm_info *commInfo) = 0;
-    virtual dbgevent_t *setFuncBreak(int id, const int, const char *file, const char *func, const char* threadSet, const dbgcomm_info *commInfo) = 0;
-    virtual dbgevent_t *setWatch(int id, int type, const char *expr, const dbgcomm_info *commInfo) = 0;
-    virtual dbgevent_t *setCatch(int id, const std::string &event, const std::string &regex, const dbgcomm_info *commInfo) = 0;
-    virtual dbgevent_t *setCheckpoint() = 0;
-    virtual dbgevent_t *restoreCheckpoint(unsigned int id) = 0;
-    virtual dbgevent_t *deleteCheckpoint(unsigned int id) = 0;
-    virtual dbgevent_t *deleteBreak(int bid) = 0;
-    virtual dbgevent_t *disableBreak(int bid) = 0;
-    virtual dbgevent_t *enableBreak(int bid, bool once, bool del) = 0;
-    virtual dbgevent_t *ignoreBreak(int bid, int n) = 0;
-    virtual dbgevent_t *lastBreak() = 0;
-    virtual dbgevent_t *list(const char *str) = 0;
-    virtual dbgevent_t *getSources() = 0;
-    virtual dbgevent_t *go(bool all, const char* threads) = 0;
-    virtual dbgevent_t *finishFunc(const char* threads) = 0;
-    virtual dbgevent_t *setArgs(const char *arg) = 0; // set run arguments
-    virtual dbgevent_t *step(int const, bool in, const char*) = 0;
-    virtual dbgevent_t *moveFrame(int count, bool up, const char* threads) = 0;
-
-    // If count is not zero then return only that many frames. If count is zero then
-    // return an unlimited number of frames. If count is negative return the
-    // outermost frames.
-    virtual dbgevent_t *showFrame(int count, const char* threads) = 0;
-
-    virtual dbgevent_t *getFrame(bool verbose, const char* threads) = 0;
-    virtual dbgevent_t *setVar(const char *var, const char *a, const char* threads) = 0;
-    virtual dbgevent_t *evalExpr(const char *expr, long exprIdx, const char* threads) = 0;
-    virtual dbgevent_t *getType(const char *var, bool isType, const char* threads) = 0;
-    virtual dbgevent_t *getLocation() = 0;   //!! potentially unimplemented
-    virtual dbgevent_t *getVars(const char* threads) = 0;
-    virtual dbgevent_t *getArgs(const char* threads) = 0;
-    virtual dbgevent_t *getScope(const char *location) = 0;
-    virtual dbgevent_t *getStatus(bool getLocation) = 0;
-    virtual dbgevent_t *quit(bool detach) = 0;
-    virtual dbgevent_t *interrupt(bool all) = 0;
-    virtual dbgevent_t *launch(const char *host, int cp, const char *proto, const char *prog,
-                               const char *args, char **env, int arch) = 0;
-    virtual dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, int arch) = 0;
-    virtual void finalize() = 0;
-    virtual bool isReadyForCmd() = 0;
-    virtual bool isOk() = 0;
-    virtual bool isStopped() = 0;
-    virtual dbgevent_t *setDebuggerVar(const char *var, const char *val) = 0;
-    virtual dbgevent_t *setSourcePath(const char *path) = 0;
-    virtual dbgevent_t *getSourcePath() = 0;
-    virtual dbgevent_t *getDebuggerVar(const char *var) = 0;
-    virtual dbgevent_t *setPrintElements(const char *elements) = 0;
-    virtual dbgevent_t *resetBeforeDirectCmd() = 0;
-    virtual dbgevent_t *restoreAfterDirectCmd() = 0;
-
-    // Pass command directly to gdb/mi through console command
-    virtual dbgevent_t *directCmd(int argc, char **argv) = 0;
-    virtual dbgevent_t *openSocket(const char *opset_name, int opset_size) = 0;
-    virtual dbgevent_t *closeSocket() = 0;
-    virtual dbgevent_t *setThread(const char* threadId) = 0;
-    virtual dbgevent_t *getThreadInfo(const char* threadId) = 0;
-    virtual dbgevent_t *setThreadName(const char* name) = 0;
-    virtual dbgevent_t *findThread(const char* pattern) = 0;
-    virtual dbgevent_t *threadApply(const char* op) = 0;
-    virtual dbgevent_t *setSchedulerLocking(const char* mode) = 0;
-    virtual dbgevent_t *getSchedulerLocking() = 0;
-    virtual dbgevent_t *setNonStop(const char* mode) = 0;
-    virtual dbgevent_t *getNonStop() = 0;
-    virtual dbgevent_t *ompd(const char* op) = 0;
-    virtual dbgevent_t *cuda(const char* op) = 0;
-    virtual dbgevent_t *shell(int argc, char **argv) = 0;
-
-};
-
 extern int DbgSetBackend(const char *);
 extern dbgevent_t *DbgInit(int *, int *, char **);
 extern dbgevent_t *DbgAttach(int, const char *, const char *, char **, int);
@@ -121,7 +44,7 @@ extern dbgevent_t *DbgDisableBreak(int);
 extern dbgevent_t *DbgEnableBreak(int, bool, bool);
 extern dbgevent_t *DbgIgnoreBreak(int, int);
 extern dbgevent_t *DbgShowBreak(void);
-extern dbgevent_t *DbgLastBreak(void);
+extern dbgevent_t *DbgInfoBreak(void);
 extern dbgevent_t *DbgList(const char *);
 extern dbgevent_t *DbgGetSources(void);
 extern dbgevent_t *DbgGo(bool all, const char* threads);

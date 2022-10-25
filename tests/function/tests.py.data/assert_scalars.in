@@ -193,7 +193,11 @@ The difference delta is:
 51: info break
 Procset         Num Type           Disp Enb What
 a{0..1}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_type_test.c:247
+    a{0}:    already hit 0 times
+    a{1}:    already hit 1 time
 b{0..1}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_cmp_diff.c:242
+    b{0}:    already hit 0 times
+    b{1}:    already hit 1 time
 52: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

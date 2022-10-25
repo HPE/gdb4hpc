@@ -107,7 +107,7 @@ static DbgGdbMI DbgBackendGDBMI;
 // number of threads still running that were set off by background commands in thread apply
 static size_t numBackgroundThreads = 0;
 
-dbgbackend_sw* DbgGdbMIGetSingleton() { return &DbgBackendGDBMI; }
+DbgGdbMI* DbgGdbMIGetSingleton() { return &DbgBackendGDBMI; }
 
 DbgGdbMI::DbgGdbMI() : m_initializer(new Initializer(*this)),
                        m_ompdIsInitialized(false), m_ompdIsAvail(false) {
@@ -138,7 +138,7 @@ static MICommand *_MIGDBSet(const char *var, const char *val) {
 }
 /*
 **
-** ----- dbgbackend_sw functions -----
+** ----- DbgGdbMI functions -----
 **
 */
 
@@ -638,6 +638,10 @@ dbgevent_t *DbgGdbMI::deleteBreak(int feBid) {
 dbgevent_t *DbgGdbMI::disableBreak(int feId) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
+    if (auto e = infoBreak()) {
+        FreeEvent(e);
+    }
+
     auto bp = FindBPByID(BP, feId, 0);
     if (!bp) {
         return NewErrorEvent(DBGERR_NOBP, "Invalid breakpoint id.");
@@ -741,19 +745,41 @@ dbgevent_t *DbgGdbMI::ignoreBreak(int feId, int n) {
 }
 
 /*
-** Return id of last breakpoint to be hit.
+** Return breakpoint information.
 */
-dbgevent_t *DbgGdbMI::lastBreak() {
+dbgevent_t *DbgGdbMI::infoBreak() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
 
-    if (!CurrBP) {
-        EVENT_ERROR(e, DBGERR_NOBP, "No breakpoints registered.");
-        return e;
+    auto res = std::ostringstream{};
+
+    for (auto bp : BP) {
+        auto cmd = MIBreakInfo(bp->bp_be_id);
+        SendMICommand(GDBMISession, cmd);
+        if (!MICommandResultOK(cmd)) {
+            DVPRINT("MIBreakInfo %d failed\n", bp->bp_be_id);
+            MICommandFree(cmd);
+            continue;
+        }
+
+        auto bpts = MIBreakpointGetBreakInsertInfo(cmd);
+        if (!bpts) {
+            DVPRINT("bpts is null\n");
+        }
+
+        MIListSet(bpts);
+        while (auto bpt = (MIBreakpoint *)MIListGet(bpts)) {
+            if (auto bp = FindBPByID(BP, 0, bpt->number)) {
+                if (auto id = bp->bp_fe_id; id > 0)
+                    res << id << " " << bpt->times << " " << bpt->ignore << "\n";
+            }
+        }
+
+        MIListFree(bpts, (void (*)())MIBreakpointFree);
+        MICommandFree(cmd);
     }
 
-    e = NewEvent(DBGEV_BPINFO);
-    e->ev_bp = CurrBP;
+    auto e = NewEvent(DBGEV_STRING);
+    e->ev_string = strdup(res.str().c_str());
 
     return e;
 }

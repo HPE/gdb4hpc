@@ -362,6 +362,7 @@ extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, const char *, int, const cha
 extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, const char *, const char *, const char*);
 extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
 extern rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex);
+extern rep_set_t *DbgInfoBreakpoints(rec_set_t *recSet);
 extern rep_set_t *DbgSetCheckpoint(rec_set_t* recSet);
 // return nullptr on success, otherwise reply will contain error
 extern rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id);

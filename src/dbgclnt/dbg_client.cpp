@@ -2475,6 +2475,12 @@ rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::s
     return result;
 }
 
+rep_set_t* DbgInfoBreakpoints(rec_set_t* set) {
+    auto request = CommandToSocProto(DBGCMD_INFOBREAK);
+    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING);
+    return result;
+}
+
 rep_set_t *DbgSetCheckpoint(rec_set_t* recSet) {
     static auto nextId = 0u;
 

@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <map>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -599,6 +600,92 @@ static int cmd_ignore_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 
+namespace {
+    // class for caching the hit and ignore count info from the back end
+    class BPCnts {
+    public:
+        BPCnts() {}
+        ~BPCnts() { delete rep_set; };
+        void retrieve(rec_set_t* rec_set);
+        std::string get(const std::string &handle, const Bitset *group, int id);
+    private:
+        rep_set_t* rep_set = nullptr;
+    };
+}
+
+// Retrieve the hit count and ignore information from the back end.  We don't/can't
+// work this from the front end because the is no guarantee the program will get
+// the same number of stops on each back end. 
+void BPCnts::retrieve(rec_set_t* rec_set) {
+    if (!rec_set) return;
+    rep_set = DbgInfoBreakpoints(rec_set);
+}
+
+// get the extended status for breakpoint id.
+// the count information has already been retrieved from the back end
+std::string BPCnts::get(const std::string &handle, const Bitset *group, int id) {
+    if (!rep_set) return "";
+
+    std::map<std::pair<int,int>, std::unique_ptr<Bitset>> cnts;
+
+    auto formatHit = [](std::ostringstream& res, int cnt) {
+        res << "    already hit " << cnt << (cnt != 1 ? " times" : " time"); };
+    auto formatIgnore = [](std::ostringstream& res, int ignore) {
+        res << "    " << "ignore next " << ignore << (ignore != 1 ? " hits" : " hit"); };
+
+    auto res = std::ostringstream{};
+    for (auto&& reply : rep_set) {
+        auto rep_group = reply->rep_group.get();
+        if (reply->rep_di.name() != handle || !group->hasCommonBits(*rep_group)) {
+            continue;
+        }
+                
+        const char* str = reply->rep_event->ev_u.ev_u_string;
+        auto is = std::istringstream(str);
+        int bp, cnt, ignore;
+        while ((is >> bp >> cnt >> ignore) && bp != id) {}
+        if (bp != id) continue;
+
+        if (*group == *rep_group) {
+            // If they are all the same, then we can just add 0 or 1 lines as the
+            // procset info is already printed
+            if (cnt > 0) formatHit(res, cnt);
+            if (ignore > 0) formatIgnore(res, ignore);
+            if (cnt > 0 || ignore > 0) res << "\n";
+            cnts.clear();
+            break;
+        }
+
+        // otherwise, we have either gotten multiple replies or some of the
+        // ranks didn't return a result (probably RUNNING, but possibly dead))
+        std::pair<int,int> key(cnt,ignore);
+        if (auto loc = cnts.find(key); loc != cnts.end()) {
+            *loc->second |= *rep_group;
+            *loc->second &= *group;
+        } else {
+            auto igrp = bitset::fromAnd(*group, *rep_group);
+            cnts.insert(std::make_pair(key, std::move(igrp)));
+        }
+    }
+
+    // Otherwise, we have gotten either multiple results or just a subset of the
+    // ranks reported (the remainder may be running)
+    for (auto& [pr, grp] : cnts) {
+        auto [cnt,ignore] = pr;
+        // note the grp != group check is for the case were this breakpoint has the same
+        // values across all ranks, but a different breakpoint had varying results
+        if (cnts.size() > 1 || ((cnt || ignore) && *grp != *group)) {
+            res << "    " << GetProcSetString(handle.c_str(), grp.get(), "") << ":";
+        }
+        if (cnts.size() > 1 || cnt) formatHit(res, cnt);
+        if (ignore) formatIgnore(res, ignore);
+        if (cnts.size() > 1 || cnt || ignore) res << "\n";
+    }
+                        
+    return res.str();
+}
+
+
 static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     if (Client.MI_mode && !rec_set) {
@@ -616,7 +703,6 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
     int bid = 0;
     std::stringstream ss;
-
 
     if (argc > 1) {
         if (!IsInteger(argv[1])) {
@@ -648,9 +734,13 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
         PrintOutMsg("%s\n", out.str().c_str());
     };
 
-    auto printBP = [printTableEntry](const MappedBreakpoint& bpset,
-                              const std::string &handle, const Bitset *group, 
-                                     const std::string &disp, const std::string &enabled) {
+    BPCnts bpcnts;
+    bpcnts.retrieve(rec_set);
+
+    auto printBP = [printTableEntry, &bpcnts](const MappedBreakpoint& bpset,
+                                              const std::string &handle, const Bitset *group, 
+                                              const std::string &disp,
+                                              const std::string &enabled) {
         auto id = std::to_string(bpset.id());
         auto type = BPTypeToStr(bpset.type());
 
@@ -684,6 +774,9 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
         }
         
         printTableEntry(handle, group, id, type, disp, enabled, location.str());
+        if (auto hitInfo = bpcnts.get(handle, group, bpset.id()); !hitInfo.empty()) {
+            PrintOutMsg("%s", hitInfo.c_str());
+        }
     };
 
     // Add entry to breakpoint table string for MI mode
@@ -718,6 +811,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
     if (!Client.MI_mode){
         printTableEntry("Procset", nullptr, "Num", "Type", "Disp", "Enb", "What");
     }
+
 
     // Need to loop over each di in the rec_set
     for (auto&& recv_ptr : rec_set) {

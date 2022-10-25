@@ -74,9 +74,13 @@ b{0..2}:
 34: info breakpoints
 Procset         Num Type           Disp Enb What
 a{0..2}         1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:71
+    already hit 1 time
 a{0..2}         2   breakpoint     keep y   in main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:60 thread 5
+    already hit 1 time
 b{0..2}         1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:71
+    already hit 1 time
 b{0..2}         2   breakpoint     keep y   in main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:60 thread 5
+    already hit 1 time
 36: thread 5
 37: p sum
 a{0..2}: 0
@@ -88,8 +92,10 @@ b{0..2}: Watchpoint 3: Set on variable sum
 42: info breakpoints
 Procset         Num Type           Disp Enb What
 a{0..2}         1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:71
+    already hit 1 time
 a{0..2}         3   watchpoint     keep y   sum thread 5
 b{0..2}         1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_threads.cpp:71
+    already hit 1 time
 b{0..2}         3   watchpoint     keep y   sum thread 5
 44: c
 b{0..2}: Watchpoint 3, variable expression: sum

@@ -528,6 +528,8 @@ std::shared_ptr<MIVar> LazyMIVar::getVar() {
 }
 
 std::shared_ptr<ais::Type> LazyMIVar::getType() {
+    static std::regex anonymousRE(R"((const)? *class)");
+
     if (m_type) return m_type;
 
     if (m_var) {
@@ -592,6 +594,11 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
                 }
             }
             throw dbg_error.release();
+        }
+
+        if (std::regex_match(strippedExprType, anonymousRE) && getVar()) {
+            // unnamed C++ class type, I'll have to work from the expression
+            return getType();
         }
 
         m_type = TypeParser::getType(m_mi, nullptr, nullptr, strippedExprType.c_str());
@@ -1037,18 +1044,32 @@ size_t Mi2Aif::swizzlePointer(const std::string& type, void* p)
         m_refMap.insert(std::make_pair(addr_loc, 1));
     }
 
+    DVPRINT("type=\"%s\"\n", type.c_str());
+
     size_t idx = m_refs.size()+1;
     if (auto [loc, added] = m_refMap.insert(std::make_pair(p,idx)); !added) {
         idx = loc->second;
-    } else if ( type != "void") {
+    } else if ( type == "void") {
+        DVPRINT("Not trying to evaluate a void*\n");
+        // add to m_refs to keep the mapping consistent
+        m_refs.emplace_back(std::shared_ptr<LazyMIVar>{});
+    } else if ( type.find("decltype(") == 0) {
+        // anonymous class type
+        size_t end = 9, paren=1;
+        for (size_t n=type.size(); end<n; ++end) {
+            if (auto c = type[end]; c == '(') ++paren;
+            else if (c == ')' && !--paren) break;
+        }
+        auto derefExpr = type.substr(9,end-9);
+        DVPRINT("Creating new anonymous MIVar with %s\n", derefExpr.c_str());
+        m_refs.emplace_back(std::make_shared<LazyMIVar>(*this, createMIVar(derefExpr.c_str())));
+        
+    } else {
+        // regular pointer
         auto derefExpr = std::ostringstream{};
         derefExpr << "\"*(" << type << "*)" << p << "\"";
         DVPRINT("Creating new MIVar with %s\n", derefExpr.str().c_str());
         m_refs.emplace_back(std::make_shared<LazyMIVar>(*this, createMIVar(derefExpr.str().c_str())));
-    } else {
-        DVPRINT("Not trying to evaluate a void*\n");
-        // add to m_refs to keep the mapping consistent
-        m_refs.emplace_back(std::shared_ptr<LazyMIVar>{});
     }
     DVPRINT("Returning index %d\n", int(idx));
     return idx;
@@ -1564,6 +1585,10 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
 
     DVPRINT("TypeParser::getType var=\"%s\" inType=\"%s\" scope=\"%s\"\n", 
             var ? var->type : "", inType ? inType : "", scope ? scope : "");
+    if (var) {
+        DVPRINT("expr %s exp %s\n", var->expr ? var->expr : "",
+                var->exp ? var->exp : "");
+    }
 
     const char* typeStr = inType ? inType : var->type;
     auto type = sanitizeType(typeStr);
@@ -1577,11 +1602,17 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
 
     // pointer types
     if (type.back() == '*') {
-        DVPRINT("Found a pointer type %s\n", type.c_str());
         auto derefType = type.substr(0,type.find_last_not_of(' ', type.size()-2)+1);
         if (derefType == "char") {
+            DVPRINT("Found a char pointer type %s\n", type.c_str());
             return mi.addKnownType(type, std::make_shared<ais::CharArray>());
+        } else if (var && var->expr && derefType == "class {...}") {
+            DVPRINT("Found a pointer to an anonymous class type %s\n", type.c_str());
+            derefType = std::string{"decltype(*"} + var->expr + ")";
+            return mi.addKnownType(derefType,
+                                   std::make_shared<ais::Pointer>(derefType));
         } else {
+            DVPRINT("Found a pointer type %s\n", type.c_str());
             return mi.addKnownType(type, std::make_shared<ais::Pointer>(derefType));
         }
     }

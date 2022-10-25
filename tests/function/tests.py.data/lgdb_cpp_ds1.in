@@ -344,5 +344,26 @@ b{0..1}: 15
 b{0..1}: double
 144: ptype Classy2::Nesty::Int
 b{0..1}: int
-145: q
+145: c
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/C++/cpp_ds_test1.cpp:31
+146: up
+b{0..1}: #1  anonymousClass at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/C++/cpp_ds_test1.cpp:366
+147: p obj
+b{0..1}: {i = 5}
+148: ptype obj
+b{0..1}: class {
+  private:
+    int i;
+
+  public:
+    void setI(int);
+}
+149: whatis obj
+b{0..1}: class
+150: p op
+b{0..1}: (decltype(*op)*) <1>
+  <1>:{i = 5}
+151: whatis op
+b{0..1}: class
+152: q
 Shutting down debugger and killing application for 'b'.

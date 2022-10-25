@@ -25,7 +25,7 @@ static void f(const Struct1& s, const Classy& c);
 static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes();
-static void inheritanceTest(), enumTest(), nestedTypedef();
+static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
 
 static void trap() {
     std::cout << "trap function\n";
@@ -107,7 +107,7 @@ int main(int argc, char ** argv){
     templateClassTest();
     obscureDataTypes();
     templateClassTest2();
-    inheritanceTest(); nestedTemplateClassTest(); enumTest(); nestedTypedef();
+    inheritanceTest(); nestedTemplateClassTest(); enumTest(); nestedTypedef(); anonymousClass();
     delete ll;
     MPI_Finalize();
     return 0;
@@ -354,3 +354,15 @@ static void nestedTypedef() {
   Classy2::setZZ(1865);
   trap();
 }
+
+static void anonymousClass() {
+  class {
+    int i = 0;
+  public:
+    void setI(int ii) { i = ii; }
+  } obj;
+  auto op = &obj;
+  obj.setI(5);
+  trap();
+}
+

@@ -306,7 +306,7 @@ std::vector<TypeParser::Prim> TypeParser::m_cppPrims =
  {"size_t",PrimWrap<ais::UnsignedLong>()},
  {"short",PrimWrap<ais::Short>()},
  {"short int",PrimWrap<ais::Short>()},
- {"signed char",PrimWrap<ais::SignedChar>()},
+ {"signed char",CharWrap<ais::SignedChar>()},
  {"uint8_t",PrimWrap<ais::UnsignedChar>()},
  {"uint16_t",PrimWrap<ais::UnsignedShort>()},
  {"uint32_t",PrimWrap<ais::UnsignedInt>()},
@@ -391,7 +391,7 @@ std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
  {"STRING",unimplemented}
 };
 
-std::vector<std::string> TypeParser::m_ignore = { "const", "signed", "volatile", "shared",
+std::vector<std::string> TypeParser::m_ignore = { "const", "volatile", "shared",
                                                   "SHARED", "pointer,", "POINTER," };
 class ArraySlicer;
 
@@ -1504,16 +1504,23 @@ std::string TypeParser::sanitizeType(const std::string& type) {
     for (int i=0, word=0; i<int(sanType.size()); ++i) {
         auto c = sanType[i];
         auto cIsW = (::isalnum(c) || c == '_' || c == '@' || c == ':' || c == ',');
+        if (inW == cIsW) continue;
         if (cIsW && !inW) {
             word = i;
-        } else if (inW && !cIsW &&
-                   (sanType[word] == '@' || std::find(m_ignore.begin(), m_ignore.end(),
-                                                      sanType.substr(word,i-word)) != m_ignore.end())) {
+            inW = true;
+            continue;
+        }
+        // inW && !cIsW
+        inW = false;
+        auto token = sanType.substr(word,i-word);
+        if (token[0] == '@'
+            || std::find(m_ignore.begin(), m_ignore.end(), token) != m_ignore.end()
+            || (token == "signed" && sanType.substr(i+1,4) != "char")) {
             if (c == ' ' && (!word || sanType[word-1] == ' ')) ++i;
             sanType.erase(word, i-word);
             i = word-1;
-        }
-        inW = cIsW;
+        } 
+
     }
 
     // remove leading and trailing whitespace

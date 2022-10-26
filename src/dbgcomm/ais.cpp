@@ -166,7 +166,9 @@ std::string ais::Char::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::SignedChar::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
-        void operator()(char val) override { out << format() << static_cast<int>(val) << " " << CharLiteral(val); }
+        void operator()(char val) override {
+            out << format() << static_cast<int>(static_cast<signed char>(val))
+                << " " << CharLiteral(val); }
     };
     return std::make_unique<TPrinter>(parent);
 }
@@ -2428,7 +2430,11 @@ void ais::Printer::operator()(float val) {
 void ais::Printer::operator()(double val) {
     out << std::setprecision(std::numeric_limits<double>::digits10) << val; }
 void ais::Printer::operator()(long double val) {
-    out << std::setprecision(std::numeric_limits<long double>::digits10) << val;}
+    // aarch misreports the accuracy of a long double as 33 digits, but
+    // empirically it show the same precision as x86_64, 18 digits
+    //out << std::setprecision(std::numeric_limits<long double>::digits10) << val;
+    out << std::setprecision(18) << val;
+}
 void ais::Printer::operator()(const std::string& val) {
         out << '"' << val << '"';
 }

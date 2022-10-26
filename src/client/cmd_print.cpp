@@ -208,6 +208,8 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
             break;
     }
 
+    if (Client.print_pretty) format += 'p';
+
     DPERFLOG(SetTimerStart("print"));
 
     PrintVal(Client.cli_out->ostream(), val, rec_set, format);
@@ -266,6 +268,33 @@ static int cmd_show_print_elements_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
+static int cmd_set_print_pretty_cmd(rec_set_t *rec_set, int argc,
+                                               char **argv) {
+    if (argc < 2) {
+        PrintOutError("Not enough command arguments.\n");
+        PrintOutError("Usage: set print pretty on|off\n");
+        return 0;
+    }
+
+    if (strcmp(argv[1],"on")==0) {
+        Client.print_pretty = true;
+    } else if (strcmp(argv[1],"off")==0) {
+        Client.print_pretty = false;
+    } else {
+        PrintOutError("Unrecognized option %s, use \"on\" or \"off\".\n", argv[1]);
+        return 0;
+    }
+
+    return 1;
+}
+
+static int cmd_show_print_pretty_cmd(rec_set_t *rec_set, int argc,
+                                     char **argv) {
+    PrintOutMsg("Pretty printing is %s.\n", Client.print_pretty ? "on" : "off");
+    return 1;
+}
+
+
 // retrieve the value of an expresison for the MI context.
 // return an empty string if it fails (typically a variable out of scope)
 std::string GetMiValue(const std::string& expression)
@@ -311,4 +340,14 @@ void InitCmd_print(void) {
         "elements", proc_optional, 0, cmd_show_print_elements_cmd,
         cmd_show_print_elements_help,
         "Show number of elements to print when an array is printed.");
+
+    AddSetPrintCommand(
+        "pretty", proc_optional, 0, cmd_set_print_pretty_cmd,
+        cmd_set_print_pretty_help,
+        "Enable or disable pretty printing of structures.");
+
+    AddShowPrintCommand(
+        "pretty", proc_optional, 0, cmd_show_print_pretty_cmd,
+        cmd_show_print_pretty_help,
+        "Show if pretty printing of structures is enabled.");
 }

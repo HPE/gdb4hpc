@@ -344,13 +344,34 @@ b{0..1}: 15
 b{0..1}: double
 144: ptype Classy2::Nesty::Int
 b{0..1}: int
-145: c
+145: show print pretty
+Pretty printing is off.
+146: set print pretty on
+147: show print pretty
+Pretty printing is on.
+148: p c2
+b{0..1}: {
+  x = 5
+  y = -121
+  n = {
+    ch_ch_ch_cherry_bomb = 15
+  }
+  static zz = 1865
+}
+149: p c2.n
+b{0..1}: {
+  ch_ch_ch_cherry_bomb = 15
+}
+150: set print pretty off
+151: p c2
+b{0..1}: {x = 5, y = -121, n = {ch_ch_ch_cherry_bomb = 15}, static zz = 1865}
+152: c
 b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/C++/cpp_ds_test1.cpp:31
-146: up
+153: up
 b{0..1}: #1  anonymousClass at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/C++/cpp_ds_test1.cpp:366
-147: p obj
+154: p obj
 b{0..1}: {i = 5}
-148: ptype obj
+155: ptype obj
 b{0..1}: class {
   private:
     int i;
@@ -358,12 +379,12 @@ b{0..1}: class {
   public:
     void setI(int);
 }
-149: whatis obj
+156: whatis obj
 b{0..1}: class
-150: p op
+157: p op
 b{0..1}: (decltype(*op)*) <1>
   <1>:{i = 5}
-151: whatis op
+158: whatis op
 b{0..1}: class
-152: q
+159: q
 Shutting down debugger and killing application for 'b'.

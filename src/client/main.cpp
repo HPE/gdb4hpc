@@ -340,6 +340,7 @@ int main(int argc, char *argv[]) {
     Client.print_bp_frames = true;    // Print breakpoint frames as they are hit?
     Client.print_source_on_step = 1;  // Print source line on each step?
     Client.print_elements = 0;        // Elements to print in arrays or char * strings
+    Client.print_pretty = false;      // Print indented structures
     Client.sync_wait = 0;             // Treat asynchronous cmds as sync?
     Client.sync_blocked = 0;          // Current blocked on async cmd?
     Client.proto = getDefaultProtocol(); // Default debugger protocol

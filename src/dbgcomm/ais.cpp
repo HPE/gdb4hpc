@@ -1622,10 +1622,11 @@ ais::Struct::Struct(ais::Reader& reader, const std::string& defString) {
 
 std::unique_ptr<ais::Printer> ais::Struct::makePrinter(Printer& parent) const {
     using Members = decltype(m_members);
+    // Default printer, print structure on a single line
     struct TPrinter : public Printer {
         TPrinter(Printer& parent, Members members) : Printer(parent), m_members(members) {}
         void start(const Type* t) override { Printer::start(t); m_idx = 0; out << "{"; }
-                void startChild() override {
+        void startChild() override {
             if (m_idx) out << ", ";
             if (m_idx < int(m_members.size())) out << m_members[m_idx].first << " = ";
             ++m_idx;
@@ -1634,7 +1635,28 @@ std::unique_ptr<ais::Printer> ais::Struct::makePrinter(Printer& parent) const {
         int m_idx = 0;
         Members m_members;
     };
-    return std::make_unique<TPrinter>(parent,m_members);
+
+    // "Pretty" printer, puts members on separate indented lines
+    struct PPrinter : public Printer {
+        PPrinter(Printer& parent, Members members) : Printer(parent), m_members(members) {}
+        void start(const Type* t) override { Printer::start(t); m_idx = 0; out << "{"; }
+        void startChild() override {
+            out << "\n";
+            indent();
+            if (m_idx < int(m_members.size())) out << m_members[m_idx].first << " = ";
+            ++m_idx;
+        }
+        void end() override { out << "\n"; parent->indent(); out << "}"; }
+        void indent() override { if (parent) parent->indent(); out << "  "; }
+        int m_idx = 0;
+        Members m_members;
+    };
+
+    if (parent.format().pretty) {
+        return std::make_unique<PPrinter>(parent,m_members);
+    } else {
+        return std::make_unique<TPrinter>(parent,m_members);
+    }
 }
 
 void ais::Struct::printIndex(int idx, std::ostream& out) const {
@@ -2464,6 +2486,8 @@ std::string ais::Printer::getLabel() {
     return ((parent == &master) ? master.getLabel() : "");
 }
 
+void ais::Printer::indent() {}
+
 ais::Formatter& ais::Printer::format() { return master.getFormatter(); }
 
 std::unique_ptr<ais::Printer> ais::Type::makePrinter(Printer& parent) const {
@@ -2477,6 +2501,7 @@ ais::Formatter::Formatter(const std::string& format) {
     else if (format.find('z') != std::string::npos) form = PADDED_BIN;
 
     if (format.find('1') != std::string::npos) onePerLine = true;
+    if (format.find('p') != std::string::npos) pretty = true;
     if (format.find("csv") != std::string::npos) csv = true;
 }
 

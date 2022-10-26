@@ -139,6 +139,7 @@ extern const char* const set_subcmd_args_help[];
 extern const char* const cmd_set_print_entryframe_help[];
 extern const char* const cmd_set_print_sourceonstep_help[];
 extern const char* const cmd_set_print_elements_help[];
+extern const char* const cmd_set_print_pretty_help[];
 
 /*
  * Class set breakpoint subcommands
@@ -172,6 +173,7 @@ extern const char* const show_subcmd_args_help[];
 extern const char* const cmd_show_print_entryframe_help[];
 extern const char* const cmd_show_print_sourceonstep_help[];
 extern const char* const cmd_show_print_elements_help[];
+extern const char* const cmd_show_print_pretty_help[];
 
 /*
  * Class show break subcommands

@@ -1835,6 +1835,23 @@ const char *const cmd_set_print_elements_help[] = {
     "similar is found)",
     0};
 
+const char *const cmd_show_print_pretty_help[] = {
+    "Show if indented structure printing is enabled.",
+    0};
+
+const char *const cmd_set_print_pretty_help[] = {
+    "Summary: Enable or disable indented printing for structures.",
+    "Usage: set print pretty [\"on\"|\"off\"]",
+    "Example command: set print pretty on",
+    "",
+    "Default setting: off",
+    "",
+    "Description:",
+    "When pretty printing is enabled, structures and classes will be printed on",
+    "multiple lines with indenting.",
+    0};
+
+
 /*
  * Class usage subcommands
  */

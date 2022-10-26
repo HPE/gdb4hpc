@@ -35,7 +35,7 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-break-insert", "break" },
  {"-break-list", "info breakpoints"},
  {"-enable-frame-filters", "ok"},
- {"-enable-pretty-printing", "ok"},
+ {"-enable-pretty-printing", "set print pretty on"},
  {"-exec-continue", "continue"},
  {"-exec-next", "next"},
  {"-exec-return", "finish"},

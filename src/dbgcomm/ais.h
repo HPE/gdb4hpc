@@ -333,6 +333,7 @@ struct Formatter {
     Form form = DEC;
     bool csv = false;
     bool onePerLine = false;
+    bool pretty = false;
     std::ostream* os = nullptr;
 };
 
@@ -373,7 +374,8 @@ public:
     virtual void endChild();
 
     virtual std::string getLabel();
-    
+    virtual void indent(); // add indenting when printing multi-line structures
+
     Printer* parent;
     std::unique_ptr<Printer> child;
     PrinterMaster& master;

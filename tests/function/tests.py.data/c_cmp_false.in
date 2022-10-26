@@ -21,7 +21,7 @@
 21: #all comparisons should result in
 22: #comparision is false
 24: maint set sync on
-25: launch $a{3}  bd_dt/c/c_type_test.x
+25: launch $a{3}  bin/CRAY/c/c_type_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -31,10 +31,10 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:58
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_type_test.c:58
 26: break c_type_test.c:247
-a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c, line 247.
-27: launch $b{3}  bd_dt/c/c_cmp_diff.x
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_type_test.c, line 247.
+27: launch $b{3}  bin/CRAY/c/c_cmp_diff.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -44,15 +44,15 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_cmp_diff.c:55
+b{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_cmp_diff.c:55
 28: focus $b
 29: break c_cmp_diff.c:242
-b{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_cmp_diff.c, line 242.
+b{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_cmp_diff.c, line 242.
 30: focus $all
 31: #run to breakpiont
 32: continue
-b{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_cmp_diff.c:242
-a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/c/c_type_test.c:247
+b{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_cmp_diff.c:242
+a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_type_test.c:247
 33: #run compare commands on all datatypes
 34: #char - Dissabled as lgdb compare command is not working for strings and chars
 35: #print c

@@ -1,0 +1,27 @@
+16: maint set sync on
+18: # launch 3 instances of the application
+19: launch $a{3}   bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
+22: # Set a breakpoint at specified line numbers:
+23: break c_type_test.c:228
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 228.
+25: break c_type_test.c:242
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 242.
+28: # Run to breakpoint 1:  
+29: continue
+<$a>: Hello World! from process 0
+<$a>: Hello World! from process 1
+<$a>: Hello World! from process 2
+<$a>: Hello World! from process 3
+<$a>: Hello World! from process 4
+<$a>: Hello World! from process 5
+a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:228
+32: # Step - Ensure program is set at first line of subroutine Line # 247
+33: s
+a{0..2}: test_stack at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:253
+a{0..2}: 253		return x * 5;
+35: #exit lgdb
+36: q
+Shutting down debugger and killing application for 'a'.

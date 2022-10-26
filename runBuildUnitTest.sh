@@ -50,6 +50,15 @@ $install_dir/libexec/dbgsrv --test
 check_exit_status
 
 echo "############################################"
+echo "# Running Functional Text Match Unit Tests #"
+echo "############################################"
+
+pushd "$top_level/tests/function"
+./libtests.py
+check_exit_status
+popd
+
+echo "############################################"
 echo "#                   Done                   #"
 echo "############################################"
 

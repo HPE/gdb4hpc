@@ -14,7 +14,7 @@
 14: #
 16: maint set sync on
 19: # launch 2 applications in lgdb
-20: launch $a{3}   bd_dt/fortran/ftn_bd_dt.x
+20: launch $a{3}   bin/CRAY/fortran/ftn_bd_dt.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -25,7 +25,7 @@ Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
 a{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:1
-23: launch $b{3}   bd_dt/fortran/ftn_bd_dt.x
+23: launch $b{3}   bin/CRAY/fortran/ftn_bd_dt.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -38,15 +38,15 @@ Launch complete.
 b{0..2}: Initial breakpoint, ftn_dt at ftn_bd_dt.f90:1
 27: # Set a breakpoint at specified line numbers:
 28: break ftn_bd_dt.f90:46
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 46.
-b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 46.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/fortran/ftn_bd_dt.f90, line 46.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/fortran/ftn_bd_dt.f90, line 46.
 30: break ftn_bd_dt.f90:62
-a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 62.
-b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90, line 62.
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/fortran/ftn_bd_dt.f90, line 62.
+b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/fortran/ftn_bd_dt.f90, line 62.
 34: # Run to breakpoint 1:
 35: continue
-a{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:46
-b{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:46
+a{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/src/fortran/ftn_bd_dt.f90:46
+b{0..2}: Breakpoint 1, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/src/fortran/ftn_bd_dt.f90:46
 42: # print some local variables
 43: print x
 a{0..2}: 1
@@ -157,18 +157,18 @@ b{0..2}: No symbol "myself%notafield " in current context
 <$a>:  Struct member=  100
 <$a>:  Struct member= Cray
 <$a>:  Struct member=  100
-b{0..2}: Breakpoint 2, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:62
-a{0..2}: Breakpoint 2, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/fortran/ftn_bd_dt.f90:62
+b{0..2}: Breakpoint 2, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/src/fortran/ftn_bd_dt.f90:62
+a{0..2}: Breakpoint 2, ftn_dt at /lus/scratch/jvogt/tests/gdb4hpc/src/fortran/ftn_bd_dt.f90:62
 62: # Print m
 63: p m
 a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 b{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 64: b getParams
-a{0..2}: Breakpoint 3: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_bd_dt.f90, line 75.
-b{0..2}: Breakpoint 3: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_bd_dt.f90, line 75.
+a{0..2}: Breakpoint 3: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/fortran/ftn_bd_dt.f90, line 75.
+b{0..2}: Breakpoint 3: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/fortran/ftn_bd_dt.f90, line 75.
 64: c
-a{0..2}: Breakpoint 3, getparams at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_bd_dt.f90:75
-b{0..2}: Breakpoint 3, getparams at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/fortran/ftn_bd_dt.f90:75
+a{0..2}: Breakpoint 3, getparams at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/fortran/ftn_bd_dt.f90:75
+b{0..2}: Breakpoint 3, getparams at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/fortran/ftn_bd_dt.f90:75
 64: n
 a{0..2}: 79	    if (c .AND. a * b == b) then
 b{0..2}: 79	    if (c .AND. a * b == b) then

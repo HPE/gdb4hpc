@@ -1,0 +1,165 @@
+1: launch $a{2} bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [2];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
+2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [2];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
+3: # stop before exiting
+4: focus $a
+4: break 227
+a{0..1}: Breakpoint 1: file /src/c/c_type_test.c, line 227.
+4: focus $b
+4: break 223
+b{0..1}: Breakpoint 1: file /src/c/c_cmp_diff.c, line 223.
+4: focus $all
+5: build $arrays
+6:     set stop off
+7:     set verbose-asserts on
+7:     show verbose-asserts
+verbose-asserts: Assertion results will be printed as they are evaluated.
+Current value: true.
+8:     
+9:     # all of these should pass
+10:     assert $a{0}::one_d_i_init[0..4]@"c_type_test.c":166 == $b{0}::"one_d_i_init[0]@5"@"c_cmp_diff.c":161
+11:     assert  $a{1}::one_d_i_init[5]@5@"c_type_test.c":167  <  $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
+12:     assert          $a::one_d_i_init@"c_type_test.c":168 <=           $b::one_d_i_init@"c_cmp_diff.c":163
+13:     assert       $a{0}::one_d_i_init@"c_type_test.c":169 !=        $b{1}::one_d_i_init@"c_cmp_diff.c":164
+14:     
+15:     # all of these should fail
+16:     assert           $a::one_d_i_init@"c_type_test.c":170 =           $b::one_d_i_init@"c_cmp_diff.c":165
+17:     assert  $a{0}::one_d_i_init[5..9]@"c_type_test.c":171 == $b{1}::one_d_i_init[5..9]@"c_cmp_diff.c":166
+18:     
+19: end
+Assertion script $arrays compiled.
+20: # set print elements to ensure it doesn't affect results
+21: set print elements 3
+22: maint set sync on
+23: start $arrays
+Sending continue to application...
+Evaluating assertion 1: $a{0}::one_d_i_init[0..4]@"c_type_test.c":166 == $b{0}::"one_d_i_init[0]@5"@"c_cmp_diff.c":161
+{0}: Comparison is true.
+Evaluating assertion 2: $a{1}::one_d_i_init[5]@5@"c_type_test.c":167 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
+{0..1}: Comparison is true.
+Evaluating assertion 3: $a::one_d_i_init@"c_type_test.c":168 <= $b::one_d_i_init@"c_cmp_diff.c":163
+{0..1}: Comparison is true.
+Evaluating assertion 4: $a{0}::one_d_i_init@"c_type_test.c":169 != $b{1}::one_d_i_init@"c_cmp_diff.c":164
+{0..1}: Comparison is true.
+Evaluating assertion 5: $a::one_d_i_init@"c_type_test.c":170 = $b::one_d_i_init@"c_cmp_diff.c":165
+{0..1}: Comparison is false.
+The difference delta is:
+{0..1}: [5]:50
+[6]:60
+[7]:70
+[8]:80
+[9]:90
+Evaluating assertion 6: $a{0}::one_d_i_init[5..9]@"c_type_test.c":171 == $b{1}::one_d_i_init[5..9]@"c_cmp_diff.c":166
+{0..1}: Comparison is false.
+The difference delta is:
+{0..1}: [0]:50
+[1]:60
+[2]:70
+[3]:80
+[4]:90
+Assertion script $arrays finished.
+Use "info script $arrays results" to view results.
+Assertion script $arrays stopped.
+24: info script
+Saved assertion scripts:
+$arrays
+25: info script $arrays
+Assertion script $arrays:
+Assertion 1: $a{0}::one_d_i_init[0..4]@"c_type_test.c":166 == $b{0}::"one_d_i_init[0]@5"@"c_cmp_diff.c":161
+Assertion 2: $a{1}::one_d_i_init[5]@5@"c_type_test.c":167 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
+Assertion 3: $a::one_d_i_init@"c_type_test.c":168 <= $b::one_d_i_init@"c_cmp_diff.c":163
+Assertion 4: $a{0}::one_d_i_init@"c_type_test.c":169 != $b{1}::one_d_i_init@"c_cmp_diff.c":164
+Assertion 5: $a::one_d_i_init@"c_type_test.c":170 = $b::one_d_i_init@"c_cmp_diff.c":165
+Assertion 6: $a{0}::one_d_i_init[5..9]@"c_type_test.c":171 == $b{1}::one_d_i_init[5..9]@"c_cmp_diff.c":166
+Use "info script $arrays results" for results.
+26: info script $arrays results
+Results summary for script $arrays:
+
+Total full runs: 1
+Total assertion evaluations this run: 6
+Passed: 4, Passed with warning: 0, Failed: 2, Indeterminate: 0
+Assertion results:
+
+Assertion 1, configured with verbose-asserts:
+$a{0}::one_d_i_init[0..4]@"c_type_test.c":166 == $b{0}::"one_d_i_init[0]@5"@"c_cmp_diff.c":161
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2, configured with verbose-asserts:
+$a{1}::one_d_i_init[5]@5@"c_type_test.c":167 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 3, configured with verbose-asserts:
+$a::one_d_i_init@"c_type_test.c":168 <= $b::one_d_i_init@"c_cmp_diff.c":163
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 4, configured with verbose-asserts:
+$a{0}::one_d_i_init@"c_type_test.c":169 != $b{1}::one_d_i_init@"c_cmp_diff.c":164
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 5, configured with verbose-asserts:
+$a::one_d_i_init@"c_type_test.c":170 = $b::one_d_i_init@"c_cmp_diff.c":165
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+Assertion 6, configured with verbose-asserts:
+$a{0}::one_d_i_init[5..9]@"c_type_test.c":171 == $b{1}::one_d_i_init[5..9]@"c_cmp_diff.c":166
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+28: info diff
+Stored assertion deltas:
+In assertion script $arrays:
+For assertion 5: $a::one_d_i_init@"c_type_test.c":170 = $b::one_d_i_init@"c_cmp_diff.c":165
+{0..1}: Comparison is false.
+The difference delta is:
+{0..1}: [5]:50
+[6]:60
+[7]:70
+[8]:80
+[9]:90
+
+For assertion 6: $a{0}::one_d_i_init[5..9]@"c_type_test.c":171 == $b{1}::one_d_i_init[5..9]@"c_cmp_diff.c":166
+{0..1}: Comparison is false.
+The difference delta is:
+{0..1}: [0]:50
+[1]:60
+[2]:70
+[3]:80
+[4]:90
+
+29: info diff $arrays 2
+(None)
+30: info diff $arrays 5
+For assertion 5: $a::one_d_i_init@"c_type_test.c":170 = $b::one_d_i_init@"c_cmp_diff.c":165
+{0..1}: Comparison is false.
+The difference delta is:
+{0..1}: [5]:50
+[6]:60
+[7]:70
+[8]:80
+[9]:90
+
+29: # Ensure the assertion script didn't mess with our set print elements 3 from earlier
+30: p one_d_i_init
+a{0..1}: {0,1,2...}
+b{0..1}: {0,1,2...}
+31: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

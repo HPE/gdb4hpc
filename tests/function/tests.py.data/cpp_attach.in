@@ -4,9 +4,9 @@
 3: attach $a %[0-9.]+%???
 4: # get back to main
 4: break cpp_attach.cpp:15
-a{0..3}: Breakpoint 1: file /bd_dt/C++/cpp_attach.cpp, line 15.
+a{0..3}: Breakpoint 1: file /src/C++/cpp_attach.cpp, line 15.
 16: c
-a{0..3}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/bd_dt/C++/cpp_attach.cpp:15
+a{0..3}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.7.0/tests/src/C++/cpp_attach.cpp:15
 16: # change argc, which will break us out of the loop
 16: assign argc 999
 17: p argc

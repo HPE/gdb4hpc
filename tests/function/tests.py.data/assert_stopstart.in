@@ -1,9 +1,9 @@
-1: launch $a{2} bd_dt/c/c_type_test.x
+1: launch $a{2} bin/CRAY/c/c_type_test.x
 Launch complete.
-a{0..1}: Initial breakpoint, main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_type_test.c:58
-2: launch $b{2} bd_dt/c/c_cmp_diff.x
+a{0..1}: Initial breakpoint, main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:58
+2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
 Launch complete.
-b{0..1}: Initial breakpoint, main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_cmp_diff.c:55
+b{0..1}: Initial breakpoint, main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:55
 3: build $stopstart
 4:     set stop on
 5:     # should pass
@@ -23,8 +23,8 @@ Assertion script $stopstart stopped before completion. Use "start $stopstart" to
 Use "info script $stopstart results" to view results.
 Assertion script $stopstart stopped.
 15: frame
-a{0..1}: #0  main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_type_test.c:233
-b{0..1}: #0  main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_cmp_diff.c:228
+a{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:233
+b{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:228
 19: info script $stopstart results
 Results summary for script $stopstart:
 
@@ -56,8 +56,8 @@ Assertion script $stopstart stopped before completion. Use "start $stopstart" to
 Use "info script $stopstart results" to view results.
 Assertion script $stopstart stopped.
 17: frame
-a{0..1}: #0  main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_type_test.c:234
-b{0..1}: #0  main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_cmp_diff.c:229
+a{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:234
+b{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:229
 19: info script $stopstart results
 Results summary for script $stopstart:
 
@@ -113,8 +113,8 @@ $a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
 20: frame
-a{0..1}: #0  main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_type_test.c:235
-b{0..1}: #0  main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_cmp_diff.c:230
+a{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:235
+b{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:230
 21: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

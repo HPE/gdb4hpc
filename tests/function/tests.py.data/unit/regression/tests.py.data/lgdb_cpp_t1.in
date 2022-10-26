@@ -1,0 +1,223 @@
+1: #
+2: # lgdb_cpp_t1.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+16: # This source files tests most of lgdb's basic commands for C++ source code
+18: maint set sync on
+21: # launch 3 instances of the application
+22: launch $a{3}   bin/CRAY/C++/cpp_bd_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:24
+24: launch $b{3}   bin/CRAY/C++/cpp_bd_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:24
+32: # Set a breakpoint at specified line numbers:
+33: break cpp_bd_test.cpp:134
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp, line 134.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp, line 134.
+35: break cpp_bd_test.cpp:136
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp, line 136.
+b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp, line 136.
+38: # Run to breakpoint 1:
+39: continue
+<$a>: 
+<$a>: 
+<$a>: 
+<$a>: Datattype             Value                 	Sizeof
+<$a>: Datattype             Value                 	Sizeof
+<$a>: Datattype             Value                 	Sizeof
+<$a>: ___________________________________________________________________
+<$a>: ___________________________________________________________________
+<$a>: ___________________________________________________________________
+<$a>: 
+<$a>: 
+<$a>: 
+<$a>: Char =                  t                    Size = 1 Bytes
+<$a>: Char =                  t                    Size = 1 Bytes
+<$a>: Char =                  t                    Size = 1 Bytes
+<$a>: Unsigned char = 	236                  Size = 1 Bytes
+<$a>: Unsigned char = 	236                  Size = 1 Bytes
+<$a>: Unsigned char = 	236                  Size = 1 Bytes
+<$a>: Signed char =           -20                  Size = 1 Bytes
+<$a>: Signed char =           -20                  Size = 1 Bytes
+<$a>: Signed char =           -20                  Size = 1 Bytes
+<$a>: Boolean =               1                    Size = 1 Bytes
+<$a>: 
+<$a>: Boolean =               1                    Size = 1 Bytes
+<$a>: 
+<$a>: Boolean =               1                    Size = 1 Bytes
+<$a>: Unsigned short int = 	32767                Size = 2 Bytes
+<$a>: Unsigned short int = 	32767                Size = 2 Bytes
+<$a>: 
+<$a>: Signed short int =  	-32767               Size = 2 Bytes
+<$a>: Signed short int =  	-32767               Size = 2 Bytes
+<$a>: 
+<$a>: 
+<$a>: Unsigned short int = 	32767                Size = 2 Bytes
+<$a>: Integer =               1                    Size = 4 Bytes
+<$a>: Integer =               1                    Size = 4 Bytes
+<$a>: Signed int =            -44                  Size = 4 Bytes
+<$a>: Signed int =            -44                  Size = 4 Bytes
+<$a>: Signed short int =  	-32767               Size = 2 Bytes
+<$a>: Unsigned int =          44                   Size = 4 Bytes
+<$a>: Unsigned int =          44                   Size = 4 Bytes
+<$a>: 
+<$a>: Int Multiplication = 	2                    Size = 4 Bytes
+<$a>: Int Multiplication = 	2                    Size = 4 Bytes
+<$a>: Integer =               1                    Size = 4 Bytes
+<$a>: Signed int =            -44                  Size = 4 Bytes
+<$a>: Unsigned int =          44                   Size = 4 Bytes
+<$a>: Int Multiplication = 	2                    Size = 4 Bytes
+<$a>: Float =                 2.3307               Size = 4 Bytes
+<$a>: Struct member = 	100                  Size = 4 Bytes
+<$a>: Float =                 2.3307               Size = 4 Bytes
+<$a>: Float =                 2.3307               Size = 4 Bytes
+<$a>: 
+<$a>: Struct member = 	100                  Size = 4 Bytes
+<$a>: Struct member = 	100                  Size = 4 Bytes
+<$a>: 
+<$a>: 
+<$a>: Struct member = 	Cray                 Size = 32 Bytes
+<$a>: String  =               Testing              Size = 32 Bytes
+<$a>: Struct member = 	Cray                 Size = 32 Bytes
+<$a>: Struct member = 	Cray                 Size = 32 Bytes
+<$a>: Pointer to int = 	1                    Size = 8 Bytes
+<$a>: String  =               Testing              Size = 32 Bytes
+<$a>: String  =               Testing              Size = 32 Bytes
+<$a>: Pointer to int = 	1                    Size = 8 Bytes
+<$a>: Pointer to int = 	1                    Size = 8 Bytes
+<$a>: Long double =                 1              Size = 16 Bytes
+<$a>: Long double =                 1              Size = 16 Bytes
+<$a>: Double =                     -1              Size = 8 Bytes
+<$a>: Long double =                 1              Size = 16 Bytes
+<$a>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$a>: Double =                     -1              Size = 8 Bytes
+<$a>: signed long int = 	-2147483648          Size = 8 Bytes
+<$a>: Double =                     -1              Size = 8 Bytes
+<$a>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$a>: 
+<$a>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$a>: signed long int = 	-2147483648          Size = 8 Bytes
+<$a>: 
+<$a>: signed long int = 	-2147483648          Size = 8 Bytes
+<$a>: 
+<$a>: Call to function pointer received: 2 It should receive: 2
+<$a>: 
+<$a>: 
+<$a>: Function pointer returned: 4 It should return: 4
+<$a>: 
+<$a>: Call to function pointer received: 2 It should receive: 2
+<$a>: 
+<$a>: Call to function pointer received: 2 It should receive: 2
+<$a>: Function pointer returned: 4 It should return: 4
+<$a>: Function pointer returned: 4 It should return: 4
+<$a>: 
+<$a>: 
+<$b>: 
+<$b>: 
+<$b>: 
+<$b>: Datattype             Value                 	Sizeof
+<$b>: Datattype             Value                 	Sizeof
+<$b>: ___________________________________________________________________
+<$b>: ___________________________________________________________________
+<$b>: 
+<$b>: 
+<$b>: Datattype             Value                 	Sizeof
+<$b>: ___________________________________________________________________
+<$b>: 
+<$b>: Char =                  t                    Size = 1 Bytes
+<$b>: Char =                  t                    Size = 1 Bytes
+<$b>: Unsigned char = 	236                  Size = 1 Bytes
+<$b>: Char =                  t                    Size = 1 Bytes
+<$b>: Unsigned char = 	236                  Size = 1 Bytes
+<$b>: Signed char =           -20                  Size = 1 Bytes
+<$b>: Unsigned char = 	236                  Size = 1 Bytes
+<$b>: Signed char =           -20                  Size = 1 Bytes
+<$b>: Boolean =               1                    Size = 1 Bytes
+<$b>: Signed char =           -20                  Size = 1 Bytes
+<$b>: 
+<$b>: Boolean =               1                    Size = 1 Bytes
+<$b>: Boolean =               1                    Size = 1 Bytes
+<$b>: 
+<$b>: 
+<$b>: Unsigned short int = 	32767                Size = 2 Bytes
+<$b>: Unsigned short int = 	32767                Size = 2 Bytes
+<$b>: Unsigned short int = 	32767                Size = 2 Bytes
+<$b>: Signed short int =  	-32767               Size = 2 Bytes
+<$b>: Signed short int =  	-32767               Size = 2 Bytes
+<$b>: Signed short int =  	-32767               Size = 2 Bytes
+<$b>: 
+<$b>: 
+<$b>: 
+<$b>: Integer =               1                    Size = 4 Bytes
+<$b>: Integer =               1                    Size = 4 Bytes
+<$b>: Integer =               1                    Size = 4 Bytes
+<$b>: Signed int =            -44                  Size = 4 Bytes
+<$b>: Signed int =            -44                  Size = 4 Bytes
+<$b>: Signed int =            -44                  Size = 4 Bytes
+<$b>: Unsigned int =          44                   Size = 4 Bytes
+<$b>: Unsigned int =          44                   Size = 4 Bytes
+<$b>: Int Multiplication = 	2                    Size = 4 Bytes
+<$b>: Unsigned int =          44                   Size = 4 Bytes
+<$b>: Int Multiplication = 	2                    Size = 4 Bytes
+<$b>: Int Multiplication = 	2                    Size = 4 Bytes
+<$b>: Float =                 2.3307               Size = 4 Bytes
+<$b>: Struct member = 	100                  Size = 4 Bytes
+<$b>: Float =                 2.3307               Size
+a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:134
+b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:134
+42: # Confirm program is at specified line:
+43: #list
+46: # print some local variables
+47: print x
+a{0..2}: 1
+b{0..2}: 1
+49: print ret
+a{0..2}: 4
+b{0..2}: 4
+52: # run compare command
+53: compare $b{0}::ret=$a{0}::ret
+{0}: Comparison is true.
+55: # compare size of same elements in different proc sets
+56: compare $a{0}::"sizeof(ret)" = $b{0}::"sizeof(ret)"
+{0}: Comparison is true.
+59: #continue to second breakpoint
+60: continue
+a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:136
+b{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:136
+62: print y
+a{0..2}: 2
+b{0..2}: 2
+64: #confirm program is at specified line
+65: #list
+67: #continue
+70: #quit lgdb
+71: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

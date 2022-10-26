@@ -1,9 +1,9 @@
-1: launch $a{2} bd_dt/c/c_type_test.x
+1: launch $a{2} bin/CRAY/c/c_type_test.x
 Launch complete.
-a{0..1}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:58
-2: launch $b{2} bd_dt/c/c_cmp_diff.x
+a{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
+2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
 Launch complete.
-b{0..1}: Initial breakpoint, main at /bd_dt/c/c_cmp_diff.c:55
+b{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
 3: build $twice
 8:     # all of these should pass
 9:     assert  $a::uc@"c_type_test.c":233 <               $b::uc@"c_cmp_diff.c":228
@@ -50,11 +50,11 @@ Assertion script $twice stopped.
 Re-launch $all? Original will be released. ([y] or n) y
 Starting application, please wait...
 Launch complete.
-tmp_clone{0..1}: Initial breakpoint, main at /bd_dt/c/c_type_test.c:58
+tmp_clone{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
 Shutting down debugger and killing application for 'a'.
 Starting application, please wait...
 Launch complete.
-tmp_clone{0..1}: Initial breakpoint, main at /bd_dt/c/c_cmp_diff.c:55
+tmp_clone{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
 Shutting down debugger and killing application for 'b'.
 22: start $twice
 Sending continue to application...

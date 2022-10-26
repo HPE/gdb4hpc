@@ -1,0 +1,59 @@
+1: launch $a{2} bin/CRAY/c/c_type_test.x
+Launch complete.
+a{0..1}: Initial breakpoint, main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:58
+2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
+Launch complete.
+b{0..1}: Initial breakpoint, main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:55
+3: build $expressions
+4:      # all of these should pass
+5:      assert $a{0..1}::assertTest@"c_type_test.c":166 != $a{0..1}::assertTest@"c_type_test.c":166 + 2
+6:      assert                $a::c@"c_type_test.c":227 ==  $b::one_d_i_init[2]@"c_cmp_diff.c":222 - 1
+7:      #
+8:      # this should fail
+9:      assert $a{0..1}::ld@"c_type_test.c":228 / 20 >= $b{0..1}::ld@"c_cmp_diff.c":223
+10:      #
+11:      # this should pass; 3 == 3
+12:      assert $a{0}::c@"c_type_test.c":232 + $b{0}::c@"c_cmp_diff.c":227 == $a{1}::ush@"c_type_test.c":233 - $b{1}::sh@"c_cmp_diff.c":228
+13: end
+Assertion script $expressions compiled.
+14: maint set sync on
+15: start $expressions
+Sending continue to application...
+Assertion script $expressions finished.
+Use "info script $expressions results" to view results.
+Assertion script $expressions stopped.
+16: info script expressions results
+Results summary for script $expressions:
+
+Total full runs: 1
+Total assertion evaluations this run: 4
+Passed: 3, Passed with warning: 0, Failed: 1, Indeterminate: 0
+Assertion results:
+
+Assertion 1:
+$a{0..1}::assertTest@"c_type_test.c":166 != $a{0..1}::assertTest@"c_type_test.c":166 + 2
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2:
+$a::c@"c_type_test.c":227 == $b::one_d_i_init[2]@"c_cmp_diff.c":222 - 1
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 3:
+$a{0..1}::ld@"c_type_test.c":228 / 20 >= $b{0..1}::ld@"c_cmp_diff.c":223
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+Assertion 4:
+$a{0}::c@"c_type_test.c":232 + $b{0}::c@"c_cmp_diff.c":227 == $a{1}::ush@"c_type_test.c":233 - $b{1}::sh@"c_cmp_diff.c":228
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+17: info diff
+Stored assertion deltas:
+In assertion script $expressions:
+For assertion 3: $a{0..1}::ld@"c_type_test.c":228 / 20 >= $b{0..1}::ld@"c_cmp_diff.c":223
+{0..1}: Comparison is false.
+The difference delta is:
+{0..1}: 27.79
+
+18: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

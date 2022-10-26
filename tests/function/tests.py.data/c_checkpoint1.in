@@ -1,5 +1,5 @@
 1: main set sync on
-2: launch $a{4} ./bd_dt/c/c_inc.x
+2: launch $a{4} ./bin/CRAY/c/c_inc.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -9,7 +9,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [4];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..3}: Initial breakpoint, main at /.../bd_dt/c/c_inc.c:9
+a{0..3}: Initial breakpoint, main at /.../src/c/c_inc.c:9
 3: n
 a{0..3}: 11	    unsigned int inc = 0;
 4: maint sleep 1
@@ -53,8 +53,8 @@ Checkpoint Procset    Location
 4          $a{0..3}   c_inc.c:11 in main
 18: restart 1
 Checkpoint 1 restored:
-a{0..1}: #0  main at /.../bd_dt/c/c_inc.c:11
-a{2..3}: #0  main at /.../bd_dt/c/c_inc.c:14
+a{0..1}: #0  main at /.../src/c/c_inc.c:11
+a{2..3}: #0  main at /.../src/c/c_inc.c:14
 19: i ch
 Checkpoint Procset    Location
 0          $a{0..1}   c_inc.c:14 in main
@@ -64,7 +64,7 @@ Checkpoint Procset    Location
 4          $a{0..3}   c_inc.c:11 in main
 20: restart 4
 Checkpoint 4 restored:
-a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:11
+a{0..3}: #0  main at /.../src/c/c_inc.c:11
 21: i ch
 Checkpoint Procset    Location
 0          $a{0..1}   c_inc.c:14 in main
@@ -74,7 +74,7 @@ Checkpoint Procset    Location
 4          $a{0..3} * $a{0..3}
 22: restart 1
 Checkpoint 1 restored:
-a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:11
+a{0..3}: #0  main at /.../src/c/c_inc.c:11
 23: i ch
 Checkpoint Procset    Location
 0          $a{0..1}   c_inc.c:14 in main
@@ -93,11 +93,11 @@ a{0..3}: Debugger error: Checkpoint 2 is the original thread of execution on $a{
 Command resulted in an error: 26: delete checkpoint 2
 27: res 0
 Checkpoint 0 restored:
-a{2..3}: #0  main at /.../bd_dt/c/c_inc.c:11
-a{0..1}: #0  main at /.../bd_dt/c/c_inc.c:14
+a{2..3}: #0  main at /.../src/c/c_inc.c:11
+a{0..1}: #0  main at /.../src/c/c_inc.c:14
 28: res 2
 Checkpoint 2 restored:
-a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:14
+a{0..3}: #0  main at /.../src/c/c_inc.c:14
 29: delete checkpoint 1
 30: i ch
 Checkpoint Procset    Location
@@ -122,7 +122,7 @@ Checkpoint Procset    Location
 6          $a{0..3}   c_inc.c:14 in main
 37: res 6
 Checkpoint 6 restored:
-a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:14
+a{0..3}: #0  main at /.../src/c/c_inc.c:14
 38: i ch
 Checkpoint Procset    Location
 5          $a{0..3}   c_inc.c:14 in main
@@ -132,7 +132,7 @@ a{0..3}: Debugger error: Checkpoint 5 is the original thread of execution on $a{
 Command resulted in an error: 39: delete checkpoint 5
 40: res 5
 Checkpoint 5 restored:
-a{0..3}: #0  main at /.../bd_dt/c/c_inc.c:14
+a{0..3}: #0  main at /.../src/c/c_inc.c:14
 41: i ch
 Checkpoint Procset    Location
 5          $a{0..3} * $a{0..3}

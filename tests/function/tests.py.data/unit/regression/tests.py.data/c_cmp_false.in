@@ -1,0 +1,287 @@
+1: #
+2: # lgdb_c_t2.rc script script is runs commands automatically in lgdb
+3: #               this script compares two executables files
+4: #				to determine if variable content is the same.
+5: #			    the output of this file should result in compare = false
+6: #				for all variables   
+7: #
+8: # 
+9: # Unpublished Proprietary Information.
+10: # This unpublished work is protected to trade secret, copyright and other laws.
+11: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+12: # no part of this work or its content may be used, reproduced or disclosed
+13: # in any form.
+14: #
+15: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+16: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+17: # $Rev: 1 $
+18: # $Author: kdavis $
+19: #
+20: #this test compares variables in two files.
+21: #all comparisons should result in
+22: #comparision is false
+24: maint set sync on
+25: launch $a{3}  bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_type_test.c:58
+26: break c_type_test.c:247
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_type_test.c, line 247.
+27: launch $b{3}  bin/CRAY/c/c_cmp_diff.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_cmp_diff.c:55
+28: focus $b
+29: break c_cmp_diff.c:242
+b{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_cmp_diff.c, line 242.
+30: focus $all
+31: #run to breakpiont
+32: continue
+b{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_cmp_diff.c:242
+a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/c/c_type_test.c:247
+33: #run compare commands on all datatypes
+34: #char - Dissabled as lgdb compare command is not working for strings and chars
+35: #print c
+36: #compare $a{0}::c=$b{0}::c
+37: #signed char
+38: print sc
+a{0..2}: -2 '\xFE'
+b{0..2}: -3 '\xFD'
+39: compare $a{0}::sc=$b{0}::sc
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+40: #unsigned char
+41: print uc
+a{0..2}: 3 '\x03'
+b{0..2}: 4 '\x04'
+42: compare $a{0}::uc=$b{0}::uc
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+43: #short
+44: print sh
+a{0..2}: 4
+b{0..2}: 5
+45: compare $a{0}::sh=$b{0}::sh
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+46: #short int
+47: print shi
+a{0..2}: 5
+b{0..2}: 6
+48: compare $a{0}::shi=$b{0}::shi
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+49: #signed short
+50: print ssh
+a{0..2}: -6
+b{0..2}: -7
+51: compare $a{0}::ssh=$b{0}::ssh
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+52: #signed short int
+53: print sshi
+a{0..2}: -7
+b{0..2}: -8
+54: compare $a{0}::sshi=$b{0}::sshi
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+55: #usinged short
+56: print ush
+a{0..2}: 8
+b{0..2}: 9
+57: compare $a{0}::ush=$b{0}::ush
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+58: #usigned short int
+59: print ushi
+a{0..2}: 9
+b{0..2}: 10
+60: compare $a{0}::ushi=$b{0}::ushi
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+61: #int
+62: print i
+a{0..2}: 10
+b{0..2}: 11
+63: compare $a{0}::i=$b{0}::i
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+64: #signed int
+65: print si
+a{0..2}: -11
+b{0..2}: -12
+66: compare $a{0}::si=$b{0}::si
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+67: #unsigned
+68: print u
+a{0..2}: 12
+b{0..2}: 13
+69: compare $a{0}::u=$b{0}::u
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+70: #unsigned int
+71: print ui
+a{0..2}: 13
+b{0..2}: 14
+72: compare $a{0}::ui=$b{0}::ui
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+73: #long
+74: print l
+a{0..2}: 14
+b{0..2}: 15
+75: compare $a{0}::l=$b{0}::l
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+76: #long int
+77: print li
+a{0..2}: 15
+b{0..2}: 16
+78: compare $a{0}::li=$b{0}::li
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+79: #signed long
+80: print sl
+a{0..2}: -16
+b{0..2}: -17
+81: compare $a{0}::sl=$b{0}::sl
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+82: #signed long int
+83: print sli
+a{0..2}: -17
+b{0..2}: -18
+84: compare $a{0}::sli=$b{0}::sli
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+85: #unsigned long
+86: print ul
+a{0..2}: 18
+b{0..2}: 19
+87: compare $a{0}::ul=$b{0}::ul
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+88: #unsigned long int
+89: print uli
+a{0..2}: 19
+b{0..2}: 20
+90: compare $a{0}::uli=$b{0}::uli
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+91: #long long
+92: print ll
+a{0..2}: 20
+b{0..2}: 21
+93: compare $a{0}::ll=$b{0}::ll
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+94: #long long int
+95: print lli
+a{0..2}: 21
+b{0..2}: 22
+96: compare $a{0}::lli=$b{0}::lli
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+97: #signed long long
+98: print sll
+a{0..2}: -22
+b{0..2}: -23
+99: compare $a{0}::sll=$b{0}::sll
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+100: #signed long long int
+101: print slli
+a{0..2}: -23
+b{0..2}: -24
+102: compare $a{0}::slli=$b{0}::slli
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+103: #unsigned long long
+104: print ull
+a{0..2}: 24
+b{0..2}: 25
+105: compare $a{0}::ull=$b{0}::ull
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+106: #unsigned long long int
+107: print ulli
+a{0..2}: 25
+b{0..2}: 26
+108: compare $a{0}::ulli=$b{0}::ulli
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+109: #float
+110: print f
+a{0..2}: 26
+b{0..2}: 27
+111: compare $a{0}::f=$b{0}::f
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+112: #double
+113: print d
+a{0..2}: 27.1
+b{0..2}: 28.1
+114: compare $a{0}::d=$b{0}::d
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+115: #long double
+116: print ld
+a{0..2}: 28.1999999999999993
+b{0..2}: 29.1999999999999993
+117: compare $a{0}::ld=$b{0}::ld
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+118: #assertTest
+119: print assertTest
+a{0..2}: 3
+b{0..2}: 5
+120: compare $a{0}::assertTest=$b{0}::assertTest
+{0}: Comparison is false.
+The difference delta is:
+{0}: 2
+121: #continue
+122: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

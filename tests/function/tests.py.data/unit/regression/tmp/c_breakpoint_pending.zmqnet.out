@@ -1,0 +1,62 @@
+1: maint set sync on
+2: # launch 3 instances of the application
+3: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_dlopen.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+0/3 ranks connected... (timeout in 16 seconds)
+0/3 ranks connected... (timeout in 15 seconds)
+3/3 ranks connected... (timeout in 20 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_dlopen_test.c:24
+4: # Set a pending breakpoint at function that will be dlopened
+5: set break pending on
+6: break dlopened_function
+a{0..2}: Breakpoint 1: Pending at dlopened_function.
+7: # Run to breakpoint 1:  
+8: continue
+<$a>: /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/bin/CRAY/c
+<$a>: /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/bin/CRAY/c
+<$a>: /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/bin/CRAY/c
+a{0..2}: Breakpoint 1, dlopened_function at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/libdlopen_test.c:15
+9: # backtrace
+10: bt
+a{0..2}: #1  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_dlopen_test.c:44
+|  
+|_ a{0}: #0  dlopened_function at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/libdlopen_test.c:15
+|     
+|_ a{1}: #0  dlopened_function at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/libdlopen_test.c:15
+|     
+\_ a{2}: #0  dlopened_function at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/libdlopen_test.c:15
+      
+11: #list breakpoints
+12: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in dlopened_function at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/libdlopen_test.c:15
+13: # Test disable command
+14: disable 1
+15: #test has breakpoint 3 been disabled?
+16: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep n   in dlopened_function at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/libdlopen_test.c:15
+17: # Test enable command
+18: enable 1  
+19: #has breakpoint 3 been enabled?
+20: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in dlopened_function at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/libdlopen_test.c:15
+21: # Test delete command.  This will delete a specified breakpoint in the breakpoint list
+22: delete 1 
+23: #has breakpoint 3 been deleted?
+24: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}: No breakpoints or watchpoints.
+25: #exit lgdb
+26: q
+Shutting down debugger and killing application for 'a'.

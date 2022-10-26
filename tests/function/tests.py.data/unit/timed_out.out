@@ -1,0 +1,41 @@
+21: maint set sync on
+22: # launch 3 instances of the application
+23: launch $a{3} --launcher-args="--exclusive" bd_dt/C++/cpp_bd_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+3/3 ranks connected... (timeout in 20 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/cdst_tester/tmp/cdst_test_gdb4hpc_nightly_testing_261_pea2k/rpminstall/gdb4hpc/4.14.6.123/tests/bd_dt/C++/cpp_bd_test.cpp:24
+24: break cpp_bd_test.cpp:136
+a{0..2}: Breakpoint 1: file /home/users/cdst_tester/tmp/cdst_test_gdb4hpc_nightly_testing_261_pea2k/rpminstall/gdb4hpc/4.14.6.123/tests/bd_dt/C++/cpp_bd_test.cpp, line 136.
+25: launch $b{3}  --launcher-args="--exclusive" bd_dt/C++/cpp_cmp_diff.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+3/3 ranks connected... (timeout in 20 seconds)
+3/3 ranks connected... (timeout in 19 seconds)
+3/3 ranks connected... (timeout in 18 seconds)
+3/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected... (timeout in 16 seconds)
+3/3 ranks connected... (timeout in 15 seconds)
+3/3 ranks connected... (timeout in 14 seconds)
+3/3 ranks connected... (timeout in 13 seconds)
+3/3 ranks connected... (timeout in 12 seconds)
+3/3 ranks connected... (timeout in 11 seconds)
+3/3 ranks connected... (timeout in 10 seconds)
+3/3 ranks connected... (timeout in 9 seconds)
+3/3 ranks connected... (timeout in 8 seconds)
+3/3 ranks connected... (timeout in 7 seconds)
+3/3 ranks connected... (timeout in 6 seconds)
+3/3 ranks connected... (timeout in 5 seconds)
+3/3 ranks connected... (timeout in 4 seconds)
+3/3 ranks connected... (timeout in 3 seconds)
+3/3 ranks connected... (timeout in 2 seconds)
+3/3 ranks connected... (timeout in 1 seconds)
+Timed out. Cancelling launch. Please wait...
+3/3 ranks connected... (timeout in 0 seconds)
+Shutting down debugger and killing application for 'a'.

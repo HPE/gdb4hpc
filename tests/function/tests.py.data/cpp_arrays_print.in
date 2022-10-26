@@ -1,6 +1,6 @@
 1: maint set sync on
 2: # character array specific tests
-3: launch $a{3} bd_dt/C++/cpp_arrays_print.x
+3: launch $a{3} bin/CRAY/C++/cpp_arrays_print.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -10,11 +10,11 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_arrays_print.cpp:4
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_arrays_print.cpp:4
 4: break cpp_arrays_print.cpp:31
-a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_arrays_print.cpp, line 31.
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_arrays_print.cpp, line 31.
 5: continue
-a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_arrays_print.cpp:31
+a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_arrays_print.cpp:31
 6: # full char arrays
 7: p one_d
 a{0..2}: "Hello world!\n"
@@ -94,10 +94,10 @@ a{0..2}: {(int*) <2>,(int*) <3>}
 40: # make sure printing a char** is normal
 41: p argv
 a{0..2}: (char **) <1>
-  <1>:"/home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_arrays_print.x"
+  <1>:"/home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bin/CRAY/C++/cpp_arrays_print.x"
 42: # setting print elements
 42: p "argv[0]@argc"
-a{0..2}: {"%.*%/bd_dt/C++/cpp_arrays_print.x"}
+a{0..2}: {"%.*%/bin/CRAY/C++/cpp_arrays_print.x"}
 43: set print elements 3
 44: p intarray
 a{0..2}: {1,2,3...}

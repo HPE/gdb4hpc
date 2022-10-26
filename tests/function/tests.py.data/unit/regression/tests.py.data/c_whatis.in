@@ -1,0 +1,38 @@
+16: maint set sync on
+18: # launch 3 instances of the application
+19: launch $a{3}   bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [6];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
+22: # Set a breakpoint at specified line numbers:
+23: break c_type_test.c:228
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 228.
+25: continue
+<$a>: Hello World! from process 0
+<$a>: Hello World! from process 1
+<$a>: Hello World! from process 2
+<$a>: Hello World! from process 3
+<$a>: Hello World! from process 4
+<$a>: Hello World! from process 5
+a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:228
+27: # Test whatis command  
+28: whatis d
+a{0..2}: double
+30: # Test ptype command
+31: ptype struct test_struct
+a{0..2}: struct test_struct {
+    int i;
+    double d;
+    %(unsigned )?%char *c_ptr;
+    %((func_ptr_t func_ptr)|(void \(\*func_ptr\)\(\)))%;
+}
+34: #exit lgdb
+35: q
+Shutting down debugger and killing application for 'a'.

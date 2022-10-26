@@ -1,0 +1,27 @@
+1: maint set sync on
+2: launch $a{1} --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/1 ranks connected... (timeout in 19 seconds)
+0/1 ranks connected... (timeout in 18 seconds)
+0/1 ranks connected... (timeout in 17 seconds)
+0/1 ranks connected... (timeout in 16 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+3: break c_type_test.c:228
+a{0}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 228.
+4: continue
+a{0}: Breakpoint 1, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:228
+5: #Show the debugger version number.
+6: show version
+Version 4.14.6.183
+7: #Show current search path for finding source files.
+8: show directories
+a{0}: Source directories searched: $cdir:$cwd
+9: #exit lgdb
+10: q
+Shutting down debugger and killing application for 'a'.

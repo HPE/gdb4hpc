@@ -1,0 +1,153 @@
+1: maint set sync on
+2: # character array specific tests
+3: launch $a{3} --launcher-args="--exclusive -t 0:05" bin/CRAY/C++/cpp_arrays_print.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_arrays_print.cpp:4
+4: break cpp_arrays_print.cpp:31
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_arrays_print.cpp, line 31.
+5: continue
+a{0..2}: Breakpoint 1, main(int, char**) at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_arrays_print.cpp:31
+6: # full char arrays
+7: p one_d
+a{0..2}: "Hello world!\n"
+8: p one_d_u
+a{0..2}: "Numbers"
+9: p one_d_s
+a{0..2}: "Hello world! (signed)\t\n"
+10: p two_d
+a{0..2}: {"Hello","World!\n","Empty ->",""}
+11: p two_d_u
+a{0..2}: {"abc","123","xyz","098"}
+12: # full arrays
+13: print intarray
+a{0..2}: {1,2,3,4,5}
+14: print intarray2d
+a{0..2}: {{1,2},{3,4}}
+15: print intarray2d2
+a{0..2}: {{1,2},{3,4},{5,6}}
+16: print floatarray
+a{0..2}: {1.1,2.2,3.3,4.4,5.5}
+17: # single elements
+18: ## valid
+19: p one_d[0]
+a{0..2}: 72 'H'
+20: p two_d[0][0]
+a{0..2}: 72 'H'
+21: p two_d[2][0]
+a{0..2}: 69 'E'
+22: p intarray[2]
+a{0..2}: 3
+23: p intarray2d[1][1]
+a{0..2}: 4
+24: ## out of range
+25: p one_d[256]
+a{0}: -104 '\x98'
+a{1}: 95 '_'
+a{2}: 88 'X'
+26: p two_d[256][0]
+a{0..2}: 0 '\x00'
+27: p two_d[0][256]
+a{0..2}: 0 '\x00'
+28: p intarray[10]
+a{0..2}: 8026488
+29: p intarray[0..2]
+a{0..2}: {1,2,3}
+30: p intarray[0]@3
+a{0..2}: {1,2,3}
+31: p intarray[3]@2
+a{0..2}: {4,5}
+32: p "intarray[0]@3"
+a{0..2}: {1,2,3}
+33: p "intarray[3]@2"
+a{0..2}: {4,5}
+34: # strings
+35: p cstring
+a{0..2}: "hello \n world!"
+36: p cptr
+a{0..2}: "hello \n world!"
+37: p const_cstring
+a{0..2}: "const hello world!"
+38: p empty
+a{0..2}: ""
+39: p cstringarray
+a{0..2}: {"hello \n world!","hola mundo!","hallo wereld!"}
+40: # make sure normal pointers still work too
+41: p inte
+a{0..2}: 23
+42: p intp
+a{0..2}: (int*) <1>
+  <1>:23
+43: p *intp
+a{0..2}: 23
+44: p intparray
+a{0..2}: {(int*) <2>,(int*) <3>}
+  <2>:23
+  <3>:24
+45: # make sure printing a char** is normal
+46: p argv
+a{0..2}: (char **) <1>
+  <1>:"/home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/bin/CRAY/C++/cpp_arrays_print.x"
+47: # setting print elements
+48: p "argv[0]@argc"
+a{0..2}: {"/home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/bin/CRAY/C++/cpp_arrays_print.x"}
+49: set print elements 3
+50: p intarray
+a{0..2}: {1,2,3...}
+51: p intarray2d
+a{0..2}: {{1,2},{3,0}}
+52: p intarray2d2
+a{0..2}: {{1,2},{3,0}...}
+53: p two_d
+a{0..2}: {"Hel"...}
+54: set print elements 0
+55: assign intarray2d[1][0] 271
+56: assign intarray2d[1][1] -1
+57: p/x intarray2d
+a{0..2}: {{0x1,0x2},{0x10f,0xffffffff}}
+58: p/o intarray2d
+a{0..2}: {{01,02},{0417,037777777777}}
+59: print /t intarray2d
+a{0..2}: {{1,10},{100001111,11111111111111111111111111111111}}
+60: print /z intarray2d
+a{0..2}: {{00000000000000000000000000000001,00000000000000000000000000000010},{00000000000000000000000100001111,11111111111111111111111111111111}}
+61: p/n intarray2d
+Unrecognized format 'n'.
+Command resulted in an error: 61: p/n intarray2d
+62: p/csv intarray2d2
+"a{0..2}",1,2
+"a{0..2}",3,4
+"a{0..2}",5,6
+63: print /csv floatarray
+"a{0..2}",1.1,2.2,3.3,4.4,5.5
+64: p/1 intarray2d2
+a{0..2}: 1
+2
+3
+4
+5
+6
+65: print /1 two_d
+a{0..2}: "Hello"
+"World!\n"
+"Empty ->"
+""
+66: p/csvx intarray2d
+"a{0..2}",0x1,0x2
+"a{0..2}",0x10f,0xffffffff
+67: p/x1 intarray2d
+a{0..2}: 0x1
+0x2
+0x10f
+0xffffffff
+68: kill $a
+Shutting down debugger and killing application for 'a'.
+69: q

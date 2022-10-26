@@ -1,0 +1,86 @@
+1: launch $a{2} bin/CRAY/c/c_type_test.x
+Launch complete.
+a{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
+2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
+Launch complete.
+b{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
+3: build $twice
+8:     # all of these should pass
+9:     assert  $a::uc@"c_type_test.c":233 <               $b::uc@"c_cmp_diff.c":228
+10:     assert $a::ush@"c_type_test.c":234 <=             $b::ush@"c_cmp_diff.c":229
+11:     assert $a::c@"c_type_test.c":235 == $b::one_d_i_init[1]@"c_cmp_diff.c":230
+12: end
+Assertion script $twice compiled.
+13: maint set sync on
+14: start $twice
+Sending continue to application...
+Assertion script $twice finished.
+Use "info script $twice results" to view results.
+Assertion script $twice stopped.
+19: info script $twice results
+Results summary for script $twice:
+
+Total full runs: 1
+Total assertion evaluations this run: 3
+Passed: 3, Passed with warning: 0, Failed: 0, Indeterminate: 0
+Assertion results:
+
+Assertion 1:
+$a::uc@"c_type_test.c":233 < $b::uc@"c_cmp_diff.c":228
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2:
+$a::ush@"c_type_test.c":234 <= $b::ush@"c_cmp_diff.c":229
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 3:
+$a::c@"c_type_test.c":235 == $b::one_d_i_init[1]@"c_cmp_diff.c":230
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+21: # produce warning about running without restarting app first
+21: start $twice
+Start $twice? Program state is different than the initial first run, so results might be unexpected.
+You might want to restart your app with the run command first. ([y] or n) y
+Sending continue to application...
+a{0..1}: The application has reached an exit breakpoint.
+b{0..1}: The application has reached an exit breakpoint.
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
+Assertion script $twice stopped.
+21: run
+Re-launch $all? Original will be released. ([y] or n) y
+Starting application, please wait...
+Launch complete.
+tmp_clone{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
+Shutting down debugger and killing application for 'a'.
+Starting application, please wait...
+Launch complete.
+tmp_clone{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
+Shutting down debugger and killing application for 'b'.
+22: start $twice
+Sending continue to application...
+Assertion script $twice finished.
+Use "info script $twice results" to view results.
+Assertion script $twice stopped.
+23: info script $twice results
+Results summary for script $twice:
+
+Total full runs: 2
+Total assertion evaluations this run: 3
+Passed: 3, Passed with warning: 0, Failed: 0, Indeterminate: 0
+Assertion results:
+
+Assertion 1:
+$a::uc@"c_type_test.c":233 < $b::uc@"c_cmp_diff.c":228
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2:
+$a::ush@"c_type_test.c":234 <= $b::ush@"c_cmp_diff.c":229
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 3:
+$a::c@"c_type_test.c":235 == $b::one_d_i_init[1]@"c_cmp_diff.c":230
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+24: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

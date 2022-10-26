@@ -1,0 +1,52 @@
+1: maint set sync on
+2: # launch 3 instances of the application
+3: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+4: # Test gdbmode and that things are reset upon entering/exiting gdb
+5: set print elements 5
+6: gdbmode
+Entering gdb pass-thru mode. Type "end" to exit mode...
+
+GNU gdb (GDB) GDB_10_0-None-local
+Copyright (C) 2020 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-pc-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word".
+
+7: show print elements
+Limit on array elements to print is 200.
+
+8: show print repeats
+Threshold for repeated print elements is 10.
+
+9: show source open
+Source opening is on.
+
+10: e
+
+Ending gdb pass-thru mode. If program location has changed (i.e. continue) debugger is in an unknown state.
+11: show print elements
+Limit on string chars or array elements to print is 5.
+12: #exit lgdb
+13: q
+Shutting down debugger and killing application for 'a'.

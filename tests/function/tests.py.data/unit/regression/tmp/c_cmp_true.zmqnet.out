@@ -1,0 +1,229 @@
+1: #
+2: # lgdb_c_t2.rc script script is runs commands automatically in lgdb
+3: #               this script compares two executables files
+4: #				to determine if variable content is the same.
+5: #			    the output of this file should result in compare = true
+6: #				for all variables   
+7: #
+8: # 
+9: # Unpublished Proprietary Information.
+10: # This unpublished work is protected to trade secret, copyright and other laws.
+11: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+12: # no part of this work or its content may be used, reproduced or disclosed
+13: # in any form.
+14: #
+15: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+16: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+17: # $Rev: 1 $
+18: # $Author: kdavis $
+19: #
+20: #this test compares variables in two files.
+21: #the tests are exactly the same so results should - 
+22: #comparision is true for all
+23: maint set sync on
+24: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+0/3 ranks connected... (timeout in 16 seconds)
+0/3 ranks connected... (timeout in 15 seconds)
+0/3 ranks connected... (timeout in 14 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+25: launch $b{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+0/3 ranks connected... (timeout in 16 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+26: #set breakpoint
+27: break c_type_test.c:247
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 247.
+b{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 247.
+28: #run to breakpoint
+29: continue
+a{0..2}: Breakpoint 1, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:247
+b{0..2}: Breakpoint 1, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:247
+30: #run compare commands on all datatypes
+31: #char - Dissabled as lgdb compare command is not working for strings and chars
+32: #print c
+33: #compare $a{0}::c=$b{0}::c
+34: #signed char
+35: print sc
+a{0..2}: -2 '\xFE'
+b{0..2}: -2 '\xFE'
+36: compare $a{0}::sc=$b{0}::sc
+{0}: Comparison is true.
+37: #unsigned char
+38: print uc
+a{0..2}: 3 '\x03'
+b{0..2}: 3 '\x03'
+39: compare $a{0}::uc=$b{0}::uc
+{0}: Comparison is true.
+40: #short
+41: print sh
+a{0..2}: 4
+b{0..2}: 4
+42: compare $a{0}::sh=$b{0}::sh
+{0}: Comparison is true.
+43: #short int
+44: print shi
+a{0..2}: 5
+b{0..2}: 5
+45: compare $a{0}::shi=$b{0}::shi
+{0}: Comparison is true.
+46: #signed short
+47: print ssh
+a{0..2}: -6
+b{0..2}: -6
+48: compare $a{0}::ssh=$b{0}::ssh
+{0}: Comparison is true.
+49: #signed short int
+50: print sshi
+a{0..2}: -7
+b{0..2}: -7
+51: compare $a{0}::sshi=$b{0}::sshi
+{0}: Comparison is true.
+52: #usinged short
+53: print ush
+a{0..2}: 8
+b{0..2}: 8
+54: compare $a{0}::ush=$b{0}::ush
+{0}: Comparison is true.
+55: #usigned short int
+56: print ushi
+a{0..2}: 9
+b{0..2}: 9
+57: compare $a{0}::ushi=$b{0}::ushi
+{0}: Comparison is true.
+58: #int
+59: print i
+a{0..2}: 10
+b{0..2}: 10
+60: compare $a{0}::i=$b{0}::i
+{0}: Comparison is true.
+61: #signed int
+62: print si
+a{0..2}: -11
+b{0..2}: -11
+63: compare $a{0}::si=$b{0}::si
+{0}: Comparison is true.
+64: #unsigned
+65: print u
+a{0..2}: 12
+b{0..2}: 12
+66: compare $a{0}::u=$b{0}::u
+{0}: Comparison is true.
+67: #unsigned int
+68: print ui
+a{0..2}: 13
+b{0..2}: 13
+69: compare $a{0}::ui=$b{0}::ui
+{0}: Comparison is true.
+70: #long
+71: print l
+a{0..2}: 14
+b{0..2}: 14
+72: compare $a{0}::l=$b{0}::l
+{0}: Comparison is true.
+73: #long int
+74: print li
+a{0..2}: 15
+b{0..2}: 15
+75: compare $a{0}::li=$b{0}::li
+{0}: Comparison is true.
+76: #signed long
+77: print sl
+a{0..2}: -16
+b{0..2}: -16
+78: compare $a{0}::sl=$b{0}::sl
+{0}: Comparison is true.
+79: #signed long int
+80: print sli
+a{0..2}: -17
+b{0..2}: -17
+81: compare $a{0}::sli=$b{0}::sli
+{0}: Comparison is true.
+82: #unsigned long
+83: print ul
+a{0..2}: 18
+b{0..2}: 18
+84: compare $a{0}::ul=$b{0}::ul
+{0}: Comparison is true.
+85: #unsigned long int
+86: print uli
+a{0..2}: 19
+b{0..2}: 19
+87: compare $a{0}::uli=$b{0}::uli
+{0}: Comparison is true.
+88: #long long
+89: print ll
+a{0..2}: 20
+b{0..2}: 20
+90: compare $a{0}::ll=$b{0}::ll
+{0}: Comparison is true.
+91: #long long int
+92: print lli
+a{0..2}: 21
+b{0..2}: 21
+93: compare $a{0}::lli=$b{0}::lli
+{0}: Comparison is true.
+94: #signed long long
+95: print sll
+a{0..2}: -22
+b{0..2}: -22
+96: compare $a{0}::sll=$b{0}::sll
+{0}: Comparison is true.
+97: #signed long long int
+98: print slli
+a{0..2}: -23
+b{0..2}: -23
+99: compare $a{0}::slli=$b{0}::slli
+{0}: Comparison is true.
+100: #unsigned long long
+101: print ull
+a{0..2}: 24
+b{0..2}: 24
+102: compare $a{0}::ull=$b{0}::ull
+{0}: Comparison is true.
+103: #unsigned long long int
+104: print ulli
+a{0..2}: 25
+b{0..2}: 25
+105: compare $a{0}::ulli=$b{0}::ulli
+{0}: Comparison is true.
+106: #float
+107: print f
+a{0..2}: 26
+b{0..2}: 26
+108: compare $a{0}::f=$b{0}::f
+{0}: Comparison is true.
+109: #double
+110: print d
+a{0..2}: 27.1
+b{0..2}: 27.1
+111: compare $a{0}::d=$b{0}::d
+{0}: Comparison is true.
+112: #long double
+113: print ld
+a{0..2}: 28.1999999999999993
+b{0..2}: 28.1999999999999993
+114: compare $a{0}::ld=$b{0}::ld
+{0}: Comparison is true.
+115: #continue
+116: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

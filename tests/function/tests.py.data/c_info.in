@@ -1,6 +1,6 @@
 17: maint set sync on
 19: # launch 3 instances of the application
-20: launch $a{3}   bd_dt/c/c_type_test.x
+20: launch $a{3}   bin/CRAY/c/c_type_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -10,9 +10,9 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:58
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
 22: break c_type_test.c:232
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 232.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 232.
 24: #Display the status of the debug servers.
 25: info status
 a{0..2}: The application is stopped%( in a thread while in non-stop mode)?%.
@@ -112,7 +112,7 @@ a{0..2}: Name:stackTest                	Type:int
 35: #Show attached/launched applications under debugger control.
 36: info application
 Handle     Ranks      Focus Application
-$a         3          y     /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.x
+$a         3          y     /lus/scratch/jvogt/tests/gdb4hpc/bin/CRAY/c/c_type_test.x
 38: #exit lgdb
 39: q
 Shutting down debugger and killing application for 'a'.

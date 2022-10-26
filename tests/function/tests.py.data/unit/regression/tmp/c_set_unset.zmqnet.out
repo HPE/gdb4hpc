@@ -1,0 +1,27 @@
+1: maint set sync on
+2: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+0/3 ranks connected... (timeout in 16 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+3: #set env var
+4: set environment CRAY_ENV_TEST "TRUE"
+5: #has set env var worked?
+6: show environment
+CRAY_ENV_TEST=TRUE
+7: #test unset environment command
+8: unset environment CRAY_ENV_TEST
+9: #has unset var worked?
+10: show environment
+There are no environment variables set.
+11: #exit lgdb
+12: q
+Shutting down debugger and killing application for 'a'.

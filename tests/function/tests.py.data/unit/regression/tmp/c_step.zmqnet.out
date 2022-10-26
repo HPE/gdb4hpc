@@ -1,0 +1,30 @@
+1: maint set sync on
+2: # launch 3 instances of the application
+3: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+0/3 ranks connected... (timeout in 16 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+4: # Set a breakpoint at specified line numbers:
+5: break c_type_test.c:228
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 228.
+6: break c_type_test.c:242
+a{0..2}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 242.
+7: # Run to breakpoint 1:  
+8: continue
+a{0..2}: Breakpoint 1, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:228
+9: # Step - Ensure program is set at first line of subroutine Line # 247
+10: s
+a{0..2}: test_stack at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:253
+a{0..2}: 253		return x * 5;
+11: #exit lgdb
+12: q
+Shutting down debugger and killing application for 'a'.

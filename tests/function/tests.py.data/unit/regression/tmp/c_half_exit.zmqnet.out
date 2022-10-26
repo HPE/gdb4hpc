@@ -1,0 +1,21 @@
+1: # test that gdb4hpc behaves properly when some ranks exit but others don't
+2: launch $a{2} --launcher-args="--exclusive -t 0:05" ./bin/CRAY/c/c_half_exit.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/2 ranks connected... (timeout in 19 seconds)
+0/2 ranks connected... (timeout in 18 seconds)
+0/2 ranks connected... (timeout in 17 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:11
+3: maint set sync on
+4: break foo
+a{0..1}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c, line 6.
+5: c
+a{1}: The application has reached an exit breakpoint.
+a{0}: Breakpoint 1, foo at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:6
+6: q
+Shutting down debugger and killing application for 'a'.

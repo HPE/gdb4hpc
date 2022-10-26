@@ -1,0 +1,27 @@
+1: maint set sync on
+2: # launch 3 instances of the application
+3: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 20 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+4: # Set a breakpoint at specified line numbers:
+5: break c_type_test.c:253
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 253.
+6: # Run to breakpoint 1:  
+7: continue
+a{0..2}: Breakpoint 1, test_stack at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:253
+8: #test frame command
+9: frame
+a{0..2}: #0  test_stack at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:253
+10: frame -v
+a{0..2}: #0  0x00000000002025e7 in test_stack at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:253
+11: #exit lgdb
+12: q
+Shutting down debugger and killing application for 'a'.

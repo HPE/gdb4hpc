@@ -1,6 +1,6 @@
 16: maint set sync on
 18: # launch 3 instances of the application
-19: launch $a{3}   bd_dt/c/c_type_test.x
+19: launch $a{3}   bin/CRAY/c/c_type_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -10,10 +10,10 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:58
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
 22: # Set a breakpoint at specified line numbers:
 23: break c_type_test.c:228
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 228.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 228.
 25: continue
 <$a>: Hello World! from process 0
 <$a>: Hello World! from process 1
@@ -21,7 +21,7 @@ a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test
 <$a>: Hello World! from process 3
 <$a>: Hello World! from process 4
 <$a>: Hello World! from process 5
-a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:228
+a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:228
 27: # Test whatis command  
 28: whatis d
 a{0..2}: double

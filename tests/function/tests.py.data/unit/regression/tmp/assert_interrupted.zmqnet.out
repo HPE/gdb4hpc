@@ -1,0 +1,57 @@
+1: launch $a{4} --launcher-args="--exclusive -t 0:05" ./bin/CRAY/c/c_half_exit.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/4 ranks connected... (timeout in 19 seconds)
+0/4 ranks connected... (timeout in 18 seconds)
+0/4 ranks connected... (timeout in 17 seconds)
+4/4 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..3}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:11
+2: # get all ranks passed MPI sync points
+3: break 22
+a{0..3}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c, line 22.
+4: maint set sync on
+5: c
+a{0..3}: Breakpoint 1, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:22
+6: build $earlyexit
+7:     # true, but $a{1} will never reach :23 and will exit early
+8:     assert $a{0}::myRank@"c_half_exit.c":23 != $a{1}::myRank@"c_half_exit.c":23
+9: end
+Assertion script $earlyexit compiled.
+10: start $earlyexit
+Sending continue to application...
+a{1}: The application has reached an exit breakpoint.
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
+Assertion script $earlyexit stopped.
+11: frame
+a{0}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:23
+a{1}: #0  exit
+a{2..3}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:22
+12: info break
+Procset         Num Type           Disp Enb What
+a{0..3}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:22
+13: break 6
+a{0..3}: Breakpoint 4: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c, line 6.
+14: build $unknbp
+15:     # true, but $a{2} will hit an unexpected breakpoint before the assert
+16:     assert $a{2}::myRank@"c_half_exit.c":26 != $a{3}::myRank@"c_half_exit.c":26
+17: end
+Assertion script $unknbp compiled.
+18: start $unknbp
+Sending continue to application...
+Assertion script error: A breakpoint unrelated to the assertion script was hit.
+Assertion script $unknbp stopped.
+19: frame
+a{0}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:23
+a{1}: #0  exit
+a{2}: #0  foo at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:6
+a{3}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:26
+20: info break
+Procset         Num Type           Disp Enb What
+a{0..3}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:22
+a{0..3}         4   breakpoint     keep y   in foo at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_half_exit.c:6
+21: q
+Shutting down debugger and killing application for 'a'.

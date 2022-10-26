@@ -1,0 +1,57 @@
+1: maint set sync on
+2: launch $a{3} --launcher-args="--exclusive -t 0:05" ./bin/CRAY/C++/cpp_catch.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_catch.cpp:33
+3: catch throw
+a{0..2}: Catchpoint 1: Set on exception throw.
+4: catch catch
+a{0..2}: Catchpoint 2: Set on exception catch.
+5: catch load libfoo.so
+a{0..2}: Catchpoint 3: Set on load of library matching libfoo.so.
+6: catch fork
+a{0..2}: Catchpoint 4: Set on fork.
+7: catch vfork
+a{0..2}: Catchpoint 5: Set on vfork.
+8: catch exec
+a{0..2}: Catchpoint 6: Set on exec.
+9: c
+a{0..2}: Catchpoint 1 (exception throw)
+10: frame
+a{0..2}: #0  __cxxabiv1::__cxa_throw at ../../../../cpe-gcc-12.1.0-202205120146.8bf37a3f1854f/libstdc++-v3/libsupc++/eh_throw.cc:80
+11: c
+a{0..2}: Catchpoint 2 (exception catch)
+12: frame
+a{0..2}: #0  __cxxabiv1::__cxa_begin_catch at ../../../../cpe-gcc-12.1.0-202205120146.8bf37a3f1854f/libstdc++-v3/libsupc++/eh_catch.cc:41
+13: c
+a{0..2}: Catchpoint 3 (load of library matching libfoo.so)
+14: frame
+a{0..2}: #0  dl_open_worker
+15: c
+a{0..2}: Catchpoint 4 (fork)
+16: frame
+a{0..2}: #0  fork
+17: c
+<$a>: In libfoo
+<$a>: In libbar
+<$a>: In libfoo
+<$a>: In libbar
+<$a>: In libfoo
+<$a>: In libbar
+a{0..2}: Catchpoint 5 (vfork)
+18: frame
+a{0..2}: #0  vfork
+19: c
+a{0..2}: Catchpoint 6 (exec)
+20: frame
+a{0..2}: #0  _start
+21: q
+Shutting down debugger and killing application for 'a'.

@@ -1,0 +1,279 @@
+1: #
+2: # lgdb_cpp_t1.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+15: # This source files tests most of lgdb's basic commands for C++ source code
+16: maint set sync on
+17: # launch 3 instances of the application
+18: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/C++/cpp_bd_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp:24
+19: launch $b{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/C++/cpp_bd_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp:24
+20: # Set a breakpoint at specified line numbers:
+21: break cpp_bd_test.cpp:134
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp, line 134.
+b{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp, line 134.
+22: break cpp_bd_test.cpp:136
+a{0..2}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp, line 136.
+b{0..2}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp, line 136.
+23: # Run to breakpoint 1:
+24: continue
+<$a>: 
+<$a>: Datattype             Value                 	Sizeof
+<$a>: ___________________________________________________________________
+<$a>: 
+<$a>: Char =                  t                    Size = 1 Bytes
+<$a>: Unsigned char = 	236                  Size = 1 Bytes
+<$a>: 
+<$a>: Datattype             Value                 	Sizeof
+<$a>: ___________________________________________________________________
+<$a>: 
+<$a>: Char =                  t                    Size = 1 Bytes
+<$a>: Unsigned char = 	236                  Size = 1 Bytes
+<$a>: Signed char =           -20                  Size = 1 Bytes
+<$a>: Boolean =               1                    Size = 1 Bytes
+<$a>: 
+<$a>: Unsigned short int = 	32767                Size = 2 Bytes
+<$a>: Signed char =           -20                  Size = 1 Bytes
+<$a>: Boolean =               1                    Size = 1 Bytes
+<$a>: 
+<$a>: Unsigned short int = 	32767                Size = 2 Bytes
+<$a>: Signed short int =  	-32767               Size = 2 Bytes
+<$a>: 
+<$a>: Integer =               1                    Size = 4 Bytes
+<$a>: Signed int =            -44                  Size = 4 Bytes
+<$a>: Unsigned int =          44                   Size = 4 Bytes
+<$a>: Int Multiplication = 	2                    Size = 4 Bytes
+<$a>: Float =                 2.3307               Size = 4 Bytes
+<$a>: Struct member = 	100                  Size = 4 Bytes
+<$a>: 
+<$a>: Struct member = 	Cray                 Size = 32 Bytes
+<$a>: String  =               Testing              Size = 32 Bytes
+<$a>: Pointer to int = 	1                    Size = 8 Bytes
+<$a>: Long double =                 1              Size = 16 Bytes
+<$a>: 
+<$a>: Datattype             Value                 	Sizeof
+<$a>: ___________________________________________________________________
+<$a>: 
+<$a>: Char =                  t                    Size = 1 Bytes
+<$a>: Unsigned char = 	236                  Size = 1 Bytes
+<$a>: Signed char =           -20                  Size = 1 Bytes
+<$a>: Boolean =               1                    Size = 1 Bytes
+<$a>: 
+<$a>: Unsigned short int = 	32767                Size = 2 Bytes
+<$a>: Signed short int =  	-32767               Size = 2 Bytes
+<$a>: 
+<$a>: Integer =               1                    Size = 4 Bytes
+<$a>: Signed int =            -44                  Size = 4 Bytes
+<$a>: Unsigned int =          44                   Size = 4 Bytes
+<$a>: Int Multiplication = 	2                    Size = 4 Bytes
+<$a>: Signed short int =  	-32767               Size = 2 Bytes
+<$a>: 
+<$a>: Integer =               1                    Size = 4 Bytes
+<$a>: Signed int =            -44                  Size = 4 Bytes
+<$a>: Unsigned int =          44                   Size = 4 Bytes
+<$a>: Int Multiplication = 	2                    Size = 4 Bytes
+<$a>: Float =                 2.3307               Size = 4 Bytes
+<$a>: Struct member = 	100                  Size = 4 Bytes
+<$a>: 
+<$a>: Struct member = 	Cray                 Size = 32 Bytes
+<$a>: String  =               Testing              Size = 32 Bytes
+<$a>: Pointer to int = 	1                    Size = 8 Bytes
+<$a>: Double =                     -1              Size = 8 Bytes
+<$a>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$a>: signed long int = 	-2147483648          Size = 8 Bytes
+<$a>: 
+<$a>: 
+<$a>: Call to function pointer received: 2 It should receive: 2
+<$a>: Function pointer returned: 4 It should return: 4
+<$a>: 
+<$a>: Float =                 2.3307               Size = 4 Bytes
+<$a>: Struct member = 	100                  Size = 4 Bytes
+<$a>: 
+<$a>: Struct member = 	Cray                 Size = 32 Bytes
+<$a>: String  =               Testing              Size = 32 Bytes
+<$a>: Pointer to int = 	1                    Size = 8 Bytes
+<$a>: Long double =                 1              Size = 16 Bytes
+<$a>: Double =                     -1              Size = 8 Bytes
+<$a>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$a>: signed long int = 	-2147483648          Size = 8 Bytes
+<$a>: Long double =                 1              Size = 16 Bytes
+<$a>: Double =                     -1              Size = 8 Bytes
+<$a>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$a>: signed long int = 	-2147483648          Size = 8 Bytes
+<$a>: 
+<$a>: 
+<$a>: Call to function pointer received: 2 It should receive: 2
+<$a>: Function pointer returned: 4 It should return: 4
+<$a>: 
+<$a>: 
+<$a>: 
+<$a>: Call to function pointer received: 2 It should receive: 2
+<$a>: Function pointer returned: 4 It should return: 4
+<$a>: 
+<$b>: 
+<$b>: Datattype             Value                 	Sizeof
+<$b>: ___________________________________________________________________
+<$b>: 
+<$b>: Char =                  t                    Size = 1 Bytes
+<$b>: Unsigned char = 	236                  Size = 1 Bytes
+<$b>: Signed char =           -20                  Size = 1 Bytes
+<$b>: Boolean =               1                    Size = 1 Bytes
+<$b>: 
+<$b>: 
+<$b>: Datattype             Value                 	Sizeof
+<$b>: ___________________________________________________________________
+<$b>: 
+<$b>: Char =                  t                    Size = 1 Bytes
+<$b>: Unsigned char = 	236                  Size = 1 Bytes
+<$b>: Signed char =           -20                  Size = 1 Bytes
+<$b>: Unsigned short int = 	32767                Size = 2 Bytes
+<$b>: Signed short int =  	-32767               Size = 2 Bytes
+<$b>: 
+<$b>: Integer =               1                    Size = 4 Bytes
+<$b>: Signed int =            -44                  Size = 4 Bytes
+<$b>: Unsigned int =          44                   Size = 4 Bytes
+<$b>: Int Multiplication = 	2                    Size = 4 Bytes
+<$b>: Float =                 2.3307               Size = 4 Bytes
+<$b>: Struct member = 	100                  Size = 4 Bytes
+<$b>: 
+<$b>: Struct member = 	Cray                 Size = 32 Bytes
+<$b>: String  =               Testing              Size = 32 Bytes
+<$b>: Pointer to int = 	1                    Size = 8 Bytes
+<$b>: Long double =                 1              Size = 16 Bytes
+<$b>: 
+<$b>: Datattype             Value                 	Sizeof
+<$b>: ___________________________________________________________________
+<$b>: 
+<$b>: Char =                  t                    Size = 1 Bytes
+<$b>: Unsigned char = 	236                  Size = 1 Bytes
+<$b>: Signed char =           -20                  Size = 1 Bytes
+<$b>: Boolean =               1                    Size = 1 Bytes
+<$b>: 
+<$b>: Unsigned short int = 	32767                Size = 2 Bytes
+<$b>: Signed short int =  	-32767               Size = 2 Bytes
+<$b>: 
+<$b>: Integer =               1                    Size = 4 Bytes
+<$b>: Signed int =            -44                  Size = 4 Bytes
+<$b>: Unsigned int =          44                   Size = 4 Bytes
+<$b>: Int Multiplication = 	2                    Size = 4 Bytes
+<$b>: Boolean =               1                    Size = 1 Bytes
+<$b>: 
+<$b>: Unsigned short int = 	32767                Size = 2 Bytes
+<$b>: Signed short int =  	-32767               Size = 2 Bytes
+<$b>: 
+<$b>: Integer =               1                    Size = 4 Bytes
+<$b>: Signed int =            -44                  Size = 4 Bytes
+<$b>: Unsigned int =          44                   Size = 4 Bytes
+<$b>: Int Multiplication = 	2                    Size = 4 Bytes
+<$b>: Float =                 2.3307               Size = 4 Bytes
+<$b>: Struct member = 	100                  Size = 4 Bytes
+<$b>: 
+<$b>: Struct member = 	Cray                 Size = 32 Bytes
+<$b>: String  =               Testing              Size = 32 Bytes
+<$b>: Double =                     -1              Size = 8 Bytes
+<$b>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$b>: signed long int = 	-2147483648          Size = 8 Bytes
+<$b>: 
+<$b>: 
+<$b>: Call to function pointer received: 2 It should receive: 2
+<$b>: Function pointer returned: 4 It should return: 4
+<$b>: 
+<$b>: Float =                 2.3307               Size = 4 Bytes
+<$b>: Struct member = 	100                  Size = 4 Bytes
+<$b>: 
+<$b>: Struct member = 	Cray                 Size = 32 Bytes
+<$b>: String  =               Testing              Size = 32 Bytes
+<$b>: Pointer to int = 	1                    Size = 8 Bytes
+<$b>: Long double =                 1              Size = 16 Bytes
+<$b>: Pointer to int = 	1                    Size = 8 Bytes
+<$b>: Long double =                 1              Size = 16 Bytes
+<$b>: Double =                     -1              Size = 8 Bytes
+<$b>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$b>: signed long int = 	-2147483648          Size = 8 Bytes
+<$b>: 
+<$b>: 
+<$b>: Call to function pointer received: 2 It should receive: 2
+<$b>: Function pointer returned: 4 It should return: 4
+<$b>: Double =                     -1              Size = 8 Bytes
+<$b>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$b>: signed long int = 	-2147483648          Size = 8 Bytes
+<$b>: 
+<$b>: 
+<$b>: Call to function pointer received: 2 It should receive: 2
+<$b>: Function pointer returned: 4 It should return: 4
+<$b>: 
+<$b>: 
+a{0..2}: Breakpoint 1, main(int, char**) at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp:134
+b{0..2}: Breakpoint 1, main(int, char**) at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp:134
+25: # Confirm program is at specified line:
+26: #list
+27: # print some local variables
+28: print x
+a{0..2}: 1
+b{0..2}: 1
+29: print ret
+a{0..2}: 4
+b{0..2}: 4
+30: # run compare command
+31: compare $b{0}::ret=$a{0}::ret
+{0}: Comparison is true.
+32: # compare size of same elements in different proc sets
+33: compare $a{0}::"sizeof(ret)" = $b{0}::"sizeof(ret)"
+{0}: Comparison is true.
+34: #continue to second breakpoint
+35: continue
+<$a>: 
+<$a>: Hello world!  I am rank 1 of 3
+<$a>: 
+<$a>: Hello world!  I am rank 2 of 3
+<$a>: 
+<$a>: Hello world!  I am rank 0 of 3
+<$b>: 
+<$b>: Hello world!  I am rank 0 of 3
+b{0..2}: Breakpoint 2, main(int, char**) at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp:136
+a{0..2}: Breakpoint 2, main(int, char**) at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp:136
+<$b>: 
+<$b>: Hello world!  I am rank 2 of 3
+<$b>: 
+<$b>: Hello world!  I am rank 1 of 3
+36: print y
+a{0..2}: 2
+b{0..2}: 2
+37: #confirm program is at specified line
+38: #list
+39: #continue
+40: #quit lgdb
+41: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

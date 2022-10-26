@@ -1,0 +1,95 @@
+1: # This source file tests gdb4hpc's compare command for source code in fortran.
+2: # All results should be PASS.
+3: maint set sync on
+4: # launch 2 applications in lgdb
+5: launch $a{3} --launcher-args="--exclusive -t 0:05" bin/CRAY/fortran/ftn_bd_dt.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:1
+6: launch $b{3} --launcher-args="--exclusive -t 0:05" bin/CRAY/fortran/ftn_bd_dt.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected... (timeout in 20 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+b{0..2}: Initial breakpoint, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:1
+7: # Set a breakpoint at specified line number:
+8: break ftn_bd_dt.f90:64
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90, line 64.
+b{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90, line 64.
+9: # Run to breakpoint 1:
+10: continue
+a{0..2}: Breakpoint 1, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:64
+b{0..2}: Breakpoint 1, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:64
+11: # run compare commands on all datatypes
+12: #logical
+13: print tf
+a{0..2}: .TRUE.
+b{0..2}: .TRUE.
+14: compare $a{0}::tf=$b{0}::tf
+{0}: Comparison is true.
+15: #integer
+16: print x
+a{0..2}: 1
+b{0..2}: 1
+17: compare $a{0}::x=$b{0}::x
+{0}: Comparison is true.
+18: #character
+19: print l
+a{0..2}: 116 't'
+b{0..2}: 116 't'
+20: compare $a{0}::l=$b{0}::l
+{0}: Comparison is true.
+21: #real
+22: print e
+a{0..2}: 30.32
+b{0..2}: 30.32
+23: compare $a{0}::e=$b{0}::e
+{0}: Comparison is true.
+24: #character*7
+25: print word
+a{0..2}: 'Testing'
+b{0..2}: 'Testing'
+26: compare $a{0}::word=$b{0}::word
+{0}: Comparison is true.
+27: #complex
+28: print r
+a{0..2}: (327.67,-0.0065)
+b{0..2}: (327.67,-0.0065)
+29: compare $a{0}::r=$b{0}::r
+{0}: Comparison is true.
+30: #real*8 -> double float
+31: print df
+a{0..2}: 1
+b{0..2}: 1
+32: compare $a{0}::df=$b{0}::df
+{0}: Comparison is true.
+33: #character array
+34: print m
+a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+b{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+35: compare $a{0}::m=$b{0}::m
+{0}: Comparison is true.
+36: #struct object data member of type character*4
+37: print myself%name
+a{0..2}: 'Cray'
+b{0..2}: 'Cray'
+38: compare $a{0}::myself%name=$b{0}::myself%name
+{0}: Comparison is true.
+39: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

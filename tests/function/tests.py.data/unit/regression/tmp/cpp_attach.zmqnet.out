@@ -1,0 +1,41 @@
+1: # attach to a process and mess with a variable, breaking out of a loop
+2: maint set sync on
+3: # the job id and the reported backtrace after attach is unpredictable
+4: attach $a 275417.0
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/4 ranks connected... (timeout in 19 seconds)
+0/4 ranks connected... (timeout in 18 seconds)
+0/4 ranks connected... (timeout in 17 seconds)
+4/4 ranks connected.
+Created network...
+Connected to application...
+Current rank location:
+a{0}: #0  0x00007f53d48acce1 in clock_nanosleep@GLIBC_2.2.5
+a{0}: #1  0x00007f53d48b29e3 in nanosleep
+a{0}: #2  0x00007f53d48b28fa in sleep
+a{0}: #3  0x0000000000201ca6 in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_attach.cpp:15
+a{1}: #0  0x00007f9739486ce1 in clock_nanosleep@GLIBC_2.2.5
+a{1}: #1  0x00007f973948c9e3 in nanosleep
+a{1}: #2  0x00007f973948c8fa in sleep
+a{1}: #3  0x0000000000201ca6 in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_attach.cpp:15
+a{2}: #0  0x00007f35503c6ce1 in clock_nanosleep@GLIBC_2.2.5
+a{2}: #1  0x00007f35503cc9e3 in nanosleep
+a{2}: #2  0x00007f35503cc8fa in sleep
+a{2}: #3  0x0000000000201ca6 in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_attach.cpp:15
+a{3}: #0  0x00007f3cdafa5ce1 in clock_nanosleep@GLIBC_2.2.5
+a{3}: #1  0x00007f3cdafab9e3 in nanosleep
+a{3}: #2  0x00007f3cdafab8fa in sleep
+a{3}: #3  0x0000000000201ca6 in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_attach.cpp:15
+5: # get back to main
+6: break cpp_attach.cpp:15
+a{0..3}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_attach.cpp, line 15.
+7: c
+a{0..3}: Breakpoint 1, main(int, char**) at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_attach.cpp:15
+8: # change argc, which will break us out of the loop
+9: assign argc 999
+10: p argc
+a{0..3}: 999
+11: c
+a{0..3}: Program exited normally.
+12: q
+Shutting down debugger and resuming application for 'a'.

@@ -1,2 +1,1 @@
-timeout: 140
-run_daemon_tests: 1
+timeout: 150

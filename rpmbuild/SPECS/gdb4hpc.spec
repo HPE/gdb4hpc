@@ -316,10 +316,10 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 
 # tests
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include
@@ -367,50 +367,49 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 
 %{__cp} -a %{tests_source_dir}/function/cdst-test/test_tool.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool.py
 %{__cp} -a %{tests_source_dir}/function/tests.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py
+%{__cp} -a %{tests_source_dir}/function/libtests.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/libtests.py
 %{__cp} -a %{tests_source_dir}/function/avocado_config.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config.yaml
 %{__cp} -a %{tests_source_dir}/function/avocado_config_fullsuite.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config_fullsuite.yaml
 %{__cp} -a %{tests_source_dir}/function/test_tool_config.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool_config.yaml
 %{__cp} -a %{tests_source_dir}/function/Makefile ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile
 %{__cp} -a %{tests_source_dir}/function/README.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/README.md
 
-%{__cp} -a %{tests_source_dir}/function/bd_dt/cti_launch.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/cti_launch.cpp
+%{__cp} -a %{tests_source_dir}/function/src/cti_launch.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cti_launch.cpp
 
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_cmp_diff.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_cmp_diff.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_type_pause.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_type_pause.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_type_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_type_test.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/mtest.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/mtest.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/wtime.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/wtime.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_dlopen_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_dlopen_test.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/libdlopen_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libdlopen_test.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_segv.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_segv.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_list.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_list.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_half_exit.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_half_exit.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/c_inc.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_inc.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/libfoo.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libfoo.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/libbar.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libbar.c
-%{__cp} -a %{tests_source_dir}/function/bd_dt/c/simple_gpu.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/simple_gpu.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_cmp_diff.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_cmp_diff.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_type_pause.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_type_pause.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_type_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_type_test.c
+%{__cp} -a %{tests_source_dir}/function/src/c/mtest.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/mtest.c
+%{__cp} -a %{tests_source_dir}/function/src/c/wtime.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/wtime.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_dlopen_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_dlopen_test.c
+%{__cp} -a %{tests_source_dir}/function/src/c/libdlopen_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libdlopen_test.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_segv.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_segv.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_list.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_list.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_half_exit.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_half_exit.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_inc.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_inc.c
+%{__cp} -a %{tests_source_dir}/function/src/c/libfoo.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libfoo.c
+%{__cp} -a %{tests_source_dir}/function/src/c/libbar.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libbar.c
+%{__cp} -a %{tests_source_dir}/function/src/c/simple_gpu.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/simple_gpu.c
 
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_arrays.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_arrays_print.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays_print.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_bd_test.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_bd_test.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_bt.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_bt.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_bt_stress.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_bt_stress.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_catch.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_catch.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_cmp_diff.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_cmp_diff.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_decomp2.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_decomp2.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_decomp.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_decomp.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_ds_test1.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_ds_test1.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_ds_test2.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_ds_test2.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_parallel_threads.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_parallel_threads.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_threads.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_threads.cpp
-%{__cp} -a %{tests_source_dir}/function/bd_dt/C++/cpp_attach.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_attach.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_arrays.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_arrays_print.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays_print.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_bd_test.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_bd_test.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_bt.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_bt.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_bt_stress.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_bt_stress.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_catch.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_catch.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_cmp_diff.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_cmp_diff.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_decomp2.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_decomp2.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_decomp.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_decomp.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_ds_test1.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_ds_test1.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_ds_test2.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_ds_test2.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_parallel_threads.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_parallel_threads.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_threads.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_threads.cpp
+%{__cp} -a %{tests_source_dir}/function/src/C++/cpp_attach.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_attach.cpp
 
-%{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/ftn_arrays.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_arrays.f90
-%{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/ftn_bd_dt.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_bd_dt.f90
-%{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/ftn_cmp_diff.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_cmp_diff.f90
-%{__cp} -a %{tests_source_dir}/function/bd_dt/fortran/ftn_decomp.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_decomp.f90
-
-%{__cp} -a %{tests_source_dir}/build.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/build.sh
+%{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_arrays.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_arrays.f90
+%{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_bd_dt.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_bd_dt.f90
+%{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_cmp_diff.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_cmp_diff.f90
+%{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_decomp.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_decomp.f90
 
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_scalars.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_expressions.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
@@ -675,10 +674,10 @@ fi
 
 %files -n %{cray_name}-tests-%{pkgversion}
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests
-%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt
-%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c
-%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++
-%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/include
@@ -727,47 +726,48 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/README.md
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/libtests.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config.yaml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config_fullsuite.yaml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool_config.yaml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile
 
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/cti_launch.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cti_launch.cpp
 
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_cmp_diff.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_type_pause.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_type_test.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/mtest.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/wtime.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_dlopen_test.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libdlopen_test.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_segv.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_list.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_half_exit.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/c_inc.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libfoo.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/libbar.c
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/c/simple_gpu.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_cmp_diff.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_type_pause.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_type_test.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/mtest.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/wtime.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_dlopen_test.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libdlopen_test.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_segv.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_list.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_half_exit.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_inc.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libfoo.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libbar.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/simple_gpu.c
 
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_arrays_print.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_bd_test.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_bt.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_bt_stress.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_catch.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_cmp_diff.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_decomp2.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_decomp.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_ds_test1.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_ds_test2.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_parallel_threads.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_threads.cpp
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/C++/cpp_attach.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays_print.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_bd_test.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_bt.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_bt_stress.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_catch.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_cmp_diff.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_decomp2.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_decomp.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_ds_test1.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_ds_test2.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_parallel_threads.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_threads.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_attach.cpp
 
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_arrays.f90
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_bd_dt.f90
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_cmp_diff.f90
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/bd_dt/fortran/ftn_decomp.f90
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_arrays.f90
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_bd_dt.f90
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_cmp_diff.f90
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_decomp.f90
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
@@ -839,4 +839,3 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestcxx.h
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpithreadtest.h
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/rectangle.h
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/build.sh

@@ -1,0 +1,58 @@
+1: launch $a{3} --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+2: maint set sync on
+3: # ensure breakpoints with the same backend ids are differentiated on the frontend
+4: focus $a{0}
+5: break 165
+a{0}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 165.
+6: focus $a{1}
+7: break 170
+a{1}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 170.
+8: focus $a{2}
+9: break 175
+a{2}: Breakpoint 3: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 175.
+10: focus $all
+11: continue
+a{0}: Breakpoint 1, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:165
+a{2}: Breakpoint 3, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:175
+a{1}: Breakpoint 2, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:170
+12: launch $b{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+13: # Set a breakpoint at specified line numbers:
+14: break c_type_test.c:198
+a{0..2}: Breakpoint 4: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 198.
+b{0..2}: Breakpoint 4: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 198.
+15: #Test assign command
+16: focus $b
+17: # Run procset b to breakpoint 1:  
+18: continue
+b{0..2}: Breakpoint 4, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+19: focus $all
+20: # Run procset a to breakpoint 4:  
+21: continue
+a{0..2}: Breakpoint 4, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+b{0..2}: The application has reached an exit breakpoint.
+22: #exit lgdb
+23: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

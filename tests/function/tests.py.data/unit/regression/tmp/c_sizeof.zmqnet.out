@@ -1,0 +1,227 @@
+1: #
+2: # lgdb_c_t2.rc script script is runs commands automatically in lgdb
+3: #               this script compares two executables files
+4: #				to determine if variable content is the same.
+5: #			    the output of this file should result in compare = true
+6: #				for all variables   
+7: #
+8: # 
+9: # Unpublished Proprietary Information.
+10: # This unpublished work is protected to trade secret, copyright and other laws.
+11: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+12: # no part of this work or its content may be used, reproduced or disclosed
+13: # in any form.
+14: #
+15: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+16: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+17: # $Rev: 1 $
+18: # $Author: kdavis $
+19: #
+20: #this test compares variables in two files.
+21: #the tests are exactly the same so results should - 
+22: #comparision is true for all
+23: maint set sync on
+24: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+0/3 ranks connected... (timeout in 16 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+25: launch $b{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+26: #set breakpoint
+27: break c_type_test.c:247
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 247.
+b{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 247.
+28: #run to breakpoint
+29: continue
+a{0..2}: Breakpoint 1, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:247
+b{0..2}: Breakpoint 1, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:247
+30: #run compare commands on all datatypes
+31: #char - Dissabled as lgdb compare command is not working for strings and chars
+32: # compare size of same elements in different proc sets - should be true
+33: #print c
+34: #compare $a{0}::"sizeof(c)" = $b{0}::"sizeof(c)"
+35: #signed char
+36: print sc
+a{0..2}: -2 '\xFE'
+b{0..2}: -2 '\xFE'
+37: compare $a{0}::"sizeof(sc)" = $b{0}::"sizeof(sc)"
+{0}: Comparison is true.
+38: #unsigned char
+39: print uc
+a{0..2}: 3 '\x03'
+b{0..2}: 3 '\x03'
+40: compare $a{0}::"sizeof(uc)" = $b{0}::"sizeof(uc)"
+{0}: Comparison is true.
+41: #short
+42: print sh
+a{0..2}: 4
+b{0..2}: 4
+43: compare $a{0}::"sizeof(sh)" = $b{0}::"sizeof(sh)"
+{0}: Comparison is true.
+44: #short int
+45: print shi
+a{0..2}: 5
+b{0..2}: 5
+46: compare $a{0}::"sizeof(shi)" = $b{0}::"sizeof(shi)"
+{0}: Comparison is true.
+47: #signed short
+48: print ssh
+a{0..2}: -6
+b{0..2}: -6
+49: compare $a{0}::"sizeof(ssh)" = $b{0}::"sizeof(ssh)"
+{0}: Comparison is true.
+50: #signed short int
+51: print sshi
+a{0..2}: -7
+b{0..2}: -7
+52: compare $a{0}::"sizeof(sshi)" = $b{0}::"sizeof(sshi)"
+{0}: Comparison is true.
+53: #usinged short
+54: print ush
+a{0..2}: 8
+b{0..2}: 8
+55: compare $a{0}::"sizeof(ush)" = $b{0}::"sizeof(ush)"
+{0}: Comparison is true.
+56: #usigned short int
+57: print ushi
+a{0..2}: 9
+b{0..2}: 9
+58: compare $a{0}::"sizeof(ushi)" = $b{0}::"sizeof(ushi)"
+{0}: Comparison is true.
+59: #int
+60: print i
+a{0..2}: 10
+b{0..2}: 10
+61: compare $a{0}::"sizeof(i)" = $b{0}::"sizeof(i)"
+{0}: Comparison is true.
+62: #signed int
+63: print si
+a{0..2}: -11
+b{0..2}: -11
+64: compare $a{0}::"sizeof(si)" = $b{0}::"sizeof(si)"
+{0}: Comparison is true.
+65: #unsigned
+66: print u
+a{0..2}: 12
+b{0..2}: 12
+67: compare $a{0}::"sizeof(u)" = $b{0}::"sizeof(u)"
+{0}: Comparison is true.
+68: #unsigned int
+69: print ui
+a{0..2}: 13
+b{0..2}: 13
+70: compare $a{0}::"sizeof(ui)" = $b{0}::"sizeof(ui)"
+{0}: Comparison is true.
+71: #long
+72: print l
+a{0..2}: 14
+b{0..2}: 14
+73: compare $a{0}::"sizeof(l)" = $b{0}::"sizeof(l)"
+{0}: Comparison is true.
+74: #long int
+75: print li
+a{0..2}: 15
+b{0..2}: 15
+76: compare $a{0}::"sizeof(li)" = $b{0}::"sizeof(li)"
+{0}: Comparison is true.
+77: #signed long
+78: print sl
+a{0..2}: -16
+b{0..2}: -16
+79: compare $a{0}::"sizeof(sl)" = $b{0}::"sizeof(sl)"
+{0}: Comparison is true.
+80: #signed long int
+81: print sli
+a{0..2}: -17
+b{0..2}: -17
+82: compare $a{0}::"sizeof(sli)" = $b{0}::"sizeof(sli)"
+{0}: Comparison is true.
+83: #unsigned long
+84: print ul
+a{0..2}: 18
+b{0..2}: 18
+85: compare $a{0}::"sizeof(ul)" = $b{0}::"sizeof(ul)"
+{0}: Comparison is true.
+86: #unsigned long int
+87: print uli
+a{0..2}: 19
+b{0..2}: 19
+88: compare $a{0}::"sizeof(uli)" = $b{0}::"sizeof(uli)"
+{0}: Comparison is true.
+89: #long long
+90: print ll
+a{0..2}: 20
+b{0..2}: 20
+91: compare $a{0}::"sizeof(ll)" = $b{0}::"sizeof(ll)"
+{0}: Comparison is true.
+92: #long long int
+93: print lli
+a{0..2}: 21
+b{0..2}: 21
+94: compare $a{0}::"sizeof(lli)" = $b{0}::"sizeof(lli)"
+{0}: Comparison is true.
+95: #signed long long
+96: print sll
+a{0..2}: -22
+b{0..2}: -22
+97: compare $a{0}::"sizeof(sll)" = $b{0}::"sizeof(sll)"
+{0}: Comparison is true.
+98: #signed long long int
+99: print slli
+a{0..2}: -23
+b{0..2}: -23
+100: compare $a{0}::"sizeof(slli)" = $b{0}::"sizeof(slli)"
+{0}: Comparison is true.
+101: #unsigned long long
+102: print ull
+a{0..2}: 24
+b{0..2}: 24
+103: compare $a{0}::"sizeof(ull)" = $b{0}::"sizeof(ull)"
+{0}: Comparison is true.
+104: #unsigned long long int
+105: print ulli
+a{0..2}: 25
+b{0..2}: 25
+106: compare $a{0}::"sizeof(ulli)" = $b{0}::"sizeof(ulli)"
+{0}: Comparison is true.
+107: #float
+108: print f
+a{0..2}: 26
+b{0..2}: 26
+109: compare $a{0}::"sizeof(f)" = $b{0}::"sizeof(f)"
+{0}: Comparison is true.
+110: #double
+111: print d
+a{0..2}: 27.1
+b{0..2}: 27.1
+112: compare $a{0}::"sizeof(d)" = $b{0}::"sizeof(d)"
+{0}: Comparison is true.
+113: #long double
+114: print ld
+a{0..2}: 28.1999999999999993
+b{0..2}: 28.1999999999999993
+115: compare $a{0}::"sizeof(ld)" = $b{0}::"sizeof(ld)"
+{0}: Comparison is true.
+116: #continue
+117: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

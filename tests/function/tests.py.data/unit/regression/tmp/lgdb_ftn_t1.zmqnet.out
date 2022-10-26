@@ -1,0 +1,138 @@
+1: #
+2: # lgdb_ftn_t1.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+10: # $HeadURL: http://svn/svn/debugger-support/ccdb/trunk/extras/test_fixtures/lgdb_test $
+11: # $Date: 2012-12-12 10:16:23 -0500 (Thu, 12 Dec 2013) $
+12: # $Rev: 1 $
+13: # $Author: kdavis $
+14: #
+15: maint set sync on
+16: # launch 2 applications in lgdb
+17: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/fortran/ftn_bd_dt.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected... (timeout in 20 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:1
+18: launch $b{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/fortran/ftn_bd_dt.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+b{0..2}: Initial breakpoint, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:1
+19: # Set a breakpoint at specified line numbers:
+20: break ftn_bd_dt.f90:46
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90, line 46.
+b{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90, line 46.
+21: break ftn_bd_dt.f90:62
+a{0..2}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90, line 62.
+b{0..2}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90, line 62.
+22: # Run to breakpoint 1:
+23: continue
+b{0..2}: Breakpoint 1, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:46
+a{0..2}: Breakpoint 1, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:46
+24: # print some local variables
+25: print x
+a{0..2}: 1
+b{0..2}: 1
+26: print tf
+a{0..2}: .TRUE.
+b{0..2}: .TRUE.
+27: # run compare command
+28: compare $a{0}::tf=$b{0}::tf
+{0}: Comparison is true.
+29: # compare size of same elements in different proc sets
+30: compare $a{0}::"sizeof(tf)" = $b{0}::"sizeof(tf)"
+{0}: Comparison is true.
+31: p myself
+a{0..2}: {name = 'Cray', age = 100}
+b{0..2}: {name = 'Cray', age = 100}
+32: ptype person
+a{0..2}: Type person
+character*4 :: name
+    INTEGER*4 :: age
+End Type person
+b{0..2}: Type person
+character*4 :: name
+    INTEGER*4 :: age
+End Type person
+33: ptype myself
+a{0..2}: Type person
+character*4 :: name
+    INTEGER*4 :: age
+End Type person
+b{0..2}: Type person
+character*4 :: name
+    INTEGER*4 :: age
+End Type person
+34: p myself%age
+a{0..2}: 100
+b{0..2}: 100
+35: p myself%name
+a{0..2}: 'Cray'
+b{0..2}: 'Cray'
+36: p myself%notafield
+a{0..2}: Debugger error: myself%notafield: There is no member named notafield.
+b{0..2}: Debugger error: myself%notafield: There is no member named notafield.
+37: ptype myself%notafield
+a{0..2}: No symbol "myself%notafield" in current context
+b{0..2}: No symbol "myself%notafield" in current context
+38: whatis myself
+a{0..2}: Type person
+b{0..2}: Type person
+39: whatis myself%age
+a{0..2}: INTEGER*4
+b{0..2}: INTEGER*4
+40: whatis myself%name
+a{0..2}: character*4
+b{0..2}: character*4
+41: whatis myself%notafield
+a{0..2}: No symbol "myself%notafield " in current context
+b{0..2}: No symbol "myself%notafield " in current context
+42: # Continue to the second breakpoint 
+43: continue
+b{0..2}: Breakpoint 2, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:62
+a{0..2}: Breakpoint 2, ftn_dt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:62
+44: # Print m
+45: p m
+a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+b{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+46: b getParams
+a{0..2}: Breakpoint 3: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90, line 75.
+b{0..2}: Breakpoint 3: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90, line 75.
+47: c
+b{0..2}: Breakpoint 3, getparams at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:75
+a{0..2}: Breakpoint 3, getparams at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/fortran/ftn_bd_dt.f90:75
+48: n
+b{0..2}: 79	    if (c .AND. a * b == b) then
+a{0..2}: 79	    if (c .AND. a * b == b) then
+49: info args
+a{0..2}: INTEGER*4 a = -27
+a{0..2}: REAL*8 b = 10
+a{0..2}: LOGICAL*4 c = .FALSE.
+b{0..2}: INTEGER*4 a = -27
+b{0..2}: REAL*8 b = 10
+b{0..2}: LOGICAL*4 c = .FALSE.
+50: #Exit lgdb
+51: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

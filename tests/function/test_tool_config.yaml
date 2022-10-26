@@ -5,9 +5,31 @@ build:
   targets:
     all:
       j: 16
-      optional-modules:
-      - cray-cti-devel
+      modules:
       - cce/15.0.0.3
+      optional-modules:
+      - PrgEnv-cray
+      - cray-cti-devel
+    gnu:
+      j: 16
+      modules:
+      - PrgEnv-gnu
+      can-fail: yes
+    amd:
+      j: 16
+      modules:
+      - PrgEnv-amd
+      can-fail: yes
+    nvidia:
+      j: 16
+      modules:
+      - PrgEnv-nvidia
+      can-fail: yes
+    intel:
+      j: 16
+      modules:
+      - PrgEnv-intel
+      can-fail: yes
 
 # config for test time
 test:
@@ -18,24 +40,25 @@ test:
 launch:
   # launcher args are defined per test in gdb4hpc
   args:
-    slurm: "--exclusive"
+    slurm: "--exclusive -t 5:00"
     alps: ""
     ssh: ""
     aprun: ""
     mpiexec: ""
   allocation:
-    nodes: 4
+    nodes: 6
 
 # having to do with the test tool itself
 meta:
   keep: # don't delete these files upon -r option
     - Makefile
+  avocado-version: latest
 
 # system specific overides
 pinoak-login1:
   launch:
     args:
-      slurm: "--exclusive -N1"
+      slurm: "--exclusive -t 5:00"
 
 uan01:
   launch:
@@ -46,7 +69,7 @@ pegasus:
   launch:
     args:
       # Multi-node MPI launches break if they include node007 or node008
-      slurm: "--exclusive --exclude=node007,node008"
+      slurm: "--exclusive --exclude=node007,node008 -t 5:00"
 
 kay:
   launch:
@@ -56,7 +79,7 @@ kay:
 "*-aarch":
   launch:
     args:
-      slurm: "-p aarch"
+      slurm: "-p aarch --exclusive -t 5:00"
     allocation:
       # %%n%% replaced by /launch/allocation/nodes
       nodelist: "select=1:nodetype=mom-aarch64+%%n%%:nodetype=TX264,place=scatter:shared"

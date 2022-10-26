@@ -1,20 +1,20 @@
 1: maint set sync on
 2: # launch 3 instances of one application and 4 of another to test decomp
-3: launch $a{3} --args="0" bd_dt/fortran/ftn_decomp.x
+3: launch $a{3} --args="0" bin/CRAY/fortran/ftn_decomp.x
 Starting application, please wait...
 Launch complete.
-a{0..2}: Initial breakpoint, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90:2
-4: launch $b{4} --args="1" bd_dt/fortran/ftn_decomp.x
+a{0..2}: Initial breakpoint, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90:2
+4: launch $b{4} --args="1" bin/CRAY/fortran/ftn_decomp.x
 Starting application, please wait...
 Launch complete.
-b{0..3}: Initial breakpoint, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90:2
+b{0..3}: Initial breakpoint, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90:2
 5: # run until the arrays are initialized
 6: b 109
-a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90, line 109.
-b{0..3}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90, line 109.
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90, line 109.
+b{0..3}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90, line 109.
 7: c
-a{0..2}: Breakpoint 1, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90:109
-b{0..3}: Breakpoint 1, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90:109
+a{0..2}: Breakpoint 1, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90:109
+b{0..3}: Breakpoint 1, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90:109
 8: decomposition $block1_3
 9: dimension 120
 10: distribute block
@@ -144,11 +144,11 @@ Comparison is true.
 Comparison is true.
 107: # continue to a point where the same comparisons should fail
 108: b 124
-a{0..2}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90, line 124.
-b{0..3}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90, line 124.
+a{0..2}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90, line 124.
+b{0..3}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90, line 124.
 109: c
-a{0..2}: Breakpoint 2, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90:124
-b{0..3}: Breakpoint 2, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/fortran/ftn_decomp.f90:124
+a{0..2}: Breakpoint 2, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90:124
+b{0..3}: Breakpoint 2, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90:124
 110: compare $block1_3{$a::block1} == $block1_4{$b::block1}
 Comparison is false. The difference delta is:
 (15):-114

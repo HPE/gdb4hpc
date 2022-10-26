@@ -1,0 +1,121 @@
+1: launch $a{2} --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/2 ranks connected... (timeout in 19 seconds)
+0/2 ranks connected... (timeout in 18 seconds)
+0/2 ranks connected... (timeout in 17 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+2: launch $b{2} --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_cmp_diff.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/2 ranks connected... (timeout in 19 seconds)
+0/2 ranks connected... (timeout in 18 seconds)
+0/2 ranks connected... (timeout in 17 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+b{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_cmp_diff.c:55
+3: build $twice
+4:     # all of these should pass
+5:     assert  $a::uc@"c_type_test.c":233 <               $b::uc@"c_cmp_diff.c":228
+6:     assert $a::ush@"c_type_test.c":234 <=             $b::ush@"c_cmp_diff.c":229
+7:     assert $a::c@"c_type_test.c":235 == $b::one_d_i_init[1]@"c_cmp_diff.c":230
+8: end
+Assertion script $twice compiled.
+9: maint set sync on
+10: start $twice
+Sending continue to application...
+Assertion script $twice finished.
+Use "info script $twice results" to view results.
+Assertion script $twice stopped.
+11: info script $twice results
+Results summary for script $twice:
+
+Total full runs: 1
+Total assertion evaluations this run: 3
+Passed: 3, Passed with warning: 0, Failed: 0, Indeterminate: 0
+Assertion results:
+
+Assertion 1:
+$a::uc@"c_type_test.c":233 < $b::uc@"c_cmp_diff.c":228
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2:
+$a::ush@"c_type_test.c":234 <= $b::ush@"c_cmp_diff.c":229
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 3:
+$a::c@"c_type_test.c":235 == $b::one_d_i_init[1]@"c_cmp_diff.c":230
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+12: # produce warning about running without restarting app first
+13: start $twice
+Start $twice? Program state is different than the initial first run, so results might be unexpected.
+You might want to restart your app with the run command first. ([y] or n) y
+Sending continue to application...
+a{0..1}: The application has reached an exit breakpoint.
+b{0..1}: The application has reached an exit breakpoint.
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
+Assertion script $twice stopped.
+14: run
+Re-launch $all? Original will be released. ([y] or n) y
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/2 ranks connected... (timeout in 19 seconds)
+0/2 ranks connected... (timeout in 18 seconds)
+0/2 ranks connected... (timeout in 17 seconds)
+0/2 ranks connected... (timeout in 16 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+tmp_clone{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+Shutting down debugger and killing application for 'a'.
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/2 ranks connected... (timeout in 19 seconds)
+0/2 ranks connected... (timeout in 18 seconds)
+0/2 ranks connected... (timeout in 17 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+tmp_clone{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_cmp_diff.c:55
+Shutting down debugger and killing application for 'b'.
+15: start $twice
+Sending continue to application...
+Assertion script $twice finished.
+Use "info script $twice results" to view results.
+Assertion script $twice stopped.
+16: info script $twice results
+Results summary for script $twice:
+
+Total full runs: 2
+Total assertion evaluations this run: 3
+Passed: 3, Passed with warning: 0, Failed: 0, Indeterminate: 0
+Assertion results:
+
+Assertion 1:
+$a::uc@"c_type_test.c":233 < $b::uc@"c_cmp_diff.c":228
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2:
+$a::ush@"c_type_test.c":234 <= $b::ush@"c_cmp_diff.c":229
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 3:
+$a::c@"c_type_test.c":235 == $b::one_d_i_init[1]@"c_cmp_diff.c":230
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+17: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

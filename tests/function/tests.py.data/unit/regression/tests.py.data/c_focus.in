@@ -1,0 +1,62 @@
+19: launch $a{3} bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /src/c/c_type_test.c:58
+20: maint set sync on
+20: # ensure breakpoints with the same backend ids are differentiated on the frontend
+20: focus $a{0}
+20: break 165
+a{0}: Breakpoint 1: file /src/c/c_type_test.c, line 165.
+20: focus $a{1}
+20: break 170
+a{1}: Breakpoint 2: file /src/c/c_type_test.c, line 170.
+20: focus $a{2}
+20: break 175
+a{2}: Breakpoint 3: file /src/c/c_type_test.c, line 175.
+20: focus $all
+20: continue
+a{2}: Breakpoint 3, main at /src/c/c_type_test.c:175
+a{1}: Breakpoint 2, main at /src/c/c_type_test.c:170
+a{0}: Breakpoint 1, main at /src/c/c_type_test.c:165
+22: launch $b{3}   bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /src/c/c_type_test.c:58
+25: # Set a breakpoint at specified line numbers:
+26: break c_type_test.c:198
+a{0..2}: Breakpoint 4: file /src/c/c_type_test.c, line 198.
+b{0..2}: Breakpoint 4: file /src/c/c_type_test.c, line 198.
+30: #Test assign command
+31: focus $b
+33: # Run procset b to breakpoint 1:  
+34: continue
+<$b>: Hello World! from process 0
+<$b>: Hello World! from process 1
+<$b>: Hello World! from process 2
+b{0..2}: Breakpoint 4, main at /src/c/c_type_test.c:198
+36: focus $all
+38: # Run procset a to breakpoint 4:  
+39: continue
+b{0..2}: %(The application has reached an exit breakpoint.|Program exited normally.)%
+<$a>: Hello World! from process 0
+<$a>: Hello World! from process 1
+<$a>: Hello World! from process 2
+a{0..2}: Breakpoint 4, main at /src/c/c_type_test.c:198
+42: #exit lgdb
+43: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

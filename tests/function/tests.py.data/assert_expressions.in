@@ -1,9 +1,9 @@
-1: launch $a{2} bd_dt/c/c_type_test.x
+1: launch $a{2} bin/CRAY/c/c_type_test.x
 Launch complete.
-a{0..1}: Initial breakpoint, main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_type_test.c:58
-2: launch $b{2} bd_dt/c/c_cmp_diff.x
+a{0..1}: Initial breakpoint, main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:58
+2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
 Launch complete.
-b{0..1}: Initial breakpoint, main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/bd_dt/c/c_cmp_diff.c:55
+b{0..1}: Initial breakpoint, main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:55
 3: build $expressions
 4:      # all of these should pass
 5:      assert $a{0..1}::assertTest@"c_type_test.c":166 != $a{0..1}::assertTest@"c_type_test.c":166 + 2

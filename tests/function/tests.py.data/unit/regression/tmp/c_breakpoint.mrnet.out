@@ -1,0 +1,88 @@
+1: maint set sync on
+2: # launch 3 instances of the application
+3: launch $a{3}   --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 20 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [0];  Timeout Counter: [1]
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+4: # Set a breakpoint at specified line numbers:
+5: break c_type_test.c:198
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 198.
+6: break c_type_test.c:219
+a{0..2}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 219.
+7: # Run to breakpoint 1:
+8: continue
+a{0..2}: Breakpoint 1, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+9: #list breakpoints
+10: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:219
+11: # Test disable command
+12: disable 2
+13: #test has breakpoint 2 been disabled?
+14: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep n   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:219
+15: # set breakpoint 3 and ignore it
+16: b 204
+a{0..2}: Breakpoint 3: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 204.
+17: ignore 3 4
+18: c
+a{0..2}: Breakpoint 3, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:204
+19: p ii
+a{0..2}: 4
+20: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep n   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:219
+a{0..2}         3   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:204
+21: # delete the breakpoint
+22: del 3
+23: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep n   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:219
+24: # Test enable command
+25: enable 2  
+26: #has breakpoint 3 been enabled?
+27: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:219
+28: # make sure we now stop at the enabled breakpoint
+29: c
+a{0..2}: Breakpoint 2, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:219
+30: p ii
+a{0..2}: 4
+31: p jj
+a{0..2}: 0
+32: p kk
+a{0..2}: 0
+33: c
+a{0..2}: Breakpoint 2, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:219
+34: p kk
+a{0..2}: 1
+35: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+a{0..2}         2   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:219
+36: delete 2 
+37: #has breakpoint 2 been deleted?
+38: info breakpoint
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:198
+39: # we should now hit no more breakpoints
+40: c
+a{0..2}: The application has reached an exit breakpoint.
+41: #exit gdb4hpc
+42: q
+Shutting down debugger and killing application for 'a'.

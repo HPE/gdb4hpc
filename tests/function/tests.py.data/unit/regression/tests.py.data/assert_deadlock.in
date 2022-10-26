@@ -1,0 +1,29 @@
+1: launch $a{2} ./bin/CRAY/c/c_inc.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [2];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /src/c/c_inc.c:9
+2: build $deadlock
+2:     set verbose-breakpoints true
+3:     # these assertions are true, but both ranks will stop at :14 and get stuck
+4:     assert $a{0}::inc@"c_inc.c":14 < $a{1}::inc@"c_inc.c":15
+5:     assert $a{0}::inc@"c_inc.c":15 > $a{1}::inc@"c_inc.c":14
+6: end
+Assertion script $deadlock compiled.
+7: maint set sync on
+8: start $deadlock
+Sending continue to application...
+a{0}: Breakpoint 2, main at /src/c/c_inc.c:14
+a{1}: Breakpoint 3, main at /src/c/c_inc.c:14
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
+Assertion script $deadlock stopped.
+9: frame
+a{0..1}: #0  main at /src/c/c_inc.c:14
+10: q
+Shutting down debugger and killing application for 'a'.

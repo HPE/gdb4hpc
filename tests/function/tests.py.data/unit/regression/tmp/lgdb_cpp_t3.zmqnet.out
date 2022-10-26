@@ -1,0 +1,395 @@
+1: #
+2: # lgdb_cpp_t3.rc script is runs commands automatically in lgdb
+3: #               this script compares two executables files
+4: #				to determine if variable content is the same.
+5: #			    the output of this file should result in compare = true
+6: #				for all variables 
+7: # 
+8: # Unpublished Proprietary Information.
+9: # This unpublished work is protected to trade secret, copyright and other laws.
+10: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+11: # no part of this work or its content may be used, reproduced or disclosed
+12: # in any form.
+13: #
+14: # $HeadURL:
+15: # $Date: 
+16: # $Rev: 
+17: # $Author:
+18: #
+19: # This source files tests lgdb's compare command - all results should be FAILURE
+20: # for C++ source code
+21: maint set sync on
+22: # launch 3 instances of the application
+23: launch $a{3} --launcher-args="--exclusive -t 0:05" bin/CRAY/C++/cpp_bd_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp:24
+24: break cpp_bd_test.cpp:136
+a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp, line 136.
+25: launch $b{3}  --launcher-args="--exclusive -t 0:05" bin/CRAY/C++/cpp_cmp_diff.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/3 ranks connected... (timeout in 19 seconds)
+0/3 ranks connected... (timeout in 18 seconds)
+0/3 ranks connected... (timeout in 17 seconds)
+3/3 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_cmp_diff.cpp:22
+26: focus $b
+27: # Set a breakpoint at specified line numbers:
+28: break cpp_cmp_diff.cpp:136
+b{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_cmp_diff.cpp, line 136.
+29: focus $all
+30: #continue to breakpoint
+31: continue
+<$a>: 
+<$a>: 
+<$a>: Datattype             Value                 	Sizeof
+<$a>: ___________________________________________________________________
+<$a>: 
+<$a>: Char =                  t                    Size = 1 Bytes
+<$a>: Unsigned char = 	236                  Size = 1 Bytes
+<$a>: Signed char =           -20                  Size = 1 Bytes
+<$a>: Boolean =               1                    Size = 1 Bytes
+<$a>: 
+<$a>: Unsigned short int = 	32767                Size = 2 Bytes
+<$a>: Signed short int =  	-32767               Size = 2 Bytes
+<$a>: 
+<$a>: Integer =               1                    Size = 4 Bytes
+<$a>: Signed int =            -44                  Size = 4 Bytes
+<$a>: Unsigned int =          44                   Size = 4 Bytes
+<$a>: Int Multiplication = 	2                    Size = 4 Bytes
+<$a>: Float =                 2.3307               Size = 4 Bytes
+<$a>: Struct member = 	100                  Size = 4 Bytes
+<$a>: 
+<$a>: Struct member = 	Cray                 Size = 32 Bytes
+<$a>: String  =               Testing              Size = 32 Bytes
+<$a>: Pointer to int = 	1                    Size = 8 Bytes
+<$a>: Long double =                 1              Size = 16 Bytes
+<$a>: Double =                     -1              Size = 8 Bytes
+<$a>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$a>: signed long int = 	-2147483648          Size = 8 Bytes
+<$a>: 
+<$a>: 
+<$a>: Call to function pointer received: 2 It should receive: 2
+<$a>: Function pointer returned: 4 It should return: 4
+<$a>: 
+<$a>: Datattype             Value                 	Sizeof
+<$a>: ___________________________________________________________________
+<$a>: 
+<$a>: Char =                  t                    Size = 1 Bytes
+<$a>: Unsigned char = 	236                  Size = 1 Bytes
+<$a>: Signed char =           -20                  Size = 1 Bytes
+<$a>: Boolean =               1                    Size = 1 Bytes
+<$a>: 
+<$a>: Unsigned short int = 	32767                Size = 2 Bytes
+<$a>: Signed short int =  	-32767               Size = 2 Bytes
+<$a>: 
+<$a>: Integer =               1                    Size = 4 Bytes
+<$a>: Signed int =            -44                  Size = 4 Bytes
+<$a>: Unsigned int =          44                   Size = 4 Bytes
+<$a>: Int Multiplication = 	2                    Size = 4 Bytes
+<$a>: Float =                 2.3307               Size = 4 Bytes
+<$a>: Struct member = 	100                  Size = 4 Bytes
+<$a>: 
+<$a>: Struct member = 	Cray                 Size = 32 Bytes
+<$a>: String  =               Testing              Size = 32 Bytes
+<$a>: Pointer to int = 	1                    Size = 8 Bytes
+<$a>: Long double =                 1              Size = 16 Bytes
+<$a>: Double =                     -1              Size = 8 Bytes
+<$a>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$a>: signed long int = 	-2147483648          Size = 8 Bytes
+<$a>: 
+<$a>: 
+<$a>: Call to function pointer received: 2 It should receive: 2
+<$a>: Function pointer returned: 4 It should return: 4
+<$a>: 
+<$a>: 
+<$a>: Datattype             Value                 	Sizeof
+<$a>: ___________________________________________________________________
+<$a>: 
+<$a>: Char =                  t                    Size = 1 Bytes
+<$a>: Unsigned char = 	236                  Size = 1 Bytes
+<$a>: Signed char =           -20                  Size = 1 Bytes
+<$a>: Boolean =               1                    Size = 1 Bytes
+<$a>: 
+<$a>: Unsigned short int = 	32767                Size = 2 Bytes
+<$a>: Signed short int =  	-32767               Size = 2 Bytes
+<$a>: 
+<$a>: Integer =               1                    Size = 4 Bytes
+<$a>: Signed int =            -44                  Size = 4 Bytes
+<$a>: Unsigned int =          44                   Size = 4 Bytes
+<$a>: Int Multiplication = 	2                    Size = 4 Bytes
+<$a>: Float =                 2.3307               Size = 4 Bytes
+<$a>: Struct member = 	100                  Size = 4 Bytes
+<$a>: 
+<$a>: Struct member = 	Cray                 Size = 32 Bytes
+<$a>: String  =               Testing              Size = 32 Bytes
+<$a>: Pointer to int = 	1                    Size = 8 Bytes
+<$a>: Long double =                 1              Size = 16 Bytes
+<$a>: Double =                     -1              Size = 8 Bytes
+<$a>: unsigned long int = 	4294967295           Size = 8 Bytes
+<$a>: signed long int = 	-2147483648          Size = 8 Bytes
+<$a>: 
+<$a>: 
+<$a>: Call to function pointer received: 2 It should receive: 2
+<$a>: Function pointer returned: 4 It should return: 4
+<$a>: 
+<$b>: 
+<$b>: Datattype             Value                 	Sizeof
+<$b>: ___________________________________________________________________
+<$b>: 
+<$b>: Char =                  c                    Size = 1 Bytes
+<$b>: Unsigned char = 	237                  Size = 1 Bytes
+<$b>: Signed char =           -19                  Size = 1 Bytes
+<$b>: 
+<$b>: Datattype             Value                 	Sizeof
+<$b>: ___________________________________________________________________
+<$b>: 
+<$b>: Char =                  c                    Size = 1 Bytes
+<$b>: Unsigned char = 	237                  Size = 1 Bytes
+<$b>: Signed char =           -19                  Size = 1 Bytes
+<$b>: Boolean =               0                    Size = 1 Bytes
+<$b>: 
+<$b>: Unsigned short int = 	32766                Size = 2 Bytes
+<$b>: Signed short int =  	-32766               Size = 2 Bytes
+<$b>: 
+<$b>: Integer =               5                    Size = 4 Bytes
+<$b>: Signed int =            -88                  Size = 4 Bytes
+<$b>: Unsigned int =          88                   Size = 4 Bytes
+<$b>: Int Multiplication = 	40                    Size = 4 Bytes
+<$b>: 
+<$b>: Datattype             Value                 	Sizeof
+<$b>: ___________________________________________________________________
+<$b>: 
+<$b>: Char =                  c                    Size = 1 Bytes
+<$b>: Unsigned char = 	237                  Size = 1 Bytes
+<$b>: Signed char =           -19                  Size = 1 Bytes
+<$b>: Boolean =               0                    Size = 1 Bytes
+<$b>: 
+<$b>: Unsigned short int = 	32766                Size = 2 Bytes
+<$b>: Signed short int =  	-32766               Size = 2 Bytes
+<$b>: 
+<$b>: Integer =               5                    Size = 4 Bytes
+<$b>: Signed int =            -88                  Size = 4 Bytes
+<$b>: Unsigned int =          88                   Size = 4 Bytes
+<$b>: Int Multiplication = 	40                    Size = 4 Bytes
+<$b>: Float =                  6.558               Size = 4 Bytes
+<$b>: Struct member = 	60                  Size = 4 Bytes
+<$b>: 
+<$b>: Struct member = 	Test                 Size = 32 Bytes
+<$b>: String  =                Errors              Size = 32 Bytes
+<$b>: Pointer to int = 	5                    Size = 8 Bytes
+<$b>: Boolean =               0                    Size = 1 Bytes
+<$b>: 
+<$b>: Unsigned short int = 	32766                Size = 2 Bytes
+<$b>: Signed short int =  	-32766               Size = 2 Bytes
+<$b>: 
+<$b>: Integer =               5                    Size = 4 Bytes
+<$b>: Signed int =            -88                  Size = 4 Bytes
+<$b>: Unsigned int =          88                   Size = 4 Bytes
+<$b>: Int Multiplication = 	40                    Size = 4 Bytes
+<$b>: Float =                  6.558               Size = 4 Bytes
+<$b>: Struct member = 	60                  Size = 4 Bytes
+<$b>: 
+<$b>: Struct member = 	Test                 Size = 32 Bytes
+<$b>: String  =                Errors              Size = 32 Bytes
+<$b>: Pointer to int = 	5                    Size = 8 Bytes
+<$b>: Long double =                 1              Size = 16 Bytes
+<$b>: Double =                     -1              Size = 8 Bytes
+<$b>: unsigned long int = 	4294967296           Size = 8 Bytes
+<$b>: signed long int = 	-2147483647          Size = 8 Bytes
+<$b>: 
+<$b>: 
+<$b>: Call to function pointer received: 4 It should receive: 4
+<$b>: Function pointer returned: 6 It should return: 6
+<$b>: 
+<$b>: Float =                  6.558               Size = 4 Bytes
+<$b>: Struct member = 	60                  Size = 4 Bytes
+<$b>: 
+<$b>: Struct member = 	Test                 Size = 32 Bytes
+<$b>: String  =                Errors              Size = 32 Bytes
+<$b>: Pointer to int = 	5                    Size = 8 Bytes
+<$b>: Long double =                 1              Size = 16 Bytes
+<$b>: Double =                     -1              Size = 8 Bytes
+<$b>: unsigned long int = 	4294967296           Size = 8 Bytes
+<$b>: signed long int = 	-2147483647          Size = 8 Bytes
+<$b>: 
+<$b>: 
+<$b>: Call to function pointer received: 4 It should receive: 4
+<$b>: Function pointer returned: 6 It should return: 6
+<$b>: 
+<$b>: Long double =                 1              Size = 16 Bytes
+<$b>: Double =                     -1              Size = 8 Bytes
+<$b>: unsigned long int = 	4294967296           Size = 8 Bytes
+<$b>: signed long int = 	-2147483647          Size = 8 Bytes
+<$b>: 
+<$b>: 
+<$b>: Call to function pointer received: 4 It should receive: 4
+<$b>: Function pointer returned: 6 It should return: 6
+<$b>: 
+<$b>: 
+<$b>: Hello world!  I am rank 0 of 3
+<$b>: 
+<$b>: Hello world!  I am rank 1 of 3
+<$b>: 
+<$b>: Hello world!  I am rank 2 of 3
+b{0..2}: Breakpoint 1, main(int, char**) at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_cmp_diff.cpp:136
+<$a>: 
+<$a>: Hello world!  I am rank 0 of 3
+<$a>: 
+<$a>: Hello world!  I am rank 1 of 3
+<$a>: 
+<$a>: Hello world!  I am rank 2 of 3
+a{0..2}: Breakpoint 1, main(int, char**) at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/C++/cpp_bd_test.cpp:136
+32: # run compare command on all data types
+33: print ret
+a{0..2}: 4
+b{0..2}: 6
+34: compare $a{0}::ret=$b{0}::ret
+{0}: Comparison is false.
+The difference delta is:
+{0}: 2
+35: #float
+36: print u
+a{0..2}: 2.3307
+b{0..2}: 6.558
+37: compare $a{0}::u=$b{0}::u
+{0}: Comparison is false.
+The difference delta is:
+{0}: 4.2273
+38: #int
+39: print x
+a{0..2}: 1
+b{0..2}: 5
+40: compare $a{0}::x=$b{0}::x
+{0}: Comparison is false.
+The difference delta is:
+{0}: 4
+41: #char - dissabled as lgdb compare command is not working for strings or chars
+42: #print a
+43: #compare $a{0}::a=$b{0}::a
+44: #string - dissabled as lgdb compare command is not working for strings or chars
+45: #print word
+46: #compare $a{0}::word=$b{0}::word
+47: #boolean
+48: print tf
+a{0..2}: true
+b{0..2}: false
+49: compare $a{0}::tf=$b{0}::tf
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+50: #signed int
+51: print si
+a{0..2}: -44
+b{0..2}: -88
+52: compare $a{0}::si=$b{0}::si
+{0}: Comparison is false.
+The difference delta is:
+{0}: -44
+53: #unsigned int
+54: print usi
+a{0..2}: 44
+b{0..2}: 88
+55: compare $a{0}::usi=$b{0}::usi 
+{0}: Comparison is false.
+The difference delta is:
+{0}: 44
+56:  
+57: #signed short int
+58: print sshi
+a{0..2}: -32767
+b{0..2}: -32766
+59: compare $a{0}::sshi=$b{0}::sshi   
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+60: #unsinged short int
+61: print ushi
+a{0..2}: 32767
+b{0..2}: 32766
+62: compare $a{0}::ushi=$b{0}::ushi
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1
+63: #int pointer
+64: print *test
+a{0..2}: 1
+b{0..2}: 5
+65: compare $a{0}::*test=$b{0}::*test
+{0}: Comparison is false.
+The difference delta is:
+{0}: 4
+66: #long double
+67: print ld
+a{0..2}: 1
+b{0..2}: 0.999999999847722587
+68: compare $a{0}::ld=$b{0}::ld
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1.52277e-10
+69: #double
+70: print dbl
+a{0..2}: -0.999999999847785
+b{0..2}: -1
+71: compare $a{0}::dbl=$b{0}::dbl
+{0}: Comparison is false.
+The difference delta is:
+{0}: -1.52215e-10
+72:  
+73: #unsigned long int
+74: print uli
+a{0..2}: 4294967295
+b{0..2}: 4294967296
+75: compare $a{0}::uli=$b{0}::uli       
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+76:     
+77:       
+78: #signed long int
+79: print sli
+a{0..2}: -2147483648
+b{0..2}: -2147483647
+80: compare $a{0}::sli=$b{0}::sli
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+81: #unsigned char
+82: print uc
+a{0..2}: 236 '\xEC'
+b{0..2}: 237 '\xED'
+83: compare $a{0}::uc=$b{0}::uc
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+84:     
+85: #signed char
+86: print sc
+a{0..2}: -20 '\xEC'
+b{0..2}: -19 '\xED'
+87: compare $a{0}::sc=$b{0}::sc
+{0}: Comparison is false.
+The difference delta is:
+{0}: 1
+88: #struct object data member - dissabled as lgdb compare command is not working for strings or chars
+89: #print myself.name      
+90: #compare $a{0}::myself.name=$b{0}::myself.name    
+91: #continue  to end
+92: #continue
+93: #quit lgdb
+94: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

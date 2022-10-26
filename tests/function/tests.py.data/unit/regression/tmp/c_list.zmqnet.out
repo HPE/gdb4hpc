@@ -1,0 +1,31 @@
+1: maint set sync on
+2: launch $a{1} --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_list.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/1 ranks connected... (timeout in 19 seconds)
+0/1 ranks connected... (timeout in 18 seconds)
+0/1 ranks connected... (timeout in 17 seconds)
+0/1 ranks connected... (timeout in 16 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_list.c:7
+3: break printIt
+a{0}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_list.c, line 16.
+4: c
+a{0}: Breakpoint 1, printIt at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_list.c:16
+5: list
+a{0}: 16   	    for (int i=0; i<3; i++) {
+a{0}: 17   			for (int j=0; j<i; j++) {
+a{0}: 18   				int foo	=	j;
+a{0}: 19   				foo		+=	i;
+a{0}: 20   				// try to be as nasty as possible with backslashes...
+a{0}: 21   				printf("\tfoo is: \"\t\t\\\t\t%d\n", foo);	// print foo \
+a{0}: 22   					end comment
+a{0}: 23   			}
+a{0}: 24   		}
+a{0}: 25   	}
+6: q
+Shutting down debugger and killing application for 'a'.

@@ -9,7 +9,7 @@
 9: #
 11: maint set sync on
 13: set non-stop on
-15: launch $a{3} bd_dt/C++/cpp_parallel_threads.x
+15: launch $a{3} bin/CRAY/C++/cpp_parallel_threads.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -19,15 +19,15 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:27
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:27
 17: # go until after the threads have started
 18: b 83
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp, line 83.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp, line 83.
 20: c
-a{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:83
+a{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:83
 22: info threads
 a{0..2}:   Id    Frame
-a{0..2}: * 1     "cpp_parallel_th" main (argc=1, argv=) at bd_dt/C++/cpp_parallel_threads.cpp:83
+a{0..2}: * 1     "cpp_parallel_th" main (argc=1, argv=) at src/C++/cpp_parallel_threads.cpp:83
 a{0..2}:   2-11  "cpp_parallel_th" (running)
 a{0..2}: 
 24: defset $workers $a{*:2..11}
@@ -38,38 +38,38 @@ a          a{0..2}
 workers    a{0..2:2..11}
 27: focus $workers
 29: b 67
-a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp, line 67 thread 2..11.
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp, line 67 thread 2..11.
 31: info breakpoints
 Procset		Num Type           Disp Enb What
-a{0..2}: 	1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:83
-a{0..2}: 	2   breakpoint     keep y   in main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:67 thread 2..11
+a{0..2}: 	1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:83
+a{0..2}: 	2   breakpoint     keep y   in main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:67 thread 2..11
 33: c -a
-a{0..2}: In main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:67
+a{0..2}: In main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:67
 35: bt 1
-a{0}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:67
+a{0}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:67
    
 37: frame
-a{1..2:2 4-10}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:67
-a{0:2 4 6 8-10}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:67
+a{1..2:2 4-10}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:67
+a{0:2 4 6 8-10}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:67
 39: n 10
-a{1..2}: In main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:67
-a{0}: In main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:67
+a{1..2}: In main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:67
+a{0}: In main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:67
 41: p i
 a{0..2:2..11}: <No symbol "i" in current context.>
 43: s
-a{0}: In main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:67
-a{1..2}: main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
+a{0}: In main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:67
+a{1..2}: main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
 44: s
-a{0..2}: main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
+a{0..2}: main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
 46: frame
 a{1..2}: Debugger error: could not parse frame result
-a{0:10}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
+a{0:10}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
 48: info threads
 a{1..2}:   Id    Frame
-a{1..2}: 20	in bd_dt/C++/cpp_parallel_threads.cpp
+a{1..2}: 20	in src/C++/cpp_parallel_threads.cpp
 a{1..2}:  Id Target Id Frame 
 a{1..2}: * 1 "cpp_parallel_th" (running)
-a{1..2}:  2 "cpp_parallel_th" add (total=@: 6, i=4) at bd_dt/C++/cpp_parallel_threads.cpp:20
+a{1..2}:  2 "cpp_parallel_th" add (total=@: 6, i=4) at src/C++/cpp_parallel_threads.cpp:20
 a{1..2}:  3 "cpp_parallel_th" (running)
 a{1..2}:  4 "cpp_parallel_th" (running)
 a{1..2}:  5 "cpp_parallel_th" (running)
@@ -88,16 +88,16 @@ a{0}:  3 "cpp_parallel_th" (running)
 a{0}:  4 "cpp_parallel_th" (running)
 a{0}:  5 "cpp_parallel_th" (running)
 a{0}:  6 "cpp_parallel_th" (running)
-a{0}:  7 "cpp_parallel_th" main::$_0::operator() (this=) at bd_dt/C++/cpp_parallel_threads.cpp:69
+a{0}:  7 "cpp_parallel_th" main::$_0::operator() (this=) at src/C++/cpp_parallel_threads.cpp:69
 a{0}:  8 "cpp_parallel_th" (running)
-a{0}:  9 "cpp_parallel_th" main::$_0::operator() (this=) at bd_dt/C++/cpp_parallel_threads.cpp:69
-a{0}:  10 "cpp_parallel_th" main::$_0::operator() (this=) at bd_dt/C++/cpp_parallel_threads.cpp:69
+a{0}:  9 "cpp_parallel_th" main::$_0::operator() (this=) at src/C++/cpp_parallel_threads.cpp:69
+a{0}:  10 "cpp_parallel_th" main::$_0::operator() (this=) at src/C++/cpp_parallel_threads.cpp:69
 a{0}:  11 "cpp_parallel_th" (running)
 a{0}: 
 50: bt 3
 a{0}: #0  <running>
-a{0}: #1  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
-a{0}: #0  add (total=@: 6, i=4) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
+a{0}: #1  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
+a{0}: #0  add (total=@: 6, i=4) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
    
 52: up 2
 a{1:2-3}: #2  _ZSt13__invoke_implIdZ4mainE3$_0JEET_St14__invoke_otherOT0_DpOT1_ (__f=...) at /opt/gcc/8.1.0/snos/include/g++/bits/invoke.h:60
@@ -122,51 +122,51 @@ a{2:2..8,11}: No locals.
 a{2:9..10}: i = 4
 a{2:9..10}: total = 6
 58: down 2
-a{1..2:2-3}: #0  add (total=@: 6, i=4) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
-a{1..2:4-11}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
-a{0:2 4-6 8}: #0  add (total=@: 6, i=4) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
-a{0:3 7 9-11}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
+a{1..2:2-3}: #0  add (total=@: 6, i=4) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
+a{1..2:4-11}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
+a{0:2 4-6 8}: #0  add (total=@: 6, i=4) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
+a{0:3 7 9-11}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
 60: finish
-a{0}: add at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
-a{1..2}: main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
+a{0}: add at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
+a{1..2}: main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
 62: frame
-a{0:8}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:68
-a{1..2:2-3}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:68
+a{0:8}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:68
+a{1..2:2-3}: #0  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:68
 64: b addOne
-a{0..2}: Breakpoint 3: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp, line 16 thread 2..11.
+a{0..2}: Breakpoint 3: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp, line 16 thread 2..11.
 66: c
-a{0}: In addOne(double, int) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
+a{0}: In addOne(double, int) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
 a{1..2}: _ZSt13__invoke_implIdZ4mainE3$_0JEET_St14__invoke_otherOT0_DpOT1_ at /opt/gcc/8.1.0/snos/include/g++/bits/invoke.h:60
 68: up
-a{1..2:2}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
-a{0:6}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
+a{1..2:2}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
+a{0:6}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
 70: frame
-a{1..2:2}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
-a{1..2:3}: #0  addOne (x=10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
-a{0:2 8}: #0  addOne (x=10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
-a{0:6}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
+a{1..2:2}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
+a{1..2:3}: #0  addOne (x=10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
+a{0:2 8}: #0  addOne (x=10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
+a{0:6}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
 72: up
-a{1..2:2}: #2  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
-a{1..2:3}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
-a{0:2 4-5 8}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
-a{0:6}: #2  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
+a{1..2:2}: #2  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
+a{1..2:3}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
+a{0:2 4-5 8}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
+a{0:6}: #2  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
 73: frame
-a{1..2:2}: #2  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
-a{1..2:3}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
-a{0:2 4-5 8}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:20
-a{0:3}: #0  addOne (x=1, i=2) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
-a{0:6}: #2  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:69
-a{0:7}: #0  addOne (x=45, i=10) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
+a{1..2:2}: #2  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
+a{1..2:3}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
+a{0:2 4-5 8}: #1  add (total=@: 10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:20
+a{0:3}: #0  addOne (x=1, i=2) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
+a{0:6}: #2  main::$_0::operator() (this=) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:69
+a{0:7}: #0  addOne (x=45, i=10) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
 75: down 2
-a{0:2 4-6 8}: #0  addOne (x=10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
-a{0:3}: #0  addOne (x=1, i=2) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
-a{0:7}: #0  addOne (x=45, i=10) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
-a{0:9}: #0  addOne (x=66, i=12) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
-a{0:10}: #0  addOne (x=78, i=13) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
-a{1..2:2-3}: #0  addOne (x=10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
+a{0:2 4-6 8}: #0  addOne (x=10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
+a{0:3}: #0  addOne (x=1, i=2) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
+a{0:7}: #0  addOne (x=45, i=10) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
+a{0:9}: #0  addOne (x=66, i=12) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
+a{0:10}: #0  addOne (x=78, i=13) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
+a{1..2:2-3}: #0  addOne (x=10, i=5) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
 77: focus $a{0:2..5}
 79: c
-a{0}: In addOne(double, int) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
+a{0}: In addOne(double, int) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
 81: p x
 a{0:2,4..5}: 15
 a{0:3}: 3
@@ -178,8 +178,8 @@ a{0:2..5}: 8
 87: focus $all
 88: dis 3
 90: c -a
-a{1..2}: In addOne(double, int) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
-a{0}: In addOne(double, int) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_parallel_threads.cpp:16
+a{1..2}: In addOne(double, int) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
+a{0}: In addOne(double, int) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_parallel_threads.cpp:16
 <$a>: value is 4950
 <$a>: value is 4950
 <$a>: value is 4943

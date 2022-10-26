@@ -1,17 +1,17 @@
 1: # This source files tests most of lgdb's basic commands for C++ source code
 2: maint set sync on
 3: # launch 2 instances of the application
-4: launch $b{2} bd_dt/C++/cpp_ds_test1.x
+4: launch $b{2} bin/CRAY/C++/cpp_ds_test1.x
 Starting application, please wait...
 Launched application...
 Created network...
 Connected to application...
 Launch complete.
-b{0..1}: Initial breakpoint, main at /bd_dt/C++/cpp_ds_test1.cpp:57
+b{0..1}: Initial breakpoint, main at /src/C++/cpp_ds_test1.cpp:57
 5: break trap
-b{0..1}: Breakpoint 1: file /bd_dt/C++/cpp_ds_test1.cpp, line 31.
+b{0..1}: Breakpoint 1: file /src/C++/cpp_ds_test1.cpp, line 31.
 6: continue
-b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 7: finish???
 8: p s
 b{0..1}: {x = 22.1, y = -5}
@@ -21,12 +21,12 @@ b{0..1}: {x = 22.2, y = -6}
 b{0..1}: const Struct1 & s = @...: {x = 22.100000000000001, y = -5}
 b{0..1}: const Classy & c = @...: {x = 22.199999999999999, y = -6}
 9: up
-b{0..1}: #1  main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_ds_test1.cpp:104
+b{0..1}: #1  main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:104
 9: info args
 b{0..1}: int argc = 1
 b{0..1}: char ** argv = ...
 9: down
-b{0..1}: #0  f at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_ds_test1.cpp:120
+b{0..1}: #0  f at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:120
 10: finish???
 11: # print some local variables
 12: print i
@@ -123,7 +123,7 @@ b{0..1}: 29
 39: p func2(2,-7)
 b{0..1}: -12
 40: continue
-b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 41: finish???
 42: p strings
 b{0..1}: {"and","then","there","were","none"}
@@ -144,7 +144,7 @@ b{0..1}: "there"
 50: p vecOfStrings[5][2][2]
 b{0..1}: 101 'e'
 51: continue
-b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 52: finish???
 53: # test a templated class and smart pointers
 54: p mi
@@ -169,7 +169,7 @@ b{0..1}: std::unique_ptr<int>(<2>)
 b{0..1}: std::shared_ptr<int>(<2>)
   <2>:5
 60: continue
-b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 61: finish???
 62: p i8
 b{0..1}: 22
@@ -184,7 +184,7 @@ b{0..1}: 4611686018427387904
 67: p ux
 b{0..1}: {i = 100, d = %[0-9e.-]*%}
 68: continue
-b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 69: finish???
 70: p i8
 b{0..1}: -22
@@ -203,7 +203,7 @@ b{0..1}: 8
 77: p notAnActualVariable
 b{0..1}: No symbol "notAnActualVariable" in current context
 78: c
-b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 79: finish???
 80: p mi2
 b{0..1}: {t = {v = {1,2,3}, sp = std::shared_ptr<double>(<2>), up = std::unique_ptr<double>(<3>)}, u = {v = {-8,-15,-22}, sp = std::shared_ptr<int>(<4>), up = std::unique_ptr<int>(<5>)}}
@@ -222,7 +222,7 @@ b{0..1}: {{t = {v = {16,17,18}, sp = std::shared_ptr<double>(<2>), up = std::uni
   <8>:100
   <9>:302
 82: c
-b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 83: finish???
 84: p LB
 b{0..1}: {leftInt = -1, leftFloat = -1.1, leftDouble = -11.1099996566772}
@@ -238,9 +238,9 @@ b{0..1}: {LinearDerived = {LeftBase = {leftInt = -1, leftFloat = -1.1, leftDoubl
 b{0..1}: {LeftBase = {leftInt = -1, leftFloat = -1.1, leftDouble = -11.1099996566772}, RightBase = {rightInt = 1, rightFloat = 1.1, rightDouble = 11.1099996566772}, derivedInt = 4, derivedFloat = 4.4}
 94: # nested template
 95: c
-b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_ds_test1.cpp:31
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:31
 96: up
-b{0..1}: #1  nestedTemplateClassTest at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/bd_dt/C++/cpp_ds_test1.cpp:314
+b{0..1}: #1  nestedTemplateClassTest at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:314
 97: p s
 b{0..1}: {tval = -104, uval = 1.2981}
 98: p s.tval
@@ -259,7 +259,7 @@ b{0..1}: int
 103: whatis s.uval
 b{0..1}: float
 104: c
-b{0..1}: Breakpoint 1, trap() at /bd_dt/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 105: finish???
 110: p o1
 b{0..1}: BONY
@@ -310,9 +310,9 @@ b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundSt
 133: ptype AroundStruct::Nested
 b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundStruct::VERONICA, AroundStruct::JUGHEAD}
 134: c
-b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/tests/gdb4hpc-4.14.4/bd_dt/C++/cpp_ds_test1.cpp:31
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/tests/gdb4hpc-4.14.4/src/C++/cpp_ds_test1.cpp:31
 135: up
-b{0..1}: #1  nestedTypedef at /home/users/jvogt/tests/gdb4hpc-4.14.4/bd_dt/C++/cpp_ds_test1.cpp:355
+b{0..1}: #1  nestedTypedef at /home/users/jvogt/tests/gdb4hpc-4.14.4/src/C++/cpp_ds_test1.cpp:355
 136: p c2
 b{0..1}: {x = 5, y = -121, n = {ch_ch_ch_cherry_bomb = 15}, static zz = 1865}
 137: ptype c2
@@ -366,9 +366,9 @@ b{0..1}: {
 151: p c2
 b{0..1}: {x = 5, y = -121, n = {ch_ch_ch_cherry_bomb = 15}, static zz = 1865}
 152: c
-b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/C++/cpp_ds_test1.cpp:31
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:31
 153: up
-b{0..1}: #1  anonymousClass at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/C++/cpp_ds_test1.cpp:366
+b{0..1}: #1  anonymousClass at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:366
 154: p obj
 b{0..1}: {i = 5}
 155: ptype obj

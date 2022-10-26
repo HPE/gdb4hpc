@@ -15,7 +15,7 @@
 16: # This source files tests most of lgdb's basic commands for C++ source code
 18: maint set sync on
 21: # launch 3 instances of the application
-22: launch $a{3}   bd_dt/C++/cpp_bd_test.x
+22: launch $a{3}   bin/CRAY/C++/cpp_bd_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -25,8 +25,8 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:24
-24: launch $b{3}   bd_dt/C++/cpp_bd_test.x
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:24
+24: launch $b{3}   bin/CRAY/C++/cpp_bd_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -36,14 +36,14 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:24
+b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:24
 32: # Set a breakpoint at specified line numbers:
 33: break cpp_bd_test.cpp:134
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp, line 134.
-b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp, line 134.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp, line 134.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp, line 134.
 35: break cpp_bd_test.cpp:136
-a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp, line 136.
-b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp, line 136.
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp, line 136.
+b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp, line 136.
 38: # Run to breakpoint 1:
 39: continue
 <$a>: 
@@ -190,8 +190,8 @@ b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_te
 <$b>: Float =                 2.3307               Size = 4 Bytes
 <$b>: Struct member = 	100                  Size = 4 Bytes
 <$b>: Float =                 2.3307               Size
-a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:134
-b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:134
+a{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:134
+b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:134
 42: # Confirm program is at specified line:
 43: #list
 46: # print some local variables
@@ -209,8 +209,8 @@ b{0..2}: 4
 {0}: Comparison is true.
 59: #continue to second breakpoint
 60: continue
-a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
-b{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/C++/cpp_bd_test.cpp:136
+a{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:136
+b{0..2}: Breakpoint 2, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bd_test.cpp:136
 62: print y
 a{0..2}: 2
 b{0..2}: 2

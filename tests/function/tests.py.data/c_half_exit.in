@@ -1,5 +1,5 @@
 0: # test that gdb4hpc behaves properly when some ranks exit but others don't
-1: launch $a{2} ./bd_dt/c/c_half_exit.x
+1: launch $a{2} ./bin/CRAY/c/c_half_exit.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -9,12 +9,12 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [2];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_half_exit.c:11
+a{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/c/c_half_exit.c:11
 2: maint set sync on
 3: break foo
-a{0..1}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_half_exit.c, line %\d+%.
+a{0..1}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/c/c_half_exit.c, line %\d+%.
 4: c
 a{1}: The application has reached an exit breakpoint.
-a{0}: Breakpoint 1, foo at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/c_half_exit.c:%\d+%
+a{0}: Breakpoint 1, foo at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/c/c_half_exit.c:%\d+%
 5: q
 Shutting down debugger and killing application for 'a'.

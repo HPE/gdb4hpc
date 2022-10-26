@@ -20,7 +20,7 @@
 20: # for C++ source code
 21: maint set sync on
 22: # launch 3 instances of the application
-23: launch $a{3} bd_dt/C++/cpp_bd_test.x
+23: launch $a{3} bin/CRAY/C++/cpp_bd_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -30,10 +30,10 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_bd_test.cpp:24
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_bd_test.cpp:24
 24: break cpp_bd_test.cpp:136
-a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_bd_test.cpp, line 136.
-25: launch $b{3}  bd_dt/C++/cpp_cmp_diff.x
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_bd_test.cpp, line 136.
+25: launch $b{3}  bin/CRAY/C++/cpp_cmp_diff.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -43,11 +43,11 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_cmp_diff.cpp:22
+b{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_cmp_diff.cpp:22
 26: focus $b
 27: # Set a breakpoint at specified line numbers:
 28: break cpp_cmp_diff.cpp:136
-b{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_cmp_diff.cpp, line 136.
+b{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_cmp_diff.cpp, line 136.
 29: focus $all
 30: #continue to breakpoint
 31: continue
@@ -243,14 +243,14 @@ b{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests
 <$a>: Hello world!  I am rank 1 of 3
 <$a>: 
 <$a>: Hello world!  I am rank 2 of 3
-a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_bd_test.cpp:136
+a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_bd_test.cpp:136
 <$b>: 
 <$b>: Hello world!  I am rank 0 of 3
 <$b>: 
 <$b>: Hello world!  I am rank 1 of 3
 <$b>: 
 <$b>: Hello world!  I am rank 2 of 3
-b{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_cmp_diff.cpp:136
+b{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_cmp_diff.cpp:136
 32: # run compare command on all data types
 33: print ret
 a{0..2}: 4

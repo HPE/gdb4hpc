@@ -18,20 +18,20 @@
 19: # 3.  Work with defset, print var, compare newset
 22: maint set sync on
 24: # launch 3 instances of the application
-25: launch $a{3}   bd_dt/c/c_type_test.x
+25: launch $a{3}   bin/CRAY/c/c_type_test.x
 Starting application, please wait...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:58
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
 28: break c_type_test.c:232
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 232.
-31: launch $b{3}   bd_dt/c/c_cmp_diff.x
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 232.
+31: launch $b{3}   bin/CRAY/c/c_cmp_diff.x
 Starting application, please wait...
 Launch complete.
-b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_cmp_diff.c:55
+b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_cmp_diff.c:55
 34: # Set a breakpoint at specified line numbers:
 35: focus $b
 39: break c_cmp_diff.c:227
-b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_cmp_diff.c, line 227.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_cmp_diff.c, line 227.
 41: focus $all
 44: continue
 <$a>: Hello World! from process 0
@@ -40,8 +40,8 @@ b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_cmp_diff.
 <$b>: Hello World! from process 0
 <$b>: Hello World! from process 1
 <$b>: Hello World! from process 2
-a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:232
-b{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_cmp_diff.c:227
+a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:232
+b{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_cmp_diff.c:227
 47: # Test defset command
 48: defset $new_set $b{0..2}
 50: compare $new_set{1}::si=$b{1}::si
@@ -51,8 +51,8 @@ b{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_cmp_di
 51: p $c::si
 a{0}: -11
 b{1}: -12
-35: release $a
-Shutting down debugger and resuming application for 'a'.
+35: kill $a
+Shutting down debugger and killing application for 'a'.
 36: p $c::si
 Warning: expired procset $a. Ignoring.
 b{1}: -12

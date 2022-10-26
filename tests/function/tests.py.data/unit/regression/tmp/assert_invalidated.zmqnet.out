@@ -1,0 +1,42 @@
+1: launch $a{2} --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/2 ranks connected... (timeout in 19 seconds)
+0/2 ranks connected... (timeout in 18 seconds)
+0/2 ranks connected... (timeout in 17 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+2: build $invalidated
+3:      # should pass
+4:     assert $a::c@"c_type_test.c":235 == $a::c@"c_type_test.c":235
+5: end
+Assertion script $invalidated compiled.
+6: maint set sync on
+7: start $invalidated
+Sending continue to application...
+Assertion script $invalidated finished.
+Use "info script $invalidated results" to view results.
+Assertion script $invalidated stopped.
+8: info script $invalidated results
+Results summary for script $invalidated:
+
+Total full runs: 1
+Total assertion evaluations this run: 1
+Passed: 1, Passed with warning: 0, Failed: 0, Indeterminate: 0
+Assertion results:
+
+Assertion 1:
+$a::c@"c_type_test.c":235 == $a::c@"c_type_test.c":235
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+9: kill $a
+Shutting down debugger and killing application for 'a'.
+10: start $invalidated
+Failed to set up script $invalidated: (Script contains an invalid procset: $a in "$a::c@"c_type_test.c":235 == $a::c@"c_type_test.c":235" is expired)
+Cancelling execution.
+Command resulted in an error: 10: start $invalidated
+11: q

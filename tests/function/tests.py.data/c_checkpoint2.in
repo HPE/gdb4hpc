@@ -1,5 +1,5 @@
 1: maint set sync on
-2: launch $bigname{4} ./bd_dt/c/c_inc.x
+2: launch $bigname{4} ./bin/CRAY/c/c_inc.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -9,7 +9,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [4];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-bigname{0..3}: Initial breakpoint, main at /.../bd_dt/c/c_inc.c:9
+bigname{0..3}: Initial breakpoint, main at /.../src/c/c_inc.c:9
 3: n
 bigname{0..3}: 11	    unsigned int inc = 0;
 4: n
@@ -50,9 +50,9 @@ bigname{3}: 10
 Created checkpoint 4 on $bigname{3}.
 25: focus $all
 26: frame
-bigname{2}: #0  main at /.../bd_dt/c/c_inc.c:16
-bigname{3}: #0  main at /.../bd_dt/c/c_inc.c:17
-bigname{0..1}: #0  main at /.../bd_dt/c/c_inc.c:19
+bigname{2}: #0  main at /.../src/c/c_inc.c:16
+bigname{3}: #0  main at /.../src/c/c_inc.c:17
+bigname{0..1}: #0  main at /.../src/c/c_inc.c:19
 27: info check
 Checkpoint Procset          Location
 0          $bigname{0..3} * $bigname{0..3}
@@ -66,26 +66,26 @@ bigname{3}: 10
 bigname{0..1}: 15
 29: restart 1
 Checkpoint 1 restored:
-bigname{0..3}: #0  main at /.../bd_dt/c/c_inc.c:13
+bigname{0..3}: #0  main at /.../src/c/c_inc.c:13
 30: p inc
 bigname{0..3}: 0
 31: restart 2
 Checkpoint 2 restored:
-bigname{0..3}: #0  main at /.../bd_dt/c/c_inc.c:16
+bigname{0..3}: #0  main at /.../src/c/c_inc.c:16
 32: p inc
 bigname{0..3}: 6
 33: restart 3
 Checkpoint 3 restored:
-bigname{2..3}: #0  main at /.../bd_dt/c/c_inc.c:16
-bigname{0..1}: #0  main at /.../bd_dt/c/c_inc.c:19
+bigname{2..3}: #0  main at /.../src/c/c_inc.c:16
+bigname{0..1}: #0  main at /.../src/c/c_inc.c:19
 34: p inc
 bigname{2..3}: 6
 bigname{0..1}: 15
 35: restart 4
 Checkpoint 4 restored:
-bigname{2}: #0  main at /.../bd_dt/c/c_inc.c:16
-bigname{3}: #0  main at /.../bd_dt/c/c_inc.c:17
-bigname{0..1}: #0  main at /.../bd_dt/c/c_inc.c:19
+bigname{2}: #0  main at /.../src/c/c_inc.c:16
+bigname{3}: #0  main at /.../src/c/c_inc.c:17
+bigname{0..1}: #0  main at /.../src/c/c_inc.c:19
 36: p inc
 bigname{2}: 6
 bigname{3}: 10
@@ -101,9 +101,9 @@ Checkpoint Procset          Location
 4          $bigname{3}    * $bigname{3}
 38: restart 0
 Checkpoint 0 restored:
-bigname{2}: #0  main at /.../bd_dt/c/c_inc.c:16
-bigname{3}: #0  main at /.../bd_dt/c/c_inc.c:17
-bigname{0..1}: #0  main at /.../bd_dt/c/c_inc.c:19
+bigname{2}: #0  main at /.../src/c/c_inc.c:16
+bigname{3}: #0  main at /.../src/c/c_inc.c:17
+bigname{0..1}: #0  main at /.../src/c/c_inc.c:19
 39: delete checkpoint 4
 40: delete checkpoint 3
 41: delete checkpoint 2

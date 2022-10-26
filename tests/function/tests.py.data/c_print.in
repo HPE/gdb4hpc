@@ -1,6 +1,6 @@
 1: maint set sync on
 2: # launch 3 instances of the application
-3: launch $a{3} ./bd_dt/c/c_type_test.x
+3: launch $a{3} ./bin/CRAY/c/c_type_test.x
 Starting application, please wait...
 Launched application...
 Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
@@ -9,14 +9,14 @@ Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
 Created network...
 Connected to application...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:58
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:58
 4: # Set a breakpoint at specified line numbers:
 5: break c_type_test.c:247
-a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c, line 247.
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c, line 247.
 6: continue
 <$a>: [node003:mpi_rank_0][MPIDI_CH3_Init] MVAPICH2 has been built with support for CUDA. But, MV2_USE_CUDA not set to 1. This can lead to errors in using GPU buffers. If you are running applications that use GPU buffers, please set MV2_USE_CUDA=1 and try again.
 <$a>: [node003:mpi_rank_0][MPIDI_CH3_Init] To suppress this warning, please set MV2_SUPPRESS_CUDA_USAGE_WARNING to 1
-a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:247
+a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:247
 7: # print some local variables
 8: #should be 28.2
 9: print ld
@@ -87,7 +87,7 @@ Copying output to tmp/c_print.log.
 41: p one_d_i
 a{0..2}: {0,1,2,3,4,5,6,7,8,9}
 42: frame
-a{0..2}: #0  main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/bd_dt/c/c_type_test.c:247
+a{0..2}: #0  main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:247
 43: set logging enabled off
 Logging disabled.
 44: shell wc -l tmp/c_print.log

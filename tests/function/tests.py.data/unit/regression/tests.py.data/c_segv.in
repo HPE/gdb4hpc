@@ -1,0 +1,29 @@
+1: maint set sync on
+2: # launch 3 instances of the application
+3: launch $a{3} bin/CRAY/c/c_segv.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /lus/sonexion/jvogt/tests/gdb4hpc/src/c/c_segv.c:4
+4: # hit the segfault
+5: continue
+a{0..2}: Program received signal SIGSEGV.
+a{0..2}: In main at /lus/sonexion/jvogt/tests/gdb4hpc/src/c/c_segv.c:8
+6: # investigate
+7: list
+a{0..2}: 8    	    *p = 2048;
+a{0..2}: 9    	
+a{0..2}: 10   	    MPI_Finalize();
+a{0..2}: 11   	
+a{0..2}: 12   	    return 0;
+a{0..2}: 13   	}
+8: print p
+a{0..2}: (int*) 0x0
+9: q???
+Shutting down debugger and killing application for 'a'.

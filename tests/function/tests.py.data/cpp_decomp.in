@@ -9,7 +9,7 @@
 9: #
 10: maint set sync on
 11: # launch 3 instances of one application and 4 of another to test decomp
-12: launch $a{3}  --args="0" bd_dt/C++/cpp_decomp.x
+12: launch $a{3}  --args="0" bin/CRAY/C++/cpp_decomp.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -19,8 +19,8 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp:18
-13: launch $b{4} --args="1" bd_dt/C++/cpp_decomp.x
+a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:18
+13: launch $b{4} --args="1" bin/CRAY/C++/cpp_decomp.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -30,14 +30,14 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [4];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..3}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp:18
+b{0..3}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:18
 14: # run until the arrays are initialized
 15: b 82
-a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp, line 82.
-b{0..3}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp, line 82.
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp, line 82.
+b{0..3}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp, line 82.
 16: c
-a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp:82
-b{0..3}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp:82
+a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:82
+b{0..3}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:82
 17: #define the buttload of possible decompositions
 18: decomposition $block1_3
 19: dimension 120
@@ -155,11 +155,11 @@ Comparison is true.
 Comparison is true.
 111: # continue to a point where the same comparisons should fail
 112: b 91
-a{0..2}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp, line 92.
-b{0..3}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp, line 92.
+a{0..2}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp, line 92.
+b{0..3}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp, line 92.
 113: c
-a{0..2}: Breakpoint 2, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp:92
-b{0..3}: Breakpoint 2, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/bd_dt/C++/cpp_decomp.cpp:92
+a{0..2}: Breakpoint 2, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:92
+b{0..3}: Breakpoint 2, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:92
 114: # at this point in the the comparisons should fail
 115: compare $block1_3{$a::block} == $block1_4{$b::block}
 Comparison is false. The difference delta is:

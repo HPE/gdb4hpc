@@ -21,7 +21,7 @@
 23: #the tests are exactly the same so results should - 
 24: #comparision is true for all
 26: maint set sync on
-28: launch $a{3}   bd_dt/c/c_type_test.x
+28: launch $a{3}   bin/CRAY/c/c_type_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -31,8 +31,8 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:58
-31: launch $b{3}   bd_dt/c/c_type_test.x
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
+31: launch $b{3}   bin/CRAY/c/c_type_test.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -42,11 +42,11 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:58
+b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
 34: #set breakpoint
 35: break c_type_test.c:247
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 247.
-b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 247.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 247.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 247.
 37: #run to breakpoint
 38: continue
 <$a>: Hello World! from process 0
@@ -55,8 +55,8 @@ b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test
 <$b>: Hello World! from process 0
 <$b>: Hello World! from process 1
 <$b>: Hello World! from process 2
-a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:247
-b{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:247
+a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:247
+b{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:247
 41: #run compare commands on all datatypes
 43: #char - Dissabled as lgdb compare command is not working for strings and chars
 44: #print c

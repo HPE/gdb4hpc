@@ -1,0 +1,24 @@
+17: maint set sync on
+20: launch $a{1} bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0}: Initial breakpoint, main at /src/c/c_type_test.c:58
+22: break c_type_test.c:228
+a{0}: Breakpoint 1: file /src/c/c_type_test.c, line 228.
+25: continue
+<$a>: Hello World! from process 0
+a{0}: Breakpoint 1, main at /src/c/c_type_test.c:228
+31: #Show the debugger version number.
+32: show version
+Version %\d+\.\d+.[\d.]+%
+41: #Show current search path for finding source files.
+42: show directories
+a{0}: Source directories searched: $cdir:$cwd
+48: #exit lgdb
+49: q
+Shutting down debugger and killing application for 'a'.

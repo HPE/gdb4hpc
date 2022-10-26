@@ -1,0 +1,176 @@
+1: maint set sync on
+2: launch $one{10} bin/CRAY/C++/cpp_bt.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [10];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+one{0..9}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bt.cpp:20
+3: launch $two{5} bin/CRAY/C++/cpp_bt.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [5];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+two{0..4}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bt.cpp:20
+4: break merge
+one{0..9}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bt.cpp, line 58.
+two{0..4}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_bt.cpp, line 58.
+5: # test on a single process
+6: focus $one
+7: c
+one{0..9}: Breakpoint 1, merge(int) at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+8: bt
+one{0..9}: #12 main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:35
+|  
+|_ one{0..4}: #11 branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:47
+|  one{0..4}: #10 left at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:77
+|  one{0..4}: #9  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+|  one{0..4}: #8  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+|  one{0..4}: #7  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+|  one{0..4}: #6  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+|  one{0..4}: #5  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:86
+|  one{0..4}: #4  step_one at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:62
+|  |  
+|  |_ one{0}: #3  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:67
+|  |  one{0}: #2  rare_branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:54
+|  |  one{0}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+|  |  one{0}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+|  |     
+|  \_ one{1..4}: #2  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:69
+|     one{1..4}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+|     one{1..4}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+|        
+\_ one{5..9}: #6  branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:49
+   one{5..9}: #5  right at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:81
+   one{5..9}: #4  step_one at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:62
+   |  
+   |_ one{5}: #3  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:67
+   |  one{5}: #2  rare_branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:54
+   |  one{5}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+   |  one{5}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+   |     
+   \_ one{6..9}: #2  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:69
+      one{6..9}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+      one{6..9}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+         
+9: maint sleep 1
+10: bt 3
+one{0,5}: #2  rare_branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:54
+one{0,5}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+one{0,5}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+   
+one{1..4,6..9}: #2  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:69
+one{1..4,6..9}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+one{1..4,6..9}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+   
+11: # now another single process
+12: focus $two
+13: c
+two{0..4}: Breakpoint 1, merge(int) at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+14: bt
+two{0..4}: #12 main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:35
+two{0..4}: #11 branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:47
+two{0..4}: #10 left at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:77
+two{0..4}: #9  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+two{0..4}: #8  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+two{0..4}: #7  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+two{0..4}: #6  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+two{0..4}: #5  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:86
+two{0..4}: #4  step_one at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:62
+|  
+|_ two{0}: #3  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:67
+|  two{0}: #2  rare_branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:54
+|  two{0}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+|  two{0}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+|     
+\_ two{1..4}: #2  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:69
+   two{1..4}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+   two{1..4}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+      
+15: maint sleep 1
+16: bt 5
+two{0}: #4  step_one at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:62
+two{0}: #3  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:67
+two{0}: #2  rare_branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:54
+two{0}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+two{0}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+   
+two{1..4}: #4  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:86
+two{1..4}: #3  step_one at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:62
+two{1..4}: #2  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:69
+two{1..4}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+two{1..4}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+   
+17: # now both
+18: focus $all
+19: bt
+one{0..9}: #12 main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:35
+|  
+|_ one{0..4}: #11 branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:47
+|  one{0..4}: #10 left at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:77
+|  one{0..4}: #9  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+|  one{0..4}: #8  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+|  one{0..4}: #7  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+|  one{0..4}: #6  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+|  one{0..4}: #5  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:86
+|  one{0..4}: #4  step_one at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:62
+|  |  
+|  |_ one{0}: #3  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:67
+|  |  one{0}: #2  rare_branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:54
+|  |  one{0}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+|  |  one{0}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+|  |     
+|  \_ one{1..4}: #2  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:69
+|     one{1..4}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+|     one{1..4}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+|        
+\_ one{5..9}: #6  branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:49
+   one{5..9}: #5  right at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:81
+   one{5..9}: #4  step_one at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:62
+   |  
+   |_ one{5}: #3  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:67
+   |  one{5}: #2  rare_branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:54
+   |  one{5}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+   |  one{5}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+   |     
+   \_ one{6..9}: #2  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:69
+      one{6..9}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+      one{6..9}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+         
+two{0..4}: #12 main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:35
+two{0..4}: #11 branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:47
+two{0..4}: #10 left at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:77
+two{0..4}: #9  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+two{0..4}: #8  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+two{0..4}: #7  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+two{0..4}: #6  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:88
+two{0..4}: #5  loop at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:86
+two{0..4}: #4  step_one at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:62
+|  
+|_ two{0}: #3  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:67
+|  two{0}: #2  rare_branch at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:54
+|  two{0}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+|  two{0}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+|     
+\_ two{1..4}: #2  step_two at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:69
+   two{1..4}: #1  step_three at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:73
+   two{1..4}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+      
+20: maint sleep 1
+21: bt 1
+two{0..4}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+   
+one{0..9}: #0  merge at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_bt.cpp:58
+   
+22: q
+Shutting down debugger and killing application for 'one'.
+Shutting down debugger and killing application for 'two'.

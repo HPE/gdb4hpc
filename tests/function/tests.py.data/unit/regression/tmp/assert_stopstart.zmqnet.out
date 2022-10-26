@@ -1,0 +1,139 @@
+1: launch $a{2} --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/2 ranks connected... (timeout in 19 seconds)
+0/2 ranks connected... (timeout in 18 seconds)
+0/2 ranks connected... (timeout in 17 seconds)
+0/2 ranks connected... (timeout in 16 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
+2: launch $b{2} --launcher-args="--exclusive -t 0:05" bin/CRAY/c/c_cmp_diff.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/2 ranks connected... (timeout in 19 seconds)
+0/2 ranks connected... (timeout in 18 seconds)
+0/2 ranks connected... (timeout in 17 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+b{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_cmp_diff.c:55
+3: build $stopstart
+4:     set stop on
+5:     # should pass
+6:     assert $a::assertTest@"c_type_test.c":232 !=  $b::assertTest@"c_cmp_diff.c":227
+7:     #
+8:     # all of these should fail
+9:     assert   $a::uc@"c_type_test.c":233 >=              $b::uc@"c_cmp_diff.c":228
+10:     assert $a::ush@"c_type_test.c":234 >              $b::ush@"c_cmp_diff.c":229
+11:     assert   $a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230
+12: end
+Assertion script $stopstart compiled.
+13: maint set sync on
+14: start $stopstart
+Sending continue to application...
+Assertion 2: $a::uc@"c_type_test.c":233 >= $b::uc@"c_cmp_diff.c":228 failed. Stopping script.
+Assertion script $stopstart stopped before completion. Use "start $stopstart" to resume.
+Use "info script $stopstart results" to view results.
+Assertion script $stopstart stopped.
+15: frame
+a{0..1}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:233
+b{0..1}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_cmp_diff.c:228
+16: info script $stopstart results
+Results summary for script $stopstart:
+
+Total full runs: 0
+Total assertion evaluations this run: 2
+Passed: 1, Passed with warning: 0, Failed: 1, Indeterminate: 0
+Assertion results:
+
+Assertion 1, configured with stop:
+$a::assertTest@"c_type_test.c":232 != $b::assertTest@"c_cmp_diff.c":227
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2, configured with stop:
+$a::uc@"c_type_test.c":233 >= $b::uc@"c_cmp_diff.c":228
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+Assertion 3, configured with stop:
+$a::ush@"c_type_test.c":234 > $b::ush@"c_cmp_diff.c":229
+Passes: 0, Passes with warnings: 0, Failures: 0.
+
+Assertion 4, configured with stop:
+$a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230
+Passes: 0, Passes with warnings: 0, Failures: 0.
+
+17: start $stopstart
+Sending continue to application...
+Assertion 3: $a::ush@"c_type_test.c":234 > $b::ush@"c_cmp_diff.c":229 failed. Stopping script.
+Assertion script $stopstart stopped before completion. Use "start $stopstart" to resume.
+Use "info script $stopstart results" to view results.
+Assertion script $stopstart stopped.
+18: frame
+a{0..1}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:234
+b{0..1}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_cmp_diff.c:229
+19: info script $stopstart results
+Results summary for script $stopstart:
+
+Total full runs: 0
+Total assertion evaluations this run: 3
+Passed: 1, Passed with warning: 0, Failed: 2, Indeterminate: 0
+Assertion results:
+
+Assertion 1, configured with stop:
+$a::assertTest@"c_type_test.c":232 != $b::assertTest@"c_cmp_diff.c":227
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2, configured with stop:
+$a::uc@"c_type_test.c":233 >= $b::uc@"c_cmp_diff.c":228
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+Assertion 3, configured with stop:
+$a::ush@"c_type_test.c":234 > $b::ush@"c_cmp_diff.c":229
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+Assertion 4, configured with stop:
+$a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230
+Passes: 0, Passes with warnings: 0, Failures: 0.
+
+20: start $stopstart
+Sending continue to application...
+Assertion 4: $a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230 failed. Stopping script.
+Assertion script $stopstart finished.
+Use "info script $stopstart results" to view results.
+Assertion script $stopstart stopped.
+21: info script $stopstart results
+Results summary for script $stopstart:
+
+Total full runs: 1
+Total assertion evaluations this run: 4
+Passed: 1, Passed with warning: 0, Failed: 3, Indeterminate: 0
+Assertion results:
+
+Assertion 1, configured with stop:
+$a::assertTest@"c_type_test.c":232 != $b::assertTest@"c_cmp_diff.c":227
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2, configured with stop:
+$a::uc@"c_type_test.c":233 >= $b::uc@"c_cmp_diff.c":228
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+Assertion 3, configured with stop:
+$a::ush@"c_type_test.c":234 > $b::ush@"c_cmp_diff.c":229
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+Assertion 4, configured with stop:
+$a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+22: frame
+a{0..1}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:235
+b{0..1}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_cmp_diff.c:230
+23: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

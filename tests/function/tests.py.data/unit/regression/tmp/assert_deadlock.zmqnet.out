@@ -1,0 +1,30 @@
+1: launch $a{2} --launcher-args="--exclusive -t 0:05" ./bin/CRAY/c/c_inc.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 20 from GDB4HPC_STARTUP_TIMEOUT.
+0/2 ranks connected... (timeout in 19 seconds)
+0/2 ranks connected... (timeout in 18 seconds)
+0/2 ranks connected... (timeout in 17 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_inc.c:9
+2: build $deadlock
+3:     set verbose-breakpoints true
+4:     # these assertions are true, but both ranks will stop at :14 and get stuck
+5:     assert $a{0}::inc@"c_inc.c":14 < $a{1}::inc@"c_inc.c":15
+6:     assert $a{0}::inc@"c_inc.c":15 > $a{1}::inc@"c_inc.c":14
+7: end
+Assertion script $deadlock compiled.
+8: maint set sync on
+9: start $deadlock
+Sending continue to application...
+a{1}: Breakpoint 3, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_inc.c:14
+a{0}: Breakpoint 2, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_inc.c:14
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
+Assertion script $deadlock stopped.
+10: frame
+a{0..1}: #0  main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_inc.c:14
+11: q
+Shutting down debugger and killing application for 'a'.

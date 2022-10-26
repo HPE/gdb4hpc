@@ -1,0 +1,167 @@
+1: #
+2: # cpp_thread.rc script
+3: # 
+4: # Unpublished Proprietary Information.
+5: # This unpublished work is protected to trade secret, copyright and other laws.
+6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
+7: # no part of this work or its content may be used, reproduced or disclosed
+8: # in any form.
+9: #
+11: maint set sync on
+13: # we'll launch one in non-stop mode to broaden the testing
+14: show non-stop
+non-stop mode is on
+16: set non-stop off
+17: launch $a{3}  bin/CRAY/C++/cpp_threads.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:13
+19: set non-stop on
+a{0..2}: Debugger error: Cannot change this setting while the inferior is running.
+non-stop mode will be applied on future "launch" commands
+20: launch $b{3}  bin/CRAY/C++/cpp_threads.x
+Starting application, please wait...
+Creating MRNet communication network...
+Waiting for debug servers to attach to MRNet communications network...
+Timeout in 400 seconds. Please wait for the attach to complete.
+Number of dbgsrvs connected: [1];  Timeout Counter: [0]
+Number of dbgsrvs connected: [1];  Timeout Counter: [1]
+Number of dbgsrvs connected: [3];  Timeout Counter: [0]
+Finalizing setup...
+Launch complete.
+b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:13
+22: show non-stop
+a{0..2}: non-stop mode is off
+b{0..2}: non-stop mode is on
+24: # run until the threads are running
+25: b 71
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 71.
+b{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 71.
+26: c
+b{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:71
+a{0..2}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:71
+28: info threads???
+a{0..2}:   Id    Frame
+a{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%src/C++/cpp_threads.cpp:71
+a{0..2}:   2-11  "cpp_threads.x" %.*sleep.*%
+a{0..2}: 
+b{0..2}:   Id    Frame
+b{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%src/C++/cpp_threads.cpp:71
+b{0..2}:   2-11  "cpp_threads.x" (running)
+b{0..2}: 
+30: b 60 thread 5
+a{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 60 thread 5.
+b{0..2}: Breakpoint 2: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 60 thread 5.
+31: c
+b{0..2}: Breakpoint 2, main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:60 thread 5
+a{0..2}: Breakpoint 2, main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:60 thread 5
+33: info threads 1 5
+a{0..2}:   Id    Frame
+a{0..2}:   1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%src/C++/cpp_threads.cpp:80
+a{0..2}: * 5     "cpp_threads.x" main::$_0::operator() (this=) at %.*/?%src/C++/cpp_threads.cpp:60
+a{0..2}: 
+b{0..2}:   Id    Frame
+b{0..2}: * 1     "cpp_threads.x" (running)
+b{0..2}:   5     "cpp_threads.x" main::$_0::operator() (this=) at %.*/?%src/C++/cpp_threads.cpp:60
+b{0..2}: 
+34: info breakpoints
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:71
+a{0..2}         2   breakpoint     keep y   in main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:60 thread 5
+b{0..2}         1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:71
+b{0..2}         2   breakpoint     keep y   in main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:60 thread 5
+36: thread 5
+37: p sum
+a{0..2}: 0
+b{0..2}: 0
+39: del 2
+41: watch sum thread 5
+a{0..2}: Watchpoint 3: Set on variable sum
+b{0..2}: Watchpoint 3: Set on variable sum
+42: info breakpoints
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:71
+a{0..2}         3   watchpoint     keep y   sum thread 5
+b{0..2}         1   breakpoint     keep y   in main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:71
+b{0..2}         3   watchpoint     keep y   sum thread 5
+44: c
+b{0..2}: Watchpoint 3, variable expression: sum
+b{0..2}: In main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:61
+a{0..2}: Watchpoint 3, variable expression: sum
+a{0..2}: In main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:61
+46: del 3
+48: thread 8
+49: thread name hunka-hunka-burning-love
+50: thread info
+a{0..2}: Unsupported symbol type
+b{0..2}: Unsupported symbol type
+52: thread find hunk
+a{0..2}: Thread 8 has name 'hunka-hunka-burning-love'
+b{0..2}: Thread 8 has name 'hunka-hunka-burning-love'
+54: focus $b
+55: # XXX: ddt_gdb 10 has a regression where thread apply will fail if any thread is running. 
+55: thread apply 1-3 5 bt 2
+b{0..2}: Debugger error: Thread apply failed. (gdb: Selected thread is running.)
+55: thread apply 5 bt 2
+b{0..2}: Thread 5:
+b{0..2}: #0  main::$_0::operator() (this=) at %.*/?%src/C++/cpp_threads.cpp:61
+b{0..2}: #1   in %.*invoke.*%
+b{0..2}: (More stack frames follow...)
+56: thread apply 1-4 -s -q p i
+b{0..2}: Debugger error: Thread apply failed. (gdb: No symbol "i" in current context.)
+58: focus $a
+59: thread apply 2 -v frame???
+a{0..2}: Thread 2 (Thread 0x15554ffd1700 (LWP 22645)):
+a{0..2}: #0  %.*sleep.*%
+61: focus $all
+63: b 75
+a{0..2}: Breakpoint 4: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 75.
+b{0..2}: Breakpoint 4: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 75.
+64: c -a
+b{0..2}: Breakpoint 4, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:75
+a{0..2}: Breakpoint 4, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:75
+66: focus $a
+67: thread 1
+68: show scheduler-locking
+a{0..2}: Mode for locking scheduler during execution is "replay".
+
+69: set scheduler-locking on
+70: n
+a{0..2}: 76	            valAvail = true;
+71: info threads 1 8???
+a{0..2}:   Id    Frame
+a{0..2}: * 1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%src/C++/cpp_threads.cpp:76
+a{0..2}:   8     "hunka-hunka-burning-love" __lll_lock_wait () from /lib64/libpthread.so.0
+a{0..2}: 
+72: set scheduler-locking off
+73: show scheduler-locking
+a{0..2}: Mode for locking scheduler during execution is "off".
+
+75: info status
+a{0..2}: The application is stopped.
+77: focus $all
+78: del 4
+79: c -a
+a{0..2}: %(The application has reached an exit breakpoint.|Program exited normally.)%
+b{0..2}: %(The application has reached an exit breakpoint.|Program exited normally.)%
+81: # these line hang on the info stautus call, commenting these out for
+82: # now and I'll create a jira to figure out what's going on
+83: #maint sleep 2
+84: #info status
+85: #halt
+86: #info status
+87: #c
+89: #maint sleep 2
+90: #halt -a
+91: #info status
+93: #focus $all
+95: quit
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

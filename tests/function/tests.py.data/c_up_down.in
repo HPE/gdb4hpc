@@ -1,12 +1,12 @@
 16: maint set sync on
 18: # launch 3 instances of the application
-19: launch $a{3}   bd_dt/c/c_type_test.x
+19: launch $a{3}   bin/CRAY/c/c_type_test.x
 Starting application, please wait...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:58
+a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
 22: # Set a breakpoint at specified line numbers:
 23: break c_type_test.c:253
-a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c, line 253.
+a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 253.
 25: #continue to breakpoint inside function
 26: continue
 <$a>: Hello World! from process 0
@@ -15,13 +15,13 @@ a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test
 <$a>: Hello World! from process 3
 <$a>: Hello World! from process 4
 <$a>: Hello World! from process 5
-a{0..2}: Breakpoint 1, test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:253
+a{0..2}: Breakpoint 1, test_stack at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:253
 28: # Test up command - back to calling location
 29: up
-a{0..2}: #1  main at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:228
+a{0..2}: #1  main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:228
 32: # Test down command - back at line 247
 33: down
-a{0..2}: #0  test_stack at /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/c_type_test.c:253
+a{0..2}: #0  test_stack at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:253
 36: #exit lgdb
 37: q
 Shutting down debugger and killing application for 'a'.

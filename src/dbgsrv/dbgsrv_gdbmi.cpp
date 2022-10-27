@@ -1437,7 +1437,8 @@ static std::string anonymizeThreadInfo(const std::string& val) {
     static std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
     static std::regex amdGpuRE(R"(AMDGPU ((Thread)|(Wave)) [0-9:.,() ]+/[0-9]+)");
     static std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can stymie aggregation
-
+    static std::regex intArgRE(R"(=\d+)");
+    
     std::istringstream is(val);
     std::ostringstream os;
 
@@ -1451,7 +1452,12 @@ static std::string anonymizeThreadInfo(const std::string& val) {
 
         line = std::regex_replace(line, lwpRE, "");
         line = std::regex_replace(line, hexValRE, "");
-        line = std::regex_replace(line, amdGpuRE, "AMDGPU");
+        if (std::smatch match; std::regex_search(line, match, amdGpuRE)) {
+            // On AMDGPU's remove integral arguments too.  The motiviation is that openMP is
+            // now adding an integer argument that is *different* for every single thread.
+            line.replace(match[0].first, match[0].second, "AMDGPU");
+            line = std::regex_replace(line, intArgRE, "=");
+        }
         line = std::regex_replace(line, multispaceRE, " ");
 
         os << line << "\n";

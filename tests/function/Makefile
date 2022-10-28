@@ -13,7 +13,8 @@ TESTS = \
    ./bin/${PE_ENV}/c/c_list.x \
    ./bin/${PE_ENV}/c/c_inc.x \
    ./bin/${PE_ENV}/c/c_half_exit.x \
-   ./bin/${PE_ENV}/c/simple_gpu.x \
+   ./bin/${PE_ENV}/c/simple_gpu-rocm.x \
+   ./bin/${PE_ENV}/c/simple_gpu-cuda.x \
    ./bin/${PE_ENV}/C++/cpp_bd_test.x \
    ./bin/${PE_ENV}/C++/cpp_cmp_diff.x \
    ./bin/${PE_ENV}/C++/cpp_ds_test1.x \
@@ -169,10 +170,17 @@ clean:
 ./bin/${PE_ENV}/cti_launch.x : ./bin/${PE_ENV}/cti_launch.o
 	CC -g -O0 $^ -o $@ $(CTI_LD)
 
-ROCM_SCRIPT = ./tests.py.data/rocm/$(HOSTNAME).sh 
+ROCM_SCRIPT = ./tests.py.data/rocm/$(HOSTNAME).sh
+CUDA_SCRIPT = ./tests.py.data/cuda/$(HOSTNAME).sh 
 
-./bin/${PE_ENV}/c/simple_gpu.x : ./src/c/simple_gpu.c $(wildcard $(ROCM_SCRIPT))
-	if [ -f $(ROCM_SCRIPT)] ; then \
-		$(ROCM_SCRIPT) make; \
+./bin/${PE_ENV}/c/simple_gpu-rocm.x : ./src/c/simple_gpu.c $(wildcard $(ROCM_SCRIPT))
+	if [ -f $(ROCM_SCRIPT) ] ; then \
+		$(ROCM_SCRIPT) make $< $@; \
 	fi
+
+./bin/${PE_ENV}/c/simple_gpu-cuda.x : ./src/c/simple_gpu.c $(wildcard $(CUDA_SCRIPT))
+	if [ -f $(CUDA_SCRIPT) ] ; then \
+		$(CUDA_SCRIPT) make $< $@; \
+	fi
+
 

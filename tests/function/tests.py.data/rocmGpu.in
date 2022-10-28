@@ -8,8 +8,8 @@
 8: # in any form.
 9: #
 15: maint set sync on
-16: # launch 3 instances of the application
-17: launch $a{3} --gpu bin/CRAY/c/simple_gpu.x
+16: # launch an instances of the application -- only one node has the right gpu on pegasus
+17: launch $a{1} --gpu bin/CRAY/c/simple_gpu-rocm.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -19,7 +19,22 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/bd_dt/c/simple_gpu.c:15
-29: #exit lgdb
-30: q
+a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/c/simple_gpu.c:15
+13: b 78
+a{0}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/simple_gpu.c, line 78.
+14: c
+<$a>: max number of threads 48
+a{0}: Breakpoint 1, .omp_outlined._debug__.7 at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/simple_gpu.c:78
+14: # it takes a second for all the threads to stop 
+15: maint sleep 4
+16: info threads
+a{0}:   Id    Frame
+a{0}: * 1-2 4 "simple_gpu-rocm" (running)
+a{0}:   5-1028 AMDGPU "simple_gpu-rocm.x" __omp_outlined___debug__.1 (.global_tid.=, .bound_tid.=, .previous.lb.=, .previous.ub.=, nCells=, Vm=, Mhu_a=, Tau_a=, m_gate=, checkVal=) at src/c/simple_gpu.c:78
+a{0}: 
+17: t 10
+18: p sum1
+a{0}: 0.996321172062538
+19: #exit lgdb
+20: q
 Shutting down debugger and killing application for 'a'.

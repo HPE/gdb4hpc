@@ -2020,40 +2020,6 @@ static size_t DbgGetNextExprIdx()
 }
 
 /*
-** DBG_SENDEXPR: Send expression to BE.
-*/
-void DbgSendExpr(rec_set_t *set, char *exp) {
-    if (!set) return;
-
-    size_t id = DbgGetNextExprIdx();
-
-    auto request = CommandToSocProto(DBGCMD_EVALEXPR, exp, id);
-
-    for (auto&& recv_ptr : set) {
-        // send the command to this di
-        DbgSendCmd(recv_ptr, request);
-    }
-
-    return;
-}
-
-/*
-** DBG_GETEXPR: Get results of evaluate expression.
-*/
-rep_set_t *DbgGetExpr(rec_set_t *set) {
-    rep_set_t *result = NewRepSet();
-
-    if (!set) return result;
-
-    for (auto&& recv_ptr : set) {
-        auto tmp_result = DbgRecvReply(recv_ptr, DBGEV_DATA);
-        result = MergeRepSet(result, tmp_result);
-    }
-
-    return result;
-}
-
-/*
 ** DBGOPENSOCKET: Open socket for each debug server - for P2P
 */
 rep_set_t *DbgOpenSocket(rec_set_t *set, char *opset_name, int opset_size) {

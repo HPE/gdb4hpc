@@ -1484,8 +1484,12 @@ dbgevent_t *DbgGdbMI::Initializer::quit(bool detach) {
         // but the inferior will not actually get the signal yet.
         sendAndCatchSigstop();
 
-        auto e = m_dbg.waitAndProcessAsyncEvent();
-        FreeEvent(e);
+        if (!m_session || m_session->out_fd == -1) {
+            DVPRINT("gdb is probably already dead, not waiting for an event\n");
+        } else {
+            auto e = m_dbg.waitAndProcessAsyncEvent();
+            FreeEvent(e);
+        }
     }
 
     // Even if we are detaching, we stop the process so that it will not finish

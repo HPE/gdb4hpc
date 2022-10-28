@@ -337,10 +337,7 @@ extern rep_set_t *DbgStartup(rec_set_t *);
 // This is the only thing that should be returning something other than
 // rep_set_t * I don't know how to fix it since its for sending a synchronous
 // command asynchronously
-// TODO: This should probably be removed.
-extern void DbgSendExpr(rec_set_t *, char *);
-// If the above is removed, get rid of this too.
-extern rep_set_t *DbgGetExpr(rec_set_t *);
+
 extern rep_set_t *DbgEvalExpr(rec_set_t *, const char *);
 // DbgSetDebuggerVar and DbgGetDebuggerVar is never called, this might be useful
 // at some point though for staging data in gdb variables on the backends

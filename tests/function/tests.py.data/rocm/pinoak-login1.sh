@@ -23,15 +23,15 @@ export MV2_USE_CUDA=1
 echo "in pinoak.sh" $*
 
 if [ x$1 == xmake ]; then
-    echo ${AFAR_CLANG} -DUSE_MPI -g -ggdb -O0 ${AFAR_ARGS} -I${CRAY_MPICH_BASEDIR}/amd/5.0/include $AFAR_LIBS $AFAR_LINK_OPTS -o ./bin/${PE_ENV}/c/simple_gpu.x ./src/c/simple_gpu.c
-    ${AFAR_CLANG} -DUSE_MPI -g -ggdb -O0 ${AFAR_ARGS} -I${CRAY_MPICH_BASEDIR}/amd/5.0/include $AFAR_LIBS $AFAR_LINK_OPTS -o ./bin/${PE_ENV}/c/simple_gpu.x ./src/c/simple_gpu.c
+    echo ${AFAR_CLANG} -DUSE_MPI -g -ggdb -O0 ${AFAR_ARGS} -I${CRAY_MPICH_BASEDIR}/amd/5.0/include $AFAR_LIBS $AFAR_LINK_OPTS -o ./bin/${PE_ENV}/c/simple_gpu-rocm.x ./src/c/simple_gpu.c
+    ${AFAR_CLANG} -DUSE_MPI -g -ggdb -O0 ${AFAR_ARGS} -I${CRAY_MPICH_BASEDIR}/amd/5.0/include $AFAR_LIBS $AFAR_LINK_OPTS -o ./bin/${PE_ENV}/c/simple_gpu-rocm.x ./src/c/simple_gpu.c
 # -lxpmem
    exit 0
 fi
 
 if [ x$1 == xrun ]; then
    echo run
-   srun -n 1 ./bd_dt/c/simple_gpu.x
+   srun -n 1 ./bd_dt/c/simple_gpu-rocm.x
    exit 0
 fi
 

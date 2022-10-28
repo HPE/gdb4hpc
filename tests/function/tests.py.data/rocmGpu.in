@@ -21,16 +21,16 @@ Finalizing setup...
 Launch complete.
 a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/c/simple_gpu.c:15
 13: b 78
-a{0}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/simple_gpu.c, line 78.
+a{0}: Breakpoint 1%.*%src/c/simple_gpu.c%.*%78.
 14: c
 <$a>: max number of threads 48
-a{0}: Breakpoint 1, .omp_outlined._debug__.7 at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/simple_gpu.c:78
+a{0}: Breakpoint 1, .omp_outlined._debug__.7%.*%src/c/simple_gpu.c:78
 14: # it takes a second for all the threads to stop 
 15: maint sleep 4
 16: info threads
 a{0}:   Id    Frame
-a{0}: * 1-2 4 "simple_gpu-rocm" (running)
-a{0}:   5-1028 AMDGPU "simple_gpu-rocm.x" __omp_outlined___debug__.1 (.global_tid.=, .bound_tid.=, .previous.lb.=, .previous.ub.=, nCells=, Vm=, Mhu_a=, Tau_a=, m_gate=, checkVal=) at src/c/simple_gpu.c:78
+a{0}: * 1%.*% "simple_gpu-rocm%.*%" (running)
+a{0}:   5-%\d+% AMDGPU "simple_gpu%.*%" __omp_outlined%.*%src/c/simple_gpu.c:78
 a{0}: 
 17: t 10
 18: p sum1

@@ -515,6 +515,7 @@ void InitCommands() {
     InitCmd_checkpoint();
     InitCmd_comp();
     InitCmd_env();
+    InitCmd_iostat();
     InitCmd_frame();
     InitCmd_func();
     InitCmd_go();

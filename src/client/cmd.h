@@ -45,6 +45,7 @@ extern void InitCmd_break(void);
 extern void InitCmd_checkpoint(void);
 extern void InitCmd_comp(void);
 extern void InitCmd_env(void);
+extern void InitCmd_iostat(void);
 extern void InitCmd_frame(void);
 extern void InitCmd_func(void);
 extern void InitCmd_go(void);

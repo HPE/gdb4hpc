@@ -111,6 +111,7 @@ extern const char* const cmd_info_threads_help[];
 extern const char* const cmd_info_blockmap_help[];
 extern const char* const cmd_info_diff_help[];
 extern const char* const cmd_info_script_help[];
+extern const char* const cmd_info_iostat_help[];
 
 /*
  * Class maint subcommands

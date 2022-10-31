@@ -1371,6 +1371,17 @@ const char* const cmd_info_script_help[] = {
     "view of the results of the assertion script.",
     0};
 
+const char* const cmd_info_iostat_help[] = {
+    "Summary: Display a table of Fortran Runtime Errors",
+    "Usage: info iostat",
+    "     : info iostat <code>",
+    "Description:",
+    "Display information about the Fortran Runtime Errors.",
+    "Without providing a code argument, the command will print a",
+    "list of all Fortran Runtime Error codes from cce. Passing a code ",
+    "argument will print the detailed information for the given code.",
+    0};
+
 /*
  * Class maint subcommands
  */

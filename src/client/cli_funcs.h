@@ -300,6 +300,11 @@ public:
     ~PrintOutMItoCli();
 };
 
+class PrintOutCliToMI {
+public:
+    PrintOutCliToMI();
+    ~PrintOutCliToMI();
+};
 
 enum class MIResult { DONE, STOPPED, CONTINUATION };
 extern void PrintOutMIResult(MIResult res, const char* format, ...) __attribute__((format (printf,2,3)));

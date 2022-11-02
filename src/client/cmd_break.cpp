@@ -815,7 +815,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
     // Need to loop over each di in the rec_set
     for (auto&& recv_ptr : rec_set) {
-        if (recv_ptr->rec_di.breakpoints().isEmpty()) {
+        if (!Client.MI_mode && recv_ptr->rec_di.breakpoints().isEmpty()) {
             PrintMsgWithSetInfo(recv_ptr->rec_di.handle().c_str(), recv_ptr->rec_group.get(),
                                 "No breakpoints or watchpoints.\n");
             continue;

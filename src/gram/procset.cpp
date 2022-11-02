@@ -789,14 +789,14 @@ static void _print_with_set_info(const char *setname, const Bitset *group,
                                  const char* threads, bool isErr,
                                  const char *f, va_list ap) {
     if (auto set_info = GetProcSetString(setname, group , threads); !set_info.empty()) {
+        // We should be able to assume set_info does not contain a '%'
+        auto f2 = set_info + ": " + (f ? f : "");
         if (isErr) {
-            PrintOutError("%s: ", set_info.c_str());
+            vPrintOutError(f2.c_str(), ap);
         } else {
-            PrintOutMsg("%s: ", set_info.c_str());
+            vPrintOutMsg(f2.c_str(), ap);
         }
-    }
-
-    if (isErr) {
+    } else if (isErr) {
         vPrintOutError(f, ap);
     } else {
         vPrintOutMsg(f, ap);

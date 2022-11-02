@@ -702,6 +702,7 @@ void interfaceOption(const char* opt, cli_stream_args_t*& cli_args)
         Client.MI_mode = true;
         Client.silent = true;
         Client.interactive = false;
+        Client.confirm = false;
         return;
     }
 

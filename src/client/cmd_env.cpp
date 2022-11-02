@@ -912,7 +912,11 @@ static int cmd_interpreter_exec_cmd(rec_set_t* rec_set, int argc, char** argv) {
         auto len = strlen(argv[2]);
         command = std::string{argv[2]+1, std::max(size_t(2),len)-2};
     }
-    ExecuteCommand(command.c_str());
+    mi_log("\nExecuting %s\n", command.c_str());
+    {
+        PrintOutCliToMI mi;         // toggles output printing
+        ExecuteCommand(command.c_str());
+    }
 
     Client.MI_mode = true;
 

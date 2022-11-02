@@ -34,6 +34,7 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-break-delete", "delete"},
  {"-break-insert", "break" },
  {"-break-list", "info breakpoints"},
+ {"-data-list-register-names", "ok,register-names=[]"},
  {"-enable-frame-filters", "ok"},
  {"-enable-pretty-printing", "set print pretty on"},
  {"-exec-continue", "continue"},
@@ -49,8 +50,7 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-inferior-tty-set", "set inferior-tty"},
  {"-interpreter-exec", "interpreter-exec" },
  {"-list-features", "ok,features=[]"},
- {"-list-target-features", "ok,features=[]"}, 
- {"-special-launch", "launch $a{4} ./bd_dt/C++/cpp_bt.x" }, // temporary
+ {"-list-target-features", "ok,features=[async]"}, 
  {"-stack-info-frame", "frame"},
  {"-stack-list-frames","backtrace"},
  {"-stack-list-variables", "info locals"},
@@ -74,7 +74,7 @@ std::string convertMiToCli(const std::string& cmdLine) {
     cli_set_prefix(tag);
 
     if (auto loc = return_cmd_map.find(cmd); loc != return_cmd_map.end()) {
-        if (args.empty()) return loc->second;
+        if (args.empty() || (loc->second.rfind("ok",0)==0)) return loc->second;
         else return loc->second + " " + args;
     } else if (auto loc = func_cmd_map.find(cmd); loc != func_cmd_map.end()) {
         return (*loc->second)(args.c_str());

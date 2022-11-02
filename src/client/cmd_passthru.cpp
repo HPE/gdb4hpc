@@ -133,6 +133,16 @@ static int cmd_directmode_end_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
+
+    if (Client.MI_mode) {
+        auto directCmds = SetCommands(OldCmds);
+        auto command = ArgsToString(argv, argc);
+        mi_log("forwarding %s to old interpreter\n", command.c_str());
+        ExecuteCommand(command.c_str());
+        OldCmds = SetCommands(directCmds);
+        return 1;
+    }
+
     char *cmd;
     rep_set_t *rep_set;
 
@@ -165,6 +175,25 @@ static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
 
     FreeRepSet(rep_set);
 
+    return 1;
+}
+
+static int cmd_directmode_interpreter_exec_cmd(rec_set_t *rec_set, int argc,
+                                               char **argv) {
+    auto command = std::string{};
+    if (argc > 3 || argv[2][0] != '"') {
+        command = ArgsToString(argv+2, argc-2);
+    } else {
+        auto len = strlen(argv[2]);
+        command = std::string{argv[2]+1, std::max(size_t(2),len)-2};
+    }
+
+    mi_log("forwarding directmode %s\n", command.c_str());
+    auto mi = false;
+    std::swap(Client.MI_mode, mi);
+    ExecuteCommand(command.c_str());
+    std::swap(Client.MI_mode, mi);
+    PrintOutOk();
     return 1;
 }
 
@@ -223,6 +252,9 @@ void InitCmd_passthru(void) {
                   cmd_directmode_blacklist_cmd, dummy_help, "");
     AddAltCommand(DirectModeCmds, "kill", NULL, proc_ignore, 0,
                   cmd_directmode_blacklist_cmd, dummy_help, "");
+
+    AddAltCommand(DirectModeCmds, "interpreter-exec", NULL, proc_ignore, 0,
+                  cmd_directmode_interpreter_exec_cmd, dummy_help, "");
 
     SetDefaultCommand(DirectModeCmds, "_default_cmd");
 }

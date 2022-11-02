@@ -41,6 +41,7 @@ static void vPrintOutMIMsg(const char *format, va_list arg_list);
 static cli_stream_t *CurrentStream; /* Current cli stream */
 static std::vector<cli_stream_t*> AllStreams;
 static bool MIPrintToConsole = false;
+static bool MIPrintConsoleToMI = false;
 
 void InitCLI(cli_type_t default_type, interpreter_type interpreter,
              cli_stream_args_t *default_args) {
@@ -1021,18 +1022,17 @@ void vPrintOutMsg(const char *format, va_list arg_list) {
         return;
     }
 
-    if (Client.MI_mode) {
-        if (MIPrintToConsole){
-            int currStream=CurrentStream->cs_num;
-            DbgSwitchCurrentStream(AllStreams[0]);
-            // vfprintf the line we recieved
-            cli_clear_line();
-            CurrentStream->cs_out.vprintf(format, arg_list);
-            cli_reset_stream();
-            DbgSwitchCurrentStream(AllStreams[currStream]);
-        }else{
-            vPrintOutMIMsg(format, arg_list);
-        }
+    if (Client.MI_mode && MIPrintToConsole && !MIPrintConsoleToMI) {
+        int currStream=CurrentStream->cs_num;
+        DbgSwitchCurrentStream(AllStreams[0]);
+        // vfprintf the line we recieved
+        cli_clear_line();
+        CurrentStream->cs_out.vprintf(format, arg_list);
+        cli_reset_stream();
+        DbgSwitchCurrentStream(AllStreams[currStream]);
+        return;
+    } else if (Client.MI_mode || MIPrintConsoleToMI) {
+        vPrintOutMIMsg(format, arg_list);
         return;
     }
 
@@ -1047,25 +1047,38 @@ void PrintOutOk() {
     }
 }
 
+// Print out synchronous debugging output messages in MI format.  This includes
+// things like the output from print, info, frame and backtrace.  This should
+// not include asynchronous messages (like "breakpoint hit" or "stepping completed")
+// or output from the program itself.  Those are output with a different prefix.
 static void vPrintOutMIMsg(const char *format, va_list arg_list) {
-    // ignoring embedded quotes for the moment
-    auto msgFmt=std::string{format};
+    // the output is line oriented to we use os to cache any partial lines
+    static auto os = std::ostringstream{};
 
-    for (std::size_t pos=0; (pos=msgFmt.find_first_of("\"\n",pos)) != std::string::npos; ) {
-        msgFmt.erase(pos,1);
+    // the arg_list may well contain quotes or newlines, so we have to
+    // just get the final output form so we can know they're being properly
+    // escaped.
+    char *cstr = nullptr;
+    if (vasprintf(&cstr, format, arg_list) < 0) return;
+
+    if (!os.tellp()) os << "~\"";  // the MI form is ~"..."
+
+    for (const auto *p = cstr; *p; ++p) {
+        switch (*p) {
+        case '"': os << "\\\""; break;   
+        case '\n':
+            // escape the newline and flush the result
+            os << "\\n\"\n";  
+            CurrentStream->cs_out("%s", os.str().c_str());
+            // GetMIEpilogue();
+            os.str("");
+            os << "~\"";
+            break;
+        default: os << *p;
+        }
     }
-    if (msgFmt.empty()) return;
-    msgFmt = "~\"" + msgFmt + "\"\n" + GetMIEpilogue();
 
-    va_list args2;
-    va_copy(args2, arg_list);
-
-    CurrentStream->cs_out.vprintf(msgFmt.c_str(), arg_list);
-
-    mi_logv2("output mi:", msgFmt.c_str(), args2);
-    va_end(args2);
-    //CurrentStream->cs_out.vprintf(msgFmt.c_str(), arg_list);
-
+    free(cstr);
 }
 
 void PrintOutMIResult(MIResult res, const char* format, ...)
@@ -1112,7 +1125,7 @@ void cli_out_t::vprintf(const char *format, va_list args) {
     // clear the current line this should contain a prompt
     cli_clear_line();
 
-    if (Client.MI_mode) {
+    if (Client.MI_mode || MIPrintConsoleToMI) {
         static const char* tag0 = "output MI:";
         static const char* tag = tag0;
         va_list spargs;
@@ -1347,6 +1360,10 @@ SuppressPrintOutError::~SuppressPrintOutError() { if (stream) stream->cs_fperr=p
 
 PrintOutMItoCli::PrintOutMItoCli() { MIPrintToConsole = true; }
 PrintOutMItoCli::~PrintOutMItoCli() { MIPrintToConsole = false; };
+
+PrintOutCliToMI::PrintOutCliToMI() { MIPrintConsoleToMI = true; }
+PrintOutCliToMI::~PrintOutCliToMI() { MIPrintConsoleToMI = false; };
+
 
 cli_pipe::cli_pipe(const std::string& command) : m_stream(CurrentStream) {
     if (!m_stream) return;

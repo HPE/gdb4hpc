@@ -141,7 +141,7 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
                 std::string id="id=\"";
                 std::string target_id="target-id=\"";
                 std::string func="func=\"";
-                std::string file="file=\"";
+                std::string file="file=";
                 std::string thread_state="state=\"";
                 line_stream >> word;
                 if (strstr( word.c_str(), "*")){
@@ -178,17 +178,22 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
                 }else{
                     ss<<"[";
                 }
-                ss<<"{"<<id.data()<<"\","<<target_id.data()<<"\",frame={"<<func.data()<<"\","<<file.data()<<"\"},"<<thread_state.data()<<"\"}";
-            }else{
+                ss << "{"<<id.data()<<"\","<<target_id
+                   << "\",frame={"<<func<<"\","
+                   << file<<"},"
+                   << thread_state<<"\"}";
+            } else{
                 PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
             }
         }
         // add a blank line to make the output more understandable
-        PrintMsgWithSetInfo(handle, group, "\n");
+        if (!Client.MI_mode) {
+            PrintMsgWithSetInfo(handle, group, "\n");
+        }
 
         if (Client.MI_mode && !ss.str().empty()){
-            ss<<"]},"<<current_thread_id.data()<<"\"";
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", threads=%s\n%s",handle,ss.str().c_str(),
+            ss<<"],"<<current_thread_id.data()<<"\"";
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",threads=%s\n%s",handle,ss.str().c_str(),
                              GetMIEpilogue());
         }
     }
@@ -275,6 +280,7 @@ static int cmd_set_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
         }
         FreeRepSet(rep_set);
     }
+    PrintOutOk();
     return 1;
 }
 

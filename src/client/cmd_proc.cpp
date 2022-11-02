@@ -52,25 +52,26 @@ static int EventCB(DbgInvoke::EventSet& ev_set, const Bitset& reply_set);
 enum class StoppedType { END_RANGE, EXIT, BKPT_HIT};
 
 
-void PrintMIStoppedMsg(const DbgInvoke::EventSet *ev_set, StoppedType type, std::string file, std::string func, std::string line, std::string bkpt_id){
+void PrintMIStoppedMsg(const DbgInvoke::EventSet *ev_set, StoppedType type,
+                       const std::string& file, const std::string& func, int line, const std::string& bkpt_id){
     std::ostringstream ss;
     auto fullpath = ev_set->di().sourcePaths().getFullPath(file);
     switch(type){
         case StoppedType::BKPT_HIT:{
             ss << "reason=\"breakpoint-hit\",bkptno=\"" <<bkpt_id
-                << "\",proc_set=\"" << ev_set->di().handle().name()
-                << "\",frame={func=\"" << func
-                << "\",args=[],file=\"" << file
-                <<"\",fullname=\""<< fullpath
-                <<"\",line=\"" << line << "\"}";
+               << "\",proc_set=\"" << ev_set->di().handle().name()
+               << "\",frame={func=\"" << func
+               << "\",args=[],file=\"" << file
+               << "\",fullname=\""<< fullpath
+               << "\",line=\"" << line << "\"}";
             break;
         }
         case StoppedType::END_RANGE:{
             ss << "reason=\"end-stepping-range\",proc_set=\""<<ev_set->di().handle().name()
-                <<"\",frame={func=\"" << func
-                <<"\",args=[],file=\""<< file
-                <<"\",fullname=\""<< fullpath
-                <<"\",line=\""<<line << "\"}";
+               <<"\",frame={func=\"" << func
+               <<"\",args=[],file=\""<< file
+               <<"\",fullname=\""<< fullpath
+               <<"\",line=\""<<line << "\"}";
             break;
         }
         case StoppedType::EXIT:{
@@ -1266,6 +1267,8 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
     const dbgframe_t *frame = ev_set->event()->ev_step.step_frame;
     bool frame_changed = ev_set->event()->ev_step.step_frame_changed;
 
+    bool doPrintLocation = !Client.MI_mode;
+
     if (frame) {
         const auto &frameLoc = frame->getLoc();
 
@@ -1281,7 +1284,10 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
                 listResult = DbgFEList(ev_set->di().frontendGdb(), nullptr, lineArg.c_str());
             }
 
-            if (listResult && listResult->ev_event == DBGEV_LIST && listResult->ev_list->list_lno == frameLoc.loc_line) {
+            if (!doPrintLocation) {
+
+            } else if (listResult && listResult->ev_event == DBGEV_LIST &&
+                       listResult->ev_list->list_lno == frameLoc.loc_line) {
                 // Print a frame if the last step event changed functions
                 if (frame_changed) {
                     PrintMsgWithSetInfo(
@@ -1306,11 +1312,6 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
             }
             FreeEvent(listResult);
 
-            if (Client.MI_mode){
-                // Print the source line
-                PrintMIStoppedMsg(ev_set, StoppedType::END_RANGE, frameLoc.loc_file, frameLoc.loc_func,
-                                  std::to_string(frameLoc.loc_line), "");
-            }
         } else if (frameLoc.loc_func) {
             // No file/line, just print function name
             PrintMsgWithSetInfo(
@@ -1321,6 +1322,14 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
                 "Step finished with no location information.\n"
             );
         }
+
+        if (Client.MI_mode){
+            // Print the source line
+            auto file = frameLoc.loc_file, frame = frameLoc.loc_func;
+            PrintMIStoppedMsg(ev_set, StoppedType::END_RANGE, file ? file : "unknown", frame ? frame : "unknown",
+                              frameLoc.loc_line, "");
+        }
+
     } else {
         // Got a null frame? This should never happen
         PrintMsgWithSetInfo(ev_set->di().handle().c_str(), &ev_set->group(),
@@ -1373,7 +1382,7 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
             if (!bpset) {
                 if (ev_set.event()->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
                     if (Client.MI_mode){
-                        PrintMIStoppedMsg(&ev_set, StoppedType::EXIT, "", "", "", "");
+                        PrintMIStoppedMsg(&ev_set, StoppedType::EXIT, "", "", 0, "");
                     }
                     PrintMsgWithSetInfo(
                         ev_set.di().handle().c_str(), &ev_set.group(),
@@ -1431,7 +1440,9 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                     if (Client.print_bp_frames) {
                         if (bpset->line() > 0) {
                             if (Client.MI_mode){
-                                PrintMIStoppedMsg(&ev_set, StoppedType::BKPT_HIT, bpset->file(), bpset->function(), std::to_string(bpset->line()), std::to_string(bpset->id()));
+                                PrintMIStoppedMsg(&ev_set, StoppedType::BKPT_HIT, bpset->file(),
+                                                  bpset->function(),
+                                                  bpset->line(), std::to_string(bpset->id()));
                             }
                             PrintMsgWithSetInfo(
                                 ev_set.di().handle().c_str(), &ev_set.group(),
@@ -1530,7 +1541,7 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                 case DBGBP_BREAK_TYPE:
                     if (bpset->line() > 0) {
                         if (Client.MI_mode){
-                            PrintMIStoppedMsg(&ev_set, StoppedType::BKPT_HIT, bpset->file(), bpset->function(), std::to_string(bpset->line()), std::to_string(bpset->id()));
+                            PrintMIStoppedMsg(&ev_set, StoppedType::BKPT_HIT, bpset->file(), bpset->function(), bpset->line(), std::to_string(bpset->id()));
                         }
                         PrintMsgWithSetInfo(
                             ev_set.di().handle().c_str(), &ev_set.group(),

@@ -285,6 +285,7 @@ static int cmd_set_print_pretty_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
+    PrintOutOk();
     return 1;
 }
 

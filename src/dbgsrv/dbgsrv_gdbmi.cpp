@@ -2531,6 +2531,7 @@ dbgevent_t *DbgGdbMI::getArgs(const char* threads) {
     auto level = mi_frame->level;
 
     MICommandFree(cmd);
+    MIListFree(mi_frame_list, (void (*)())MIFrameFree);
 
     DVPRINT("got stack level %d, calling info args\n", level);
 
@@ -2568,6 +2569,7 @@ dbgevent_t *DbgGdbMI::getArgs(const char* threads) {
         }
     }
 
+    MIListFree(mi_frame_list, (void (*)())MIFrameFree);
     MICommandFree(cmd);
 
     auto e = NewEvent(DBGEV_STRING);

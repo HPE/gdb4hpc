@@ -644,6 +644,7 @@ static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
             MICommandFree(delCmd);
         }
 
+        MIListFree(bpts, (void (*)()) MIBreakpointFree);
         MICommandFree(cmd);
         foundBP = true;
         break;

@@ -556,8 +556,10 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
                     free(typeStr);
                     return r;
                 } else {
-                    auto err = std::string{MICommandResultErrorMessage(cmd)};
+                    auto msg = MICommandResultErrorMessage(cmd);
+                    auto err = std::string{msg};
                     MICommandFree(cmd);
+                    free(msg);
                     throw err;
                 }
             };
@@ -718,6 +720,7 @@ PTypeFields::PTypeFields(MICommand& sentCmd, bool isFortran)
             m_fields.push_back(fieldStr);
         }
     }
+    MIListFree(field_list, (void (*)()) free);
 
     // return a pointer to the first letter of the first inherited base class name
     // starting from `from` or nullptr of there are no more
@@ -753,8 +756,8 @@ PTypeFields::PTypeFields(MICommand& sentCmd, bool isFortran)
     };
 
     // populate parent classes
-    const auto* info = CLIGetPtypeInfo(&sentCmd);
-    auto* end = info;
+    auto* info = CLIGetPtypeInfo(&sentCmd);
+    const auto* end = info;
 
     while (auto* start = nextBaseClass(end)) {
         // found the start of parent class name, now find the end
@@ -773,6 +776,7 @@ PTypeFields::PTypeFields(MICommand& sentCmd, bool isFortran)
         DVPRINT("found parent: %s\n", parent.c_str());
         m_parentClasses.push_back(parent);
     }
+    free(info);
 }
 
 // parse the output from a ptype command on a fortran type

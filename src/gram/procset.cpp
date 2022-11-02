@@ -166,7 +166,6 @@ DbgInvoke::Handle getFirstDbgInvoke(const dbgprocset_t& procset) {
 ** Create a temporary process set from a slice
 */
 dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
-    char *ps_name;
     dbgprocset_t *new_procset;
     dbg_over_set_t *o_ptr;
     dbg_over_set_t *over_set;
@@ -178,12 +177,13 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     }
 
     // Create the name for this temporary process set
-    Asprintf(&ps_name, "%s_temp", ps->s_name);
+    auto ps_name = std::string{ps->s_name} + "_temp";
 
     // create the new procset
-    new_procset = NewProcSet(ps_name, DBGSET_TEMP, ps_slice->getThreads());
+    new_procset = NewProcSet(ps_name.c_str(), DBGSET_TEMP, ps_slice->getThreads());
 
-    DPRINT("CreateTempProcSetSlice name:%s\n", ps_name);
+    DPRINT("CreateTempProcSetSlice name:%s\n", ps_name.c_str());
+
 
     // Loop over each overlay set in the procset
     SetOverlaySetForProcSet(ps);

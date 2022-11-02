@@ -30,7 +30,7 @@ a{0}: Breakpoint 1, .omp_outlined._debug__.7%.*%src/c/simple_gpu.c:78
 16: info threads
 a{0}:   Id    Frame
 a{0}: * 1%.*% "simple_gpu-rocm%.*%" (running)
-a{0}:   5-%\d+% AMDGPU "simple_gpu%.*%" __omp_outlined%.*%src/c/simple_gpu.c:78
+a{0}:   %\d-\d+% AMDGPU "simple_gpu%.*%" __omp_outlined%.*%src/c/simple_gpu.c:78
 a{0}: 
 17: t 10
 18: p sum1

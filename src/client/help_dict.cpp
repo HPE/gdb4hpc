@@ -730,15 +730,18 @@ const char* const cmd_restart_help[] = {
 
 const char* const cmd_shell_help[] = {
     "Summary: Launch a shell command locally",
-    "Usage: shell <command>",
-    "Example command: shell hostname",
+    "Usage: shell [-r] [command]",
+    "Example: shell -r hostname",
     "",
-    "Arguments: command (entire string to pass to shell)",
     "",
     "Description:",
-    "Runs a command in the shell environment of the client. This can be used",
-    "to enumerate information about the system the client is running on. The",
-    "stderr of the command will be redirected to stdout and printed in the result.",
+    "Run a shell command on the local host and print out the result.",
+    "",
+    "The -r (remote) option runs the shell command on every rank currently in focus.",
+    "",
+    "With no arguments, start a new subshell or re-enter a suspended",
+    "(local) subshell.   All entries are sent to the subshell until either",
+    "the \"exit\" or \"suspend\" command is entered.",
     0};
 
 const char* const cmd_source_help[] = {

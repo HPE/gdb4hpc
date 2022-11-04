@@ -18,11 +18,14 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <math.h>
+#include <future>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 
 #include "client.h"
 #include "useful.h"
@@ -222,9 +225,55 @@ static int shell_remote(rec_set_t *rec_set, int argc, char **argv){
     return 1;
 }
 
+namespace {
+// Class for creating a sub-shell with pipe connections and a asynchronous reading thread
+class SubShell {
+public:
+    SubShell();
+    ~SubShell();
+    //void send(int argc, char **argv);
+    void send(const std::string& command);
+private:
+    bool init();
+    void close();
+
+    static void readThread(int fid);
+
+    int m_shellPid = -1;
+    int m_toShell = -1;
+    int m_fromShell = -1;
+    std::future<void> m_readThread;
+};
+
+// gdb4hpc level commands to handle a shell as a mode
+class ShellMode {
+public:
+    static void init();
+    static void enter();
+private:
+    static void notfound(const char *cmd) { CmdNotFound(cmd); }
+    static void ambig(const char *cmd) { AmbiguousAltCmd(m_cmds, cmd); }
+    static void failed() { cli_dec_prompt(); SetCommands(m_oldCmds); }
+
+    static int sendToShell(rec_set_t *rec_set, int argc, char**argv);
+    static int exit(rec_set_t* rec_set, int argc, char **argv);
+    static int suspend(rec_set_t* rec_set, int argc, char **argv);
+
+    static cmdlist_t *m_cmds;
+    static cmdlist_t *m_oldCmds;
+
+    static std::unique_ptr<SubShell> m_subshell;
+};
+}
+
 static int cmd_shell_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // If remote flag, run shell on remote nodes and return
     // Otherwise run locally
+    if (argc < 2) {
+        ShellMode::enter();
+        return 0;
+    }
+    
     if (argc < 2) {
         PrintOutError("Usage shell <command>\n");
         return 0;
@@ -324,6 +373,174 @@ static int cmd_pipe_cmd(rec_set_t *rec_set, int argc, char **argv) {
     ExecuteCommand(gdbCommand.c_str());
 
     return 1;
+}
+
+void ShellMode::init() {
+    m_cmds = NewCommandList(notfound, ambig, failed);
+    AddAltCommand(m_cmds, "_default_cmd", nullptr, proc_optional, 0,
+                  sendToShell, dummy_help, "");
+    AddAltCommand(m_cmds, "exit", nullptr, proc_optional, 0,
+                  exit, dummy_help, "");
+    AddAltCommand(m_cmds, "suspend", nullptr, proc_optional, 0,
+                  suspend, dummy_help, "");
+    SetDefaultCommand(m_cmds, "_default_cmd");
+}
+
+cmdlist_t *ShellMode::m_cmds = nullptr;
+cmdlist_t *ShellMode::m_oldCmds = nullptr;
+std::unique_ptr<SubShell> ShellMode::m_subshell;
+
+int ShellMode::sendToShell(rec_set_t *rec_set, int argc, char**argv) {
+    if (!m_subshell)
+        m_subshell.reset(new SubShell);
+
+    auto msg = ArgsToString(argv, argc);
+    m_subshell->send(msg);
+    // wait a little bit to give the output a chance to finish,
+    // otherwise the prompt can get messed up
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    return 1;
+}
+
+// Start shell mode
+void ShellMode::enter()
+{
+    PrintOutMsg("Entering shell mode, use exit or suspend to leave.\n");
+    m_oldCmds = SetCommands(m_cmds);
+    cli_inc_prompt();
+}
+
+// Leave shell mode
+int ShellMode::exit(rec_set_t *rec_set, int argc, char**argv) {
+    PrintOutMsg("\nExiting shell mode.\n");
+    m_subshell.reset();
+    cli_dec_prompt();
+    SetCommands(m_oldCmds);
+    return 1;
+}
+
+int ShellMode::suspend(rec_set_t *rec_set, int argc, char**argv) {
+    PrintOutMsg("\nReturning to gdb4hpc.\n");
+    cli_dec_prompt();
+    SetCommands(m_oldCmds);
+    return 1;
+}
+
+
+SubShell::SubShell() {}
+SubShell::~SubShell() { try { close(); } catch (...) {}  }
+
+void SubShell::close() {
+    if (m_shellPid <= 0) return;
+
+    // try to exit the shell gracefully
+    send("exit");
+
+    // if we don't wait for the sub-shell process, it will stick around as zombie
+    int iters=4;
+    for (int iter=1; ::waitpid(m_shellPid, nullptr, WNOHANG)==0 && iter<=iters; ++iter) {
+        if (iter < iters) ::sleep(1);
+        else ::kill(m_shellPid, SIGKILL);
+    }
+
+    m_shellPid = m_toShell = m_fromShell = -1;
+    if (m_readThread.valid()) {
+        m_readThread.wait();
+    }
+}
+
+// send a command to the sub-shell process.   Any output is picked up the
+// readThread and printed to the console
+void SubShell::send(const std::string& command) {
+    if (m_toShell < 0) {
+        init();
+    }
+    if (m_toShell < 0) {
+        PrintOutError("sub shell is not connected\n");
+        return;
+    }
+
+    ::write(m_toShell, command.c_str(), command.size());
+    char lf = '\n';
+    ::write(m_toShell, &lf, 1);
+}
+
+bool SubShell::init() {
+    char* shellCmd = getenv("SHELL");
+    if (!shellCmd) {
+        PrintOutError("$SHELL is not defined.\n");
+        return false;
+    }
+
+    // create the pipes the flow is
+    // gdb4hpc -> left -> subshell -> right -> readThread -> gdb4hpc output
+    int leftPipes[2], rightPipes[2];
+    if (::pipe(leftPipes) < 0) {
+        PrintOutError("Pipe creation failed.\n");
+        return false;
+    }
+
+    if (::pipe(rightPipes) < 0) {
+        ::close(leftPipes[0]);
+        ::close(leftPipes[1]);
+        PrintOutError("Pipe creation failed.\n");
+        return false;
+    }
+
+    if (auto cmdPid = fork(); cmdPid < 0) {
+        PrintOutError("fork failed.\n");
+        ::close(leftPipes[0]);  ::close(leftPipes[1]);
+        ::close(rightPipes[0]); ::close(rightPipes[1]);
+        return false;
+    } else if (cmdPid == 0) {
+        // child will be the sub-shell set up the communication and
+        // start up the subshell process
+        ::close(leftPipes[1]);
+        ::close(rightPipes[0]);
+        ::dup2(leftPipes[0], STDIN_FILENO);
+        ::dup2(rightPipes[1], STDOUT_FILENO);
+        ::dup2(rightPipes[1], STDERR_FILENO);
+        char* args[] = { shellCmd, nullptr };
+        ::execvp(shellCmd, args);
+        return false;
+    } else {
+        // parent, I should have pipes to send and receive 
+        m_shellPid = cmdPid;
+
+        ::close(leftPipes[0]);
+        ::close(rightPipes[1]);
+        m_toShell = leftPipes[1];
+        m_fromShell = rightPipes[0];
+
+        if (::fcntl(m_fromShell, F_SETFL, O_NONBLOCK) < 0) {
+            PrintOutError("could not set pipe to O_NONBLOCK\n");
+            return false;
+        }
+
+        // create a thread to wait for output from the subshell
+        m_readThread = std::async( std::launch::async, readThread, m_fromShell);
+        return true;
+    }
+}
+
+// process that runs in a separate thread reading the results from the sub-shell
+void SubShell::readThread(int fid) {
+    char line[BUFSIZ];
+    for (int nb; (nb = read(fid, line, BUFSIZ-1)) != 0; ) {
+        if (nb > 0) { 
+            line[nb] = '\0';
+            PrintOutMsg(line);
+        } else if (nb < 0 && errno != EAGAIN) {
+            PrintOutError("read error\n");
+            return;
+        } else {
+            // There may be a more elegant way than just checking for output 10
+            // time second, but I had trouble getting select to work without
+            // blocking.
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+    return;
 }
 
 static int cmd_maint_set_earlyentry_cmd(rec_set_t *rec_set, int argc,
@@ -955,7 +1172,6 @@ void InitCmd_env(void) {
                     cmd_maint_sleep_cmd,
                     cmd_maint_sleep_help, "Pause the debugger.");
     
-
     // info commands
     AddInfoCommand("status", proc_required, 0,
                    cmd_info_status_cmd,
@@ -1059,5 +1275,6 @@ void InitCmd_env(void) {
 
     AddSetCommand("inferior-tty", proc_ignore, 0, cmd_set_inferior_tty_cmd,
                   nullptr,  "set the tty for the application i/o");
-               
+
+    ShellMode::init();
 }

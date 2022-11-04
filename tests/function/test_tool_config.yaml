@@ -6,7 +6,7 @@ build:
     all:
       j: 16
       modules:
-      - cce/15.0.0.3
+      - cce/15.0.0
       optional-modules:
       - PrgEnv-cray
       - cray-cti-devel

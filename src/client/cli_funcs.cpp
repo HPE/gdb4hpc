@@ -924,9 +924,9 @@ void PrintOutError(const char *format, ...) {
 void vPrintOutError(const char *format, va_list arg_list) {
      // we need to disable input processing while we are printing
     DbgMaskInput();
-    
+
     // ensure that there is an error stream to print to in the current stream
-    if (!CurrentStream || !CurrentStream->cs_fperr) {
+    if ((!CurrentStream || !CurrentStream->cs_fperr) && !Client.MI_mode) {
         // otherwise default to stderr
         vfprintf(stderr, format, arg_list);
 
@@ -956,8 +956,10 @@ void vPrintOutError(const char *format, va_list arg_list) {
 
         // Print out XML error end
         fprintf(f, XML_RESPONSE_ERROR_END);
-    } else if (!f) { // error output is suppressed
     } else if (Client.MI_mode) {
+        if (!f){
+            f = CurrentStream->cs_out.getOut();
+        }
         // We can print out a MI error message here for now, but this will
         // sooner or later prove insufficient since it assumes PrintOutError
         // is called *exactly once* when a command fails.
@@ -976,7 +978,7 @@ void vPrintOutError(const char *format, va_list arg_list) {
 
         mi_logv2("output mi:", errFmt.c_str(), args2);
         va_end(args2);
-        
+    } else if (!f) { // error output is suppressed
     } else {
         // vfprintf the line we recieved
         vfprintf(f, format, arg_list);

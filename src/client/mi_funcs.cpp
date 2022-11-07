@@ -242,7 +242,7 @@ std::string Vars::create(const std::string& inname, const std::string& frame,
     // get the new current value
     auto value = GetMiValue(expression);
 
-    if (value.empty()) return "error,unable to evalute\n";
+    if (value.empty()) return value;
 
     os << "ok,name=\"" << name << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
 

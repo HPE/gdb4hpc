@@ -39,13 +39,13 @@ function run_unit_tests () {
     # in any jenkins pipeline, the tests can randomly fail for an unknown
     # reason and exit with exit code 141.
 
-    for i in 1 2 3; do
+    for i in 1 2 3 4 5; do
         $1 --test
         exit_code=$?
         if [ "$exit_code" -eq 141 ]; then
             # weird exit code, try again...
             echo "Try again..."
-            sleep 1
+            sleep 5
         else
             # this exit code is meaningful
             return $exit_code

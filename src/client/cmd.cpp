@@ -663,8 +663,6 @@ void ExecuteCommand(const char *line) {
             } else if (cliCmd.rfind("error,", 0) == 0) {
                 PrintOutError("%s", cliCmd.substr(6).c_str());
                 return;
-            }else if (cliCmd.empty()){
-                return;
             }
             cmd = strdup(cliCmd.c_str());
         } catch (std::string msg) {

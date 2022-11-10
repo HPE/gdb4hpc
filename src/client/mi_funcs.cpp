@@ -34,6 +34,7 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-break-delete", "delete"},
  {"-break-insert", "break" },
  {"-break-list", "info breakpoints"},
+ {"-compare", "compare"},
  {"-data-list-register-names", "ok,register-names=[]"},
  {"-enable-frame-filters", "ok"},
  {"-enable-pretty-printing", "set print pretty on"},
@@ -242,7 +243,7 @@ std::string Vars::create(const std::string& inname, const std::string& frame,
     // get the new current value
     auto value = GetMiValue(expression);
 
-    if (value.empty()) return value;
+    if (value.empty()) return "error,unable to evalute\n";
 
     os << "ok,name=\"" << name << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
 

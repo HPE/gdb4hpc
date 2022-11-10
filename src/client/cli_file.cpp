@@ -161,7 +161,9 @@ static int cli_file_get_line(cli_stream_t **stream) {
     // print an error if the err flag is set
     if (cs->cs_err) {
         // cs->cs_buf has a \n on the end
-        PrintOutMsg("Command resulted in an error: %d: %s", cs->cs_line, cs->cs_buf); 
+        if (!Client.MI_mode){
+            PrintOutError("Command resulted in an error: %d: %s", cs->cs_line, cs->cs_buf); 
+        }
 
         if (Client.keep_going == false) {
             // Reenable input

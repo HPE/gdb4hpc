@@ -34,6 +34,7 @@ static void cli_handle_error(void);
 static void ProgOutLineStream(DbgInvoke *, FILE *);
 static void ProgOutLineStrings(DbgInvoke *, const std::vector<std::string> &lines);
 static void vPrintOutMIMsg(const char *format, va_list arg_list);
+static void vPrintOutMIError(const char *format, va_list arg_list);
 
 /*
  * Static Global Variables
@@ -957,29 +958,8 @@ void vPrintOutError(const char *format, va_list arg_list) {
         // Print out XML error end
         fprintf(f, XML_RESPONSE_ERROR_END);
     } else if (Client.MI_mode) {
-        if (!f){
-            f = CurrentStream->cs_out.getOut();
-        }
-        // We can print out a MI error message here for now, but this will
-        // sooner or later prove insufficient since it assumes PrintOutError
-        // is called *exactly once* when a command fails.
-        auto errFmt = std::string{format};
-        auto hasNL = false;
-        for (std::size_t pos=0; (pos=errFmt.find_first_of("\"\n",pos)) != std::string::npos; ) {
-            if (errFmt[pos] == '\n') hasNL = true;
-            errFmt.erase(pos,1);
-        }
-        errFmt = cli_get_prefix() + "^error,msg=\"" + errFmt + (hasNL ? "\"\n" : "\"" );
-
-        va_list args2;
-        va_copy(args2, arg_list);
-
-        vfprintf(f, errFmt.c_str(), arg_list);
-
-        mi_logv2("output mi:", errFmt.c_str(), args2);
-        va_end(args2);
-    } else if (!f) { // error output is suppressed
-    } else {
+        vPrintOutMIError(format, arg_list);
+    } else if (f) {
         // vfprintf the line we recieved
         vfprintf(f, format, arg_list);
     }
@@ -1075,6 +1055,34 @@ static void vPrintOutMIMsg(const char *format, va_list arg_list) {
             // GetMIEpilogue();
             os.str("");
             os << "~\"";
+            break;
+        default: os << *p;
+        }
+    }
+
+    free(cstr);
+}
+
+static void vPrintOutMIError(const char *format, va_list arg_list) {
+    static auto os = std::ostringstream{};
+
+    // the arg_list may well contain quotes or newlines, so we have to
+    // just get the final output form so we can know they're being properly
+    // escaped.
+    char *cstr = nullptr;
+    if (vasprintf(&cstr, format, arg_list) < 0) return;
+
+    if (!os.tellp()) os << cli_get_prefix() << "^error,msg=\"" ;  // the MI error form
+
+    for (const auto *p = cstr; *p; ++p) {
+        switch (*p) {
+        case '"': os << "\\\""; break;   
+        case '\n':
+            // escape the newline and flush the result
+            os << "\\n\"\n";  
+            CurrentStream->cs_out("%s", os.str().c_str());
+            os.str("");
+            os << cli_get_prefix() << "^error,msg=\"" ;
             break;
         default: os << *p;
         }

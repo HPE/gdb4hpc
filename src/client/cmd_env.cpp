@@ -1076,6 +1076,7 @@ static int class_new_ui_cmd(rec_set_t* rec_set, int argc, char**argv) {
     auto tty = argv[2];
     auto cli_args = NewCLIArgs(CLI_FILE_STREAM, tty, tty, tty);
     SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::MI, cli_args, 0);
+    Client.keep_going=true;
 
     // Set back to the default stream since this make be part of a sequence of
     // -iex arguments

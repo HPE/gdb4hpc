@@ -48,6 +48,22 @@ static void skipwhite(const char **s) {
 */
 int isid(char c) { return (int)(c == '_' || isalnum((int)c)); }
 
+// helper function to gather a scoped value into a single operator
+static bool isnestedscope(const char **in, char** out) {
+    const char* s2 = *in;
+    skipwhite(&s2);
+    if (s2[0] != ':' || s2[1] != ':') return false;
+    s2 += 2;
+    skipwhite(&s2);
+    if (!isid(*s2)) return false; 
+
+    *in = s2;
+    *(*out)++ = ':';
+    *(*out)++ = ':';
+    return true;
+}
+
+
 static ct_type convnum(ct_val *cv, const char **str) {
     ct_type res;
     const char *s = *str;
@@ -716,7 +732,12 @@ ct_type ScanString(ct_val *cv, const char **str) {
 
             DPRINT("ScanString: found CT_SYM\n");
 
-            while (*(*str) != '\0' && isid(*(*str))) *s++ = *(*str)++;
+            // note: here we're treating :: as part of the ID.   It's a little unusual
+            // to do this in lex, but it does act in all respects like a single identifier
+            // for our purposes, and not really like an operator.  
+            do {
+                while (*(*str) != '\0' && isid(*(*str))) *s++ = *(*str)++;
+            } while (isnestedscope(str, &s));
 
             // Make sure to add in null terminator
             *s = '\0';

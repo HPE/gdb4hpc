@@ -309,6 +309,14 @@ b{0..1}: AroundStruct::Nested
 b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundStruct::VERONICA, AroundStruct::JUGHEAD}
 133: ptype AroundStruct::Nested
 b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundStruct::VERONICA, AroundStruct::JUGHEAD}
+133: p (int) ClassEnum::DOODLE
+b{0..1}: 1
+133: p (int) AroundStruct :: JUGHEAD
+b{0..1}: 2
+133: ptype ClassEnum ::WHACK
+b{0..1}: enum class ClassEnum : int {ClassEnum::WHACK = -1, ClassEnum::A, ClassEnum::DOODLE}
+133: ptype AroundStruct ::BETTY
+b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundStruct::VERONICA, AroundStruct::JUGHEAD}
 134: c
 b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/tests/gdb4hpc-4.14.4/src/C++/cpp_ds_test1.cpp:31
 135: up

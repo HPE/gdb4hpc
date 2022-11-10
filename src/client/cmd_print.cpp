@@ -325,6 +325,10 @@ std::string GetMiValue(const std::string& expression)
 
     auto value = os.str(); // fixme - C++20 can move
     value.erase(std::remove(value.begin(), value.end(), '\n'), value.end());
+    for (std::size_t pos=0; (pos=value.find_first_of("\"\'\\",pos)) != std::string::npos; ) {
+        value.insert(pos,"\\");
+        pos=pos+2;
+    }
     return value;
 }
 

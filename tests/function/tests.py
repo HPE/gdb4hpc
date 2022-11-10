@@ -538,7 +538,6 @@ class FunctionTests(Gdb4hpcTest):
         self.run_under_mrnet()
         runTest(self)
     
-    @avocado.skip("PE-43877")
     @avocado.skipUnless(lambda t: t.params.get("prgenvs_flag", default=False), "prgenvs_flag not set")
     @avocado.skipUnless(os.path.isfile(f"./bin/GNU/fortran/ftn_arrays.x"), "Missing binary")
     def test_ftn_arrays_gnu(self):
@@ -546,7 +545,6 @@ class FunctionTests(Gdb4hpcTest):
         self.penv = "GNU"
         runTest(self)
 
-    @avocado.skip("PE-43877")
     @avocado.skipUnless(lambda t: t.params.get("prgenvs_flag", default=False), "prgenvs_flag not set")
     @avocado.skipUnless(os.path.isfile(f"./bin/AMD/fortran/ftn_arrays.x"), "Missing binary")
     def test_ftn_arrays_amd(self):
@@ -554,7 +552,7 @@ class FunctionTests(Gdb4hpcTest):
         self.penv = "AMD"
         runTest(self)
  
-    @avocado.skip("PE-43877")
+    @avocado.skip("PE-43876")
     @avocado.skipUnless(lambda t: t.params.get("prgenvs_flag", default=False), "prgenvs_flag not set")
     @avocado.skipUnless(os.path.isfile(f"./bin/NVIDIA/fortran/ftn_arrays.x"), "Missing binary")
     def test_ftn_arrays_nvidia(self):
@@ -562,7 +560,6 @@ class FunctionTests(Gdb4hpcTest):
         self.penv = "NVIDIA"
         runTest(self)
 
-    @avocado.skip("PE-43877")
     @avocado.skipUnless(lambda t: t.params.get("prgenvs_flag", default=False), "prgenvs_flag not set")
     @avocado.skipUnless(os.path.isfile(f"./bin/INTEL/fortran/ftn_arrays.x"), "Missing binary")
     def test_ftn_arrays_intel(self):

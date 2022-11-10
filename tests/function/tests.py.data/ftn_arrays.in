@@ -3,11 +3,19 @@
 3: launch $a{3} --args="0 6" bin/CRAY/fortran/ftn_arrays.x
 Starting application, please wait...
 Launch complete.
-a{0..2}: Initial breakpoint, ftn_arrays at /src/fortran/ftn_arrays.f90:1
+a{0..2}: Initial breakpoint, %(ftn_arrays|(in )?main)( at .*?/ftn_arrays.f90:<start-line>)?%
+4: # Note on above regex: cray/gnu/intel/nvidia/amd ftn compilers each
+4: # report different versions of the initial breakpoint. They are:
+4: #
+4: # Initial breakpoint, ftn_arrays at /src/fortran/ftn_arrays.f90:1
+4: # Initial breakpoint, main at /src/fortran/ftn_arrays.f90:4
+4: # Initial breakpoint, in main
+4: # 
+4: # <start-line> needs to be inserted so the regex matches after the line is anonymized.
 4: launch $b{3} --args="1 6" bin/CRAY/fortran/ftn_arrays.x
 Starting application, please wait...
 Launch complete.
-b{0..2}: Initial breakpoint, ftn_arrays at /src/fortran/ftn_arrays.f90:1
+b{0..2}: Initial breakpoint, %(ftn_arrays|(in )?main)( at .*?/ftn_arrays.f90:<start-line>)?% 
 5: # Break when the arrays should be equivalent
 6: break 119
 a{0..2}: Breakpoint 1: file /src/fortran/ftn_arrays.f90, line 119.

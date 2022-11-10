@@ -524,6 +524,8 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
             continue;
         }
 
+        auto theNewBpId = int{0};;
+
         for (const auto* reply : repSet) {
             auto newDbgBp = EVENT_BP(reply->rep_event);
             auto* di = reply->rep_di.lock();
@@ -533,8 +535,19 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
                 continue;
             }
 
+            // with the back-end mapping; the new BPs should all have the same id
+            if (!theNewBpId) theNewBpId = newBp->id();  
             PrintOutMsg("Re-set breakpoint $%s::%d as new breakpoint $%s::%d.\n",
                 oldDi->handle().c_str(), oldBp.id(), newProcset->s_name, newBp->id());
+        }
+
+        FreeRepSet(repSet);
+
+        if (theNewBpId && !oldBp.condition().empty()) {
+            // set the condition
+            repSet = DbgConditionBreak(recSet, theNewBpId, oldBp.condition());
+            ProcessErrorInRepSet(repSet);
+            FreeRepSet(repSet);
         }
     }
 

@@ -322,6 +322,20 @@ const char* const cmd_ignore_help[] = {
     "is hit.",
     0};
 
+const char* const cmd_condition_help[] = {
+    "Summary: stop at a breakpoint only if a condition is met.",
+    "Usage: condition <breakpoint> [condition]",
+    "Example command: condition 1 i==4",
+    "",
+    "Set a condition for a breakpoint.   The condition is evaluated",
+    "each time the breakpoint location is reached, and the program is",
+    "stopped only if the condition evaluates to true or non-zero.",
+    "The conditions is evaluated on the back end so procset scoping",
+    "is not allowed, e.g. $a::i == 4.",
+    "Calling with no condition makes the breakpoint unconditional.",
+    0};
+
+
 const char* const cmd_finish_help[] = {
     "Summary: Finish function execution command.",
     "Usage: finish",

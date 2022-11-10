@@ -387,6 +387,7 @@ extern rep_set_t *DbgDisableBreak(rec_set_t *, int);
 // Pass in bp_set num, 0 means everything
 extern rep_set_t *DbgEnableBreak(rec_set_t *, int, bool, bool);
 extern rep_set_t *DbgIgnoreBreak(rec_set_t *, int, int);
+extern rep_set_t *DbgConditionBreak(rec_set_t *, int, const std::string& cond);
 extern rep_set_t *DbgList(rec_set_t *, char *);
 extern rep_set_t *DbgGetSources(rec_set_t *);
 // Not called on a Cray, might be useful on a cluster though

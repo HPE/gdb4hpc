@@ -94,8 +94,39 @@ Procset         Num Type           Disp Enb What
 a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:198
     already hit 1 time
 40: # we should now hit no more breakpoints
-41: c
+41: # try on a conditional breakpoint
+42: b 202
+a{0..2}: Breakpoint 4: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c, line 202.
+43: cond 4 ii==8
+44: c
+a{0..2}: Breakpoint 4, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202
+45: info br
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:198
+    already hit 1 time
+a{0..2}         4   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202 if ii==8
+    already hit 1 time
+46: p ii
+a{0..2}: 8
+47: cond 4
+48: info br
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:198
+    already hit 1 time
+a{0..2}         4   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202
+    already hit 1 time
+49: c
+a{0..2}: Breakpoint 4, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202
+50: p ii
+a{0..2}: 9
+51: info br
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:198
+    already hit 1 time
+a{0..2}         4   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202
+    already hit 2 times
+52: c
 a{0..2}: The application has reached an exit breakpoint.
-42: #exit gdb4hpc
-43: q
+53: #exit gdb4hpc
+54: q
 Shutting down debugger and killing application for 'a'.

@@ -133,9 +133,9 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
         bp->bp_loc.loc_addr = strdup("0xffff");
         bp->bp_loc.loc_line = 197;
 
-        bp->bp_exp = strdup("myVar");
-        bp->bp_threadId = strdup("0xaaaa");
-        bp->bp_stmt = strdup("callMyFunction();");
+        bp->bp_exp = "myVar";
+        bp->bp_threadId = "0xaaaa";
+        bp->bp_stmt = "callMyFunction();";
 
         // bp_deleted, bp_commands, and bp_comminfo are never serialized
 

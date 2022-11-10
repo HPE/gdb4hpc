@@ -199,6 +199,12 @@ dbgevent_t *DbgIgnoreBreak(int bp, int n) {
     return DbgBackendSW->ignoreBreak(bp, n);
 }
 
+dbgevent_t *DbgConditionBreak(int bp, const std::string& cond) {
+    DBG_READY();
+    return DbgBackendSW->conditionBreak(bp, cond);
+}
+
+
 dbgevent_t *DbgInfoBreak(void) {
     DBG_READY();
     return DbgBackendSW->infoBreak();

@@ -599,6 +599,30 @@ static int cmd_ignore_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+static int cmd_condition_cmd(rec_set_t *rec_set, int argc, char **argv) {
+
+    if (argc < 2) {
+        PrintOutError("Breakpoint number required.\n");
+    }
+
+    char* ep;
+    int bp_id = strtol(argv[1], &ep, 10);
+    if (bp_id <= 0 || *ep) {
+        PrintOutError("Invalid breakpoint number %s.\n", argv[1]);
+        return 0;
+    }
+
+    auto cond = ArgsToString(argv+2, argc-2);
+
+    // The dbg_client layer handles all the of the details here
+    if (auto rep_set = DbgConditionBreak(rec_set, bp_id, cond)) {
+        ProcessErrorInRepSet(rep_set);
+        FreeRepSet(rep_set);
+        return 0;
+    }
+
+    return 1;
+}
 
 namespace {
     // class for caching the hit and ignore count info from the back end
@@ -772,6 +796,10 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
             }
             break;
         }
+
+        if (!bpset.condition().empty()) {
+            location << " if " << bpset.condition();
+        }
         
         printTableEntry(handle, group, id, type, disp, enabled, location.str());
         if (auto hitInfo = bpcnts.get(handle, group, bpset.id()); !hitInfo.empty()) {
@@ -935,6 +963,9 @@ void InitCmd_break(void) {
                cmd_enable_help, "Enable a breakpoint.");
     AddCommand("ignore", nullptr, proc_required, 0, cmd_ignore_cmd,
                cmd_ignore_help, "Ignore a breakpoint a number of times.");
+    AddCommand("condition", nullptr, proc_required, 0, cmd_condition_cmd,
+               cmd_condition_help, "Stop only if a condition is met.");
+
     AddCommand("tbreak", nullptr, proc_required, 0, cmd_tbreak_cmd,
                cmd_tbreak_help,
                "Set a temporary breakpoint at specified line or function.");

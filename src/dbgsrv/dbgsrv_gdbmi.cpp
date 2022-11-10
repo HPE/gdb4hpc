@@ -727,13 +727,7 @@ dbgevent_t *DbgGdbMI::ignoreBreak(int feId, int n) {
     }
 
     auto bid = bp->bp_be_id;
-
-    auto bidStr = std::to_string(bid);
-    auto nStr = std::to_string(n);
-
-    const char* cmd_args[3] = { "ignore", bidStr.c_str(), nStr.c_str() };
-    auto cmd = CLIBypassc(3, cmd_args);
-
+    auto cmd = MIBreakAfter(1, &bid, n);
     SendMICommand(GDBMISession, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -743,6 +737,29 @@ dbgevent_t *DbgGdbMI::ignoreBreak(int feId, int n) {
     MICommandFree(cmd);
     return NewEvent(DBGEV_OK);
 }
+
+// ignore the next n occurrences of a breakpoint 
+dbgevent_t *DbgGdbMI::conditionBreak(int feId, const std::string& cond) {
+    DVPRINT("*** Dbg %s, %s %d %s\n", __FILE__, __func__, feId, cond.c_str());
+
+    auto bp = FindBPByID(BP, feId, 0);
+    if (!bp) {
+        return NewErrorEvent(DBGERR_NOBP, "Invalid breakpoint id.");
+    }
+
+    auto bid = bp->bp_be_id;
+    auto cmd = MIBreakCondition( 1, &bid, const_cast<char*>(cond.c_str()));
+    SendMICommand(GDBMISession, cmd);
+
+    if (!MICommandResultOK(cmd)) {
+        MICommandFree(cmd);
+        return NewErrorEvent(DBGERR_DEBUGGER, "Condition breakpoint failed.");
+    }
+
+    MICommandFree(cmd);
+    return NewEvent(DBGEV_OK);
+}
+
 
 /*
 ** Return breakpoint information.
@@ -769,8 +786,9 @@ dbgevent_t *DbgGdbMI::infoBreak() {
         MIListSet(bpts);
         while (auto bpt = (MIBreakpoint *)MIListGet(bpts)) {
             if (auto bp = FindBPByID(BP, 0, bpt->number)) {
-                if (auto id = bp->bp_fe_id; id > 0)
+                if (auto id = bp->bp_fe_id; id > 0) {
                     res << id << " " << bpt->times << " " << bpt->ignore << "\n";
+                }
             }
         }
 

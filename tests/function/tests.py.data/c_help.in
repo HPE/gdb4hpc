@@ -8,6 +8,7 @@ break           Set breakpoint at specified line or function.
 build           Build an assertion script.
 catch           Set catchpoint on specified event.
 checkpoint      Fork program for restoration at a later point.
+condition       Stop only if a condition is met.
 compare         Compare the contents of two variables.
 continue        Continue execution of application.
 cuda            Cuda debugging functions.

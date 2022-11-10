@@ -43,6 +43,7 @@ extern dbgevent_t *DbgDeleteBreak(int);
 extern dbgevent_t *DbgDisableBreak(int);
 extern dbgevent_t *DbgEnableBreak(int, bool, bool);
 extern dbgevent_t *DbgIgnoreBreak(int, int);
+extern dbgevent_t *DbgConditionBreak(int, const std::string& cond);
 extern dbgevent_t *DbgShowBreak(void);
 extern dbgevent_t *DbgInfoBreak(void);
 extern dbgevent_t *DbgList(const char *);

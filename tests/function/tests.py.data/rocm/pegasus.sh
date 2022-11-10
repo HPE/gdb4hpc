@@ -15,7 +15,7 @@ if [ x$1 == xmake ]; then
 fi
 
 if [ x$1 == xrun ]; then
-    srun -n 1 -p amdMI60 ./bd_dt/c/simple_gpu.x 0
+    srun -n 1 -p amdMI60 ./bin/CRAY/c/simple_gpu.x 0
     exit 0
 fi
 

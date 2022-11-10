@@ -3097,6 +3097,16 @@ rep_set_t *DbgIgnoreBreak(rec_set_t *set, int bp_set_num, int n) {
                     };
     return DbgModifyBreak(set, bp_set_num, makeRequest, ignoreBP);
 }
+
+rep_set_t *DbgConditionBreak(rec_set_t *set, int bp_set_num, const std::string& cond) {
+    auto makeRequest = [cond](int id) {
+                           return CommandToSocProto(DBGCMD_CONDITIONBREAK, id, cond); };
+    auto conditionBP = [cond](MappedBreakpoint& bp_set, const Bitset* group) {
+                           bp_set.setCondition(cond);
+                    };
+    return DbgModifyBreak(set, bp_set_num, makeRequest, conditionBP);
+}
+
     
 
 /*

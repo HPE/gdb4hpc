@@ -172,6 +172,7 @@ public:
     const std::string& file() const;      // breakpoint file name
     const std::string& function() const;  // breakpoint function name
     int line() const;                     // breakpoint line number
+    const std::string& condition() const;
 
     // Watchpoint (and catchpoint) info
     // Watchpoint expression
@@ -209,6 +210,8 @@ public:
     // over one.
     void removeGroup(const Bitset *group);
 
+    void setCondition(const std::string& cond);
+
 private:
     // private data
     int m_logicalId;
@@ -220,6 +223,7 @@ private:
     std::string m_locAddr;
     std::string m_locFile;
     std::string m_locFunc;
+    std::string m_locCond;
     int m_locLine;
 
     // watchpoint locale information

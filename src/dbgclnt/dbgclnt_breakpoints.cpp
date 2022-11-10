@@ -74,6 +74,14 @@ int MappedBreakpoint::line() const {
     return m_locLine;
 }
 
+const std::string& MappedBreakpoint::condition() const {
+    return m_locCond;
+}
+
+void MappedBreakpoint::setCondition(const std::string& cond) {
+    m_locCond = cond;
+}
+
 const std::string& MappedBreakpoint::watchExpression() const {
     return m_watchExp;
 }

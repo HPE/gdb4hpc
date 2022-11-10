@@ -38,6 +38,7 @@ public:
     dbgevent_t *disableBreak(int bid);
     dbgevent_t *enableBreak(int bid, bool once, bool del);
     dbgevent_t *ignoreBreak(int bid, int n);
+    dbgevent_t *conditionBreak(int bid, const std::string& cond);
     dbgevent_t *infoBreak();
     dbgevent_t *list(const char *str);
     dbgevent_t *getSources();

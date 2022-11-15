@@ -34,10 +34,7 @@
 #include "useful.h"
 #include "ais.h"
 
-/* The following is used to turn on debug printing for the CreateSimpleAIF func.
-** It generates a ton of output for large arrays, which is why we want to
-** normally leave it off.
-*/
+#include "unittest_macros.h"
 
 // Used to fix infinite loop issue for recursive calls to whatis
 extern int clientPrintElements;
@@ -405,7 +402,6 @@ public:
     ~GdbResult() = default;
     const char* get() override { return m_pos; }
     void setPos(const char* pos) override { m_pos = pos; }
-    bool isContinued() override { return false; }
     bool mayBeTruncated() override;
 
     GdbResult(const GdbResult&) = delete;
@@ -2213,3 +2209,718 @@ std::string EvalSlices::getNextSlice(bool& isFinal) {
 void EvalSlices::initSlicer() {
     if (!m_slicer) m_slicer = m_mi2aif.makeSlicer(m_var);
 }
+
+namespace unittest {
+
+#ifndef DOCTEST_CONFIG_DISABLE
+
+template <typename T>
+std::shared_ptr<ais::Type> basicTypeTest(const char *input) {
+    // parse the `input` string with TypeParser and check that type `T` was returned.
+    //
+    // return the parsed type as a generic pointer (ais::Type).
+
+    auto mi = Mi2Aif(nullptr);
+    auto t = TypeParser::getType(mi, nullptr, nullptr, input);
+
+    REQUIRE_MESSAGE(t != nullptr, "Failed to parse a type from \"", std::string{input}, "\"");
+    CHECK_MESSAGE(std::dynamic_pointer_cast<T>(t) != nullptr, "Incorrect parse of \"",
+                  t->getTypeName(), "\" from \"", std::string{input}, "\"");
+
+    return t;
+}
+
+template <typename Outer, typename Inner>
+std::shared_ptr<Inner> containerMatch(std::shared_ptr<ais::Type> outerptr, size_t len) {
+    // verify that `outerptr` is of type `Outer` and that its inner type is `Inner`.
+    // also verify that the outer type's length matches `len.
+    //
+    // return the casted inner type for easy chaining of multi-level containers.
+
+    REQUIRE(outerptr != nullptr);
+
+    auto outer = std::dynamic_pointer_cast<Outer>(outerptr);
+    REQUIRE_MESSAGE(outer != nullptr,
+                    "Incorrect outer container type: ", outerptr->getTypeName());
+
+    // HACK: we throw ais::complex into this function too, but it doesn't have getLen()
+    if constexpr (!std::is_same_v<Outer, ais::Complex>) {
+        CHECK(outer->getLen() == len);
+    }
+
+    auto inner = std::dynamic_pointer_cast<Inner>(outer->getElemTypePtr());
+    REQUIRE_MESSAGE(inner != nullptr,
+                    "Incorrect inner container type: ", outer->getElemTypePtr()->getTypeName());
+
+    return inner;
+}
+
+#endif
+
+TEST_CASE("TypeParser::sanitizeType") {
+    auto &st = TypeParser::sanitizeType;
+
+    // nothing to sanitize
+    CHECK(st("char") == std::string("char"));
+
+    // whitespace
+    CHECK(st("  char") == std::string("char"));
+    CHECK(st("char  ") == std::string("char"));
+    CHECK(st("  char  ") == std::string("char"));
+
+    // cpp
+    CHECK(st("const char") == std::string("char"));
+    // "signed" has an exception for chars
+    CHECK(st("signed char") == std::string("signed char"));
+    CHECK(st("signed int") == std::string("int"));
+    CHECK(st("volatile char") == std::string("char"));
+
+    // ftn
+    CHECK(st("SHARED char") == std::string("char"));
+    CHECK(st("SHARED char") == std::string("char"));
+    CHECK(st("POINTER, char") == std::string("char"));
+    CHECK(st("POINTER, char") == std::string("char"));
+
+    // nvidia
+    CHECK(st("@abcd char") == std::string("char"));
+}
+
+TEST_CASE("TypeParser::getType: cpp primitive types") {
+    SUBCASE("bool") { basicTypeTest<ais::Bool>("bool"); }
+
+    SUBCASE("char") { basicTypeTest<ais::Char>("char"); }
+
+    SUBCASE("double") { basicTypeTest<ais::Double>("double"); }
+
+    SUBCASE("enum") { basicTypeTest<ais::Enum>("enum dbgcmd"); }
+
+    SUBCASE("float") { basicTypeTest<ais::Float>("float"); }
+
+    SUBCASE("int") { basicTypeTest<ais::Int>("int"); }
+
+    SUBCASE("int8_t") { basicTypeTest<ais::Int>("int8_t"); }
+
+    SUBCASE("long") { basicTypeTest<ais::Long>("long"); }
+
+    SUBCASE("long int") { basicTypeTest<ais::Long>("long int"); }
+
+    SUBCASE("long long") { basicTypeTest<ais::LongLong>("long long"); }
+
+    SUBCASE("long double") { basicTypeTest<ais::LongDouble>("long double"); }
+
+    SUBCASE("std::size_t") { basicTypeTest<ais::Long>("std::size_t"); }
+
+    SUBCASE("size_t") { basicTypeTest<ais::UnsignedLong>("size_t"); }
+
+    SUBCASE("short") { basicTypeTest<ais::Short>("short"); }
+
+    SUBCASE("short int") { basicTypeTest<ais::Short>("short int"); }
+
+    SUBCASE("signed char") { basicTypeTest<ais::SignedChar>("signed char"); }
+
+    SUBCASE("uint8_t") { basicTypeTest<ais::UnsignedChar>("uint8_t"); }
+
+    SUBCASE("uint16_t") { basicTypeTest<ais::UnsignedShort>("uint16_t"); }
+
+    SUBCASE("uint32_t") { basicTypeTest<ais::UnsignedInt>("uint32_t"); }
+
+    SUBCASE("uint64_t") { basicTypeTest<ais::UnsignedLong>("uint64_t"); }
+
+    SUBCASE("unsigned char") { basicTypeTest<ais::UnsignedChar>("unsigned char"); }
+
+    SUBCASE("unsigned int") { basicTypeTest<ais::UnsignedInt>("unsigned int"); }
+
+    SUBCASE("unsigned long") { basicTypeTest<ais::UnsignedLong>("unsigned long"); }
+
+    SUBCASE("unsigned long int") {
+        basicTypeTest<ais::UnsignedLong>("unsigned long int");
+    }
+
+    SUBCASE("unsigned long long") {
+        basicTypeTest<ais::UnsignedLongLong>("unsigned long long");
+    }
+
+    SUBCASE("unsigned short") { basicTypeTest<ais::UnsignedShort>("unsigned short"); }
+
+    SUBCASE("unsigned short int") {
+        basicTypeTest<ais::UnsignedShort>("unsigned short int");
+    }
+
+    SUBCASE("void function pointer") {
+        basicTypeTest<ais::Function>("void(*)(int, int)");
+    }
+}
+
+TEST_CASE("TypeParser::getType: cpp pointer types") {
+    SUBCASE("primitive type pointers") {
+        // TODO: verify the inner type of the pointer
+        SUBCASE("int") { basicTypeTest<ais::Pointer>("int*"); }
+        SUBCASE("void") { basicTypeTest<ais::Pointer>("void*"); }
+        SUBCASE("float") { basicTypeTest<ais::Pointer>("float*"); }
+    }
+
+    SUBCASE("char pointer") { basicTypeTest<ais::CharArray>("char*"); }
+    SUBCASE("anonymous class pointer") { basicTypeTest<ais::Pointer>("class {...}*"); }
+}
+
+TEST_CASE("TypeParser::getType: cpp decorated types") {
+    SUBCASE("reference &") {
+        basicTypeTest<ais::Int>("int&");
+        basicTypeTest<ais::Float>("float&");
+    }
+
+    SUBCASE("arrays []") {
+        SUBCASE("1d") {
+            auto t = basicTypeTest<ais::Array>("int[10]");
+            containerMatch<ais::Array, ais::Int>(t, 10);
+        }
+        SUBCASE("2d") {
+            auto t = basicTypeTest<ais::Array>("int[10][20]");
+            t = containerMatch<ais::Array, ais::Array>(t, 10);
+            containerMatch<ais::Array, ais::Int>(t, 20);
+        }
+        SUBCASE("3d") {
+            auto t = basicTypeTest<ais::Array>("int[10][20][30]");
+            t = containerMatch<ais::Array, ais::Array>(t, 10);
+            t = containerMatch<ais::Array, ais::Array>(t, 20);
+            containerMatch<ais::Array, ais::Int>(t, 30);
+        }
+        SUBCASE("4d") {
+            auto t = basicTypeTest<ais::Array>("int[10][20][30][40]");
+            t = containerMatch<ais::Array, ais::Array>(t, 10);
+            t = containerMatch<ais::Array, ais::Array>(t, 20);
+            t = containerMatch<ais::Array, ais::Array>(t, 30);
+            containerMatch<ais::Array, ais::Int>(t, 40);
+        }
+    }
+
+    SUBCASE("array references []&") {
+        SUBCASE("1d") {
+            auto t = basicTypeTest<ais::Array>("int[10]&");
+            containerMatch<ais::Array, ais::Int>(t, 10);
+        }
+        SUBCASE("2d") {
+            auto t = basicTypeTest<ais::Array>("int[10][20]&");
+            t = containerMatch<ais::Array, ais::Array>(t, 10);
+            containerMatch<ais::Array, ais::Int>(t, 20);
+        }
+        SUBCASE("3d") {
+            auto t = basicTypeTest<ais::Array>("int[10][20][30]&");
+            t = containerMatch<ais::Array, ais::Array>(t, 10);
+            t = containerMatch<ais::Array, ais::Array>(t, 20);
+            containerMatch<ais::Array, ais::Int>(t, 30);
+        }
+        SUBCASE("4d") {
+            auto t = basicTypeTest<ais::Array>("int[10][20][30][40]&");
+            t = containerMatch<ais::Array, ais::Array>(t, 10);
+            t = containerMatch<ais::Array, ais::Array>(t, 20);
+            t = containerMatch<ais::Array, ais::Array>(t, 30);
+            containerMatch<ais::Array, ais::Int>(t, 40);
+        }
+    }
+
+    SUBCASE("function pointers ()") {
+        basicTypeTest<ais::Function>("int (*) (int, int, int)");
+        basicTypeTest<ais::Function>("void (*) (int, int)");
+        basicTypeTest<ais::Function>("int (*) ()");
+        basicTypeTest<ais::Function>("void (*) ()");
+    }
+}
+
+TEST_CASE("TypeParser::getType: cpp stl types") {
+    SUBCASE("std::array") {
+        auto t = basicTypeTest<ais::StdArray>("std::array<int, 13>");
+        containerMatch<ais::StdArray, ais::Int>(t, 13);
+    }
+    SUBCASE("std::deque") {
+        auto t = basicTypeTest<ais::Array>("std::deque<float>");
+        containerMatch<ais::Array, ais::Float>(t, 0);
+    }
+    SUBCASE("std::stack") {
+        auto t = basicTypeTest<ais::Array>("std::stack<unsigned short>");
+        containerMatch<ais::Array, ais::UnsignedShort>(t, 0);
+    }
+    SUBCASE("std::vector") {
+        auto t = basicTypeTest<ais::Array>("std::vector<std::vector<int>>");
+        t = containerMatch<ais::Array, ais::Array>(t, 0);
+        containerMatch<ais::Array, ais::Int>(t, 0);
+    }
+    SUBCASE("std::priority_queue") {
+        auto t = basicTypeTest<ais::Array>("std::priority_queue<double>");
+        containerMatch<ais::Array, ais::Double>(t, 0);
+    }
+    SUBCASE("std::queue") {
+        auto t = basicTypeTest<ais::Array>("std::queue<char>");
+        containerMatch<ais::Array, ais::Char>(t, 0);
+    }
+    SUBCASE("std::shared_ptr") {
+        basicTypeTest<ais::SmartPointer>("std::shared_ptr<int>");
+    }
+    SUBCASE("std::unique_ptr") {
+        basicTypeTest<ais::SmartPointer>("std::unique_ptr<float>");
+    }
+}
+
+TEST_CASE("TypeParser::getType: cpp string types") {
+    basicTypeTest<ais::String>("std::string");
+    basicTypeTest<ais::String>("std::basic_string");
+    basicTypeTest<ais::String>("std::string<std::allocator>");
+    basicTypeTest<ais::String>("std::basic_string<std::basic_allocator>");
+}
+
+TEST_CASE("TypeParser::getType: ftn \"double precision\"" * doctest::should_fail()) {
+    // TODO: some ftn compilers report doubles as "double precision" which the parser
+    // doesn't support yet. (PE-44173)
+    // when fixed remove the should_fail decorator.
+    SUBCASE("double precision") { basicTypeTest<ais::Double>("double precision"); }
+
+    SUBCASE("double precision (arrays)") {
+        SUBCASE("1d") {
+            auto t = basicTypeTest<ais::FtnArray>("double precision, allocatable (64)");
+            t = containerMatch<ais::FtnArray, ais::Double>(t, 64);
+        }
+        SUBCASE("2d") {
+            auto t =
+                basicTypeTest<ais::FtnArray>("double precision, allocatable (64,63)");
+            t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 63);
+            containerMatch<ais::FtnArray, ais::Double>(t, 64);
+        }
+        SUBCASE("3d") {
+            auto t =
+                basicTypeTest<ais::FtnArray>("double precision, allocatable (64,63,62)");
+            t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 62);
+            t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 63);
+            containerMatch<ais::FtnArray, ais::Double>(t, 64);
+        }
+    }
+}
+
+TEST_CASE("TypeParser::getType: ftn primitive types") {
+    SUBCASE("CHARACTER") {
+        basicTypeTest<ais::Char>("character");
+        basicTypeTest<ais::Char>("CHARACTER");
+    }
+
+    SUBCASE("COMPLEX") {
+        {
+            auto t = basicTypeTest<ais::Complex>("complex");
+            containerMatch<ais::Complex, ais::Double>(t, 0);
+        }
+        {
+            auto t = basicTypeTest<ais::Complex>("COMPLEX");
+            containerMatch<ais::Complex, ais::Double>(t, 0);
+        }
+    }
+
+    SUBCASE("COMPLEX(4)") {
+        auto t = basicTypeTest<ais::Complex>("COMPLEX(4)");
+        containerMatch<ais::Complex, ais::Float>(t, 0);
+    }
+
+    SUBCASE("COMPLEX(8)") {
+        auto t = basicTypeTest<ais::Complex>("COMPLEX(8)");
+        containerMatch<ais::Complex, ais::Double>(t, 0);
+    }
+
+    SUBCASE("COMPLEX(16)") {
+        auto t = basicTypeTest<ais::Complex>("COMPLEX(16)");
+        containerMatch<ais::Complex, ais::LongDouble>(t, 0);
+    }
+
+    SUBCASE("COMPLEX(KIND=4)") {
+        auto t = basicTypeTest<ais::Complex>("COMPLEX(KIND=4)");
+        containerMatch<ais::Complex, ais::Float>(t, 0);
+    }
+
+    SUBCASE("COMPLEX(KIND=8)") {
+        auto t = basicTypeTest<ais::Complex>("COMPLEX(KIND=8)");
+        containerMatch<ais::Complex, ais::Double>(t, 0);
+    }
+
+    SUBCASE("COMPLEX(KIND=16)") {
+        auto t = basicTypeTest<ais::Complex>("COMPLEX(KIND=16)");
+        containerMatch<ais::Complex, ais::LongDouble>(t, 0);
+    }
+
+    SUBCASE("COMPLEX*8") {
+        auto t = basicTypeTest<ais::Complex>("COMPLEX*8");
+        containerMatch<ais::Complex, ais::Float>(t, 0);
+    }
+
+    SUBCASE("COMPLEX*16") {
+        auto t = basicTypeTest<ais::Complex>("COMPLEX*16");
+        containerMatch<ais::Complex, ais::Double>(t, 0);
+    }
+
+    SUBCASE("COMPLEX*32") {
+        auto t = basicTypeTest<ais::Complex>("COMPLEX*32");
+        containerMatch<ais::Complex, ais::LongDouble>(t, 0);
+    }
+
+    SUBCASE("INTEGER") {
+        basicTypeTest<ais::Int>("INTEGER");
+        basicTypeTest<ais::Int>("integer");
+    }
+
+    SUBCASE("INTEGER(1)") { basicTypeTest<ais::SignedChar>("INTEGER(1)"); }
+
+    SUBCASE("INTEGER(2)") { basicTypeTest<ais::Short>("INTEGER(2)"); }
+
+    SUBCASE("INTEGER(4)") { basicTypeTest<ais::Int>("INTEGER(4)"); }
+
+    SUBCASE("INTEGER(8)") { basicTypeTest<ais::Long>("INTEGER(8)"); }
+
+    SUBCASE("INTEGER(16)") { basicTypeTest<ais::LongLong>("INTEGER(16)"); }
+
+    SUBCASE("INTEGER(KIND=1)") { basicTypeTest<ais::SignedChar>("INTEGER(KIND=1)"); }
+
+    SUBCASE("INTEGER(KIND=2)") { basicTypeTest<ais::Short>("INTEGER(KIND=2)"); }
+
+    SUBCASE("INTEGER(KIND=4)") { basicTypeTest<ais::Int>("INTEGER(KIND=4)"); }
+
+    SUBCASE("INTEGER(KIND=8)") { basicTypeTest<ais::Long>("INTEGER(KIND=8)"); }
+
+    SUBCASE("INTEGER(KIND=16)") { basicTypeTest<ais::LongLong>("INTEGER(KIND=16)"); }
+
+    SUBCASE("INTEGER*1") { basicTypeTest<ais::SignedChar>("INTEGER*1"); }
+
+    SUBCASE("INTEGER*2") { basicTypeTest<ais::Short>("INTEGER*2"); }
+
+    SUBCASE("INTEGER*4") { basicTypeTest<ais::Int>("INTEGER*4"); }
+
+    SUBCASE("INTEGER*8") { basicTypeTest<ais::Long>("INTEGER*8"); }
+
+    SUBCASE("INTEGER*16") { basicTypeTest<ais::LongLong>("INTEGER*16"); }
+
+    SUBCASE("LOGICAL") {
+        basicTypeTest<ais::Logical>("LOGICAL");
+        basicTypeTest<ais::Logical>("logical");
+    }
+
+    SUBCASE("LOGICAL(1)") { basicTypeTest<ais::Logical>("LOGICAL(1)"); }
+
+    SUBCASE("LOGICAL(2)") { basicTypeTest<ais::Logical>("LOGICAL(2)"); }
+
+    SUBCASE("LOGICAL(4)") { basicTypeTest<ais::Logical>("LOGICAL(4)"); }
+
+    SUBCASE("LOGICAL(8)") { basicTypeTest<ais::Logical>("LOGICAL(8)"); }
+
+    SUBCASE("LOGICAL(16)") { basicTypeTest<ais::Logical>("LOGICAL(16)"); }
+
+    SUBCASE("LOGICAL*1") { basicTypeTest<ais::Logical>("LOGICAL*1"); }
+
+    SUBCASE("LOGICAL*2") { basicTypeTest<ais::Logical>("LOGICAL*2"); }
+
+    SUBCASE("LOGICAL*4") { basicTypeTest<ais::Logical>("LOGICAL*4"); }
+
+    SUBCASE("LOGICAL*8") { basicTypeTest<ais::Logical>("LOGICAL*8"); }
+
+    SUBCASE("LOGICAL*16") { basicTypeTest<ais::Logical>("LOGICAL*16"); }
+
+    SUBCASE("LOGICAL(KIND=1)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=1)"); }
+
+    SUBCASE("LOGICAL(KIND=2)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=2)"); }
+
+    SUBCASE("LOGICAL(KIND=4)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=4)"); }
+
+    SUBCASE("LOGICAL(KIND=8)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=8)"); }
+
+    SUBCASE("LOGICAL(KIND=16)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=16)"); }
+
+    SUBCASE("REAL") {
+        basicTypeTest<ais::Double>("real");
+        basicTypeTest<ais::Double>("REAL");
+    }
+
+    SUBCASE("REAL(4)") { basicTypeTest<ais::Float>("REAL(4)"); }
+
+    SUBCASE("REAL(8)") { basicTypeTest<ais::Double>("REAL(8)"); }
+
+    SUBCASE("REAL(16)") { basicTypeTest<ais::LongDouble>("REAL(16)"); }
+
+    SUBCASE("REAL(KIND=4)") { basicTypeTest<ais::Float>("REAL(KIND=4)"); }
+
+    SUBCASE("REAL(KIND=8)") { basicTypeTest<ais::Double>("REAL(KIND=8)"); }
+
+    SUBCASE("REAL(KIND=16)") { basicTypeTest<ais::LongDouble>("REAL(KIND=16)"); }
+
+    SUBCASE("REAL*4") { basicTypeTest<ais::Float>("REAL*4"); }
+
+    SUBCASE("REAL*8") { basicTypeTest<ais::Double>("REAL*8"); }
+
+    SUBCASE("REAL*16") { basicTypeTest<ais::LongDouble>("REAL*16"); }
+
+    SUBCASE("STRING") {
+        // STRING is unimplemented. Once it's implemented, update this test.
+        // In practice a reported type of character*n is more common, which is parsed as
+        // ais::FtnString and tested in the decorated types test.
+        basicTypeTest<ais::Unimplemented>("STRING");
+    }
+}
+
+TEST_CASE("TypeParser::getType: ftn decorated types") {
+    SUBCASE("arrays ()") {
+        // different compilers can report these types slightly differently, hence the
+        // variations.
+
+        SUBCASE("integer") {
+            SUBCASE("1d") {
+                auto t = basicTypeTest<ais::FtnArray>("integer, allocatable (64)");
+                containerMatch<ais::FtnArray, ais::Int>(t, 64);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>("integer, allocatable (8,17)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 17);
+                containerMatch<ais::FtnArray, ais::Int>(t, 8);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>("integer, allocatable (2,5,7)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 7);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 5);
+                containerMatch<ais::FtnArray, ais::Int>(t, 2);
+            }
+        }
+
+        SUBCASE("pointer, INTEGER*4") {
+            SUBCASE("1d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>("pointer, INTEGER*4, allocatable (64)");
+                t = containerMatch<ais::FtnArray, ais::Int>(t, 64);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, INTEGER*4, allocatable (8,17)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 17);
+                containerMatch<ais::FtnArray, ais::Int>(t, 8);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, INTEGER*4, allocatable (2,5,7)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 7);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 5);
+                containerMatch<ais::FtnArray, ais::Int>(t, 2);
+            }
+            SUBCASE("slice") {
+                auto t = basicTypeTest<ais::FtnArray>("INTEGER*4, (0:9)");
+                t = containerMatch<ais::FtnArray, ais::Int>(t, 10);
+            }
+            SUBCASE("2d slice") {
+                auto t = basicTypeTest<ais::FtnArray>("INTEGER*4, (-10:10,-5:13)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 19);
+                containerMatch<ais::FtnArray, ais::Int>(t, 21);
+            }
+        }
+
+        SUBCASE("integer*8") {
+            SUBCASE("1d") {
+                auto t = basicTypeTest<ais::FtnArray>("integer*8, allocatable (64)");
+                containerMatch<ais::FtnArray, ais::Long>(t, 64);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>("integer*8, allocatable (64,128)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 128);
+                containerMatch<ais::FtnArray, ais::Long>(t, 64);
+            }
+            SUBCASE("3d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>("integer*8, allocatable (64,128,256)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 256);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 128);
+                containerMatch<ais::FtnArray, ais::Long>(t, 64);
+            }
+        }
+
+        SUBCASE("pointer, INTEGER*8") {
+            SUBCASE("1d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>("pointer, INTEGER*8, allocatable (64)");
+                t = containerMatch<ais::FtnArray, ais::Long>(t, 64);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, INTEGER*8, allocatable (64,128)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 128);
+                containerMatch<ais::FtnArray, ais::Long>(t, 64);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, INTEGER*8, allocatable (64,32,16)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 16);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 32);
+                containerMatch<ais::FtnArray, ais::Long>(t, 64);
+            }
+        }
+
+        SUBCASE("real") {
+            SUBCASE("1d") {
+                auto t = basicTypeTest<ais::FtnArray>("real, allocatable (64)");
+                // XXX: This currently returns as a double, but probably should be a
+                // float?
+                containerMatch<ais::FtnArray, ais::Double>(t, 64);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>("real, allocatable (4,44)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 44);
+                // XXX: This currently returns as a double, but probably should be a
+                // float?
+                containerMatch<ais::FtnArray, ais::Double>(t, 4);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>("real, allocatable (5,55,555)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 555);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 55);
+                // XXX: This currently returns as a double, but probably should be a
+                // float?
+                containerMatch<ais::FtnArray, ais::Double>(t, 5);
+            }
+        }
+
+        SUBCASE("pointer, REAL*4") {
+            SUBCASE("1d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>("pointer, REAL*4, allocatable (12)");
+                containerMatch<ais::FtnArray, ais::Float>(t, 12);
+            }
+            SUBCASE("2d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>("pointer, REAL*4, allocatable (12,24)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 24);
+                containerMatch<ais::FtnArray, ais::Float>(t, 12);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, REAL*4, allocatable (12,24,48)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 48);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 24);
+                containerMatch<ais::FtnArray, ais::Float>(t, 12);
+            }
+        }
+
+        SUBCASE("REAL*8") {
+            SUBCASE("1d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>("pointer, REAL*8, allocatable (64)");
+                t = containerMatch<ais::FtnArray, ais::Double>(t, 64);
+            }
+            SUBCASE("2d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>("pointer, REAL*8, allocatable (64,63)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 63);
+                containerMatch<ais::FtnArray, ais::Double>(t, 64);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, REAL*8, allocatable (64,63,62)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 62);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 63);
+                containerMatch<ais::FtnArray, ais::Double>(t, 64);
+            }
+        }
+
+        SUBCASE("complex") {
+            SUBCASE("1d") {
+                auto t = basicTypeTest<ais::FtnArray>("complex, allocatable (64)");
+                t = containerMatch<ais::FtnArray, ais::Complex>(t, 64);
+                containerMatch<ais::Complex, ais::Double>(t, 0);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>("complex, allocatable (11,12)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 12);
+                t = containerMatch<ais::FtnArray, ais::Complex>(t, 11);
+                containerMatch<ais::Complex, ais::Double>(t, 0);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>("complex, allocatable (4,3,2)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 2);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 3);
+                t = containerMatch<ais::FtnArray, ais::Complex>(t, 4);
+                containerMatch<ais::Complex, ais::Double>(t, 0);
+            }
+        }
+
+        SUBCASE("pointer, COMPLEX*8") {
+            // XXX: Should these be returning Doubles instead of Floats?
+
+            SUBCASE("1d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>("pointer, COMPLEX*8, allocatable (64)");
+                t = containerMatch<ais::FtnArray, ais::Complex>(t, 64);
+                containerMatch<ais::Complex, ais::Float>(t, 0);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, COMPLEX*8, allocatable (11,12)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 12);
+                t = containerMatch<ais::FtnArray, ais::Complex>(t, 11);
+                containerMatch<ais::Complex, ais::Float>(t, 0);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, COMPLEX*8, allocatable (4,3,2)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 2);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 3);
+                t = containerMatch<ais::FtnArray, ais::Complex>(t, 4);
+                containerMatch<ais::Complex, ais::Float>(t, 0);
+            }
+        }
+
+        SUBCASE("logical") {
+            SUBCASE("1d") {
+                auto t = basicTypeTest<ais::FtnArray>("logical, allocatable (64)");
+                t = containerMatch<ais::FtnArray, ais::Logical>(t, 64);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>("logical, allocatable (11,12)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 12);
+                containerMatch<ais::FtnArray, ais::Logical>(t, 11);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>("logical, allocatable (4,3,2)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 2);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 3);
+                containerMatch<ais::FtnArray, ais::Logical>(t, 4);
+            }
+        }
+
+        SUBCASE("pointer, LOGICAL*4") {
+            SUBCASE("1d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>("pointer, LOGICAL*4, allocatable (64)");
+                t = containerMatch<ais::FtnArray, ais::Logical>(t, 64);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, LOGICAL*4, allocatable (11,12)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 12);
+                containerMatch<ais::FtnArray, ais::Logical>(t, 11);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>(
+                    "pointer, LOGICAL*4, allocatable (4,3,2)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 2);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 3);
+                containerMatch<ais::FtnArray, ais::Logical>(t, 4);
+            }
+        }
+    }
+
+    SUBCASE("fortran string (character*n)") {
+        auto t = basicTypeTest<ais::FtnString>("character*20");
+        auto str_t = std::dynamic_pointer_cast<ais::FtnString>(t);
+        REQUIRE(str_t != nullptr);
+        CHECK(str_t->getLen() == 20);
+    }
+}
+
+TEST_CASE("Mi2Aif caches types after they are parsed the first time") {
+    auto mi = Mi2Aif(nullptr);
+    auto t = TypeParser::getType(mi, nullptr, nullptr, "bool");
+    auto t2 = TypeParser::getType(mi, nullptr, nullptr, "bool");
+    auto t3 = TypeParser::getType(mi, nullptr, nullptr, "float");
+    REQUIRE(std::dynamic_pointer_cast<ais::Bool>(t) != nullptr);
+    REQUIRE(std::dynamic_pointer_cast<ais::Bool>(t2) != nullptr);
+    CHECK(t.get() == t2.get());
+    CHECK(t.get() != t3.get());
+}
+
+} // namespace unittest

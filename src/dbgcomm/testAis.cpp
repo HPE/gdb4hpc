@@ -114,7 +114,6 @@ public:
     const char* get() override;
     void setPos(const char* pos) override;
     bool mayBeTruncated() override;
-    bool isContinued() override;
 private:
     std::vector<std::string> m_strs;
     std::vector<std::string>::iterator m_it;
@@ -134,7 +133,6 @@ void IStream::setPos(const char* pos) {
 }
 
 bool IStream::mayBeTruncated() { return false; };
-bool IStream::isContinued() { return m_it + 1 != m_strs.end(); }
 
 /*
 // an array of ints

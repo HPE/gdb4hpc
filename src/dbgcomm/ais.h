@@ -117,7 +117,6 @@ public:
 class Writer {
 public:
     Writer(std::shared_ptr<WriteBuffer> buffer) : m_buffer(buffer) {}
-    void write(Type* obj);
 
     // write a type definition into the stream
     void writeType(const Type& type);
@@ -259,7 +258,6 @@ public:
     virtual const char* get() = 0;
     virtual void setPos(const char* pos) = 0;
     virtual bool mayBeTruncated() = 0;
-    virtual bool isContinued() = 0;
 };
 
 // Visitor class for applying an arbitrary operation to a data structure.
@@ -566,11 +564,13 @@ public:
 };
 
 class SignedChar : public Char {
+public:
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     std::string getTypeName() const override;
 };
 
 class UnsignedChar : public Char {
+public:
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     std::string getTypeName() const override;
 };
@@ -680,6 +680,8 @@ public:
     void printIndex(int idx, std::ostream& out) const override;;
     void applyL(Reader& reader, Visitor& f) const override;
     std::string getTypeName() const override;
+    const Type* getElemType() const;
+    std::shared_ptr<Type> getElemTypePtr() { return m_elemType; }
 private:
     std::shared_ptr<Type> m_elemType;
 };
@@ -709,6 +711,7 @@ public:
     void applyL(Reader& reader, Visitor& f) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     std::string getTypeName() const override;
+    int getLen() const { return m_len; }
 private:
     int m_len;
 };

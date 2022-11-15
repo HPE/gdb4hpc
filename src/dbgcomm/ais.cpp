@@ -460,6 +460,9 @@ std::string ais::Complex::getTypeName() const {
     return "^complex-" + m_elemType->getTypeName();
 }
 
+const ais::Type* ais::Complex::getElemType() const {
+    return m_elemType.get();
+}
 
 void ais::Logical::parseL(InterpretStream& in, Writer& out) const
 {
@@ -810,19 +813,10 @@ void ais::Array::parseL(InterpretStream& in, Writer& out) const {
             // parsing
             in.setPos(s+1);
 
-            if (in.isContinued()) {
-                if ((s = in.get())) {
-                    // get into the next block which will have a matching extra
-                    // brace
-                    ++s;
-                } else {
-                    return;
-                }
-            } else if (mayBeTruncated) {
+            if (mayBeTruncated) {
                 out.writeInt(false); // indicate no more elements
                 return;
             }
-            
         } else {
             fprintf(stderr, "unexpected character %c\n", *s);
         }

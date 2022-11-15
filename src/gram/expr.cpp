@@ -30,7 +30,6 @@
 #include "defs.h"
 #include "gram.h"
 #include "useful.h"
-#include "aifCompat.h"
 
 // Global variables with external exposure - This is used in expr.y.in
 const char **ExprStr;
@@ -1428,7 +1427,7 @@ static AIFStream *apply_op_aif(expr_op op, AIFStream *a1, AIFStream *a2,
     switch (op) {
         case EXPR_OPADD:
             if (!(ar = AIFStream::add(a1, a2))) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 return NULL;
             }
 
@@ -1436,7 +1435,7 @@ static AIFStream *apply_op_aif(expr_op op, AIFStream *a1, AIFStream *a2,
 
         case EXPR_OPSUB:
             if (!(ar = AIFStream::sub(a1, a2))) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 return NULL;
             }
 
@@ -1444,7 +1443,7 @@ static AIFStream *apply_op_aif(expr_op op, AIFStream *a1, AIFStream *a2,
 
         case EXPR_OPMUL:
             if (!(ar = AIFStream::mul(a1, a2))) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 return NULL;
             }
 
@@ -1452,7 +1451,7 @@ static AIFStream *apply_op_aif(expr_op op, AIFStream *a1, AIFStream *a2,
 
         case EXPR_OPDIV:
             if (!(ar = AIFStream::div(a1, a2))) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 return NULL;
             }
 
@@ -1461,7 +1460,7 @@ static AIFStream *apply_op_aif(expr_op op, AIFStream *a1, AIFStream *a2,
         // TODO: Broken to fix derived fortran types
         case EXPR_OPREM:
             if (!(ar = AIFStream::rem(a1, a2))) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 return NULL;
             }
 
@@ -1546,7 +1545,7 @@ static AIFStream *apply_op_aif(expr_op op, AIFStream *a1, AIFStream *a2,
 
         case EXPR_OPAND:
             if (a1->isZero(r1) < 0 || a2->isZero(r2) < 0) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 return NULL;
             }
 
@@ -1555,7 +1554,7 @@ static AIFStream *apply_op_aif(expr_op op, AIFStream *a1, AIFStream *a2,
 
         case EXPR_OPOR:
             if (a1->isZero(r1) < 0 || a2->isZero(r2)) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 return NULL;
             }
 
@@ -1568,7 +1567,7 @@ static AIFStream *apply_op_aif(expr_op op, AIFStream *a1, AIFStream *a2,
 
         case EXPR_OPNEG:
             if (!(ar = AIFStream::neg(a1))) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 return NULL;
             }
 
@@ -1622,7 +1621,7 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
 
         apply_op_aif_direct:
             if (a1->isZero(r1) < 0) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 return (val_t *)NULL;
             }
 
@@ -1691,7 +1690,7 @@ static val_t *apply_opcond(val_t *v1, val_t *v2, val_t *v3, rec_set_t *rec_set) 
                 // point at the data
                 a1 = EVENT_DATA(reply->rep_event);
                 if (a1->isZero(r1) < 0) {
-                    SetError("%s", AIFErrorStr());
+                    SetError("%s", "data error");
                     // Make sure cleanup happens
                     FreeRepSet(new_rep_set);
                     return (val_t *)NULL;
@@ -2690,7 +2689,7 @@ static var_t *ReadVar_BlockMap(const expr_t *e, rec_set_t *rec_set, CMD_MODE mod
             }
 
             if (RVAL_AIF(val)->toInt(smx) < 0) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 DestroyVal(val);
                 goto bad_var;
             }
@@ -2708,7 +2707,7 @@ static var_t *ReadVar_BlockMap(const expr_t *e, rec_set_t *rec_set, CMD_MODE mod
             }
 
             if (RVAL_AIF(val)->toInt(smn) < 0) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 DestroyVal(val);
                 goto bad_var;
             }
@@ -2734,7 +2733,7 @@ static var_t *ReadVar_BlockMap(const expr_t *e, rec_set_t *rec_set, CMD_MODE mod
             }
 
             if (RVAL_AIF(val)->toInt(smx) < 0) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 DestroyVal(val);
                 goto bad_var;
             }
@@ -3075,7 +3074,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
             }
 
             if (RVAL_AIF(val)->toInt(smx) < 0) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 DestroyVal(val);
                 goto bad_var;
             }
@@ -3093,7 +3092,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
             }
 
             if (RVAL_AIF(val)->toInt(smn) < 0) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 DestroyVal(val);
                 goto bad_var;
             }
@@ -3119,7 +3118,7 @@ var_t *ReadVarDecl(expr_t *e, rec_set_t *rec_set) {
             }
 
             if (RVAL_AIF(val)->toInt(smx) < 0) {
-                SetError("%s", AIFErrorStr());
+                SetError("%s", "data error");
                 DestroyVal(val);
                 goto bad_var;
             }

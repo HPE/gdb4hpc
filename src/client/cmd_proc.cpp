@@ -52,14 +52,14 @@ static int EventCB(DbgInvoke::EventSet& ev_set, const Bitset& reply_set);
 enum class StoppedType { END_RANGE, EXIT, BKPT_HIT};
 
 
-void PrintMIStoppedMsg(const DbgInvoke::EventSet *ev_set, StoppedType type,
-                       const std::string& file, const std::string& func, int line, const std::string& bkpt_id){
+void PrintMIStoppedMsg(StoppedType type,const std::string& file, const std::string& func,
+                       int line, const std::string& bkpt_id, const std::string& proc_name,
+                       const std::string& fullpath){
     std::ostringstream ss;
-    auto fullpath = ev_set->di().sourcePaths().getFullPath(file);
     switch(type){
         case StoppedType::BKPT_HIT:{
             ss << "reason=\"breakpoint-hit\",bkptno=\"" <<bkpt_id
-               << "\",proc_set=\"" << ev_set->di().handle().name()
+               << "\",proc_set=\"" << proc_name
                << "\",frame={func=\"" << func
                << "\",args=[],file=\"" << file
                << "\",fullname=\""<< fullpath
@@ -67,7 +67,7 @@ void PrintMIStoppedMsg(const DbgInvoke::EventSet *ev_set, StoppedType type,
             break;
         }
         case StoppedType::END_RANGE:{
-            ss << "reason=\"end-stepping-range\",proc_set=\""<<ev_set->di().handle().name()
+            ss << "reason=\"end-stepping-range\",proc_set=\""<<proc_name
                <<"\",frame={func=\"" << func
                <<"\",args=[],file=\""<< file
                <<"\",fullname=\""<< fullpath
@@ -75,7 +75,7 @@ void PrintMIStoppedMsg(const DbgInvoke::EventSet *ev_set, StoppedType type,
             break;
         }
         case StoppedType::EXIT:{
-            ss << "reason=\"exited-normally\", proc_set=\""<<ev_set->di().handle().name()<<"\"";
+            ss << "reason=\"exited-normally\", proc_set=\""<<proc_name<<"\"";
             break;
         }
     }
@@ -398,6 +398,12 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
 
             // print out the message
             if (loc.loc_line > 0) {
+                if (Client.MI_mode){
+                    auto* di = reply->rep_di.lock();
+                    PrintMIStoppedMsg(StoppedType::BKPT_HIT, loc.loc_file, loc.loc_func,
+                                        loc.loc_line, "0", reply->rep_di.name(), 
+                                        di->sourcePaths().getFullPath(loc.loc_file));
+                }
                 PrintMsgWithSetInfo(
                     reply->rep_di.c_str(), reply->rep_group.get(),
                     "Initial breakpoint, %s at %s:%d\n", loc.loc_func, loc.loc_file, loc.loc_line);
@@ -1339,8 +1345,8 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
         if (Client.MI_mode){
             // Print the source line
             auto file = frameLoc.loc_file, frame = frameLoc.loc_func;
-            PrintMIStoppedMsg(ev_set, StoppedType::END_RANGE, file ? file : "unknown", frame ? frame : "unknown",
-                              frameLoc.loc_line, "");
+            PrintMIStoppedMsg(StoppedType::END_RANGE, file ? file : "unknown", frame ? frame : "unknown",
+                              frameLoc.loc_line, "", ev_set->di().handle().name(), ev_set->di().sourcePaths().getFullPath(file));
         }
 
     } else {
@@ -1395,7 +1401,7 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
             if (!bpset) {
                 if (ev_set.event()->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
                     if (Client.MI_mode){
-                        PrintMIStoppedMsg(&ev_set, StoppedType::EXIT, "", "", 0, "");
+                        PrintMIStoppedMsg(StoppedType::EXIT, "", "", 0, "","","");
                     }
                     PrintMsgWithSetInfo(
                         ev_set.di().handle().c_str(), &ev_set.group(),
@@ -1453,9 +1459,10 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                     if (Client.print_bp_frames) {
                         if (bpset->line() > 0) {
                             if (Client.MI_mode){
-                                PrintMIStoppedMsg(&ev_set, StoppedType::BKPT_HIT, bpset->file(),
+                                PrintMIStoppedMsg(StoppedType::BKPT_HIT, bpset->file(),
                                                   bpset->function(),
-                                                  bpset->line(), std::to_string(bpset->id()));
+                                                  bpset->line(), std::to_string(bpset->id()), 
+                                                  ev_set.di().handle().name(),ev_set.di().sourcePaths().getFullPath(bpset->file()));
                             }
                             PrintMsgWithSetInfo(
                                 ev_set.di().handle().c_str(), &ev_set.group(),
@@ -1554,7 +1561,10 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                 case DBGBP_BREAK_TYPE:
                     if (bpset->line() > 0) {
                         if (Client.MI_mode){
-                            PrintMIStoppedMsg(&ev_set, StoppedType::BKPT_HIT, bpset->file(), bpset->function(), bpset->line(), std::to_string(bpset->id()));
+                            PrintMIStoppedMsg(StoppedType::BKPT_HIT, bpset->file(), 
+                                            bpset->function(), bpset->line(), 
+                                            std::to_string(bpset->id()), ev_set.di().handle().name(),
+                                            ev_set.di().sourcePaths().getFullPath(bpset->file()));
                         }
                         PrintMsgWithSetInfo(
                             ev_set.di().handle().c_str(), &ev_set.group(),

@@ -370,7 +370,7 @@ class TestLibTest(unittest.TestCase):
     def test_suppressed_success(self):
         # test that a successful test containing ???PE-XXXXX lines
         # reports them
-        dot_in = "./tests.py.data/unit/c_finish.in"
+        dot_in = "./tests.py.data/unit/c_finish_suppressed.in"
         dot_out = "./tests.py.data/unit/c_finish_suppressed.out"
         result, error = compare_files(dot_in, dot_out)
         self.assertTrue(result, error)

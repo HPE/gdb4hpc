@@ -155,7 +155,8 @@ The difference delta is:
 {0..2}: Comparison is false.
 The difference delta is:
 {0..2}:
-47: p int_0
+47: # There is a bug in the amd fortran compiler with arrays declared with (0:9) syntax
+47: p int_0???PE-44512
 a{0..2}: (7, 9, 11, 13, 15, 17, 19, 21, 23, 25)
 b{0..2}: (7, 9, 11, 13, 15, 17, 19, 21, 23, 25)
 54: p int_0_2
@@ -250,7 +251,8 @@ The difference delta is:
 {0..2}: Comparison is false.
 The difference delta is:
 {0..2}: boy howdy!           vs bad beef            
-78: compare $a::int_0 == $b::int_0
+78: # There is a bug in the amd fortran compiler with arrays declared with (0:9) syntax
+78: compare $a::int_0 == $b::int_0???PE-44512
 {0..2}: Comparison is false.
 The difference delta is:
 {0..2}: (0):92

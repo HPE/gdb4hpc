@@ -203,10 +203,13 @@ struct TypeName {
 // Functions for creating an ais::Type from the string reported by gdb
 class TypeParser {
 public:
-    // Top level parsing function
+    // Top level parsing function. Invoking it will detect which language the current
+    // frame is in and then call one of the sub-parsers (getCpp/FtnType)
     static std::shared_ptr<ais::Type> getType(Mi2Aif& mi, MIVar* var, const char* typeStr);
+    static std::shared_ptr<ais::Type> getCppType(Mi2Aif& mi, MIVar* var, const char* typeStr);
+    static std::shared_ptr<ais::Type> getFtnType(Mi2Aif& mi, const char* typeStr);
 
-    static std::shared_ptr<ais::Type> wrap(std::shared_ptr<ais::Type> elemType, TypeName t);
+    static std::shared_ptr<ais::Type> cppWrap(std::shared_ptr<ais::Type> elemType, TypeName t);
     static std::shared_ptr<ais::Type> ftnWrap(std::shared_ptr<ais::Type> elemType, TypeName t);
     static std::shared_ptr<ais::Type> charWrap(std::shared_ptr<ais::Type> elemType, TypeName t);
 
@@ -223,12 +226,22 @@ public:
 
     static std::string sanitizeType(const std::string& type);
 
+    // Supported languages parsable by getType
+    enum class Lang {
+        Unknown,
+        Cpp,
+        Ftn,
+    };
+
+    // Query gdbmi for the current lang setting
+    static Lang queryCurrentLang(MISession* mi);
+
     using Func = std::function<std::shared_ptr<ais::Type>(Mi2Aif& mi, TypeName t)>;
     using Prim = std::pair<std::string, Func>;
 
     template<class T>
     static Func PrimWrap() { return [](Mi2Aif&, TypeName t) {
-                                        return wrap(std::make_shared<T>(),std::move(t)); } ;}
+                                        return cppWrap(std::make_shared<T>(),std::move(t)); } ;}
 
     template<class T>
     static Func FtnWrap() { return [](Mi2Aif&, TypeName t) {
@@ -333,7 +346,7 @@ std::vector<TypeParser::Prim> TypeParser::m_cppStlPrims =
 std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
 {
  {"CHARACTER",ftnCharacter},
- {"COMPLEX",m_complex8},
+ {"COMPLEX",m_complex4},
  {"COMPLEX(4)",m_complex4},
  {"COMPLEX(8)",m_complex8},
  {"COMPLEX(16)",m_complex16},
@@ -343,6 +356,10 @@ std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
  {"COMPLEX*8",m_complex4},
  {"COMPLEX*16",m_complex8},
  {"COMPLEX*32",m_complex16},
+ {"DOUBLE COMPLEX", m_complex8},
+ {"QUAD COMPLEX", m_complex16},
+ {"INT", m_int16}, // this can show up as the result of sizeof(...) commands, even in ftn.
+                   // reporting it as int16 since it's essentially a size_t.
  {"INTEGER",m_int4},
  {"INTEGER(1)",m_int1},
  {"INTEGER(2)",m_int2},
@@ -359,6 +376,7 @@ std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
  {"INTEGER*4",m_int4},
  {"INTEGER*8",m_int8},
  {"INTEGER*16",m_int16},
+ {"BYTE", m_int1},
  {"LOGICAL", m_logical},
  {"LOGICAL(1)",m_logical},
  {"LOGICAL(2)",m_logical},
@@ -375,7 +393,7 @@ std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
  {"LOGICAL(KIND=4)",m_logical},
  {"LOGICAL(KIND=8)",m_logical},
  {"LOGICAL(KIND=16)",m_logical},
- {"REAL",m_real8},
+ {"REAL",m_real4},
  {"REAL(4)",m_real4},
  {"REAL(8)",m_real8},
  {"REAL(16)",m_real16},
@@ -385,6 +403,7 @@ std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
  {"REAL*4",m_real4},
  {"REAL*8",m_real8},
  {"REAL*16",m_real16},
+ {"DOUBLE PRECISION", m_real8},
  {"STRING",unimplemented}
 };
 
@@ -1578,7 +1597,47 @@ static size_t FindTemplateLength(const std::string& str, size_t pos) {
     return (end-beg)+1;
 }
 
-// break a data member string into its name and 
+static TypeParser::Lang parseShowLangResult(const char* result) {
+    // Examples:
+    //   The current source language is "auto; currently c++".
+    //   The current source language is "fortran".
+
+    if (!result) return TypeParser::Lang::Unknown;
+
+    auto sv = std::string_view(result);
+    auto npos = std::string_view::npos;
+
+    if (sv.find("fortran") != npos) return TypeParser::Lang::Ftn;
+    if (sv.find("c++") != npos) return TypeParser::Lang::Cpp;
+    if (sv.find("\"c\"") != npos || sv.find("currently c\"") != npos)
+        return TypeParser::Lang::Cpp;
+
+    return TypeParser::Lang::Unknown;
+}
+
+TypeParser::Lang TypeParser::queryCurrentLang(MISession* mi) {
+    if (!mi) return TypeParser::Lang::Unknown;
+
+    const char* argv[] = {"show", "lang"};
+    MICommand* cmd = CLIBypass(2, const_cast<char **>(argv));
+    SendMICommand(mi, cmd);
+
+    auto result = TypeParser::Lang::Unknown;
+
+    if (MICommandResultOK(cmd)) {
+        auto result_str = MICommandConsoleOOBMessages(cmd);
+        if (result_str) {
+            result = parseShowLangResult(result_str);
+        }
+        free(result_str);
+    }
+
+    MICommandFree(cmd);
+
+    return result;
+}
+
+// break a data member string into its name and
 // type describe the current class/struct, fieldStr is the description of a member
 std::pair<std::string, std::string>
 PTypeFields::parseField(const std::string& type, const std::string& fieldStr) {
@@ -1611,17 +1670,34 @@ PTypeFields::parseField(const std::string& type, const std::string& fieldStr) {
 }
 
 std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const char* inType) {
+    switch (TypeParser::queryCurrentLang(mi.getSession())) {
+        case TypeParser::Lang::Unknown:
+            DVPRINT("WARNING: failed to detect current language type. Trying cpp.\n");
+            // fall through
+        case TypeParser::Lang::Cpp:
+            return getCppType(mi, var, inType);
+
+        case TypeParser::Lang::Ftn:
+            return getFtnType(mi, inType ? inType : var->type);
+
+        default:
+            // getting here means that queryCurrentLang somehow returned a value outside
+            // of the valid values for TypeParser::Lang
+            return std::make_shared<ais::Unimplemented>("language-detection-error");
+    }
+}
+
+std::shared_ptr<ais::Type> TypeParser::getCppType(Mi2Aif& mi, MIVar* var, const char* inType) {
     static bool isSorted = false;
     if (!isSorted) {
         std::sort(m_cppPrims.begin(), m_cppPrims.end(), comparePrims);
-        std::sort(m_fortranPrims.begin(), m_fortranPrims.end(), comparePrims);
         std::sort(m_cppStlPrims.begin(), m_cppStlPrims.end(), comparePrims);
         isSorted = true;
     }
 
     auto isId = [](int c) { return std::isalnum(c) || c == '_'; };
 
-    DVPRINT("TypeParser::getType var=\"%s\" inType=\"%s\"\n", 
+    DVPRINT("TypeParser::getCppType var=\"%s\" inType=\"%s\"\n", 
             var ? var->type : "", inType ? inType : "");
     if (var) {
         DVPRINT("expr %s exp %s\n", var->expr ? var->expr : "",
@@ -1695,23 +1771,7 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         }
     }
 
-    // check for a fortran primitive, upcase since fortran is case insensitive
-    auto uptype = type;
-    std::transform(uptype.begin(), uptype.end(), uptype.begin(), ::toupper);
-
-    // we need to use upper_bound and work backwards to be sure be get the maximal
-    // match, e.g. "INTEGER" v. "INTEGER*16"
-    auto ftn = Prim{uptype,0};
-    loc = std::upper_bound(m_fortranPrims.begin(), m_fortranPrims.end(), ftn, comparePrims);
-    
-    while (loc != m_fortranPrims.begin() && (--loc)->first[0] == uptype[0]) {
-        const auto& match = loc->first;
-        if (match == uptype.substr(0, match.size())) {
-            DVPRINT("got fortran type %s\n", match.c_str());
-            return mi.addKnownType(type, loc->second(mi, TypeName{uptype,match.size()}));
-        }
-    }
-
+    // check for a std::string or one of its variants
     static std::regex stdStringRE(R"((std::[A-Za-z0-9_:]*string)<.*>\s*)");
     static std::regex stdStringRE2(R"((std::[A-Za-z0-9_:]*string)\s*)");
     std::smatch match;
@@ -1725,15 +1785,7 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
     auto aliasName = mi.getPTypeAlias(type, false);
     if (aliasName != type) {
         DVPRINT("got an alias \"%s\"\n", aliasName.c_str());
-        return getType(mi, var, aliasName.c_str());
-    }
-
-    // fortran compound types - these are reported as "Type typename"
-    bool isFortran = false;
-    if (std::string_view(uptype).substr(0,5) == "TYPE ") {
-        isFortran = true;
-        type = type.substr(5);
-        DVPRINT("fortran type! using %s\n", type.c_str());
+        return getCppType(mi, var, aliasName.c_str());
     }
 
     // compound types - (always struct or class? - not sure)
@@ -1786,13 +1838,13 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
                 // normal child
                 DVPRINT("adding a child\n");
                 DVPRINT("member name is %s\n", getMemberName(child1).c_str());
-                stype->addMember(getMemberName(child1), getType(mi,child1,nullptr));
+                stype->addMember(getMemberName(child1), getCppType(mi,child1,nullptr));
             } else if (!mi.getChildren(child1)) {
                 // child is public|protected|private - walk down another level
                 for (int j=0; j<child1->numchild; ++j) {
                     auto child2 = child1->children[j];
                     child2->expr = strdup(child2->name);
-                    stype->addMember(getMemberName(child2), getType(mi,child2,nullptr));
+                    stype->addMember(getMemberName(child2), getCppType(mi,child2,nullptr));
                 }
             } else {
                 DVPRINT("getting children failed\n");
@@ -1800,17 +1852,17 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
         }
         DVPRINT("done processing members\n");
     } else {
-        auto ptfields = mi.getPTypeFields(type, isFortran);
+        auto ptfields = mi.getPTypeFields(type, /* true if fortran */ false);
         // parent classes
         for (const auto& parent : ptfields.parentClasses()) {
-            stype->addMember(parent, getType(mi, nullptr, parent.c_str()));
+            stype->addMember(parent, getCppType(mi, nullptr, parent.c_str()));
         }
         // class members
         for (auto&& fieldStr : ptfields.fields()) {
             auto [fieldName, fieldTypeStr] = ptfields.parseField(type, fieldStr);
             if (fieldName.empty()) continue;
 
-            stype->addMember(fieldName, getType(mi,nullptr,fieldTypeStr.c_str()));
+            stype->addMember(fieldName, getCppType(mi,nullptr,fieldTypeStr.c_str()));
         }
     }
 
@@ -1818,11 +1870,82 @@ std::shared_ptr<ais::Type> TypeParser::getType(Mi2Aif& mi, MIVar* var, const cha
             decoration.c_str());
 
     mi.addKnownType(baseType, stype);
-    return wrap(stype, TypeName{type,static_cast<size_t>(typeLen)});
+    return cppWrap(stype, TypeName{type,static_cast<size_t>(typeLen)});
+}
+
+std::shared_ptr<ais::Type> TypeParser::getFtnType(Mi2Aif& mi, const char* typeStr) {
+    static bool isSorted = false;
+    if (!isSorted) {
+        std::sort(m_fortranPrims.begin(), m_fortranPrims.end(), comparePrims);
+        isSorted = true;
+    }
+
+    // fortran is case insensitive, so we uppercase the type to match strings in m_fortranPrims.
+    auto type = sanitizeType(typeStr);
+    std::transform(type.begin(), type.end(), type.begin(), ::toupper);
+
+    if (auto knownType = mi.getKnownType(type)) {
+        DVPRINT("found known type for %s\n", type.c_str());
+        return knownType;
+    }
+
+    // we need to use upper_bound and work backwards to be sure be get the maximal
+    // match, e.g. "INTEGER" v. "INTEGER*16"
+    auto ftn = Prim{type,0};
+    auto loc = std::upper_bound(m_fortranPrims.begin(), m_fortranPrims.end(), ftn, comparePrims);
+
+    while (loc != m_fortranPrims.begin() && (--loc)->first[0] == type[0]) {
+        const auto& match = loc->first;
+        if (match == type.substr(0, match.size())) {
+            DVPRINT("got fortran type %s\n", match.c_str());
+            return mi.addKnownType(type, loc->second(mi, TypeName{type,match.size()}));
+        }
+    }
+
+    // compound types - these are reported as "Type typename"
+    if (std::string_view(type).substr(0,5) == "TYPE ") {
+        type = type.substr(5);
+        DVPRINT("fortran compound type! using %s\n", type.c_str());
+    }
+
+    // split into typename and decoration
+    auto ty = type.begin();
+    for ( ; ty != type.end() && *ty != '*' && *ty != '(' && *ty != ','; ++ty) {}
+    for ( ; ty != type.begin() && isspace(*(ty-1)); --ty) {}
+
+    auto typeLen = ty - type.begin();
+    auto baseType = type.substr(0,typeLen);
+    auto decoration = type.substr(typeLen);
+    auto stype = std::make_shared<ais::Struct>(baseType);
+
+    DVPRINT("get baseType %s decoration %s\n", baseType.c_str(), decoration.c_str());
+
+    // register the type here so a class/struct with a pointer to its own type
+    // (like a linked list or graph) doesn't get into infinite recursion
+    mi.addKnownType(baseType, stype);
+
+    auto ptfields = mi.getPTypeFields(baseType, /* true if fortran */ true);
+    // parent classes
+    for (const auto& parent : ptfields.parentClasses()) {
+        stype->addMember(parent, getFtnType(mi, parent.c_str()));
+    }
+    // class members
+    for (auto&& fieldStr : ptfields.fields()) {
+        auto [fieldName, fieldTypeStr] = ptfields.parseField(type, fieldStr);
+        if (fieldName.empty()) continue;
+
+        stype->addMember(fieldName, getFtnType(mi,fieldTypeStr.c_str()));
+    }
+
+    DVPRINT("calling addKnownType %s decoration %s\n", baseType.c_str(),
+            decoration.c_str());
+
+    mi.addKnownType(baseType, stype);
+    return ftnWrap(stype, TypeName{type,static_cast<size_t>(typeLen)});
 }
 
 // Handle decorations of the base type.  Like *,&,[], etc.
-std::shared_ptr<ais::Type> TypeParser::wrap(std::shared_ptr<ais::Type> elemType, TypeName t) {
+std::shared_ptr<ais::Type> TypeParser::cppWrap(std::shared_ptr<ais::Type> elemType, TypeName t) {
     auto beg = t.decoration.find_first_not_of(' ');
     if (beg == std::string::npos) {
         return std::move(elemType);
@@ -1882,7 +2005,7 @@ std::shared_ptr<ais::Type> TypeParser::wrap(std::shared_ptr<ais::Type> elemType,
         end = r.size()-1;
     }
 
-    return wrap(w, TypeName(t,end+1));
+    return cppWrap(w, TypeName(t,end+1));
 }
 
 
@@ -1983,7 +2106,7 @@ std::shared_ptr<ais::Type> TypeParser::stlContainer(Mi2Aif& mi, const ais::Array
 
     auto elemType = getType(mi, nullptr, containedType.c_str());
     auto vtype = ctype.makeTyped(elemType);
-    return wrap(vtype, t2);
+    return cppWrap(vtype, t2);
 }
 
 std::shared_ptr<ais::Type> TypeParser::stdArray(Mi2Aif& mi, TypeName t) {
@@ -2010,7 +2133,7 @@ std::shared_ptr<ais::Type> TypeParser::stdArray(Mi2Aif& mi, TypeName t) {
 
     auto elemType = getType(mi, nullptr, containedType.c_str());
     auto vtype = std::make_shared<ais::StdArray>(elemType,len);
-    return wrap(vtype, t2);
+    return cppWrap(vtype, t2);
 }
 
 std::shared_ptr<ais::Type> TypeParser::stdString(Mi2Aif& mi, TypeName t) {
@@ -2022,7 +2145,7 @@ std::shared_ptr<ais::Type> TypeParser::stdString(Mi2Aif& mi, TypeName t) {
             containedType.c_str(), templateArgs.c_str(), decoration.c_str());
 
     auto t2 = TypeName{t.type  + "<" + containedType +">", std::move(decoration)};
-    return wrap(std::make_shared<ais::String>(), t2);
+    return cppWrap(std::make_shared<ais::String>(), t2);
 }
 
 std::shared_ptr<ais::Type> TypeParser::ftnCharacter(Mi2Aif& mi, TypeName t) {
@@ -2052,7 +2175,7 @@ std::shared_ptr<ais::Type> TypeParser::smartPointer(Mi2Aif& mi, TypeName t) {
             containedType.c_str(), templateArgs.c_str(), decoration.c_str());
 
     auto t2 = TypeName{t.type  + "<" + containedType +">", std::move(decoration)};
-    return wrap(std::make_shared<ais::SmartPointer>(t.type, containedType), t2);
+    return cppWrap(std::make_shared<ais::SmartPointer>(t.type, containedType), t2);
 }
 
 
@@ -2065,7 +2188,7 @@ std::shared_ptr<ais::Type> TypeParser::charWrap(std::shared_ptr<ais::Type> elemT
     if (beg == std::string::npos) {
         return elemType;
     } else if (t.decoration[beg] == '*') {
-        return wrap(std::make_shared<ais::CharArray>(), TypeName{t, beg+1});
+        return cppWrap(std::make_shared<ais::CharArray>(), TypeName{t, beg+1});
     } else if (t.decoration[beg] == '[') {
         DVPRINT("processing '['\n");
         
@@ -2085,7 +2208,7 @@ std::shared_ptr<ais::Type> TypeParser::charWrap(std::shared_ptr<ais::Type> elemT
         if (end != std::string::npos) t2.decoration += d.substr(end+1);
 
         DVPRINT("remainder is %s\n", t2.decoration.c_str());
-        return wrap(std::make_shared<ais::CharArray>(), t2);
+        return cppWrap(std::make_shared<ais::CharArray>(), t2);
 
     } else {
         return std::make_shared<ais::Unimplemented>(t.type + t.decoration);
@@ -2216,13 +2339,24 @@ namespace unittest {
 #ifndef DOCTEST_CONFIG_DISABLE
 
 template <typename T>
-std::shared_ptr<ais::Type> basicTypeTest(const char *input) {
-    // parse the `input` string with TypeParser and check that type `T` was returned.
+std::shared_ptr<ais::Type> basicTypeTest(TypeParser::Lang lang, const char *input) {
+    // parse the `input` string with the TypeParser function according to `lang`
+    // and check that type `T` was returned.
     //
     // return the parsed type as a generic pointer (ais::Type).
 
-    auto mi = Mi2Aif(nullptr);
-    auto t = TypeParser::getType(mi, nullptr, input);
+    auto t = [lang, input]() -> std::shared_ptr<ais::Type> {
+        auto mi = Mi2Aif(nullptr);
+        switch (lang) {
+            case TypeParser::Lang::Cpp:
+                return TypeParser::getCppType(mi, nullptr, input);
+            case TypeParser::Lang::Ftn:
+                return TypeParser::getFtnType(mi, input);
+            default:
+                FAIL("Specify a valid language to test the type parser");
+                return nullptr;
+        }
+    }();
 
     REQUIRE_MESSAGE(t != nullptr, "Failed to parse a type from \"", std::string{input}, "\"");
     CHECK_MESSAGE(std::dynamic_pointer_cast<T>(t) != nullptr, "Incorrect parse of \"",
@@ -2287,107 +2421,107 @@ TEST_CASE("TypeParser::sanitizeType") {
 }
 
 TEST_CASE("TypeParser::getType: cpp primitive types") {
-    SUBCASE("bool") { basicTypeTest<ais::Bool>("bool"); }
+    SUBCASE("bool") { basicTypeTest<ais::Bool>(TypeParser::Lang::Cpp, "bool"); }
 
-    SUBCASE("char") { basicTypeTest<ais::Char>("char"); }
+    SUBCASE("char") { basicTypeTest<ais::Char>(TypeParser::Lang::Cpp, "char"); }
 
-    SUBCASE("double") { basicTypeTest<ais::Double>("double"); }
+    SUBCASE("double") { basicTypeTest<ais::Double>(TypeParser::Lang::Cpp, "double"); }
 
-    SUBCASE("enum") { basicTypeTest<ais::Enum>("enum dbgcmd"); }
+    SUBCASE("enum") { basicTypeTest<ais::Enum>(TypeParser::Lang::Cpp, "enum dbgcmd"); }
 
-    SUBCASE("float") { basicTypeTest<ais::Float>("float"); }
+    SUBCASE("float") { basicTypeTest<ais::Float>(TypeParser::Lang::Cpp, "float"); }
 
-    SUBCASE("int") { basicTypeTest<ais::Int>("int"); }
+    SUBCASE("int") { basicTypeTest<ais::Int>(TypeParser::Lang::Cpp, "int"); }
 
-    SUBCASE("int8_t") { basicTypeTest<ais::Int>("int8_t"); }
+    SUBCASE("int8_t") { basicTypeTest<ais::Int>(TypeParser::Lang::Cpp, "int8_t"); }
 
-    SUBCASE("long") { basicTypeTest<ais::Long>("long"); }
+    SUBCASE("long") { basicTypeTest<ais::Long>(TypeParser::Lang::Cpp, "long"); }
 
-    SUBCASE("long int") { basicTypeTest<ais::Long>("long int"); }
+    SUBCASE("long int") { basicTypeTest<ais::Long>(TypeParser::Lang::Cpp, "long int"); }
 
-    SUBCASE("long long") { basicTypeTest<ais::LongLong>("long long"); }
+    SUBCASE("long long") { basicTypeTest<ais::LongLong>(TypeParser::Lang::Cpp, "long long"); }
 
-    SUBCASE("long double") { basicTypeTest<ais::LongDouble>("long double"); }
+    SUBCASE("long double") { basicTypeTest<ais::LongDouble>(TypeParser::Lang::Cpp, "long double"); }
 
-    SUBCASE("std::size_t") { basicTypeTest<ais::Long>("std::size_t"); }
+    SUBCASE("std::size_t") { basicTypeTest<ais::Long>(TypeParser::Lang::Cpp, "std::size_t"); }
 
-    SUBCASE("size_t") { basicTypeTest<ais::UnsignedLong>("size_t"); }
+    SUBCASE("size_t") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Cpp, "size_t"); }
 
-    SUBCASE("short") { basicTypeTest<ais::Short>("short"); }
+    SUBCASE("short") { basicTypeTest<ais::Short>(TypeParser::Lang::Cpp, "short"); }
 
-    SUBCASE("short int") { basicTypeTest<ais::Short>("short int"); }
+    SUBCASE("short int") { basicTypeTest<ais::Short>(TypeParser::Lang::Cpp, "short int"); }
 
-    SUBCASE("signed char") { basicTypeTest<ais::SignedChar>("signed char"); }
+    SUBCASE("signed char") { basicTypeTest<ais::SignedChar>(TypeParser::Lang::Cpp, "signed char"); }
 
-    SUBCASE("uint8_t") { basicTypeTest<ais::UnsignedChar>("uint8_t"); }
+    SUBCASE("uint8_t") { basicTypeTest<ais::UnsignedChar>(TypeParser::Lang::Cpp, "uint8_t"); }
 
-    SUBCASE("uint16_t") { basicTypeTest<ais::UnsignedShort>("uint16_t"); }
+    SUBCASE("uint16_t") { basicTypeTest<ais::UnsignedShort>(TypeParser::Lang::Cpp, "uint16_t"); }
 
-    SUBCASE("uint32_t") { basicTypeTest<ais::UnsignedInt>("uint32_t"); }
+    SUBCASE("uint32_t") { basicTypeTest<ais::UnsignedInt>(TypeParser::Lang::Cpp, "uint32_t"); }
 
-    SUBCASE("uint64_t") { basicTypeTest<ais::UnsignedLong>("uint64_t"); }
+    SUBCASE("uint64_t") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Cpp, "uint64_t"); }
 
-    SUBCASE("unsigned char") { basicTypeTest<ais::UnsignedChar>("unsigned char"); }
+    SUBCASE("unsigned char") { basicTypeTest<ais::UnsignedChar>(TypeParser::Lang::Cpp, "unsigned char"); }
 
-    SUBCASE("unsigned int") { basicTypeTest<ais::UnsignedInt>("unsigned int"); }
+    SUBCASE("unsigned int") { basicTypeTest<ais::UnsignedInt>(TypeParser::Lang::Cpp, "unsigned int"); }
 
-    SUBCASE("unsigned long") { basicTypeTest<ais::UnsignedLong>("unsigned long"); }
+    SUBCASE("unsigned long") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Cpp, "unsigned long"); }
 
     SUBCASE("unsigned long int") {
-        basicTypeTest<ais::UnsignedLong>("unsigned long int");
+        basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Cpp, "unsigned long int");
     }
 
     SUBCASE("unsigned long long") {
-        basicTypeTest<ais::UnsignedLongLong>("unsigned long long");
+        basicTypeTest<ais::UnsignedLongLong>(TypeParser::Lang::Cpp, "unsigned long long");
     }
 
-    SUBCASE("unsigned short") { basicTypeTest<ais::UnsignedShort>("unsigned short"); }
+    SUBCASE("unsigned short") { basicTypeTest<ais::UnsignedShort>(TypeParser::Lang::Cpp, "unsigned short"); }
 
     SUBCASE("unsigned short int") {
-        basicTypeTest<ais::UnsignedShort>("unsigned short int");
+        basicTypeTest<ais::UnsignedShort>(TypeParser::Lang::Cpp, "unsigned short int");
     }
 
     SUBCASE("void function pointer") {
-        basicTypeTest<ais::Function>("void(*)(int, int)");
+        basicTypeTest<ais::Function>(TypeParser::Lang::Cpp, "void(*)(int, int)");
     }
 }
 
 TEST_CASE("TypeParser::getType: cpp pointer types") {
     SUBCASE("primitive type pointers") {
         // TODO: verify the inner type of the pointer
-        SUBCASE("int") { basicTypeTest<ais::Pointer>("int*"); }
-        SUBCASE("void") { basicTypeTest<ais::Pointer>("void*"); }
-        SUBCASE("float") { basicTypeTest<ais::Pointer>("float*"); }
+        SUBCASE("int") { basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "int*"); }
+        SUBCASE("void") { basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "void*"); }
+        SUBCASE("float") { basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "float*"); }
     }
 
-    SUBCASE("char pointer") { basicTypeTest<ais::CharArray>("char*"); }
-    SUBCASE("anonymous class pointer") { basicTypeTest<ais::Pointer>("class {...}*"); }
+    SUBCASE("char pointer") { basicTypeTest<ais::CharArray>(TypeParser::Lang::Cpp, "char*"); }
+    SUBCASE("anonymous class pointer") { basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "class {...}*"); }
 }
 
 TEST_CASE("TypeParser::getType: cpp decorated types") {
     SUBCASE("reference &") {
-        basicTypeTest<ais::Int>("int&");
-        basicTypeTest<ais::Float>("float&");
+        basicTypeTest<ais::Int>(TypeParser::Lang::Cpp, "int&");
+        basicTypeTest<ais::Float>(TypeParser::Lang::Cpp, "float&");
     }
 
     SUBCASE("arrays []") {
         SUBCASE("1d") {
-            auto t = basicTypeTest<ais::Array>("int[10]");
+            auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "int[10]");
             containerMatch<ais::Array, ais::Int>(t, 10);
         }
         SUBCASE("2d") {
-            auto t = basicTypeTest<ais::Array>("int[10][20]");
+            auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "int[10][20]");
             t = containerMatch<ais::Array, ais::Array>(t, 10);
             containerMatch<ais::Array, ais::Int>(t, 20);
         }
         SUBCASE("3d") {
-            auto t = basicTypeTest<ais::Array>("int[10][20][30]");
+            auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "int[10][20][30]");
             t = containerMatch<ais::Array, ais::Array>(t, 10);
             t = containerMatch<ais::Array, ais::Array>(t, 20);
             containerMatch<ais::Array, ais::Int>(t, 30);
         }
         SUBCASE("4d") {
-            auto t = basicTypeTest<ais::Array>("int[10][20][30][40]");
+            auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "int[10][20][30][40]");
             t = containerMatch<ais::Array, ais::Array>(t, 10);
             t = containerMatch<ais::Array, ais::Array>(t, 20);
             t = containerMatch<ais::Array, ais::Array>(t, 30);
@@ -2397,22 +2531,22 @@ TEST_CASE("TypeParser::getType: cpp decorated types") {
 
     SUBCASE("array references []&") {
         SUBCASE("1d") {
-            auto t = basicTypeTest<ais::Array>("int[10]&");
+            auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "int[10]&");
             containerMatch<ais::Array, ais::Int>(t, 10);
         }
         SUBCASE("2d") {
-            auto t = basicTypeTest<ais::Array>("int[10][20]&");
+            auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "int[10][20]&");
             t = containerMatch<ais::Array, ais::Array>(t, 10);
             containerMatch<ais::Array, ais::Int>(t, 20);
         }
         SUBCASE("3d") {
-            auto t = basicTypeTest<ais::Array>("int[10][20][30]&");
+            auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "int[10][20][30]&");
             t = containerMatch<ais::Array, ais::Array>(t, 10);
             t = containerMatch<ais::Array, ais::Array>(t, 20);
             containerMatch<ais::Array, ais::Int>(t, 30);
         }
         SUBCASE("4d") {
-            auto t = basicTypeTest<ais::Array>("int[10][20][30][40]&");
+            auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "int[10][20][30][40]&");
             t = containerMatch<ais::Array, ais::Array>(t, 10);
             t = containerMatch<ais::Array, ais::Array>(t, 20);
             t = containerMatch<ais::Array, ais::Array>(t, 30);
@@ -2421,74 +2555,73 @@ TEST_CASE("TypeParser::getType: cpp decorated types") {
     }
 
     SUBCASE("function pointers ()") {
-        basicTypeTest<ais::Function>("int (*) (int, int, int)");
-        basicTypeTest<ais::Function>("void (*) (int, int)");
-        basicTypeTest<ais::Function>("int (*) ()");
-        basicTypeTest<ais::Function>("void (*) ()");
+        basicTypeTest<ais::Function>(TypeParser::Lang::Cpp, "int (*) (int, int, int)");
+        basicTypeTest<ais::Function>(TypeParser::Lang::Cpp, "void (*) (int, int)");
+        basicTypeTest<ais::Function>(TypeParser::Lang::Cpp, "int (*) ()");
+        basicTypeTest<ais::Function>(TypeParser::Lang::Cpp, "void (*) ()");
     }
 }
 
 TEST_CASE("TypeParser::getType: cpp stl types") {
     SUBCASE("std::array") {
-        auto t = basicTypeTest<ais::StdArray>("std::array<int, 13>");
+        auto t = basicTypeTest<ais::StdArray>(TypeParser::Lang::Cpp, "std::array<int, 13>");
         containerMatch<ais::StdArray, ais::Int>(t, 13);
     }
     SUBCASE("std::deque") {
-        auto t = basicTypeTest<ais::Array>("std::deque<float>");
+        auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "std::deque<float>");
         containerMatch<ais::Array, ais::Float>(t, 0);
     }
     SUBCASE("std::stack") {
-        auto t = basicTypeTest<ais::Array>("std::stack<unsigned short>");
+        auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "std::stack<unsigned short>");
         containerMatch<ais::Array, ais::UnsignedShort>(t, 0);
     }
     SUBCASE("std::vector") {
-        auto t = basicTypeTest<ais::Array>("std::vector<std::vector<int>>");
+        auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "std::vector<std::vector<int>>");
         t = containerMatch<ais::Array, ais::Array>(t, 0);
         containerMatch<ais::Array, ais::Int>(t, 0);
     }
     SUBCASE("std::priority_queue") {
-        auto t = basicTypeTest<ais::Array>("std::priority_queue<double>");
+        auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "std::priority_queue<double>");
         containerMatch<ais::Array, ais::Double>(t, 0);
     }
     SUBCASE("std::queue") {
-        auto t = basicTypeTest<ais::Array>("std::queue<char>");
+        auto t = basicTypeTest<ais::Array>(TypeParser::Lang::Cpp, "std::queue<char>");
         containerMatch<ais::Array, ais::Char>(t, 0);
     }
     SUBCASE("std::shared_ptr") {
-        basicTypeTest<ais::SmartPointer>("std::shared_ptr<int>");
+        basicTypeTest<ais::SmartPointer>(TypeParser::Lang::Cpp, "std::shared_ptr<int>");
     }
     SUBCASE("std::unique_ptr") {
-        basicTypeTest<ais::SmartPointer>("std::unique_ptr<float>");
+        basicTypeTest<ais::SmartPointer>(TypeParser::Lang::Cpp, "std::unique_ptr<float>");
     }
 }
 
 TEST_CASE("TypeParser::getType: cpp string types") {
-    basicTypeTest<ais::String>("std::string");
-    basicTypeTest<ais::String>("std::basic_string");
-    basicTypeTest<ais::String>("std::string<std::allocator>");
-    basicTypeTest<ais::String>("std::basic_string<std::basic_allocator>");
+    basicTypeTest<ais::String>(TypeParser::Lang::Cpp, "std::string");
+    basicTypeTest<ais::String>(TypeParser::Lang::Cpp, "std::basic_string");
+    basicTypeTest<ais::String>(TypeParser::Lang::Cpp, "std::string<std::allocator>");
+    basicTypeTest<ais::String>(TypeParser::Lang::Cpp, "std::basic_string<std::basic_allocator>");
 }
 
-TEST_CASE("TypeParser::getType: ftn \"double precision\"" * doctest::should_fail()) {
-    // TODO: some ftn compilers report doubles as "double precision" which the parser
-    // doesn't support yet. (PE-44173)
-    // when fixed remove the should_fail decorator.
-    SUBCASE("double precision") { basicTypeTest<ais::Double>("double precision"); }
+TEST_CASE("TypeParser::getType: ftn \"double precision\"") {
+    // some ftn compilers report doubles as "double precision" instead of "REAL*8"
+
+    SUBCASE("double precision") { basicTypeTest<ais::Double>(TypeParser::Lang::Ftn, "double precision"); }
 
     SUBCASE("double precision (arrays)") {
         SUBCASE("1d") {
-            auto t = basicTypeTest<ais::FtnArray>("double precision, allocatable (64)");
+            auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "double precision, allocatable (64)");
             t = containerMatch<ais::FtnArray, ais::Double>(t, 64);
         }
         SUBCASE("2d") {
             auto t =
-                basicTypeTest<ais::FtnArray>("double precision, allocatable (64,63)");
+                basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "double precision, allocatable (64,63)");
             t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 63);
             containerMatch<ais::FtnArray, ais::Double>(t, 64);
         }
         SUBCASE("3d") {
             auto t =
-                basicTypeTest<ais::FtnArray>("double precision, allocatable (64,63,62)");
+                basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "double precision, allocatable (64,63,62)");
             t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 62);
             t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 63);
             containerMatch<ais::FtnArray, ais::Double>(t, 64);
@@ -2498,164 +2631,178 @@ TEST_CASE("TypeParser::getType: ftn \"double precision\"" * doctest::should_fail
 
 TEST_CASE("TypeParser::getType: ftn primitive types") {
     SUBCASE("CHARACTER") {
-        basicTypeTest<ais::Char>("character");
-        basicTypeTest<ais::Char>("CHARACTER");
+        basicTypeTest<ais::Char>(TypeParser::Lang::Ftn, "character");
+        basicTypeTest<ais::Char>(TypeParser::Lang::Ftn, "CHARACTER");
     }
 
     SUBCASE("COMPLEX") {
         {
-            auto t = basicTypeTest<ais::Complex>("complex");
-            containerMatch<ais::Complex, ais::Double>(t, 0);
+            auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "complex");
+            containerMatch<ais::Complex, ais::Float>(t, 0);
         }
         {
-            auto t = basicTypeTest<ais::Complex>("COMPLEX");
-            containerMatch<ais::Complex, ais::Double>(t, 0);
+            auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX");
+            containerMatch<ais::Complex, ais::Float>(t, 0);
         }
     }
 
     SUBCASE("COMPLEX(4)") {
-        auto t = basicTypeTest<ais::Complex>("COMPLEX(4)");
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX(4)");
         containerMatch<ais::Complex, ais::Float>(t, 0);
     }
 
     SUBCASE("COMPLEX(8)") {
-        auto t = basicTypeTest<ais::Complex>("COMPLEX(8)");
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX(8)");
+        containerMatch<ais::Complex, ais::Double>(t, 0);
+    }
+
+    SUBCASE("double complex") {
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "double complex");
         containerMatch<ais::Complex, ais::Double>(t, 0);
     }
 
     SUBCASE("COMPLEX(16)") {
-        auto t = basicTypeTest<ais::Complex>("COMPLEX(16)");
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX(16)");
+        containerMatch<ais::Complex, ais::LongDouble>(t, 0);
+    }
+
+    SUBCASE("quad complex") {
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "quad complex");
         containerMatch<ais::Complex, ais::LongDouble>(t, 0);
     }
 
     SUBCASE("COMPLEX(KIND=4)") {
-        auto t = basicTypeTest<ais::Complex>("COMPLEX(KIND=4)");
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX(KIND=4)");
         containerMatch<ais::Complex, ais::Float>(t, 0);
     }
 
     SUBCASE("COMPLEX(KIND=8)") {
-        auto t = basicTypeTest<ais::Complex>("COMPLEX(KIND=8)");
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX(KIND=8)");
         containerMatch<ais::Complex, ais::Double>(t, 0);
     }
 
     SUBCASE("COMPLEX(KIND=16)") {
-        auto t = basicTypeTest<ais::Complex>("COMPLEX(KIND=16)");
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX(KIND=16)");
         containerMatch<ais::Complex, ais::LongDouble>(t, 0);
     }
 
     SUBCASE("COMPLEX*8") {
-        auto t = basicTypeTest<ais::Complex>("COMPLEX*8");
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX*8");
         containerMatch<ais::Complex, ais::Float>(t, 0);
     }
 
     SUBCASE("COMPLEX*16") {
-        auto t = basicTypeTest<ais::Complex>("COMPLEX*16");
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX*16");
         containerMatch<ais::Complex, ais::Double>(t, 0);
     }
 
     SUBCASE("COMPLEX*32") {
-        auto t = basicTypeTest<ais::Complex>("COMPLEX*32");
+        auto t = basicTypeTest<ais::Complex>(TypeParser::Lang::Ftn, "COMPLEX*32");
         containerMatch<ais::Complex, ais::LongDouble>(t, 0);
     }
 
     SUBCASE("INTEGER") {
-        basicTypeTest<ais::Int>("INTEGER");
-        basicTypeTest<ais::Int>("integer");
+        basicTypeTest<ais::Int>(TypeParser::Lang::Ftn, "INTEGER");
+        basicTypeTest<ais::Int>(TypeParser::Lang::Ftn, "integer");
+        basicTypeTest<ais::LongLong>(TypeParser::Lang::Ftn, "INT");
+        basicTypeTest<ais::LongLong>(TypeParser::Lang::Ftn, "int");
     }
 
-    SUBCASE("INTEGER(1)") { basicTypeTest<ais::SignedChar>("INTEGER(1)"); }
+    SUBCASE("byte") { basicTypeTest<ais::SignedChar>(TypeParser::Lang::Ftn, "byte"); }
 
-    SUBCASE("INTEGER(2)") { basicTypeTest<ais::Short>("INTEGER(2)"); }
+    SUBCASE("INTEGER(1)") { basicTypeTest<ais::SignedChar>(TypeParser::Lang::Ftn, "INTEGER(1)"); }
 
-    SUBCASE("INTEGER(4)") { basicTypeTest<ais::Int>("INTEGER(4)"); }
+    SUBCASE("INTEGER(2)") { basicTypeTest<ais::Short>(TypeParser::Lang::Ftn, "INTEGER(2)"); }
 
-    SUBCASE("INTEGER(8)") { basicTypeTest<ais::Long>("INTEGER(8)"); }
+    SUBCASE("INTEGER(4)") { basicTypeTest<ais::Int>(TypeParser::Lang::Ftn, "INTEGER(4)"); }
 
-    SUBCASE("INTEGER(16)") { basicTypeTest<ais::LongLong>("INTEGER(16)"); }
+    SUBCASE("INTEGER(8)") { basicTypeTest<ais::Long>(TypeParser::Lang::Ftn, "INTEGER(8)"); }
 
-    SUBCASE("INTEGER(KIND=1)") { basicTypeTest<ais::SignedChar>("INTEGER(KIND=1)"); }
+    SUBCASE("INTEGER(16)") { basicTypeTest<ais::LongLong>(TypeParser::Lang::Ftn, "INTEGER(16)"); }
 
-    SUBCASE("INTEGER(KIND=2)") { basicTypeTest<ais::Short>("INTEGER(KIND=2)"); }
+    SUBCASE("INTEGER(KIND=1)") { basicTypeTest<ais::SignedChar>(TypeParser::Lang::Ftn, "INTEGER(KIND=1)"); }
 
-    SUBCASE("INTEGER(KIND=4)") { basicTypeTest<ais::Int>("INTEGER(KIND=4)"); }
+    SUBCASE("INTEGER(KIND=2)") { basicTypeTest<ais::Short>(TypeParser::Lang::Ftn, "INTEGER(KIND=2)"); }
 
-    SUBCASE("INTEGER(KIND=8)") { basicTypeTest<ais::Long>("INTEGER(KIND=8)"); }
+    SUBCASE("INTEGER(KIND=4)") { basicTypeTest<ais::Int>(TypeParser::Lang::Ftn, "INTEGER(KIND=4)"); }
 
-    SUBCASE("INTEGER(KIND=16)") { basicTypeTest<ais::LongLong>("INTEGER(KIND=16)"); }
+    SUBCASE("INTEGER(KIND=8)") { basicTypeTest<ais::Long>(TypeParser::Lang::Ftn, "INTEGER(KIND=8)"); }
 
-    SUBCASE("INTEGER*1") { basicTypeTest<ais::SignedChar>("INTEGER*1"); }
+    SUBCASE("INTEGER(KIND=16)") { basicTypeTest<ais::LongLong>(TypeParser::Lang::Ftn, "INTEGER(KIND=16)"); }
 
-    SUBCASE("INTEGER*2") { basicTypeTest<ais::Short>("INTEGER*2"); }
+    SUBCASE("INTEGER*1") { basicTypeTest<ais::SignedChar>(TypeParser::Lang::Ftn, "INTEGER*1"); }
 
-    SUBCASE("INTEGER*4") { basicTypeTest<ais::Int>("INTEGER*4"); }
+    SUBCASE("INTEGER*2") { basicTypeTest<ais::Short>(TypeParser::Lang::Ftn, "INTEGER*2"); }
 
-    SUBCASE("INTEGER*8") { basicTypeTest<ais::Long>("INTEGER*8"); }
+    SUBCASE("INTEGER*4") { basicTypeTest<ais::Int>(TypeParser::Lang::Ftn, "INTEGER*4"); }
 
-    SUBCASE("INTEGER*16") { basicTypeTest<ais::LongLong>("INTEGER*16"); }
+    SUBCASE("INTEGER*8") { basicTypeTest<ais::Long>(TypeParser::Lang::Ftn, "INTEGER*8"); }
+
+    SUBCASE("INTEGER*16") { basicTypeTest<ais::LongLong>(TypeParser::Lang::Ftn, "INTEGER*16"); }
 
     SUBCASE("LOGICAL") {
-        basicTypeTest<ais::Logical>("LOGICAL");
-        basicTypeTest<ais::Logical>("logical");
+        basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL");
+        basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "logical");
     }
 
-    SUBCASE("LOGICAL(1)") { basicTypeTest<ais::Logical>("LOGICAL(1)"); }
+    SUBCASE("LOGICAL(1)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(1)"); }
 
-    SUBCASE("LOGICAL(2)") { basicTypeTest<ais::Logical>("LOGICAL(2)"); }
+    SUBCASE("LOGICAL(2)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(2)"); }
 
-    SUBCASE("LOGICAL(4)") { basicTypeTest<ais::Logical>("LOGICAL(4)"); }
+    SUBCASE("LOGICAL(4)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(4)"); }
 
-    SUBCASE("LOGICAL(8)") { basicTypeTest<ais::Logical>("LOGICAL(8)"); }
+    SUBCASE("LOGICAL(8)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(8)"); }
 
-    SUBCASE("LOGICAL(16)") { basicTypeTest<ais::Logical>("LOGICAL(16)"); }
+    SUBCASE("LOGICAL(16)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(16)"); }
 
-    SUBCASE("LOGICAL*1") { basicTypeTest<ais::Logical>("LOGICAL*1"); }
+    SUBCASE("LOGICAL*1") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL*1"); }
 
-    SUBCASE("LOGICAL*2") { basicTypeTest<ais::Logical>("LOGICAL*2"); }
+    SUBCASE("LOGICAL*2") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL*2"); }
 
-    SUBCASE("LOGICAL*4") { basicTypeTest<ais::Logical>("LOGICAL*4"); }
+    SUBCASE("LOGICAL*4") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL*4"); }
 
-    SUBCASE("LOGICAL*8") { basicTypeTest<ais::Logical>("LOGICAL*8"); }
+    SUBCASE("LOGICAL*8") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL*8"); }
 
-    SUBCASE("LOGICAL*16") { basicTypeTest<ais::Logical>("LOGICAL*16"); }
+    SUBCASE("LOGICAL*16") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL*16"); }
 
-    SUBCASE("LOGICAL(KIND=1)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=1)"); }
+    SUBCASE("LOGICAL(KIND=1)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(KIND=1)"); }
 
-    SUBCASE("LOGICAL(KIND=2)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=2)"); }
+    SUBCASE("LOGICAL(KIND=2)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(KIND=2)"); }
 
-    SUBCASE("LOGICAL(KIND=4)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=4)"); }
+    SUBCASE("LOGICAL(KIND=4)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(KIND=4)"); }
 
-    SUBCASE("LOGICAL(KIND=8)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=8)"); }
+    SUBCASE("LOGICAL(KIND=8)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(KIND=8)"); }
 
-    SUBCASE("LOGICAL(KIND=16)") { basicTypeTest<ais::Logical>("LOGICAL(KIND=16)"); }
+    SUBCASE("LOGICAL(KIND=16)") { basicTypeTest<ais::Logical>(TypeParser::Lang::Ftn, "LOGICAL(KIND=16)"); }
 
     SUBCASE("REAL") {
-        basicTypeTest<ais::Double>("real");
-        basicTypeTest<ais::Double>("REAL");
+        basicTypeTest<ais::Float>(TypeParser::Lang::Ftn, "real");
+        basicTypeTest<ais::Float>(TypeParser::Lang::Ftn, "REAL");
     }
 
-    SUBCASE("REAL(4)") { basicTypeTest<ais::Float>("REAL(4)"); }
+    SUBCASE("REAL(4)") { basicTypeTest<ais::Float>(TypeParser::Lang::Ftn, "REAL(4)"); }
 
-    SUBCASE("REAL(8)") { basicTypeTest<ais::Double>("REAL(8)"); }
+    SUBCASE("REAL(8)") { basicTypeTest<ais::Double>(TypeParser::Lang::Ftn, "REAL(8)"); }
 
-    SUBCASE("REAL(16)") { basicTypeTest<ais::LongDouble>("REAL(16)"); }
+    SUBCASE("REAL(16)") { basicTypeTest<ais::LongDouble>(TypeParser::Lang::Ftn, "REAL(16)"); }
 
-    SUBCASE("REAL(KIND=4)") { basicTypeTest<ais::Float>("REAL(KIND=4)"); }
+    SUBCASE("REAL(KIND=4)") { basicTypeTest<ais::Float>(TypeParser::Lang::Ftn, "REAL(KIND=4)"); }
 
-    SUBCASE("REAL(KIND=8)") { basicTypeTest<ais::Double>("REAL(KIND=8)"); }
+    SUBCASE("REAL(KIND=8)") { basicTypeTest<ais::Double>(TypeParser::Lang::Ftn, "REAL(KIND=8)"); }
 
-    SUBCASE("REAL(KIND=16)") { basicTypeTest<ais::LongDouble>("REAL(KIND=16)"); }
+    SUBCASE("REAL(KIND=16)") { basicTypeTest<ais::LongDouble>(TypeParser::Lang::Ftn, "REAL(KIND=16)"); }
 
-    SUBCASE("REAL*4") { basicTypeTest<ais::Float>("REAL*4"); }
+    SUBCASE("REAL*4") { basicTypeTest<ais::Float>(TypeParser::Lang::Ftn, "REAL*4"); }
 
-    SUBCASE("REAL*8") { basicTypeTest<ais::Double>("REAL*8"); }
+    SUBCASE("REAL*8") { basicTypeTest<ais::Double>(TypeParser::Lang::Ftn, "REAL*8"); }
 
-    SUBCASE("REAL*16") { basicTypeTest<ais::LongDouble>("REAL*16"); }
+    SUBCASE("REAL*16") { basicTypeTest<ais::LongDouble>(TypeParser::Lang::Ftn, "REAL*16"); }
 
     SUBCASE("STRING") {
         // STRING is unimplemented. Once it's implemented, update this test.
         // In practice a reported type of character*n is more common, which is parsed as
         // ais::FtnString and tested in the decorated types test.
-        basicTypeTest<ais::Unimplemented>("STRING");
+        basicTypeTest<ais::Unimplemented>(TypeParser::Lang::Ftn, "STRING");
     }
 }
 
@@ -2666,16 +2813,16 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
 
         SUBCASE("integer") {
             SUBCASE("1d") {
-                auto t = basicTypeTest<ais::FtnArray>("integer, allocatable (64)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "integer, allocatable (64)");
                 containerMatch<ais::FtnArray, ais::Int>(t, 64);
             }
             SUBCASE("2d") {
-                auto t = basicTypeTest<ais::FtnArray>("integer, allocatable (8,17)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "integer, allocatable (8,17)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 17);
                 containerMatch<ais::FtnArray, ais::Int>(t, 8);
             }
             SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>("integer, allocatable (2,5,7)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "integer, allocatable (2,5,7)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 7);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 5);
                 containerMatch<ais::FtnArray, ais::Int>(t, 2);
@@ -2685,28 +2832,28 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
         SUBCASE("pointer, INTEGER*4") {
             SUBCASE("1d") {
                 auto t =
-                    basicTypeTest<ais::FtnArray>("pointer, INTEGER*4, allocatable (64)");
+                    basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "pointer, INTEGER*4, allocatable (64)");
                 t = containerMatch<ais::FtnArray, ais::Int>(t, 64);
             }
             SUBCASE("2d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, INTEGER*4, allocatable (8,17)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 17);
                 containerMatch<ais::FtnArray, ais::Int>(t, 8);
             }
             SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, INTEGER*4, allocatable (2,5,7)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 7);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 5);
                 containerMatch<ais::FtnArray, ais::Int>(t, 2);
             }
             SUBCASE("slice") {
-                auto t = basicTypeTest<ais::FtnArray>("INTEGER*4, (0:9)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "INTEGER*4, (0:9)");
                 t = containerMatch<ais::FtnArray, ais::Int>(t, 10);
             }
             SUBCASE("2d slice") {
-                auto t = basicTypeTest<ais::FtnArray>("INTEGER*4, (-10:10,-5:13)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "INTEGER*4, (-10:10,-5:13)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 19);
                 containerMatch<ais::FtnArray, ais::Int>(t, 21);
             }
@@ -2714,17 +2861,17 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
 
         SUBCASE("integer*8") {
             SUBCASE("1d") {
-                auto t = basicTypeTest<ais::FtnArray>("integer*8, allocatable (64)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "integer*8, allocatable (64)");
                 containerMatch<ais::FtnArray, ais::Long>(t, 64);
             }
             SUBCASE("2d") {
-                auto t = basicTypeTest<ais::FtnArray>("integer*8, allocatable (64,128)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "integer*8, allocatable (64,128)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 128);
                 containerMatch<ais::FtnArray, ais::Long>(t, 64);
             }
             SUBCASE("3d") {
                 auto t =
-                    basicTypeTest<ais::FtnArray>("integer*8, allocatable (64,128,256)");
+                    basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "integer*8, allocatable (64,128,256)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 256);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 128);
                 containerMatch<ais::FtnArray, ais::Long>(t, 64);
@@ -2734,17 +2881,17 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
         SUBCASE("pointer, INTEGER*8") {
             SUBCASE("1d") {
                 auto t =
-                    basicTypeTest<ais::FtnArray>("pointer, INTEGER*8, allocatable (64)");
+                    basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "pointer, INTEGER*8, allocatable (64)");
                 t = containerMatch<ais::FtnArray, ais::Long>(t, 64);
             }
             SUBCASE("2d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, INTEGER*8, allocatable (64,128)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 128);
                 containerMatch<ais::FtnArray, ais::Long>(t, 64);
             }
             SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, INTEGER*8, allocatable (64,32,16)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 16);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 32);
@@ -2754,42 +2901,36 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
 
         SUBCASE("real") {
             SUBCASE("1d") {
-                auto t = basicTypeTest<ais::FtnArray>("real, allocatable (64)");
-                // XXX: This currently returns as a double, but probably should be a
-                // float?
-                containerMatch<ais::FtnArray, ais::Double>(t, 64);
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "real, allocatable (64)");
+                containerMatch<ais::FtnArray, ais::Float>(t, 64);
             }
             SUBCASE("2d") {
-                auto t = basicTypeTest<ais::FtnArray>("real, allocatable (4,44)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "real, allocatable (4,44)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 44);
-                // XXX: This currently returns as a double, but probably should be a
-                // float?
-                containerMatch<ais::FtnArray, ais::Double>(t, 4);
+                containerMatch<ais::FtnArray, ais::Float>(t, 4);
             }
             SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>("real, allocatable (5,55,555)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "real, allocatable (5,55,555)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 555);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 55);
-                // XXX: This currently returns as a double, but probably should be a
-                // float?
-                containerMatch<ais::FtnArray, ais::Double>(t, 5);
+                containerMatch<ais::FtnArray, ais::Float>(t, 5);
             }
         }
 
         SUBCASE("pointer, REAL*4") {
             SUBCASE("1d") {
                 auto t =
-                    basicTypeTest<ais::FtnArray>("pointer, REAL*4, allocatable (12)");
+                    basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "pointer, REAL*4, allocatable (12)");
                 containerMatch<ais::FtnArray, ais::Float>(t, 12);
             }
             SUBCASE("2d") {
                 auto t =
-                    basicTypeTest<ais::FtnArray>("pointer, REAL*4, allocatable (12,24)");
+                    basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "pointer, REAL*4, allocatable (12,24)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 24);
                 containerMatch<ais::FtnArray, ais::Float>(t, 12);
             }
             SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, REAL*4, allocatable (12,24,48)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 48);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 24);
@@ -2800,17 +2941,17 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
         SUBCASE("REAL*8") {
             SUBCASE("1d") {
                 auto t =
-                    basicTypeTest<ais::FtnArray>("pointer, REAL*8, allocatable (64)");
+                    basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "pointer, REAL*8, allocatable (64)");
                 t = containerMatch<ais::FtnArray, ais::Double>(t, 64);
             }
             SUBCASE("2d") {
                 auto t =
-                    basicTypeTest<ais::FtnArray>("pointer, REAL*8, allocatable (64,63)");
+                    basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "pointer, REAL*8, allocatable (64,63)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 63);
                 containerMatch<ais::FtnArray, ais::Double>(t, 64);
             }
             SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, REAL*8, allocatable (64,63,62)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 62);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 63);
@@ -2820,43 +2961,41 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
 
         SUBCASE("complex") {
             SUBCASE("1d") {
-                auto t = basicTypeTest<ais::FtnArray>("complex, allocatable (64)");
-                t = containerMatch<ais::FtnArray, ais::Complex>(t, 64);
-                containerMatch<ais::Complex, ais::Double>(t, 0);
-            }
-            SUBCASE("2d") {
-                auto t = basicTypeTest<ais::FtnArray>("complex, allocatable (11,12)");
-                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 12);
-                t = containerMatch<ais::FtnArray, ais::Complex>(t, 11);
-                containerMatch<ais::Complex, ais::Double>(t, 0);
-            }
-            SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>("complex, allocatable (4,3,2)");
-                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 2);
-                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 3);
-                t = containerMatch<ais::FtnArray, ais::Complex>(t, 4);
-                containerMatch<ais::Complex, ais::Double>(t, 0);
-            }
-        }
-
-        SUBCASE("pointer, COMPLEX*8") {
-            // XXX: Should these be returning Doubles instead of Floats?
-
-            SUBCASE("1d") {
-                auto t =
-                    basicTypeTest<ais::FtnArray>("pointer, COMPLEX*8, allocatable (64)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "complex, allocatable (64)");
                 t = containerMatch<ais::FtnArray, ais::Complex>(t, 64);
                 containerMatch<ais::Complex, ais::Float>(t, 0);
             }
             SUBCASE("2d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "complex, allocatable (11,12)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 12);
+                t = containerMatch<ais::FtnArray, ais::Complex>(t, 11);
+                containerMatch<ais::Complex, ais::Float>(t, 0);
+            }
+            SUBCASE("3d") {
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "complex, allocatable (4,3,2)");
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 2);
+                t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 3);
+                t = containerMatch<ais::FtnArray, ais::Complex>(t, 4);
+                containerMatch<ais::Complex, ais::Float>(t, 0);
+            }
+        }
+
+        SUBCASE("pointer, COMPLEX*8") {
+            SUBCASE("1d") {
+                auto t =
+                    basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "pointer, COMPLEX*8, allocatable (64)");
+                t = containerMatch<ais::FtnArray, ais::Complex>(t, 64);
+                containerMatch<ais::Complex, ais::Float>(t, 0);
+            }
+            SUBCASE("2d") {
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, COMPLEX*8, allocatable (11,12)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 12);
                 t = containerMatch<ais::FtnArray, ais::Complex>(t, 11);
                 containerMatch<ais::Complex, ais::Float>(t, 0);
             }
             SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, COMPLEX*8, allocatable (4,3,2)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 2);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 3);
@@ -2867,16 +3006,16 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
 
         SUBCASE("logical") {
             SUBCASE("1d") {
-                auto t = basicTypeTest<ais::FtnArray>("logical, allocatable (64)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "logical, allocatable (64)");
                 t = containerMatch<ais::FtnArray, ais::Logical>(t, 64);
             }
             SUBCASE("2d") {
-                auto t = basicTypeTest<ais::FtnArray>("logical, allocatable (11,12)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "logical, allocatable (11,12)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 12);
                 containerMatch<ais::FtnArray, ais::Logical>(t, 11);
             }
             SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>("logical, allocatable (4,3,2)");
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "logical, allocatable (4,3,2)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 2);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 3);
                 containerMatch<ais::FtnArray, ais::Logical>(t, 4);
@@ -2886,17 +3025,17 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
         SUBCASE("pointer, LOGICAL*4") {
             SUBCASE("1d") {
                 auto t =
-                    basicTypeTest<ais::FtnArray>("pointer, LOGICAL*4, allocatable (64)");
+                    basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "pointer, LOGICAL*4, allocatable (64)");
                 t = containerMatch<ais::FtnArray, ais::Logical>(t, 64);
             }
             SUBCASE("2d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, LOGICAL*4, allocatable (11,12)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 12);
                 containerMatch<ais::FtnArray, ais::Logical>(t, 11);
             }
             SUBCASE("3d") {
-                auto t = basicTypeTest<ais::FtnArray>(
+                auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn,
                     "pointer, LOGICAL*4, allocatable (4,3,2)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 2);
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 3);
@@ -2906,7 +3045,7 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
     }
 
     SUBCASE("fortran string (character*n)") {
-        auto t = basicTypeTest<ais::FtnString>("character*20");
+        auto t = basicTypeTest<ais::FtnString>(TypeParser::Lang::Ftn, "character*20");
         auto str_t = std::dynamic_pointer_cast<ais::FtnString>(t);
         REQUIRE(str_t != nullptr);
         CHECK(str_t->getLen() == 20);
@@ -2922,6 +3061,22 @@ TEST_CASE("Mi2Aif caches types after they are parsed the first time") {
     REQUIRE(std::dynamic_pointer_cast<ais::Bool>(t2) != nullptr);
     CHECK(t.get() == t2.get());
     CHECK(t.get() != t3.get());
+}
+
+TEST_CASE("TypeParser parse result of \"show lang\"") {
+    CHECK(parseShowLangResult("The current source language is \"auto; currently fortran\".") == TypeParser::Lang::Ftn);
+    CHECK(parseShowLangResult("The current source language is \"auto; currently c\".") == TypeParser::Lang::Cpp);
+    CHECK(parseShowLangResult("The current source language is \"auto; currently c++\".") == TypeParser::Lang::Cpp);
+    CHECK(parseShowLangResult("The current source language is \"auto; currently COBOL\".") == TypeParser::Lang::Unknown);
+
+    CHECK(parseShowLangResult("The current source language is \"fortran\".") == TypeParser::Lang::Ftn);
+    CHECK(parseShowLangResult("The current source language is \"c\".") == TypeParser::Lang::Cpp);
+    CHECK(parseShowLangResult("The current source language is \"c++\".") == TypeParser::Lang::Cpp);
+    CHECK(parseShowLangResult("The current source language is \"COBOL\".") == TypeParser::Lang::Unknown);
+
+    CHECK(parseShowLangResult("junk") == TypeParser::Lang::Unknown);
+    CHECK(parseShowLangResult("") == TypeParser::Lang::Unknown);
+    CHECK(parseShowLangResult(nullptr) == TypeParser::Lang::Unknown);
 }
 
 } // namespace unittest

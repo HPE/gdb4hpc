@@ -13,8 +13,6 @@ TESTS = \
    ./bin/${PE_ENV}/c/c_list.x \
    ./bin/${PE_ENV}/c/c_inc.x \
    ./bin/${PE_ENV}/c/c_half_exit.x \
-   ./bin/${PE_ENV}/c/simple_gpu-rocm.x \
-   ./bin/${PE_ENV}/c/simple_gpu-cuda.x \
    ./bin/${PE_ENV}/C++/cpp_bd_test.x \
    ./bin/${PE_ENV}/C++/cpp_cmp_diff.x \
    ./bin/${PE_ENV}/C++/cpp_ds_test1.x \
@@ -36,6 +34,11 @@ TESTS = \
 CTI_TESTS = \
 	./bin/${PE_ENV}/C++/cpp_attach.x
 
+# tests which require GPUs
+GPU_TESTS = \
+	./bin/CRAY/c/simple_gpu-rocm.x \
+	./bin/CRAY/c/simple_gpu-cuda.x
+
 # you shouldn't have to have cti devel installed to test gdb4hpc, so only build
 # tests which require it if we happen to have it
 CTI_PRESENT := $(shell pkg-config --exists common_tools_fe && echo yes)
@@ -44,6 +47,10 @@ CTI_LD       = $(shell pkg-config --libs common_tools_fe)
 
 ifeq ($(CTI_PRESENT),yes)
 	TESTS += $(CTI_TESTS)
+endif
+
+ifeq ($(PE_ENV),CRAY)
+	TESTS += $(GPU_TESTS)
 endif
 
 # ANSI escape codes
@@ -126,10 +133,10 @@ clean:
 	CC -g -O0 $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_threads.x : ./bin/${PE_ENV}/C++/cpp_threads.o
-	CC -g -O0 $^ -o $@
+	CC -g -O0 $^ -o $@ -pthread
 
 ./bin/${PE_ENV}/C++/cpp_parallel_threads.x : ./bin/${PE_ENV}/C++/cpp_parallel_threads.o
-	CC -g -O0 $^ -o $@
+	CC -g -O0 $^ -o $@ -pthread
 
 ./bin/${PE_ENV}/C++/cpp_bt.x : ./bin/${PE_ENV}/C++/cpp_bt.o
 	CC -g -O0 $^ -o $@
@@ -171,16 +178,15 @@ clean:
 	CC -g -O0 $^ -o $@ $(CTI_LD)
 
 ROCM_SCRIPT = ./tests.py.data/rocm/$(HOSTNAME).sh
-CUDA_SCRIPT = ./tests.py.data/cuda/$(HOSTNAME).sh 
+CUDA_SCRIPT = ./tests.py.data/cuda/$(HOSTNAME).sh
 
-./bin/${PE_ENV}/c/simple_gpu-rocm.x : ./src/c/simple_gpu.c $(wildcard $(ROCM_SCRIPT))
+./bin/CRAY/c/simple_gpu-rocm.x : ./src/c/simple_gpu.c $(wildcard $(ROCM_SCRIPT))
 	if [ -f $(ROCM_SCRIPT) ] ; then \
 		$(ROCM_SCRIPT) make $< $@; \
 	fi
 
-./bin/${PE_ENV}/c/simple_gpu-cuda.x : ./src/c/simple_gpu.c $(wildcard $(CUDA_SCRIPT))
+./bin/CRAY/c/simple_gpu-cuda.x : ./src/c/simple_gpu.c $(wildcard $(CUDA_SCRIPT))
 	if [ -f $(CUDA_SCRIPT) ] ; then \
 		$(CUDA_SCRIPT) make $< $@; \
 	fi
-
 

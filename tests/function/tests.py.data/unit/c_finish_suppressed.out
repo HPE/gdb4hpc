@@ -15,8 +15,8 @@ Connected to application...
 Launch complete.
 a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:58
 4: # Set a breakpoint at specified line numbers:
-5: break c_type_test.c:253???PE-12345
-a{0..2}: Breakpoint 1: file /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c, line 253.
+5: break c_type_test.c:253
+a{0..2}: Wrong answer! 
 6: # Run to breakpoint 1:  
 7: continue
 a{0..2}: Breakpoint 1, test_stack at /home/users/chandlej/gdb4hpc/gdb4hpc-PE40696/tests/function/src/c/c_type_test.c:253

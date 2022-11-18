@@ -1516,6 +1516,25 @@ void ais::Struct::addMember(const std::string& memberName, std::shared_ptr<Type>
     m_members.push_back(std::make_pair(memberName, memberType));
 }
 
+// skip over a vtable entry in the class/struct value in C++
+static const char* skipVTable(const char* s) {
+    if (strncmp(s, "_vptr$", 6) != 0) return s;
+
+    // virtual function table - ignore
+    // expecting: "_vptr$Class = 0x2013a0 <vtable for Class+16>, 
+    auto t = s;
+    if (!(t=strchr(t,'=')) || !(t=strchr(t,'<'))) return s;
+
+    for (auto n=1; *++t && n; ) {
+        if (*t == '<') ++n;
+        else if (*t == '>') --n;
+    }
+    s = t; // one past the '>'
+    if (*t == ',') t = skipspace(t+1);
+    fprintf(stderr, "after skipping:%s\n", t);
+    return t;
+}
+
 void ais::Struct::parseL(InterpretStream& in, ais::Writer& writer) const {
     auto s = in.get();
     s = skipspace(s);
@@ -1536,6 +1555,8 @@ void ais::Struct::parseL(InterpretStream& in, ais::Writer& writer) const {
 
     for (auto& [name, elem] : m_members) {
         s = skipspace(s);
+        s = skipVTable(s);
+        
         if (strncmp(s, name.c_str(), name.size()) == 0) {
             s += name.size();
         } else if (*s == '<') {

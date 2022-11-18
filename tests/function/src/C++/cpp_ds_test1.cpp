@@ -24,7 +24,7 @@ private:
 static void f(const Struct1& s, const Classy& c);
 static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
-static void obscureDataTypes();
+static void obscureDataTypes(), virtualFuncTest();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
 
 static void trap() {
@@ -107,7 +107,7 @@ int main(int argc, char ** argv){
     templateClassTest();
     obscureDataTypes();
     templateClassTest2();
-    inheritanceTest(); nestedTemplateClassTest(); enumTest(); nestedTypedef(); anonymousClass();
+    inheritanceTest(); nestedTemplateClassTest(); enumTest(); nestedTypedef(); anonymousClass(); virtualFuncTest();
     delete ll;
     MPI_Finalize();
     return 0;
@@ -364,5 +364,40 @@ static void anonymousClass() {
   auto op = &obj;
   obj.setI(5);
   trap();
+}
+
+class PureVirtual {
+public:
+    PureVirtual(int m);
+    virtual ~PureVirtual();
+    virtual void f() = 0;
+protected:
+    int baseMember;
+};
+
+PureVirtual::PureVirtual(int m) : baseMember(m) {}
+PureVirtual::~PureVirtual() {}
+
+class Derived : public PureVirtual {
+public:
+    Derived(int a, double x);
+    void f() override;
+private:
+    double dmember;
+};
+
+Derived::Derived(int a, double x) :
+    PureVirtual(a), dmember(x) {}
+
+void Derived::f() {
+    trap();
+}
+
+static void virtualFuncTest()
+{
+    Derived a(122, -17.1);
+    Derived &b = a;
+    Derived* p = &a;
+    a.f();
 }
 

@@ -1072,6 +1072,8 @@ static void vPrintOutMIError(const char *format, va_list arg_list) {
     char *cstr = nullptr;
     if (vasprintf(&cstr, format, arg_list) < 0) return;
 
+    mi_log("in vPrintOutMIError %s : %s\n", cli_get_prefix().c_str(), cstr);
+
     if (!os.tellp()) os << cli_get_prefix() << "^error,msg=\"" ;  // the MI error form
 
     for (const auto *p = cstr; *p; ++p) {
@@ -1079,12 +1081,15 @@ static void vPrintOutMIError(const char *format, va_list arg_list) {
         case '"': os << "\\\""; break;   
         case '\n':
             // escape the newline and flush the result
-            os << "\\n\"\n";  
-            CurrentStream->cs_out("%s", os.str().c_str());
+            os << "\\n\"\n";
+            fprintf(CurrentStream->cs_fperr, "%s", os.str().c_str());
+            mi_log("output mi: %s", os.str().c_str());
             os.str("");
-            os << cli_get_prefix() << "^error,msg=\"" ;
             break;
-        default: os << *p;
+        default:
+            if (!os.tellp()) os << cli_get_prefix() << "^error,msg=\"" ;
+            os << *p;
+            break;
         }
     }
 

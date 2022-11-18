@@ -26,7 +26,7 @@ const char* const cmd_attach_help[] = {
     "           identifier of the running application)",
     "",
     "Description:",
-    "Attach to an application that was previously launched outside of the "
+    "Attach to an application that was previously launched outside of the ",
     "debugger.",
     "",
     "The app_handle argument is a process set handle used to refer to this",
@@ -75,11 +75,10 @@ const char* const cmd_assign_help[] = {
     "variable that does not exist, a new debugger variable with that name is",
     "automatically created.    ",
     "The target can include a list of application ranks such as $a{1..3,5,10}.",
-    "The assignment will occur as long as the expr evaluates into a single "
+    "The assignment will occur as long as the expr evaluates into a single ",
     "scalar,",
-    "or the number of ranks in the expr result match the number of ranks in "
-    "the",
-    "target.",
+    "or the number of ranks in the expr result match the number of ranks in ",
+    "the target.",
     "",
     "For example, if the value 10 is to be assigned myVar in ranks 1,3,4,5,10",
     "of app_handle $a, the following assign command would be issued:",
@@ -115,7 +114,7 @@ const char* const cmd_break_help[] = {
     "Set a breakpoint in every application rank in the current process set.",
     "The location of the breakpoint can be defined as a line number, a ",
     "function name, a source file:line-no, or \"*\" and an address. If an address is",
-    "specified, it must begin with an asterix (*)."
+    "specified, it must begin with an asterix (*).",
     "For example, break *0x0000000000400693 would break at address 0x400693.",
     "Adding thread thread-set creates a thread specific breakpoint which will",
     "apply only to the given thread(s).",
@@ -132,30 +131,23 @@ const char* const cmd_compare_help[] = {
     "Compare (subtract) the value of expression expr1 with the value of",
     "expression expr2. The values must be of the same size and shape, or a",
     "translation function (such as a decomposition) must be used. For example,",
-    "if the command compare $a::myVar == $b::myVar is issued and application "
-    "$a",
-    "has 32 ranks and application $b has 64 ranks, the comparison is only "
-    "valid",
-    "if myVar has the same value in every rank of both $a and $b. If myVar has",
-    "unique values in different ranks, the size and shape of the results do "
-    "not",
-    "match and the comparison will fail.",
+    "if the command compare $a::myVar == $b::myVar is issued and application ",
+    "$a has 32 ranks and application $b has 64 ranks, the comparison is only ",
+    "valid if myVar has the same value in every rank of both $a and $b. If myVar",
+    "has unique values in different ranks, the size and shape of the results do",
+    "not match and the comparison will fail.",
     "",
-    "The output of this command depends on the settings of display, output, "
-    "and",
-    "error variables. For more complex expressions, the application variable "
-    "part",
-    "of the expression can be enclosed with quotes.",
+    "The output of this command depends on the settings of display, output, and",
+    "error variables. For more complex expressions, the application variable",
+    "part of the expression can be enclosed with quotes.",
     "",
     "For example, the sizeof operator can be used by enclosing the syntax",
     "with quotes:",
     "",
     "compare $a{0}::\"sizeof(i)\" = $b{0}::\"sizeof(i)\"",
     "",
-    "The app_handle can be subsets of ranks using the process set notation. "
-    "When",
-    "a subset of ranks is targeted, individual ranks are separated with a "
-    "comma",
+    "The app_handle can be subsets of ranks using the process set notation.  When",
+    "a subset of ranks is targeted, individual ranks are separated with a comma",
     "and a range of ranks is denoted with \"..\". For example, if we wish to",
     "compare ranks 1,3,4,5,10 in $a, we would provide an app_handle of",
     "$a{1,3..5,10}.",
@@ -206,17 +198,13 @@ const char* const cmd_defset_help[] = {
     "",
     "The process set expression should consist of a comma-separated list of",
     "debugger variable arrays specifying which ranks of the process set should",
-    "be included in the new process set. A \"..\" can be used to denote a "
+    "be included in the new process set. A \"..\" can be used to denote a ",
     "range of ranks.",
     "",
-    "For example, if the app_handle $a{1024} was provided to launch an "
-    "application,",
-    "$a{0..32,64} would create a process set containing ranks zero thru "
-    "thirty-two",
-    "and rank sixty-four of application $a. If the app_handle $b{2048} was "
-    "provided",
-    "to launch an application, $a{32},$b{32} would create a process set "
-    "containing",
+    "For example, if the app_handle $a{1024} was provided to launch an application,",
+    "$a{0..32,64} would create a process set containing ranks zero thru thirty-two",
+    "and rank sixty-four of application $a. If the app_handle $b{2048} was provided",
+    "to launch an application, $a{32},$b{32} would create a process set containing",
     "rank 32 of both applications.",
     "",
     "The process set expression can optionally contain a thread set after a colon,",
@@ -234,9 +222,9 @@ const char* const cmd_defset_help[] = {
 const char* const cmd_delete_help[] = {
     "Summary: Delete a breakpoint or checkpoint.",
     "Usage: delete <breakpoint id>",
-    "       delete checkpoint <checkpoint id>"
+    "       delete checkpoint <checkpoint id>",
     "Example command: delete 1",
-    "                 delete checkpoint 2"
+    "                 delete checkpoint 2",
     "Shortcut: d",
     "",
     "Arguments: breakpoint or checkpoint id",
@@ -255,16 +243,12 @@ const char* const cmd_directmode_help[] = {
     "Arguments: None.",
     "",
     "Description:",
-    "This command puts the debugger into a gdb direct passthru mode. This mode "
-    "has",
-    "the look and feel of an actual gdb session across multiple parallel "
-    "processes.",
-    "Command results will be aggregated, and results that are different will "
-    "be",
+    "This command puts the debugger into a gdb direct passthru mode. This mode has",
+    "the look and feel of an actual gdb session across multiple parallel processes.",
+    "Command results will be aggregated, and results that are different will be",
     "denoted with rank information.",
     "",
-    "To exit gdbmode, type \"end\". The \"quit\" command will cause the "
-    "debugger",
+    "To exit gdbmode, type \"end\". The \"quit\" command will cause the debugger",
     "to exit and behave in the same way it does outside of gdbmode.",
     0};
 
@@ -307,8 +291,7 @@ const char* const cmd_enable_help[] = {
     "This command is used to cancel the effect of the \"disable\" command.",
     "Valid option arguments to this command are -delete and -once. Only one",
     "argument can be provided. The -delete argument will cause the breakpoint",
-    "to be deleted when it is hit. The -once argument will cause the "
-    "breakpoint",
+    "to be deleted when it is hit. The -once argument will cause the breakpoint",
     "to be disabled when it is hit.",
     0};
 
@@ -359,19 +342,14 @@ const char* const cmd_focus_help[] = {
     "Change the focus of the current process set to the named process set",
     "specified by the argument proc_set. This can be the app_handle of an",
     "attached/launched application or a process set created with the defset",
-    "command. A temporary proc_set will be created if the user focuses "
-    "explicitly",
+    "command. A temporary proc_set will be created if the user focuses explicitly",
     "on a subset of ranks using the process set notation. In that case, the",
-    "temporary proc_set will be removed when the focus is changed a second "
-    "time.",
+    "temporary proc_set will be removed when the focus is changed a second time.",
     "",
-    "For example, if the app_handle $a{1024} was provided to launch an "
-    "application,",
-    "focus $a{0..32,64} would create a temporary process set named a_temp "
-    "containing",
-    "ranks zero thru thirty-two and rank sixty-four of application $a. The "
-    "temporary",
-    "process set name cannot be subsequently used in process targeted commands "
+    "For example, if the app_handle $a{1024} was provided to launch an application,",
+    "focus $a{0..32,64} would create a temporary process set named a_temp containing",
+    "ranks zero thru thirty-two and rank sixty-four of application $a. The temporary",
+    "process set name cannot be subsequently used in process targeted commands", 
     "in the same way a defined process set can.",
     "",
     "The process set expression can optionally contain a thread set after a colon,",
@@ -394,7 +372,7 @@ const char* const cmd_frame_help[] = {
     "Arguments: optional -v for \"verbose\".",
     "",
     "Description:",
-    "Display the selected stack frame from every application rank in the "
+    "Display the selected stack frame from every application rank in the ",
     "current process set.",
     "-v (verbose) prints the program counter address for the frame.",
     0};
@@ -431,8 +409,7 @@ const char* const cmd_launch_help[] = {
     "Usage: launch <app_handle> <application>",
     "              [--args=\"<args>\" OR -a \"<args>\"]",
     "              [--launcher=\"<launcher_name>\" OR -l \"<launcher_name>\"]",
-    "              [--launcher-args=\"<launcher_args>\" OR -g "
-    "\"<launcher_args>\"]",
+    "              [--launcher-args=\"<launcher_args>\" OR -g \"<launcher_args>\"]",
     "              [--launcher-input=<path_to_file> OR -i <path_to_file>]",
     "              [--workdir=<path> OR -d<path>]",
     "              [--env=\"<name=value>\"]",
@@ -446,11 +423,9 @@ const char* const cmd_launch_help[] = {
     "Example command: launch $a{20000} ./helloworld",
     "",
     "Arguments: app_handle (debugger variable syntax),",
-    "           application (name of application), args (application "
-    "arguments),",
+    "           application (name of application), args (application arguments),",
     "           launcher_args (application launcher arguments),",
-    "           path_to_file (application launcher stdin file), path (cwd "
-    "path),",
+    "           path_to_file (application launcher stdin file), path (cwd path),",
     "           name=value (environment string), batch_template (job script)",
     "",
     "Description:",
@@ -463,39 +438,27 @@ const char* const cmd_launch_help[] = {
     "The app_handle argument must be a debugger variable array specifying the",
     "number of ranks in the application. For example, an application with an",
     "app_handle of $a{9} will launch the appication with 9 application ranks.",
-    "The application launcher is system dependent and is automatically "
-    "determined.",
+    "The application launcher is system dependent and is automatically determined.",
     "The aprun and srun application launchers are supported.",
     "",
     "If you wish to enable GPU debugging, add --gpu to your launch command.",
-    "This will enable the use of a GPU supported version of gdb and set "
-    "several",
+    "This will enable the use of a GPU supported version of gdb and set several",
     "environment variables for debugging.",
     "",
     "--gdb is an experimental option to use a specific debugger with each process,",
     "for example: --gdb=/opt/rocm-3.9.0/bin/rocgdb",
     "",
-    "The optional args, launcher_args, and name=value arguments should be "
-    "enclosed",
+    "The optional args, launcher_args, and name=value arguments should be enclosed",
     "with quotes. The args argument is used to pass arguments directly to the",
-    "application. The launcher_args argument is used to pass additional "
-    "arguments",
-    "specific to the application launcher (either aprun or srun). The "
-    "path_to_file",
-    "argument is used to redirect the stdin of the launcher process to a file. "
-    "The path",
-    "argument is used to change the current working directory of the "
-    "application",
-    "launcher. The path can be a full path or relative path. If path is "
-    "omitted,",
-    "then the current working directory of the application launcher will be "
-    "changed",
-    "to the location where the application a.out is located. The name=value "
-    "argument",
-    "is used to set environment variables for the application launcher. The "
-    "--env",
-    "argument can be used more than once to set multiple environment "
-    "variables.",
+    "application. The launcher_args argument is used to pass additional arguments",
+    "specific to the application launcher (either aprun or srun). The path_to_file",
+    "argument is used to redirect the stdin of the launcher process to a file. ",
+    "The path argument is used to change the current working directory of the ",
+    "application launcher. The path can be a full path or relative path. If path is",
+    "omitted, then the current working directory of the application launcher will be",
+    "changed to the location where the application a.out is located. The name=value",
+    "argument is used to set environment variables for the application launcher. The",
+    "--env argument can be used more than once to set multiple environment variables.",
     "",
     "For example:",
     "To provide the aprun arguments -N1 -L134 you would use",
@@ -503,43 +466,32 @@ const char* const cmd_launch_help[] = {
     "Alternatively you can use the short option of ",
     "-g \"-N1 -L134\"",
     "",
-    "Note that if using the short option -d, the argument is optional and a "
-    "space",
-    "should not be placed between the option and the argument (i.e. use "
-    "-d<path>).",
+    "Note that if using the short option -d, the argument is optional and a space",
+    "should not be placed between the option and the argument (i.e. use -d<path>).",
     "",
     "Workload manager support:",
     "",
-    "Launching on systems whose default workload manager is not SLURM or ALPS "
-    "requires",
-    "passwordless (public key) ssh to the compute nodes of active jobs. "
-    "Contact a system administrator",
-    "or the system usage guide for details on whether this is supported and "
-    "how to set this up.",
+    "Launching on systems whose default workload manager is not SLURM or ALPS requires",
+    "passwordless (public key) ssh to the compute nodes of active jobs.",
+    "Contact a system administrator or the system usage guide for details on whether",
+    "this is supported and how to set this up.",
     "",
-    "To launch an application using a non default launcher, the --launcher "
-    "argument can be used.",
-    "This can be the name of an executable reachable in PATH or an absolute "
+    "To launch an application using a non default launcher, the --launcher argument",
+    "can be used.  This can be the name of an executable reachable in PATH or an absolute",
     "path.",
-    "Setting this option only affects the name of the launcher executable "
-    "itself",
-    "and does not change the launch system. To launch with a non default "
-    "launcher that is not related",
-    "to the default running workload manager (such as mpiexec.hydra on a slurm "
-    "system), this variable should be",
-    "used in conjunction with setting CRAY_CTI_WLM to \"generic\" to ensure "
-    "the launch mechanisms work with ",
-    "the specified launcher. Note that setting CRAY_CTI_WLM to \"generic\" "
-    "requires",
+    "Setting this option only affects the name of the launcher executable itself",
+    "and does not change the launch system. To launch with a non default launcher that",
+    "is not related to the default running workload manager (such as mpiexec.hydra on",
+    "a slurm system), this variable should be used in conjunction with setting",
+    "CRAY_CTI_WLM to \"generic\" to ensure the launch mechanisms work with ",
+    "the specified launcher. Note that setting CRAY_CTI_WLM to \"generic\" requires",
     "passwordless SSH to the compute nodes.",
-    "Specify the name of the launcher to use as the argument to the launcher "
-    "option.",
+    "Specify the name of the launcher to use as the argument to the launcher option.",
     "",
     "For example, launch $a{10} --launcher=\"myrun\"",
     "",
     "To launch inside of a job reservation, the --qsub or --sbatch arguments",
-    "can be used. Modify the existing job script for the application by "
-    "placing",
+    "can be used. Modify the existing job script for the application by placing",
     "the comments #cray_debug_start and #cray_debug_end around the aprun/srun",
     "command to be debugged.",
     "",
@@ -616,12 +568,10 @@ const char* const cmd_list_help[] = {
     "The list expression can contain an argument of the following forms:",
     "",
     "        1. linenum - display source lines around specified line number.",
-    "        2. file:linenum - display source lines around specified line "
-    "number",
+    "        2. file:linenum - display source lines around specified line number",
     "                          in specified source file.",
     "        3. function - display source lines around specified function.",
-    "        4. file:function - display source lines around specified function "
-    "in",
+    "        4. file:function - display source lines around specified function in",
     "                           specified source file.",
     "        5. *addr - display source lines around the line corresponding to",
     "                   address addr.",
@@ -658,7 +608,7 @@ const char* const cmd_ompd_help[] = {
     0};
 
 const char* const cmd_pipe_help[] = {
-    "Summary: Pipe the output of a gdb command to a shell command."
+    "Summary: Pipe the output of a gdb command to a shell command.",
     "Usage: pipe <command> | <shell command>",
     "Usage: pipe -d <delim> command <delim> <shell command>",
     "Example command: pipe p/1 my_array | grep 0x0",
@@ -686,23 +636,21 @@ const char* const cmd_print_help[] = {
     "whose scope is global or over an entire file.",
     "",
     "Application ranks can be targeted using the process set notation for the",
-    "desired app_handle. For example, to print variable myVar in ranks "
-    "1,3,4,5,10",
+    "desired app_handle. For example, to print variable myVar in ranks 1,3,4,5,10",
     "of application $a, issue: print $a{1,3..5,10}::myVar.",
     0};
 
 const char* const cmd_ptype_help[] = {
     "Summary: print the definition of a type.",
-    "Usage: whatis <type>",
+    "Usage: ptype [/m|/t|/mt]  <type-or-variable>",
     "Example command: ptype timeval",
+    "Example command: ptype /m x",
     "",
-    "Arguments: type",
-    "",
-    "The type argument is a type name defined by typedef, or \"struct STRUCT-TAG,\"",
-    "or \"union UNION-TAG,\" or \"enum ENUM-TAG.\"",
-    "",
-    "Description:",
-    "A type is always displayed as a full type definition.",
+    "Print the type information for either a type or a program variable.",
+    "The optional format options:",
+    "   /m suppresses printing member functions.",
+    "   /t suppresses printing typedefs.",
+    "   /mt suppresses both.",
     0};
 
 
@@ -727,8 +675,7 @@ const char* const cmd_release_help[] = {
     "Description:",
     "Release previously attached/launched application specified by app_handle.",
     "",
-    "Every rank of the app_handle will be released, even if individual ranks "
-    "are",
+    "Every rank of the app_handle will be released, even if individual ranks are",
     "specified.",
     0};
 
@@ -792,14 +739,11 @@ const char* const cmd_tbreak_help[] = {
     "Arguments: location (line number, function name, source-file:line or address)",
     "",
     "Description:",
-    "Set a temporary breakpoint in every application rank in the current "
-    "process set.",
-    "The breakpoint will be deleted after being hit. This is equivalent to "
-    "issuing a",
+    "Set a temporary breakpoint in every application rank in the current process set.",
+    "The breakpoint will be deleted after being hit. This is equivalent to issuing a",
     "\"break\" followed by \"enable -delete\" with the breakpoint number.",
     "",
-    "The location of the breakpoint can be defined as a line number, a "
-    "function",
+    "The location of the breakpoint can be defined as a line number, a function",
     "name, or \"*\" and an address. If an address is specified, it must begin",
     "with an asterisk (*). For example, break *0x0000000000400693 would break",
     "at address 0x400693.",
@@ -821,7 +765,7 @@ const char* const cmd_thread_help[] = {
     "",
     "Summary: apply a command to a set of threads.",
     "Usage: thread apply <thread-list> | all [-ascending] [-s] [-q] [-c] [-v] <command>",
-    "Example command: thread apply all -s p i"
+    "Example command: thread apply all -s p i",
     "Example command: thread apply 1 2-4 9..11 \"worker 1\\.[0-9]\" bt 1",
     "Example command: thread apply 1,2-4,9..11,\"worker 1\\.[0-9]\" info frame",
     "",

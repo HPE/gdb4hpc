@@ -394,5 +394,39 @@ b{0..1}: (decltype(*op)*) <1>
   <1>:{i = 5}
 158: whatis op
 b{0..1}: class
-159: q
+159: c
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:31
+160: up
+b{0..1}: #1  Derived::f at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:393
+161: p this
+b{0..1}: (Derived*) <1>
+  <1>:{PureVirtual = {baseMember = 122}, dmember = -17.1}
+162: p *this
+b{0..1}: {PureVirtual = {baseMember = 122}, dmember = -17.1}
+163: up
+b{0..1}: #2  virtualFuncTest at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:401
+164: p a
+b{0..1}: {PureVirtual = {baseMember = 122}, dmember = -17.1}
+165: p b
+b{0..1}: {PureVirtual = {baseMember = 122}, dmember = -17.1}
+166: p p
+b{0..1}: (Derived*) <1>
+  <1>:{PureVirtual = {baseMember = 122}, dmember = -17.1}
+167: p *p
+b{0..1}: {PureVirtual = {baseMember = 122}, dmember = -17.1}
+168: ptype a
+b{0..1}: /* real type = Derived */
+class Derived : public PureVirtual {
+  private:
+    double dmember;
+
+  public:
+    Derived(int, double);
+    virtual void f(void);
+}
+169: whatis a
+b{0..1}: /* real type = Derived */
+170: p a.f
+b{0..1}: void (Derived * const) <Derived::f()>
+171: q
 Shutting down debugger and killing application for 'b'.

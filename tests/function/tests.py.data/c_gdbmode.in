@@ -46,6 +46,12 @@ Source opening is on.
 Ending gdb pass-thru mode. If program location has changed (i.e. continue) debugger is in an unknown state.
 33: show print elements
 Limit on string chars or array elements to print is 5.
-35: #exit lgdb
-36: q
+33: b 228
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c, line 228.
+13: c
+a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:228
+14: gdb x/4xb char_ptr_test_1
+a{0..2}: 0x200aec:	0x31	0x32	0x33	0x34
+15: #exit lgdb
+16: q
 Shutting down debugger and killing application for 'a'.

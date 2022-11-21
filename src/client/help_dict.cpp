@@ -237,19 +237,27 @@ const char* const cmd_delete_help[] = {
 
 const char* const cmd_directmode_help[] = {
     "Summary: Direct gdb mode command.",
-    "Usage: gdbmode",
+    "Usage: gdbmode [gdb command]",
     "Example command: gdbmode",
+    "Example command: gdb x/4xb rawPtr",
     "",
     "Arguments: None.",
     "",
     "Description:",
-    "This command puts the debugger into a gdb direct passthru mode. This mode has",
-    "the look and feel of an actual gdb session across multiple parallel processes.",
-    "Command results will be aggregated, and results that are different will be",
-    "denoted with rank information.",
+    "This function gives direct access to the gdb instances on the ranks, either to access",
+    "functionality not exposed by gdb4hpc, to view data like pointer values that are",
+    "normally hidden by gdb4hpc, or possibly to view data structures gdb4hpc doesn't",
+    "understand.",
+    ""
+    "Some care should be taken since some operations like changing breakpoints or continuing",
+    "could compromise the state of gdb4hpc.",
+    ""
+    "When called with arguments, it executes that command directly in gdb and prints the",
+    "results aggregated by ranks",
     "",
-    "To exit gdbmode, type \"end\". The \"quit\" command will cause the debugger",
-    "to exit and behave in the same way it does outside of gdbmode.",
+    "When called with no arguments, this command puts the debugger into a gdb direct",
+    "mode, and will send all subsequent commands directly to gdb until it receives the",
+    "command \"end\".  \"quit\" is also available which will quit gdb4hpc.",
     0};
 
 const char* const cmd_disable_help[] = {

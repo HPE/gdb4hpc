@@ -21,7 +21,7 @@ enable          Enable a breakpoint.
 finish          Execute application until each rank's current function returns.
 focus           Set the current process set.
 frame           Print the currently selected stack frame.
-gdbmode         Enter direct gdb mode (experimental).
+gdbmode         Send raw gdb commands.
 halt            Halt execution of attached/launched application.
 help            Display help information about commands.
 ignore          Ignore a breakpoint a number of times.

@@ -56,8 +56,7 @@ static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
         // make sure the cmd is not empty
         if (strlen(cmd) == 0) continue;
 
-        PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
-                            "GDB CONSOLE OUTPUT:\n\n%s\n\n", cmd);
+        PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s", cmd);
     }
 
     DbgRestoreAfterDirectCmd(rec_set);
@@ -68,13 +67,14 @@ static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
 }
 
 static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    rep_set_t *rep_set;
-    char *cmd;
-    const char *tmp_cmd[2] = {"show", "version"};
 
     if (rec_set == NULL) {
         PrintOutError("No processes in focus.\n");
         return 0;
+    }
+
+    if (argc > 1) {
+        return cmd_maint_direct_cmd(rec_set, argc, argv);
     }
 
     OldCmds = SetCommands(DirectModeCmds);
@@ -84,11 +84,12 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
     PrintOutMsg(
         "Entering gdb pass-thru mode. Type \"end\" to exit mode...\n\n");
 
-    rep_set = DbgResetBeforeDirectCmd(rec_set);
+    auto rep_set = DbgResetBeforeDirectCmd(rec_set);
     ProcessErrorInRepSet(rep_set);
     FreeRepSet(rep_set);
 
     // This won't work with a "generic" debug backend, but works with gdb.
+    const char *tmp_cmd[2] = {"show", "version"};
     rep_set = DbgDirectCmd(rec_set, 2, const_cast<char **>(tmp_cmd));
 
     // process error
@@ -97,7 +98,7 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // process console messages
     for (auto&& reply : rep_set) {
         // Point at the cmd data
-        cmd = EVENT_CMD(reply->rep_event);
+        auto cmd = EVENT_CMD(reply->rep_event);
 
         // make sure the cmd is not empty
         if (strlen(cmd) == 0) continue;
@@ -226,7 +227,7 @@ static void directmodefailed(void) {
 void InitCmd_passthru(void) {
     // regular commands
     AddCommand("gdbmode", NULL, proc_required, 0, cmd_directmode_cmd,
-               cmd_directmode_help, "Enter direct gdb mode (experimental).");
+               cmd_directmode_help, "Send raw gdb commands.");
 
     // maint commands
     AddMaintCommand(

@@ -1046,7 +1046,7 @@ void ais::CharArray::parseL(InterpretStream& in, Writer& out) const {
         }
         return;
     }
-
+    
     // depending on the context, gdb may print out the pointer value
     // first - skip to the string value.
     // lookat - this won't properly handle a null pointer..
@@ -1059,9 +1059,12 @@ void ais::CharArray::parseL(InterpretStream& in, Writer& out) const {
             out.writeString(nullString);
             in.setPos(str+3);
             return;
-        } else if (auto beg = strchr(str,'"')) {
-            str = beg;
         }
+        auto q = strchr(str, '"'); // contents of the string
+        auto e = strchr(str, '<'); // error message
+
+        if (q && (!e || q < e)) str = q;
+        else if (e && (!q || e < q)) str = e;
     }
 
     if (str[0] == '"') {
@@ -1072,6 +1075,11 @@ void ais::CharArray::parseL(InterpretStream& in, Writer& out) const {
         }
         out.writeString(std::string{beg,end});
         in.setPos(*end ? end+1 : end);
+        return;
+    }  else if (str[0] == '<') {
+        // error message
+        out.writeError("<cannot access memory at address>");
+        if (auto end = strchr(str,'>')) in.setPos(end+1);
         return;
     }
         
@@ -1694,6 +1702,44 @@ std::string ais::Struct::getTypeName() const {
     return "i_do_not_think_this_is_used";
 }
 
+ais::Union::Union(const std::string& name) : Struct(name) {}
+
+namespace {
+    // BufferWriter modified to not traverse pointers, but to treat each one
+    // kind of like <optimized out>
+    class UnionWriteBuffer : public ais::WriteBuffer {
+    public:
+        UnionWriteBuffer(std::shared_ptr<ais::WriteBuffer> fwd) : f(fwd) {}
+        void writeInt(int val) override { f->writeInt(val); }
+        void writeLong(long val) override { f->writeLong(val); }
+        void writeLongLong(long long val) override { f->writeLongLong(val); }
+        void writeFloat(float val) override { f->writeFloat(val); }
+        void writeDouble(double val) override { f->writeDouble(val); }
+        void writeLongDouble(long double val) override { f->writeLongDouble(val); }
+        void writeString(const std::string& str) override { f->writeString(str); }
+        void writePointer(const std::string& type, void* val) override { suppress(); }
+        void writeError(const std::string& str) override { f->writeError(str); }
+    private:
+        void suppress();
+        std::shared_ptr<ais::WriteBuffer> f;
+    };
+
+    void UnionWriteBuffer::suppress() { f->writeError("<suppressed in a union>"); }
+}
+
+void ais::Union::parseL(InterpretStream& in, Writer& out) const
+{
+    // This is the only override needed for a union since they are handled identically
+    // on the client side.   But it still needs to parse the usual output from gdb,
+    // so we just shunt the pointers aside at the writer level.   This also means
+    // that pointers nested arbitrarily deeply in structs inside the union are still
+    // suppressed.
+    fprintf(stderr, "in ais::Union::parseL\n");
+    auto sbuff = std::make_shared<UnionWriteBuffer>(out.getBuffer());
+    auto sout = ais::Writer{sbuff};
+    Struct::parseL(in, sout);
+}
+
 //===========================================================================
 
 ais::Pointer::Pointer(std::string derefType) : m_derefType(std::move(derefType)) {}
@@ -1711,7 +1757,6 @@ void ais::Pointer::parseL(InterpretStream& in, Writer& out) const {
     }
     in.setPos(s + chars);
 
-    out.writeString(m_derefType);
     out.writePointer(m_derefType, p);
 }
 
@@ -1780,7 +1825,6 @@ void ais::SmartPointer::parseL(InterpretStream& in, Writer& out) const {
     if (parsed) {
         out.writeString(m_pointerType);
         out.writeInt(1); // indicating success
-        out.writeString(m_derefType);
         out.writePointer(m_derefType, p);
     } else {
         // evaluation failed
@@ -1879,6 +1923,10 @@ int ais::Writer::getTypeId(const std::string& typeName) {
 
 void ais::Writer::resetTypes() {
     m_typeNameToIdx.clear();
+}
+
+std::shared_ptr<ais::WriteBuffer> ais::Writer::getBuffer() const {
+    return m_buffer;
 }
 
 //===========================================================================

@@ -72,7 +72,7 @@ void Buffer::writePointer(const std::string& type, void* val) {
     m_os << " unimplemented writePointer " << type << " " << val;
 }
 void Buffer::writeError(const std::string& err) {
-    m_os << "@" <<  std::quoted(err);
+    m_os << " @" <<  std::quoted(err);
 }
 
 

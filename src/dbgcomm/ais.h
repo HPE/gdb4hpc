@@ -138,6 +138,8 @@ public:
 
     void writeError(const std::string& str);
 
+    std::shared_ptr<WriteBuffer> getBuffer() const;
+
 private:
     std::shared_ptr<WriteBuffer> m_buffer;
     std::map<std::string, int> m_typeNameToIdx;
@@ -944,6 +946,12 @@ public:
 private:    
     std::string m_name;
     std::vector<std::pair<std::string, std::shared_ptr<Type>>> m_members;
+};
+
+class Union : public Struct {
+public:
+    Union(const std::string& name);
+    void parseL(InterpretStream& in, Writer& out) const override;
 };
 
 // Pointer type    

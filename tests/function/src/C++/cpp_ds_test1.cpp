@@ -27,6 +27,8 @@ static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest()
 static void obscureDataTypes(), virtualFuncTest();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
 
+
+
 static void trap() {
     std::cout << "trap function\n";
 }
@@ -72,7 +74,8 @@ int main(int argc, char ** argv){
 	std::vector<double> vd;
 	std::vector<int *> ip;
 	std::vector<Rectangle > vv;
-    LinkedList* ll = new LinkedList;  std::string ss{"So this grasshopper walks into a bar.."};
+    LinkedList* ll = new LinkedList;
+    std::string ss{"So this grasshopper walks into a bar.."};
 	while(i < 10 ){
 		vv.push_back(rect);
 		ip.push_back((int*)0x1234);
@@ -107,7 +110,17 @@ int main(int argc, char ** argv){
     templateClassTest();
     obscureDataTypes();
     templateClassTest2();
-    inheritanceTest(); nestedTemplateClassTest(); enumTest(); nestedTypedef(); anonymousClass(); virtualFuncTest();
+    inheritanceTest();
+    nestedTemplateClassTest();
+    enumTest();
+    nestedTypedef();
+    anonymousClass();
+    virtualFuncTest();
+
+
+    
+
+    
     delete ll;
     MPI_Finalize();
     return 0;
@@ -205,7 +218,7 @@ static void templateClassTest() {
     trap();
 }
 
-union ux_t { int i; double d; };
+union ux_t { int i; double d; void* p; char* s; };
 
 static void obscureDataTypes() {
     int8_t i8 = 22;

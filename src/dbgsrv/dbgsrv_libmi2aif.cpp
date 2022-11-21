@@ -108,8 +108,6 @@ public:
     parseField(const std::string& type, const std::string& fieldStr);
 
 private:
-    bool fieldIsFunction(const char* str) const;
-    bool fieldIsTypedef(const char* str) const;
     void initFortranFields(MICommand& sentCmd);
 
     std::vector<std::string> m_parentClasses;
@@ -217,10 +215,12 @@ public:
     static std::shared_ptr<ais::Type> stlContainer(Mi2Aif& mi, const ais::Array& contType,
                                                    TypeName t);
     static std::shared_ptr<ais::Type> stdArray(Mi2Aif& mi, TypeName t);
+    static std::shared_ptr<ais::Type> stdConditional(Mi2Aif& mi, TypeName t);
     static std::shared_ptr<ais::Type> stdString(Mi2Aif& mi, TypeName t);
     static std::shared_ptr<ais::Type> smartPointer(Mi2Aif& mi, TypeName t);
     static std::shared_ptr<ais::Type> wrapVoidFunc(Mi2Aif&, TypeName t);
     static std::shared_ptr<ais::Type> wrapEnum(Mi2Aif&, TypeName t);
+    static std::shared_ptr<ais::Type> wrapUnion(Mi2Aif&, TypeName t);
     static std::shared_ptr<ais::Type> ftnCharacter(Mi2Aif& mi, TypeName t);
     static std::shared_ptr<ais::Type> unimplemented(Mi2Aif&, TypeName type);
 
@@ -264,6 +264,9 @@ public:
 
     static Func SmartPointerWrap() {
         return [](Mi2Aif& mi, TypeName t) { return smartPointer(mi, std::move(t)); }; }
+
+    static void addStructMembers(Mi2Aif& mi, ais::Struct& stype, MIVar* var,
+                                 const std::string& type);
 
     static std::vector<Prim> m_cppPrims;
     static std::vector<Prim> m_cppStlPrims;
@@ -321,6 +324,7 @@ std::vector<TypeParser::Prim> TypeParser::m_cppPrims =
  {"uint16_t",PrimWrap<ais::UnsignedShort>()},
  {"uint32_t",PrimWrap<ais::UnsignedInt>()},
  {"uint64_t",PrimWrap<ais::UnsignedLong>()},
+ {"union", wrapUnion},
  {"unsigned char",CharWrap<ais::UnsignedChar>()},
  {"unsigned int",PrimWrap<ais::UnsignedInt>()},
  {"unsigned long",PrimWrap<ais::UnsignedLong>()},
@@ -334,6 +338,7 @@ std::vector<TypeParser::Prim> TypeParser::m_cppPrims =
 std::vector<TypeParser::Prim> TypeParser::m_cppStlPrims =
 {
  {"std::array", stdArray},
+ {"std::conditional_t", stdConditional},
  {"std::deque", ContainerWrap<ais::Deque>()},
  {"std::stack", ContainerWrap<ais::Stack>()},
  {"std::vector", ContainerWrap<ais::Vector>()},
@@ -730,10 +735,8 @@ PTypeFields::PTypeFields(MICommand& sentCmd, bool isFortran)
     // populate fields
     for (MIListSet(field_list); char* field = (char *)MIListGet(field_list); ) {
         DVPRINT("PTypeFields: field is %s\n", field);
-        if (!fieldIsFunction(field) && !fieldIsTypedef(field)) {
-            auto fieldStr = m_typeMapper(field);
-            m_fields.push_back(fieldStr);
-        }
+        auto fieldStr = m_typeMapper(field);
+        m_fields.push_back(fieldStr);
     }
     MIListFree(field_list, (void (*)()) free);
 
@@ -814,18 +817,6 @@ void PTypeFields::initFortranFields(MICommand& cmd) {
             m_fields.push_back(os.str()) ;
         }
     }
-}
-
-bool PTypeFields::fieldIsFunction(const char* str) const {
-    auto paren = strchr(str, '(');
-    return (paren && paren[1] != '*');   // "(*" is a pointer to a function
-}
-
-bool PTypeFields::fieldIsTypedef(const char* str) const {
-    // point to first non-whitespace character in the line
-    while (str && ::isspace(*str) && *str != '\n') str++;
-    auto typdef = strstr(str, "typedef");
-    return typdef == str;
 }
 
 /*
@@ -976,8 +967,10 @@ std::string Mi2Aif::getPTypeAlias(const std::string& type, bool strict) {
         } else if (strncmp(info, "enum ", 5) == 0 && bracket) {
             retType = std::string{info, bracket};
             DVPRINT("Got enum alias %s\n", retType.c_str());
+        } else if (strncmp(info, "union ", 6) == 0 && bracket) {
+            retType = std::string{info, bracket};
+             DVPRINT("Got union alias %s\n", retType.c_str());
         }
- 
         free(info);
     }
         
@@ -991,7 +984,6 @@ PTypeFields Mi2Aif::getPTypeFields(const std::string& type, bool isFortran)
     // gdb can't properly parse the closure of nested templates (">>")
     // without a space in between ("> >")
     auto fixedType = FixRightShift(type);
-
     fixedType = "/mtr " + fixedType;
 
     MICommand* cmd = CLIPtype(fixedType.c_str());
@@ -1502,12 +1494,12 @@ namespace {
         m_out  << " " << std::quoted(val);
     }
     void WriteBuffer::writeError(const std::string& val) {
-        m_out  << "@" << std::quoted(val);
+        m_out  << " @" << std::quoted(val);
     }
 
     void WriteBuffer::writePointer(const std::string& type, void* val) {
         int idx = m_mi.swizzlePointer(type, val);
-        m_out << " " << idx;
+        m_out << " " << std::quoted(type) << " " << idx;
     }
 
     std::string WriteBuffer::exportResult() {
@@ -1802,12 +1794,19 @@ std::shared_ptr<ais::Type> TypeParser::getCppType(Mi2Aif& mi, MIVar* var, const 
     auto decoration = type.substr(typeLen);
     auto stype = std::make_shared<ais::Struct>(baseType);
 
-    DVPRINT("get baseType %s decoration %s\n", baseType.c_str(), decoration.c_str());
-
     // register the type here so a class/struct with a pointer to its own type
     // (like a linked list or graph) doesn't get into infinite recursion
+    DVPRINT("get baseType %s decoration %s\n", baseType.c_str(), decoration.c_str());
     mi.addKnownType(baseType, stype);
 
+    addStructMembers(mi, *stype, var, var ? baseType : type);
+
+    return cppWrap(stype, TypeName{type,static_cast<size_t>(typeLen)});
+}
+
+void
+TypeParser::addStructMembers(Mi2Aif& mi, ais::Struct& stype,
+                             MIVar* var, const std::string& type) {
     if (var) {
         auto getMemberName = [] (MIVar* var) {
            DVPRINT("var expr:'%s' name:'%s' exp:'%s\n",
@@ -1824,7 +1823,7 @@ std::shared_ptr<ais::Type> TypeParser::getCppType(Mi2Aif& mi, MIVar* var, const 
         while (true) {
             DVPRINT("Gettting children of type %s\n", var->type);
             mi.getChildren(var);
-            if (var->type && var->type != baseType && var->numchild) {
+            if (var->type && var->type != type && var->numchild) {
                 var = var->children[0];
             } else {
                 break;
@@ -1838,13 +1837,13 @@ std::shared_ptr<ais::Type> TypeParser::getCppType(Mi2Aif& mi, MIVar* var, const 
                 // normal child
                 DVPRINT("adding a child\n");
                 DVPRINT("member name is %s\n", getMemberName(child1).c_str());
-                stype->addMember(getMemberName(child1), getCppType(mi,child1,nullptr));
+                stype.addMember(getMemberName(child1), getCppType(mi,child1,nullptr));
             } else if (!mi.getChildren(child1)) {
                 // child is public|protected|private - walk down another level
                 for (int j=0; j<child1->numchild; ++j) {
                     auto child2 = child1->children[j];
                     child2->expr = strdup(child2->name);
-                    stype->addMember(getMemberName(child2), getCppType(mi,child2,nullptr));
+                    stype.addMember(getMemberName(child2), getCppType(mi,child2,nullptr));
                 }
             } else {
                 DVPRINT("getting children failed\n");
@@ -1855,22 +1854,16 @@ std::shared_ptr<ais::Type> TypeParser::getCppType(Mi2Aif& mi, MIVar* var, const 
         auto ptfields = mi.getPTypeFields(type, /* true if fortran */ false);
         // parent classes
         for (const auto& parent : ptfields.parentClasses()) {
-            stype->addMember(parent, getCppType(mi, nullptr, parent.c_str()));
+            stype.addMember(parent, getCppType(mi, nullptr, parent.c_str()));
         }
         // class members
         for (auto&& fieldStr : ptfields.fields()) {
             auto [fieldName, fieldTypeStr] = ptfields.parseField(type, fieldStr);
             if (fieldName.empty()) continue;
 
-            stype->addMember(fieldName, getCppType(mi,nullptr,fieldTypeStr.c_str()));
+            stype.addMember(fieldName, getCppType(mi,nullptr,fieldTypeStr.c_str()));
         }
     }
-
-    DVPRINT("calling addKnownType %s decoration %s\n", baseType.c_str(),
-            decoration.c_str());
-
-    mi.addKnownType(baseType, stype);
-    return cppWrap(stype, TypeName{type,static_cast<size_t>(typeLen)});
 }
 
 std::shared_ptr<ais::Type> TypeParser::getFtnType(Mi2Aif& mi, const char* typeStr) {
@@ -2148,6 +2141,47 @@ std::shared_ptr<ais::Type> TypeParser::stdString(Mi2Aif& mi, TypeName t) {
     return cppWrap(std::make_shared<ais::String>(), t2);
 }
 
+std::shared_ptr<ais::Type> TypeParser::stdConditional(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing std::conditional %s\n", t.decoration.c_str());
+
+    const std::string& d = t.decoration;
+    std::vector<std::string> args;
+
+    auto i = d.find('<'), beg=i;
+    if (i != std::string::npos) ++i;
+
+    for (int level=1; level && i < d.size(); ++i) {
+        switch (d[i]) {
+        case '<': ++level; break;
+        case '>': if (!--level) args.push_back(d.substr(beg+1, i-beg-1)); break;
+        case ')': if (i+2 < d.size() && (d[i+1]=='<' || d[i+1]=='>') && d[i+2]=='(') ++i; break;
+        case ',': if (level == 1) { args.push_back(d.substr(beg+1, i-beg-1)); beg = i; } break;
+        default: break;
+        }
+    }
+
+    if (args.size() != 3) {
+        DVPRINT("Expected 3 args but got %d\n", int(args.size()));
+        return unimplemented(mi,t);
+    }
+
+    DVPRINT("Got arguments: \"%s\", \"%s\", \"%s\"\n", args[0].c_str(), args[1].c_str(), args[2].c_str());
+
+    auto t2 = TypeName{t.type  + d.substr(0,i), d.substr(i)};
+
+    auto condResult = EvalExpression(mi.getSession(), args[0].c_str());
+
+    auto theType = ((!condResult || condResult[0]=='t' || condResult[0]=='1') ? args[1] : args[2]);
+
+    DVPRINT("condition result is %s using type %s\n", condResult ? condResult : "NULL", theType.c_str());
+
+    free(condResult);
+    
+    auto vtype = getType(mi, nullptr, theType.c_str());
+
+    return cppWrap(vtype, t2);
+}
+
 std::shared_ptr<ais::Type> TypeParser::ftnCharacter(Mi2Aif& mi, TypeName t) {
     DVPRINT("parsing fortran CHARACTER type %s\n", t.decoration.c_str());
 
@@ -2239,6 +2273,38 @@ std::shared_ptr<ais::Type> TypeParser::wrapEnum(Mi2Aif& mi, TypeName t) {
     auto name = t.decoration.substr(namePos);
     return std::make_shared<ais::Enum>(name);
 }
+
+std::shared_ptr<ais::Type> TypeParser::wrapUnion(Mi2Aif& mi, TypeName t) {
+    DVPRINT("union decoration is \"%s\"\n", t.decoration.c_str());
+
+    const std::string& d = t.decoration;
+    auto namePos = d.find_first_not_of(' ');
+    if (namePos == std::string::npos) {
+        return unimplemented(mi, t);
+    }
+
+    char c;
+    auto nameEnd = namePos+1;
+    while (nameEnd < d.size() &&
+           (c=d[nameEnd], (std::isalnum(c) || c == '_' || c == ':'))) {
+        ++nameEnd;
+    }
+
+    auto name = d.substr(namePos, nameEnd-namePos);
+    auto baseType = t.type + d.substr(0,nameEnd);
+    auto stype = std::make_shared<ais::Union>(name);
+    auto decoration2 = d.substr(nameEnd);
+
+    DVPRINT("adding union type %s decoration %s\n",
+            baseType.c_str(), decoration2.c_str());
+
+    mi.addKnownType(baseType, stype);
+
+    addStructMembers(mi, *stype, nullptr, baseType);
+
+    return cppWrap(stype, TypeName{t, nameEnd});
+}
+
 
 std::shared_ptr<ais::Type> TypeParser::unimplemented(Mi2Aif& mi, TypeName t) {
     return std::make_unique<ais::Unimplemented>(t.type + t.decoration);

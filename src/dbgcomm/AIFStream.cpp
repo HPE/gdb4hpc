@@ -274,22 +274,15 @@ public:
 
 private:
     void getMore();
+    void checkForError();
 
     template<typename  T>
     inline T read() {
         auto c = m_in.peek();
         if (c == EOF) {
             getMore();
-            c = m_in.peek();
         }
-        if (c == '@') {
-            // An error, e.g. <optimized out> sent from the back-end
-            c = m_in.get();
-            auto err = std::string{};
-            m_in >> std::quoted(err);
-            throw ais::GdbError(err);
-        }
-        
+        checkForError();
         auto val = T{};
         m_in >> val;
         return val;
@@ -311,6 +304,22 @@ void AIFStreamReadBuffer::getMore() {
     }
 }
 
+void AIFStreamReadBuffer::checkForError() {
+    auto c = m_in.peek();
+    if (c == ' ') {
+        c = m_in.get();
+        c = m_in.peek();
+    }
+    if (c == '@') {
+        // An error, e.g. <optimized out> sent from the back-end
+        c = m_in.get();
+        auto err = std::string{};
+        m_in >> std::quoted(err);
+        throw ais::GdbError(err);
+    }
+}
+
+
 int AIFStreamReadBuffer::readInt() { return read<int>(); }
 long AIFStreamReadBuffer::readLong() { return read<long>(); }
 long long AIFStreamReadBuffer::readLongLong() { return read<long long>(); }
@@ -318,6 +327,8 @@ float AIFStreamReadBuffer::readFloat() { return read<float>(); }
 double AIFStreamReadBuffer::readDouble() { return read<double>(); }
 long double AIFStreamReadBuffer::readLongDouble() { return read<long double>(); }
 std::string AIFStreamReadBuffer::readString() {
+    checkForError();
+    
     auto val = std::string{};
     while (!(m_in >> std::quoted(val))) getMore();
     return val;

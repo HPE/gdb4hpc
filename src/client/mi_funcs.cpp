@@ -245,7 +245,14 @@ std::string Vars::create(const std::string& inname, const std::string& frame,
 
     if (value.empty()) return "error,unable to evalute\n";
 
-    os << "ok,name=\"" << name << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
+    //get procset from value
+    std::string proc_set="";
+    static std::regex value_regex(R"((\w+)\{?[\s\S]*\}?\:[\s\S]*)"); 
+    std::smatch match;
+    if (std::regex_match(value, match, value_regex)) {
+        proc_set = match[1].str();
+    }
+    os << "ok,name=\"" << name << "\", proc_set=\"" << proc_set << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
 
     // and store it
     m_vars.insert( std::make_pair(name, Var{name, frame, expression, std::move(value)}));

@@ -153,7 +153,7 @@ static int cmd_info_locals_cmd(rec_set_t *rec_set, int argc,
                     }else{
                         ss<<"[";
                     }
-                    ss<<"{proc_set=\""<<reply->rep_di.c_str()<<"\",name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\"}";
+                    ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\"}";
                 }else{
                     PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Name:%-25s\tType:%s\n", v->var_name,
@@ -161,8 +161,8 @@ static int cmd_info_locals_cmd(rec_set_t *rec_set, int argc,
                 }
             }
             if (Client.MI_mode && !ss.str().empty()){
-                ss<<"]}";
-                PrintOutMIResult(MIResult::DONE, "variables=%s\n%s", ss.str().c_str(), GetMIEpilogue());
+                ss<<"]";
+                PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",variables=%s\n%s", reply->rep_di.c_str(),ss.str().c_str(), GetMIEpilogue());
             }
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),

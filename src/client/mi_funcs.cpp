@@ -31,7 +31,11 @@ static std::map<std::string, fp> func_cmd_map =
 //map for commands that have a default cli command
 static std::map<std::string, std::string> return_cmd_map=
 {
+ {"-break-after", "ignore"},
+ {"-break-condition", "condition"},
  {"-break-delete", "delete"},
+ {"-break-disable", "disable" },
+ {"-break-enable", "enable" },
  {"-break-insert", "break" },
  {"-break-list", "info breakpoints"},
  {"-compare", "compare"},

@@ -353,119 +353,106 @@ void indexer1D::setProcSize(const indexer1D& oproc) {
 }
 
 // for now remove EvalMapFunc, when need, copy from map.c
-
-void PrintBlockMap(cli_out_t &fp, g_block_map_t *m) {
+std::string GetBlockMapMsg(g_block_map_t *m) {
     int i;
+    std::stringstream sc; //stringstream for cli messages
+    std::stringstream sm; //stringstream for mi messages
 
-    fp("$%s:\n", SymLookup(m->m_sym));
+    sc<<"$"<<SymLookup(m->m_sym)<<":\n";
+    sm<<"{decomp_name=\""<<SymLookup(m->m_sym);
 
     if (m->m_rank == 0) {
         SetError("Invalid decomposition.");
-        return;
+        return "";
     }
 
-    fp("\tdimension ");
-
+    sc<<"\tdimension ";
+    sm<<"\",dimension=\"";
     if (m->m_data == (int *)NULL) {
         SetError("Invalid dimension definition for decomposition.");
-        return;
+        return "";
     } else {
-        // want to stop before last index
-        for (i = 0; i < (m->m_rank - 1); i++) {
-            fp("%d,", m->m_data[i]);
+        for (i = 0; i < m->m_rank; i++) {
+            sc << m->m_data[i] << (i+1==m->m_rank ? "\n" : ",");
+            sm << m->m_data[i] << (i+1==m->m_rank ? "" : ",");
         }
-        // now print the last index
-        fp("%d\n", m->m_data[m->m_rank - 1]);
     }
 
-    fp("\tdistribute ");
-
+    sc<<"\tdistribute ";
+    sm<<"\",distribute=\"";
     if (m->m_distribute == (int *)NULL) {
         SetError("Invalid distribute definition for decomposition.");
-        return;
+        return "";
     } else {
-        // want to stop before last index
-        for (i = 0; i < (m->m_rank - 1); i++) {
+        for (i = 0; i < m->m_rank; i++) {
             switch (m->m_distribute[i]) {
                 case CT_BLOCK:
-                    fp("%s,", "block");
+                    sc<<"block"<<(i+1==m->m_rank ? "\n" : ",");
+                    sm<<"block"<<(i+1==m->m_rank ? "" : ",");
                     break;
                 case CT_CYCLIC:
-                    fp("%s,", "cyclic");
+                    sc<<"cyclic"<<(i+1==m->m_rank ? "\n" : ",");
+                    sm<<"cyclic"<<(i+1==m->m_rank ? "" : ",");
                     break;
                 case CT_STAR:
-                    fp("%s,", "*");
+                    sc<<"*"<<(i+1==m->m_rank ? "\n" : ",");
+                    sm<<"*"<<(i+1==m->m_rank ? "" : ",");
                     break;
                 case CT_BLOCK_CYCLIC:
-                    fp("%d,", m->m_blockcyclic_val[i]);
+                    sc<<m->m_blockcyclic_val[i]<<(i+1==m->m_rank ? "\n" : ",");
+                    sm<<m->m_blockcyclic_val[i]<<(i+1==m->m_rank ? "" : ",");
                     break;
                 default:
                     SetError(
                         "Invalid distribute definition for decomposition.");
-                    return;
+                    return "";
             }
         }
-        // need to print the last index
-        switch (m->m_distribute[m->m_rank - 1]) {
-            case CT_BLOCK:
-                fp("%s\n", "block");
-                break;
-            case CT_CYCLIC:
-                fp("%s\n", "cyclic");
-                break;
-            case CT_STAR:
-                fp("%s\n", "*");
-                break;
-            case CT_BLOCK_CYCLIC:
-                fp("%d\n", m->m_blockcyclic_val[m->m_rank - 1]);
-                break;
-            default:
-                SetError("Invalid distribute definition for decomposition.");
-                return;
-        }
     }
 
-    fp("\tproc_grid ");
-
+    sc<<"\tproc_grid ";
+    sm<<"\",proc_grid=\"";
     if (m->m_procs == (int *)NULL) {
         SetError("Invalid process grid definition for decomposition.");
-        return;
+        return "";
     } else {
-        // want to stop before last index
-        for (i = 0; i < (m->m_rank - 1); i++) {
-            if (m->m_procs[i] == 1)
-                fp("%s,", "*");
-            else
-                fp("%d,", m->m_procs[i]);
+        for (i = 0; i < m->m_rank; i++) {
+            if (m->m_procs[i] == 1){
+                sc<<"*"<<(i+1==m->m_rank ? "\n" : ",");
+                sm<<"*"<<(i+1==m->m_rank ? "" : ",");
+            }else{
+                sc<<m->m_procs[i]<<(i+1==m->m_rank ? "\n" : ",");
+                sm<<m->m_procs[i]<<(i+1==m->m_rank ? "" : ",");
+            }
         }
-        // now print the last index
-        if (m->m_procs[i] == 1)
-            fp("%s\n", "*");
-        else
-            fp("%d\n", m->m_procs[m->m_rank - 1]);
     }
 
-    fp("\tdim_order ");
-
+    sc<<"\tdim_order ";
+    sm<<"\",dim_order=\"";
     if (m->m_dim_order == (int *)NULL) {
         SetError("Invalid dimension order definition for decomposition.");
-        return;
+        return "";
     } else {
-        // want to stop before last index
-        for (i = 0; i < (m->m_rank - 1); i++) {
-            if (m->m_dim_order[i] == CT_STAR)
-                fp("%s,", "*");
-            else
-                fp("%d,", m->m_dim_order[i]);
+        for (i = 0; i < m->m_rank; i++) {
+            if (m->m_dim_order[i] == CT_STAR){
+                sc<<"*"<<(i+1==m->m_rank ? "\n" : ",");
+                sm<<"*"<<(i+1==m->m_rank ? "" : ",");
+            }else{
+                sc<<m->m_dim_order[i]<<(i+1==m->m_rank ? "\n" : ",");
+                sm<<m->m_dim_order[i]<<(i+1==m->m_rank ? "" : ",");
+            }
         }
-        // now print the last index
-        if (m->m_dim_order[i] == CT_STAR)
-            fp("%s\n", "*");
-        else
-            fp("%d\n", m->m_dim_order[m->m_rank - 1]);
     }
 
-    fp("\n");
+    sc<<"\n";
+    sm<<"\"}";
+
+    //return the results in the proper format
+    if (Client.MI_mode){
+        return sm.str();
+    }
+    return sc.str();
+
 }
 
 void FinishBlockMap(void) {

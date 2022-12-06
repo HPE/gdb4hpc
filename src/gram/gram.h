@@ -91,7 +91,7 @@ extern void SetBlockMap(void);
 extern g_block_map_t *GetBlockMap(void);
 extern g_block_map_t *NewBlockMap(hentry_t *);
 extern void DestroyBlockMap(g_block_map_t *);
-extern void PrintBlockMap(FILE *, g_block_map_t *);
+extern std::string GetBlockMapMsg(g_block_map_t *);
 extern void FinishBlockMap(void);
 
 /*

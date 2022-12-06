@@ -49,7 +49,7 @@ extern int VerifyBlockMap(hentry_t *);
 extern g_block_map_t *NewBlockMap(hentry_t *);
 extern void DestroyBlockMap(g_block_map_t *);
 class cli_out_t;
-extern void PrintBlockMap(cli_out_t&, g_block_map_t *);
+extern std::string GetBlockMapMsg(g_block_map_t *);
 extern void FinishBlockMap(void);
 extern bool BlockMapIsDegen(g_block_map_t *);
 extern AIFStream *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *,

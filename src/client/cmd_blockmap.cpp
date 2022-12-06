@@ -70,20 +70,45 @@ static int cmd_info_blockmap_cmd(rec_set_t *rec_set, int argc,
             return 0;
         }
 
-        PrintBlockMap(*Client.cli_out, m);
+        //currently a single decomposition does not need to be printed out in mi
+        if (!Client.MI_mode){
+            PrintOutMsg(GetBlockMapMsg(m).c_str());
+        }
 
         DestroyVal(v);
 
         return 1;
     }
-
-    PrintOutMsg("Defined decompositions:\n");
+    if (!Client.MI_mode){
+        PrintOutMsg("Defined decompositions:\n");
+    }
 
     SetBlockMap();
 
-    while ((m = GetBlockMap()) != (g_block_map_t *)NULL)
-        PrintBlockMap(*Client.cli_out, m);
+    std::stringstream ss;
 
+    while ((m = GetBlockMap()) != (g_block_map_t *)NULL){
+        std::string printed_blockmap = GetBlockMapMsg(m);
+        if (printed_blockmap.empty()){
+            continue;
+        }
+        if (Client.MI_mode){
+            if (ss.tellp()!=0){
+                ss<<",";
+            }else{
+                ss<<"[";
+            }
+            ss<<printed_blockmap;
+        }else{
+            PrintOutMsg(printed_blockmap.c_str());
+        }
+    }
+    if (Client.MI_mode){
+        if (ss.tellp()==0)
+            ss<<"[";
+        ss<<"]";
+        PrintOutMIResult(MIResult::DONE, "decompositions=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+    }
     return 1;
 }
 

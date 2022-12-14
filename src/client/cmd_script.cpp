@@ -172,16 +172,30 @@ static int cmd_info_script_cmd(rec_set_t *rec_set, int argc, char **argv) {
             ? script::getCurrentScript()->name()
             : ""
         ;
-
+        std::stringstream ss;
         PrintOutMsg("Saved assertion scripts:\n");
         for (const auto& [name, script] : script::scripts()) {
             auto runningString = runningScriptName == name
                 ? " (running)"
                 : ""
             ;
-            PrintOutMsg("$%s%s\n", name.c_str(), runningString);
+            if (Client.MI_mode){
+                if (ss.tellp()!=0){
+                    ss<<",";
+                }else{
+                    ss<<"[";
+                }
+                ss<<"{name=\""<<name<<"\",running=\""<<runningString<<"\"}";
+            }else{
+                PrintOutMsg("$%s%s\n", name.c_str(), runningString);
+            }
         }
-        
+        if (Client.MI_mode){
+            if (ss.tellp()==0)
+                ss<<"[";
+            ss<<"]";
+            PrintOutMIResult(MIResult::DONE, "scripts=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+        }
         return 1;
     }
 
@@ -219,7 +233,12 @@ static int cmd_info_script_cmd(rec_set_t *rec_set, int argc, char **argv) {
     } else {
         // detailed summary
         // summary string has correct newlines
-        PrintOutMsg("%s", script->summary().c_str());
+        if (Client.MI_mode){
+            PrintOutMIResult(MIResult::DONE, "script_result=%s\n%s",script->summary().c_str(),GetMIEpilogue());
+        }
+        else{
+            PrintOutMsg("%s", script->summary().c_str());
+        }
     }
 
     return 1;

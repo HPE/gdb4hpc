@@ -552,8 +552,10 @@ size_t ScriptRunner::numRuns() const {
 
 std::string ScriptRunner::summary() const {
     std::ostringstream ss;
-    ss << "Results summary for script " << "$" << m_script->name();
+    std::ostringstream sm;
 
+    ss << "Results summary for script " << "$" << m_script->name();
+    sm <<"{name=\""<<m_script->name()<<"\",";
     if (auto settings = m_script->settingsString(); settings != "") {
        ss << ", " << settings;
     }
@@ -584,22 +586,38 @@ std::string ScriptRunner::summary() const {
     }
 
     ss << "Total full runs: " << m_completedRunsCount << "\n";
+    sm << "runs=\"" << m_completedRunsCount << "\",";
+    
     ss << "Total assertion evaluations this run: " << pass + warn + fail + indet << "\n";
+    sm << "total=\"" << pass + warn + fail + indet << "\",";
+    
     ss << "Passed: " << pass 
        << ", Passed with warning: " << warn 
        << ", Failed: " << fail 
        << ", Indeterminate: " << indet << "\n"
     ;
-
+    
+    sm << "assertions=[";
+    
     // individual assertion results
     ss << "Assertion results:\n\n";
     for (const auto& assert : m_script->asserts()) {
         ss << "Assertion " << assert.id();
+        sm << "{id=\""<< assert.id() << "\",";
         if (auto settings = assert.settingsString(); settings != "") {
             ss << ", " << settings; 
         }
         ss << ":\n";
         ss << assert.string() << "\n";
+
+        // for mi message escape all quotes
+        sm << "str=\"";
+
+        for (char c : assert.string()) {
+            if (c == '"') sm << "\\\"";
+            else sm << c;
+        }
+        sm << "\",";
 
         size_t passes = 0;
         size_t warnings = 0;
@@ -616,8 +634,17 @@ std::string ScriptRunner::summary() const {
            << ", Failures: " << failures << "."
            << "\n\n"
         ;
-    }
 
+        sm << "pass=\""<< passes <<"\","
+           << "warn=\""<< warnings <<"\","
+           << "fail=\""<< failures <<"\"}"
+        ;
+    }
+    sm << "]}";
+
+    if (Client.MI_mode){
+        return sm.str();
+    }
     return ss.str();
 }
 

@@ -45,8 +45,6 @@ launch:
     ssh: ""
     aprun: ""
     mpiexec: ""
-  allocation:
-    nodes: 6
 
 # having to do with the test tool itself
 meta:
@@ -55,31 +53,23 @@ meta:
   avocado-version: latest
 
 # system specific overides
+horizon-aarch:
+  launch:
+    args:
+      slurm: "-p aarch --exclusive -t 5:00"
+
+kay:
+  launch:
+    allocation:
+      nodes: 32
+
 pinoak-login1:
   launch:
     args:
       slurm: "--exclusive -t 5:00"
-
-uan01:
-  launch:
-    environment:
-      CTI_WLM_IMPL: slurm
 
 pegasus:
   launch:
     args:
       # Multi-node MPI launches break if they include node007 or node008
       slurm: "--exclusive --exclude=node007,node008 -t 5:00"
-
-kay:
-  launch:
-    allocation:
-      nodelist: "place=scatter:shared,select=1:nodetype=mom-x86_64+%%n%%:nodetype=BW36:ncpus=8"
-
-"*-aarch":
-  launch:
-    args:
-      slurm: "-p aarch --exclusive -t 5:00"
-    allocation:
-      # %%n%% replaced by /launch/allocation/nodes
-      nodelist: "select=1:nodetype=mom-aarch64+%%n%%:nodetype=TX264,place=scatter:shared"

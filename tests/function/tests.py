@@ -206,9 +206,24 @@ against the saved reference file.
 def runTest(test):
     # Do prep for non-CRAY PrgEnv test
     if test.penv != "CRAY":
-        # Load PrgEnv to link libraries
+        # Load PrgEnv to ensure PrgEnv-specific libraries link correctly.
+        #
+        # Loading PrgEnvs usually puts /opt/cray/pe/lib64:/opt/cray/lib64
+        # onto the front of LD_LIBRARY_PATH. This is a problem if
+        # we have a non-default version of CTI loaded to test against.
+        # The system default CTI library in lib64 will replace the library we
+        # are trying to test gdb4hpc with. To dodge this, we save any parts
+        # of the LD_LIBRARY_PATH that refer to CTI and restore them.
+
+        cti_ld_paths = [
+            p for p in os.environ["LD_LIBRARY_PATH"].split(":") if "/cti/" in p
+        ]
+
         if not mods.invoke_successfully("load", f"PrgEnv-{test.penv.lower()}"):
             test.cancel(f"Failed to load PrgEnv-{test.penv.lower()}")
+
+        ld_path = ":".join(cti_ld_paths) + ":" + os.environ["LD_LIBRARY_PATH"]
+        os.environ["LD_LIBRARY_PATH"] = ld_path
 
     # Run gdb4hpc until completion or timeout
     try:
@@ -277,7 +292,7 @@ class Gdb4hpcTest(Test):
         self.proto = "zmqnet"
 
         # set startup timeout env var to speed up failures
-        os.environ["GDB4HPC_STARTUP_TIMEOUT"] = "20" # seconds
+        os.environ["GDB4HPC_STARTUP_TIMEOUT"] = "30" # seconds
 
     def run_under_mrnet(self):
         os.environ["GDB4HPC_PROTO"] = "mrnet"
@@ -408,9 +423,6 @@ class FunctionTests(Gdb4hpcTest):
         self.penv = "INTEL"
         runTest(self)
 
-    # XXX: on ALPS, because of PE-42693, releasing an app causes it to linger
-    # and clog our allocation
-    @avocado.skipIf(detect_wlm() == "ALPS", "PE-42693")
     def test_c_release(self):
         self.base_name = "c_release"
         runTest(self)
@@ -635,9 +647,6 @@ class FunctionTests(Gdb4hpcTest):
         self.penv = "INTEL"
         runTest(self)
 
-    # XXX: on ALPS, because of PE-42693, releasing an app causes it to linger
-    # and clog our allocation
-    @avocado.skipIf(detect_wlm() == "ALPS", "PE-42693")
     @avocado.skipUnless(os.path.isfile("./bin/CRAY/cti_launch.x"), "Missing cti_launch.x")
     def test_cpp_attach(self):
         self.base_name = "cpp_attach"

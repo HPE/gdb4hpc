@@ -41,11 +41,10 @@ GPU_TESTS = \
 
 # you shouldn't have to have cti devel installed to test gdb4hpc, so only build
 # tests which require it if we happen to have it
-CTI_PRESENT := $(shell pkg-config --exists common_tools_fe && echo yes)
-CTI_INC      = $(shell pkg-config --cflags common_tools_fe)
-CTI_LD       = $(shell pkg-config --libs common_tools_fe)
+CTI_INC      = -I${CTI_INSTALL_DIR}/include
+CTI_LD       = -L${CTI_INSTALL_DIR}/lib -lcommontools_fe
 
-ifeq ($(CTI_PRESENT),yes)
+ifneq (${CTI_INSTALL_DIR}no,no)
 	TESTS += $(CTI_TESTS)
 endif
 
@@ -58,7 +57,7 @@ IN_YELLOW = \033[1;33m
 NO_COLOR = \033[0m
 
 all: dirs $(TESTS)
-ifneq ($(CTI_PRESENT),yes)
+ifeq (${CTI_INSTALL_DIR}no,no)
 	@echo -e "$(IN_YELLOW)CTI development libraries not found, skipping tests that require them."
 	@echo -e "$(IN_YELLOW)To build these tests, load CTI development libraries such that pkg-config can find them."
 	@echo -e "$(IN_YELLOW)Verify with 'pkg-config --cflags common_tools_fe'."

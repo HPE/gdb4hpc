@@ -833,7 +833,8 @@ static int DoAttach(const char *proto, dbgprocset_t *ps,
     auto newHandle = DbgAttach(proto, ps->s_name, app_ident, arch, backend, gdb, gpu_flag, debug_flag);
 
     if (!newHandle.lock()) {
-        PrintOutError("Could not attach to application.\n");
+        PrintOutError("Could not attach to application: %s\n",
+            (cti_error_str()) ? cti_error_str() : "(no error provided)");
         return 0;
     }
 

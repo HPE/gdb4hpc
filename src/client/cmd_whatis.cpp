@@ -153,7 +153,7 @@ static int cmd_info_locals_cmd(rec_set_t *rec_set, int argc,
                     }else{
                         ss<<"[";
                     }
-                    ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\"}";
+                    ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<reply->rep_di.c_str()<<"\"}";
                 }else{
                     PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Name:%-25s\tType:%s\n", v->var_name,

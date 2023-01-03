@@ -1,7 +1,7 @@
 /******************************************************************************\
  * client.h - Client interface definitions.
  *
- * Copyright 2011-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2013,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -33,7 +33,6 @@
 #include "cmd.h"
 #include "dbg_client.h"
 #include "defs.h"
-#include "gram.h"
 #include "useful.h"
 #include "xml_tag.h"
 #include "mi_funcs.h"
@@ -57,11 +56,6 @@ extern int cmd_quit_cmd(rec_set_t *, int, char **);
 ** Functions defined in cmd_frame.c
 */
 extern void PrintFrameSet(const char *, Bitset *, const dbgframe_t *);
-
-/*
-** Functions defined in cmd_print.c
-*/
-extern int PrintVal(std::ostream& os, val_t *, rec_set_t *, const std::string& format);
 
 /*
 ** Functions defined in cmd_proc.c

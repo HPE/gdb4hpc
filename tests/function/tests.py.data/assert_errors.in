@@ -32,20 +32,21 @@ error               per assert 0, 0       Assertion warn/error tolerances.
 7:     assert $a{0..1}::inc@"c_inc.c":13 == $a{1..2}::inc@"c_inc.c":13
 8:     # but this is impossible (rank 1 can't be at :15 and :19 at the same time)
 9:     assert $a{0..1}::inc@"c_inc.c":15 == $a{1..2}::inc@"c_inc.c":19
-Error: Expression contains overlapping ranks ($a{1..2} and $a{0..1} with overlap {1}), but locations are different. Assertion is impossible to evaluate.
+Error: Expression contains overlapping ranks ($a{0..1} and $a{1..2} with overlap {1}), but locations are different. Assertion is impossible to evaluate in "$a{0..1}::inc@"c_inc.c":15 == $a{1..2}::inc@"c_inc.c":19".
 Command resulted in an error: 9:     assert $a{0..1}::inc@"c_inc.c":15 == $a{1..2}::inc@"c_inc.c":19
 10:     # and this is also impossible (implicit overlap)
 11:     assert $a{1}::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
-Error: Expression contains overlapping ranks ($a{0..2} and $a{1} with overlap {1}), but locations are different. Assertion is impossible to evaluate.
+Error: Expression contains overlapping ranks ($a{1} and $a{0..2} with overlap {1}), but locations are different. Assertion is impossible to evaluate in "$a{1}::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19".
 Command resulted in an error: 11:     assert $a{1}::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
 12:     # and this is also also impossible (implicit overlap)
 13:     assert $a::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
-Error: Expression contains overlapping ranks ($a{0..2} and $a{0..2} with overlap {0..2}), but locations are different. Assertion is impossible to evaluate.
+Error: Expression contains overlapping ranks ($a{0..2} and $a{0..2} with overlap {0..2}), but locations are different. Assertion is impossible to evaluate in "$a::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19".
 Command resulted in an error: 13:     assert $a::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
 14:     # catch invalid syntax
 15:     assert this certainly isn't the syntax for an assert
 Error: Parsing of "this certainly "isn't the syntax for an assert
-"" failed: syntax error, unexpected SYM, expecting $end.
+"" failed
+syntax error, unexpected SYM, expecting $end.
 Command resulted in an error: 15:     assert this certainly isn't the syntax for an assert
 16: end
 Assertion script $badscript compiled.

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,10 +17,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <signal.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string>
 #include <cstring>
 #include <vector>

@@ -50,9 +50,9 @@ Passes: 1, Passes with warnings: 0, Failures: 0.
 Stored assertion deltas:
 In assertion script $expressions:
 For assertion 3: $a{0..1}::ld@"c_type_test.c":228 / 20 >= $b{0..1}::ld@"c_cmp_diff.c":223
-{0..1}: Comparison is false.
+Comparison is false.
 The difference delta is:
-{0..1}: 27.79
+27.79
 
 18: q
 Shutting down debugger and killing application for 'a'.

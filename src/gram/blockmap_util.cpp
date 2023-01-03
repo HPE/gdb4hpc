@@ -30,10 +30,9 @@
 
 #include "blockmap.h"
 #include "defs.h"
-#include "gram.h"
 #include "useful.h"
 
-int _get_block_size(int rank, int *local_data, int *dist, int *blockcyclic_val,
+int _get_block_size(int rank, int *local_data, Distribution *dist, int *blockcyclic_val,
                     int *proc_grid, int *block_size) {
     int i;
 
@@ -41,13 +40,13 @@ int _get_block_size(int rank, int *local_data, int *dist, int *blockcyclic_val,
 
     for (i = rank - 1; i >= 0; i--) {
         block_size[i] = local_data[i];
-        if (dist[i] != CT_STAR) break;
+        if (dist[i] != Distribution::Star) break;
     }
 
     return 1;
 }
 
-int _get_hash_block_size(int rank, int *global_data, int *dist,
+int _get_hash_block_size(int rank, int *global_data, Distribution *dist,
                          int *blockcyclic_val, int *proc_grid,
                          int *block_size) {
     int i, count = 0;
@@ -55,27 +54,27 @@ int _get_hash_block_size(int rank, int *global_data, int *dist,
     int numprocs = 1;
 
     for (i = 0; i < rank; i++) {
-        if (proc_grid[i] != CT_STAR) numprocs *= proc_grid[i];
+        if (proc_grid[i] != int(Distribution::Star)) numprocs *= proc_grid[i];
     }
 
     if (product(global_data, rank) % numprocs != 0) return 0;
 
     for (i = 0; i < rank; i++) {
-        if (dist[i] == CT_STAR)
+        if (dist[i] == Distribution::Star)
             block_size[i] = global_data[i];
-        else if (dist[i] == CT_CYCLIC) {
+        else if (dist[i] == Distribution::Cyclic) {
             block_size[i] = 1;
             checkCyclic = 1;
-        } else if (dist[i] == CT_BLOCK_CYCLIC) {
+        } else if (dist[i] == Distribution::BlockCyclic) {
             block_size[i] = blockcyclic_val[i];
             checkCyclic = 1;
-        } else if (dist[i] == CT_BLOCK)
+        } else if (dist[i] == Distribution::Block)
             count++;
     }
     if (count > 0) {
         int j = 0;
         for (i = 0; i < rank; i++) {
-            if (dist[i] == CT_BLOCK)
+            if (dist[i] == Distribution::Block)
                 block_size[i] = global_data[i] / proc_grid[j];
             j++;
         }
@@ -96,10 +95,10 @@ int _get_hash_block_size(int rank, int *global_data, int *dist,
 int _get_order_map(int rank, int *dim_order, int *order_map) {
     int i;
 
-    for (i = 0; i < rank; i++) order_map[i] = CT_STAR;
+    for (i = 0; i < rank; i++) order_map[i] = int(Distribution::Star);
 
     for (i = 0; i < rank; i++) {
-        if (dim_order[i] != CT_STAR) {
+        if (dim_order[i] != int(Distribution::Star)) {
             // dim_order is entered as 1..n, and in order to offset into the
             // array we need to subtract 1 from the entered value. I don't know
             // why this was done here and not earlier...
@@ -118,7 +117,7 @@ int _get_pid_grid(int rank, int pindex, int *proc_grid, int *order_map,
     for (i = 0; i < rank; i++) pid[i] = 0;
 
     for (i = 0; i < rank; i++) {
-        if (order_map[i] != CT_STAR) {
+        if (order_map[i] != int(Distribution::Star)) {
             pid[order_map[i]] = pindex % proc_grid[order_map[i]];
             pindex = pindex / proc_grid[order_map[i]];
         }

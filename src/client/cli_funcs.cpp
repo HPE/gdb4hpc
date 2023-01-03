@@ -499,7 +499,7 @@ char *cli_get_prompt(void) {
     if (cs->cs_prompt != NULL) Free(cs->cs_prompt);
 
     if (s != (dbgprocset_t *)NULL)
-        set_name = s->s_name;
+        set_name = s->s_name.c_str();
     else
         set_name = "none";
 

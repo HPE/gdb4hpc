@@ -349,7 +349,7 @@ extern rep_set_t *DbgSetPrintElements(rec_set_t *, const char *);
 extern rep_set_t *DbgResetBeforeDirectCmd(rec_set_t *);
 extern rep_set_t *DbgRestoreAfterDirectCmd(rec_set_t *);
 // Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *DbgSetVar(rec_set_t *, const char *, AIFStream *);
+extern rep_set_t *DbgSetVar(rec_set_t *, const char * var, const char* val);
 extern rep_set_t *DbgGetType(rec_set_t *, const char *, int);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgGo(rec_set_t *, bool all);

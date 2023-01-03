@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <regex>
 
 #include "client_settings.h"
 #include "dbg_client.h"
@@ -32,52 +33,26 @@
 // static prototypes
 static dbgprocset_t *NewProcSet(const char *, dbgset_type, const char* threads);
 static dbg_over_set_t *NewOverlaySet(DbgInvoke::Handle, std::unique_ptr<Bitset>&&, int);
-static void FreeOverlaySet(dbg_over_set_t *);
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *);
-static void _free_procset(dbgprocset_t *);
 static void _print_with_set_info(const char *, const Bitset *, const char* threads, bool,
                                  const char *, va_list);
 
 // Internal variables
-static list_t *ProcSets = NULL;  // TODO: Try to get rid of this
-static dbgprocset_t *CurrProcSet = NULL;
-static dbgprocset_t *AllProcSet = NULL;
+static std::vector<std::shared_ptr<dbgprocset_t>> ProcSets;
+static dbgprocset_t *CurrProcSet = nullptr;
+static dbgprocset_t *AllProcSet = nullptr;
 
 void InitProcSet(void) {
-    expr_t *ex;
-    val_t *val;
-
-    ProcSets = NewList();
-
-    // force all procset to be created
-    if ((ex = ParseExpr("$all")) == NULL) {
-        PrintError();
-        return;
-    }
-
-    if (EvalExpr(&val, ex, NULL) < 0) {
-        PrintError();
-        FreeExpr(ex);
-        return;
-    }
-
-    FreeExpr(ex);
-
     AllProcSet = NewProcSet("all", DBGSET_INTERNAL, nullptr);
     SetCurrentProcSet(AllProcSet);
-
-    // Fixup the val
-    RVAL_TYPE(val) = rval_proc;
-    // Assign the procset directly
-    RVAL_PROCSET(val) = AllProcSet;
-    // Important! Set RVAL_DESTROY to false
-    RVAL_DESTROY(val) = 0;
 }
 
 void FinishProcSet(void) {
-    auto procSets = ProcSets;
-    ProcSets = nullptr;
-    DestroyList(procSets, (void (*)(void *))_free_procset);
+    ProcSets.clear();
+}
+
+const std::vector<std::shared_ptr<dbgprocset_t>>& GetProcSets() {
+    return ProcSets;
 }
 
 // Returns a newly allocated bitset which is the passed \c slice applied to 
@@ -136,30 +111,8 @@ std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const sli
     return result;
 }
 
-void forEachOverlaySet(const dbgprocset_t& procset, std::function<void(const dbg_over_set_t* os)> fn) {
-    // would make a good password given its length...
-    const auto& GNOSFPS = GetNextOverlaySetForProcSet;
-
-    // XXX: procset parameter should be treated as const, but c-style list
-    //      manipulators are technically not const (changing iterator pointers etc)
-    auto& rawProcset = const_cast<dbgprocset_t&>(procset);
-
-    SetOverlaySetForProcSet(&rawProcset);
-    for (auto* os = GNOSFPS(&rawProcset); os; os = GNOSFPS(&rawProcset)) {
-        fn(os);
-    }
-}
-
 DbgInvoke::Handle getFirstDbgInvoke(const dbgprocset_t& procset) {
-    // XXX: procset parameter should be treated as const, but c-style list
-    //      manipulators are technically not const (changing iterator pointers etc)
-    auto& rawProcset = const_cast<dbgprocset_t&>(procset);
-    SetOverlaySetForProcSet(&rawProcset);
-    if (auto* oSet = GetNextOverlaySetForProcSet(&rawProcset)) {
-        return oSet->s_di;
-    } else {
-        return nullptr;
-    }
+    return procset.s_over_sets.empty() ? nullptr : procset.s_over_sets[0]->s_di;
 }
 
 /*
@@ -167,7 +120,6 @@ DbgInvoke::Handle getFirstDbgInvoke(const dbgprocset_t& procset) {
 */
 dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     dbgprocset_t *new_procset;
-    dbg_over_set_t *o_ptr;
     dbg_over_set_t *over_set;
     int ps_offset;
 
@@ -186,8 +138,7 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
 
 
     // Loop over each overlay set in the procset
-    SetOverlaySetForProcSet(ps);
-    while ((o_ptr = GetNextOverlaySetForProcSet(ps)) != NULL) {
+    for (auto o_ptr : ps->s_over_sets) {
         auto di_mask = sliceBitset(*o_ptr, ps_slice);
 
         // Ensure that this mask isn't empty, otherwise we don't want to add it
@@ -207,15 +158,12 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
         // over_set object for this di and add it to the list, note that we will
         // need to recompute the offset for this new temp set.
         over_set = NewOverlaySet(o_ptr->s_di, std::move(di_mask), 0);
-        AddToList(new_procset->s_over_set_list, over_set);
-        // increment num sets
-        new_procset->s_num_sets++;
+        new_procset->s_over_sets.push_back(over_set);
     }
 
     // Second pass - need to update the offsets for each overlay set
     ps_offset = 0;
-    SetOverlaySetForProcSet(new_procset);
-    while ((o_ptr = GetNextOverlaySetForProcSet(new_procset)) != NULL) {
+    for (auto o_ptr : new_procset->s_over_sets) {
         DPRINT("CreateTempProcSetSlice offset[%d] for di $%s.\n", ps_offset,
                o_ptr->s_di.c_str());
         o_ptr->s_ps_offset = ps_offset;
@@ -233,199 +181,52 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
 /*
 ** Create a process set from a procset list.
 */
-int CreateProcSet(expr_t *e_name, expr_t *e_set) {
-    val_t *v_name = NULL;
-    dbgprocset_t *new_procset;
-    list_t *l;
-    val_t *v;
-    dbgprocset_t *procset = NULL;
-    dbg_over_set_t *over_set = NULL;
-    dbg_over_set_t *o_ptr = NULL;
-    slice_t *ps_slice;
-    int ps_offset = 0;
+dbgprocset_t* CreateProcSet(const std::string& name, const gram::Expression& set) {
 
-    if (e_name == NULL || e_set == NULL) {
-        PrintOutError("Error: Create Procset had null args.\n");
-        return 0;
+    if (!IdMap::idIsAvailable(name,true)) return nullptr;
+
+    std::vector<std::pair<DbgInvoke::Handle,std::unique_ptr<Bitset>>> psSet;
+
+    std::vector<const gram::Expression*> eset;
+
+    if (auto list = dynamic_cast<const gram::List*>(&set)) {
+        auto& elems = list->getElems();
+        eset.insert(eset.end(), elems.begin(), elems.end());
+    } else {
+        eset.push_back(&set);
     }
 
-    // Eval the name and make sure it is acceptable.
-    // After calling EvalExpr on the new procset, we need to call RemoveVal
-    // to ensure proper cleanup if something goes wrong and this creates a new
-    // dbg variable for us. We only do this if EvalExpr returns a rval_none val
-    // meaning that there was not a name collision.
-    if (EvalExpr(&v_name, e_name, NULL) < 0) {
-        PrintError();
-        return 0;
+    // LOOKAT: thread focus
+
+    for (auto&& e : eset) {
+        if (auto ds = dynamic_cast<const gram::DSym*>(e)) {
+            bool ok = false;
+            try {
+                auto val = ds->eval(nullptr);
+                if (auto psv = dynamic_cast<ProcsetValue*>(val.get())) {
+                    psSet.push_back(psv->getProcSet());
+                    ok = true;
+                }
+            } catch (EvalError& err) {}
+            if (!ok) {
+                PrintOutError("%s is not a valid procset.\n", e->toString().c_str());
+                return nullptr;
+            }
+        }
     }
-
-    if (LVAL_TYPE(v_name) != lval_internal) {
-        PrintOutError("Must specify debugger variable for process handle.\n");
-        return 0;
-    }
-
-    switch (RVAL_ACTUAL_TYPE(v_name)) {
-        case rval_ref:
-            // This shouldn't be handled technically since we are using
-            // RVAL_ACTUAL_TYPE
-        case rval_none:
-            // This is what we expect the val to be
-            break;
-
-        case rval_aif:
-            PrintOutError("A debugger variable named %s is already defined.\n",
-                          SymLookup(LVAL_SYM(v_name)));
-            return 0;
-
-        case rval_proc:
-            PrintOutError("A procset named %s is already defined.\n",
-                          SymLookup(LVAL_SYM(v_name)));
-            return 0;
-
-        case rval_blockmap:
-            PrintOutError("A decomposition named %s is already defined.\n",
-                          SymLookup(LVAL_SYM(v_name)));
-            return 0;
-
-        case rval_reply:
-            PrintOutError(
-                "An application variable symbol named %s already exists.\n",
-                SymLookup(LVAL_SYM(v_name)));
-            return 0;
-    }
-
+        
     // create the new procset
-    new_procset = NewProcSet(SymLookup(LVAL_SYM(v_name)), DBGSET_DEFSET, nullptr);
+    auto new_procset = NewProcSet(name.c_str(), DBGSET_DEFSET, nullptr);
 
-    // Now eval the provided lists of procsets
-    if (EvalExprList(&l, e_set, NULL) < 0) {
-        PrintOutError("Error: Procset eval expr failed.\n");
-        FreeProcSet(new_procset);
-        RemoveVal(LVAL_SYM(v_name));
-        DestroyVal(v_name);
-        return 0;
+    int offset = 0;
+    for (auto& [ di, grp ] : psSet) {
+        auto n = grp->numSet();
+        new_procset->s_over_sets.push_back(NewOverlaySet(di, std::move(grp), offset));
+        offset += n;
     }
+    new_procset->s_nproc = offset;
 
-    SetList(l);
-    while ((v = (val_t *)GetListElement(l)) != NULL) {
-        // reset the slicing information
-        ps_slice = NULL;
-
-        if (RVAL_ACTUAL_TYPE(v) != rval_proc) {
-            PrintOutError("Invalid process set argument.\n");
-            DestroyList(l, NULL);
-            FreeProcSet(new_procset);
-            RemoveVal(LVAL_SYM(v_name));
-            DestroyVal(v_name);
-            return 0;
-        }
-
-        // assign procset directly
-        procset = RVAL_ACTUAL_PROCSET(v);
-
-        if (RVAL_TYPE(v) == rval_ref) {
-            ps_slice = RVAL_REF_SLICE(v);
-        }
-
-        if (procset != NULL) {
-            DPRINT("CreateProcSet name:%s\n", procset->s_name);
-
-            // Loop over each overlay set in the procset
-            SetOverlaySetForProcSet(procset);
-            if (ps_slice) {
-                SetProcSetThreads(new_procset, ps_slice->getThreads());
-            }
-
-            while ((over_set = GetNextOverlaySetForProcSet(procset)) != NULL) {
-                auto di_mask = sliceBitset(*over_set, ps_slice);
-
-                // Ensure that this mask isn't empty, otherwise we don't want to
-                // add it
-                if (di_mask->isEmpty()) {
-                    DPRINT(
-                        "CreateProcSet di $%s had an empty mask. Skipping.\n",
-                        o_ptr->s_di.c_str());
-                    continue;
-                }
-
-                // Check to see if an overlay set already exists for this di in
-                // the new_procset
-                SetOverlaySetForProcSet(new_procset);
-                while ((o_ptr = GetNextOverlaySetForProcSet(new_procset)) !=
-                       NULL) {
-                    if (o_ptr->s_di == over_set->s_di) {
-                        // found an existing overlay set for this di
-                        break;
-                    }
-                }
-
-                // Update the existing overlay set if found
-                if (o_ptr != NULL) {
-                    *o_ptr->s_di_bs |= *di_mask;
-                    DPRINT(
-                        "CreateProcSet Updated existing o_ptr for di $%s to "
-                        "new mask[%s].\n",
-                        o_ptr->s_di.c_str(), o_ptr->s_di_bs->toSetString().c_str());
-                } else {
-                    // Create a new overlay set for this invoke
-                    // Note that the offset gets updated on the second pass
-                    DPRINT(
-                        "CreateProcSet is about to add di $%s for mask[%s] to "
-                        "over_set_list.\n",
-                        o_ptr->s_di.c_str(), di_mask->toSetString().c_str());
-                    o_ptr = NewOverlaySet(over_set->s_di, std::move(di_mask), 0);
-                    AddToList(new_procset->s_over_set_list, o_ptr);
-                    // increment num sets
-                    new_procset->s_num_sets++;
-                }
-            }
-        } else {
-            PrintOutError("ERROR: ParseProcset cannot get procset\n");
-            DestroyList(l, NULL);
-            FreeProcSet(new_procset);
-            RemoveVal(LVAL_SYM(v_name));
-            DestroyVal(v_name);
-            return 0;
-        }
-    }
-
-    // Free the list from the eval
-    DestroyList(l, NULL);
-
-    // If s_num_sets is 0, then the user provided a completely invalid list.
-    // lets catch that case.
-    if (new_procset->s_num_sets == 0) {
-        PrintOutError(
-            "ERROR: No valid ranks detected in process set argument.\n");
-        FreeProcSet(new_procset);
-        RemoveVal(LVAL_SYM(v_name));
-        DestroyVal(v_name);
-        return 0;
-    }
-
-    // Second pass - need to update the offsets for each overlay set
-    ps_offset = 0;
-    SetOverlaySetForProcSet(new_procset);
-    while ((o_ptr = GetNextOverlaySetForProcSet(new_procset)) != NULL) {
-        DPRINT("CreateProcSet offset[%d] for di $%s.\n", ps_offset,
-               o_ptr->s_di.c_str());
-        o_ptr->s_ps_offset = ps_offset;
-        ps_offset += o_ptr->s_di_bs->numSet();
-    }
-
-    // Update the nproc in the procset
-    new_procset->s_nproc = ps_offset;
-
-    DPRINT("CreateProcSet ranks[%d] in new procset.\n", ps_offset);
-
-    // Fixup the v_name val
-    RVAL_TYPE(v_name) = rval_proc;
-    // Assign the procset directly
-    RVAL_PROCSET(v_name) = new_procset;
-    // Important! Set RVAL_DESTROY to false
-    RVAL_DESTROY(v_name) = 0;
-
-    return 1;
+    return new_procset;
 }
 
 /*
@@ -438,91 +239,26 @@ int CreateProcSet(expr_t *e_name, expr_t *e_set) {
 ** This should be extended to support multi-dimensional procsets with the slice.
 ** XXX: This only works for a single handle (i.e. $a), not a list of handles.
 */
-dbgprocset_t *CreateProcSetForInvoke(expr_t *e, dbgprocset_t* &existingProcSet) {
-    val_t *val;
-    dbgprocset_t *rtn;
-    slice_t *proc_slice;
+dbgprocset_t *CreateProcSetForInvoke(const std::string& psName) {
 
-    existingProcSet = nullptr;
-
-    if (EvalExpr(&val, e, NULL) < 0) {
-        PrintError();
-        return NULL;
+    static std::regex psRE(R"((\$\w+)(\{(\d+)\})?)");
+    auto match = std::smatch{};
+    if (!std::regex_match(psName, match, psRE)) {
+        PrintOutError("Invalid proc handle syntax. Expected $handle{n} where n is "
+                      "the number of application ranks.\n");
+        return nullptr;
     }
 
-    if (LVAL_TYPE(val) != lval_internal) {
-        PrintOutError("Must specify debugger variable for process handle.\n");
-        return NULL;
-    }
+    auto name = match[1].str();
+    
+    if (!IdMap::idIsAvailable(name, true)) return nullptr;
 
-    switch (RVAL_ACTUAL_TYPE(val)) {
-        case rval_proc:
-            existingProcSet = RVAL_ACTUAL_PROCSET(val);
-            return NULL;
-
-        case rval_blockmap:
-            PrintOutError(
-                "A decomposition has already been defined using this name.\n");
-            return NULL;
-
-        case rval_aif:
-            PrintOutError(
-                "A debugger variable has already been defined using this "
-                "name.\n");
-            return NULL;
-
-        case rval_reply:
-            PrintOutError(
-                "A reply has already been defined using this name.\n");
-            return NULL;
-
-        case rval_ref:  // This shouldn't happen since we called actual type
-        case rval_none:
-            // we expect the type to be rval_none
-            break;
-    }
+    auto numProcs = 1;
+    if (match[3].length()) numProcs = std::stoi(match[3]);
 
     // create the new procset
-    rtn = NewProcSet(SymLookup(LVAL_SYM(val)), DBGSET_INVOKE, nullptr);
-
-    // Calculate the number of ranks in the provided list
-    if (RVAL_TYPE(val) == rval_ref) {
-        // Note that we only expect the user to be providing us with a slice
-        // without range, that is $a{n} where n is the number of ranks. This
-        // syntax is unique to launch only.
-        proc_slice = RVAL_REF_SLICE(val);
-
-        if (proc_slice->getRank() > 1 ||
-            (proc_slice->getLow(0) != proc_slice->getHigh(0))) {
-            PrintOutError(
-                "Invalid proc handle syntax. Expected $handle{n} where n is "
-                "the number of application ranks.\n");
-            FreeProcSet(rtn);
-            RemoveVal(LVAL_SYM(val));
-            DestroyVal(val);
-            return NULL;
-        }
-
-        rtn->s_nproc = proc_slice->getHigh(0);
-        SetProcSetThreads(rtn, proc_slice->getThreads());
-        
-
-    } else {
-        // Always default to one rank
-        rtn->s_nproc = 1;
-    }
-
-    // We are going to turn this debugger variable into a procset rval. Destroy
-    // the old value, including discarding any slicing info.
-    DestroyRval(RVAL_TYPE(val), RVAL_VAL(val));
-    // Now turn the rval into an rval_proc
-    RVAL_TYPE(val) = rval_proc;
-    // Set the procset in the val
-    RVAL_PROCSET(val) = rtn;
-    // Important! Set RVAL_DESTROY to false since it will be true here since
-    // the original rval was a ref type
-    RVAL_DESTROY(val) = 0;
-
+    auto rtn = NewProcSet(name.c_str(), DBGSET_INVOKE, nullptr);
+    rtn->s_nproc = numProcs;
     rtn->s_init = 0;
 
     return rtn;
@@ -549,10 +285,7 @@ int FinalizeProcSetForInvoke(dbgprocset_t *ps, DbgInvoke *di) {
     ps->s_nproc = di->numRanks();
 
     over_set = NewOverlaySet(di->handle(), di->fullBitset()->clone(), 0);
-    AddToList(ps->s_over_set_list, over_set);
-    // increment num sets
-    ps->s_num_sets++;
-
+    ps->s_over_sets.push_back(over_set);
     AddOverlaySetToAllProcSet(over_set);
 
     ps->s_init = 1;
@@ -571,23 +304,16 @@ rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps) {
     // create an empty rec_set
     rec_set_t* res = NewRecSet();
 
-    {   // for each overlay set, add the bitset to the recset
-
-        // passed procset should be treated as const, but to iterate over its
-        // overlay set list, we need to reset/increment the list iterators
-        auto listHandle = const_cast<dbgprocset_t*>(ps);
-        
-        SetOverlaySetForProcSet(listHandle);
-        while (dbg_over_set_t* over_set = GetNextOverlaySetForProcSet(listHandle)) {
-            // create a group_recv_t for the over_set and add it to the res
-            auto* diptr = over_set->s_di.lock();
-            if (!diptr) {
-                PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", over_set->s_di.c_str());
-                continue;
-            }
-
-            AddReceiverToSet(res, NewGroupReceiver(*diptr, over_set->s_di_bs.get()));
+    // for each overlay set, add the bitset to the recset
+    for (auto over_set : ps->s_over_sets) {
+        // create a group_recv_t for the over_set and add it to the res
+        auto* diptr = over_set->s_di.lock();
+        if (!diptr) {
+            PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", over_set->s_di.c_str());
+            continue;
         }
+
+        AddReceiverToSet(res, NewGroupReceiver(*diptr, over_set->s_di_bs.get()));
     }
 
     if (ps->s_threads) {
@@ -597,21 +323,29 @@ rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps) {
     return res;
 }
 
+dbgprocset_t::dbgprocset_t(std::string name, dbgset_type type, const char* threads)
+    : s_name(std::move(name)),
+      s_type(type),
+      s_nproc(0),
+      s_init(0),
+      s_threads(threads ? strdup(threads) : nullptr)
+{
+    if (!s_name.empty() && s_name[0] == '$')
+        s_name = s_name.substr(1);
+}
+
+dbgprocset_t::~dbgprocset_t() {
+    if (s_threads) free(const_cast<char*>(s_threads));
+    for (auto overlay : s_over_sets) {
+        delete overlay;
+    }
+}
+
 static dbgprocset_t *NewProcSet(const char *name, dbgset_type type, const char* threads) {
-    dbgprocset_t *s;
 
-    s = (dbgprocset_t *)Alloc(sizeof(dbgprocset_t));
-    s->s_name = strdup(name);
-    s->s_type = type;
-    s->s_nproc = 0;
-    s->s_init = 0;
-    s->s_num_sets = 0;
-    s->s_over_set_list = NewList();
-    s->s_threads = (threads ? strdup(threads) : nullptr);
-
-    AddToList(ProcSets, (void *)s);
-
-    return s;
+    auto s = std::make_shared<dbgprocset_t>(name, type, threads);
+    ProcSets.push_back(s);
+    return s.get();
 }
 
 static dbg_over_set_t *NewOverlaySet(DbgInvoke::Handle di, std::unique_ptr<Bitset> &&bs, int offset) {
@@ -622,75 +356,46 @@ static dbg_over_set_t *NewOverlaySet(DbgInvoke::Handle di, std::unique_ptr<Bitse
     };
 }
 
-static void FreeOverlaySet(dbg_over_set_t *set) {
-    delete set;
-}
-
 static void AddOverlaySetToAllProcSet(dbg_over_set_t *over_set) {
-    AddToList(AllProcSet->s_over_set_list, over_set);
+    // This is playing a little fast and loose with memory management, since two 
+    // procset will shared over_set.   I'm leaving it in for now because FreeProcSet
+    // relies on finding the same one back.  
+    AllProcSet->s_over_sets.push_back(over_set);
     AllProcSet->s_nproc += over_set->s_di_bs->numSet();
-}
-
-static void _free_procset(dbgprocset_t *s) {
-    // FIXME: Destroy the val!!!
-    DestroyList(s->s_over_set_list, (void (*)(void *))FreeOverlaySet);
-    s->s_over_set_list = NULL;
-
-    Free(s->s_name);
-    s->s_name = NULL;
-    Free(s);
 }
 
 // Change this to only be used in val, if the val gets destroyed so does this.
 void FreeProcSet(dbgprocset_t *s) {
-    dbg_over_set_t *over_set;
+    if (!s) return;
 
-    if (s == NULL) return;
-
-    switch (s->s_type) {
-        case DBGSET_INVOKE:
-            SetOverlaySetForProcSet(s);
-            while ((over_set = GetNextOverlaySetForProcSet(s)) != NULL) {
-                RemoveFromList(AllProcSet->s_over_set_list, over_set);
+    if (s->s_type == DBGSET_INVOKE) {
+        for (auto over_set : s->s_over_sets) {
+            if (auto loc = std::find(AllProcSet->s_over_sets.begin(),
+                                     AllProcSet->s_over_sets.end(), over_set);
+                loc != AllProcSet->s_over_sets.end()) {
+                AllProcSet->s_over_sets.erase(loc);
                 AllProcSet->s_nproc -= over_set->s_di_bs->numSet();
             }
-            break;
-        case DBGSET_DEFSET:
-        case DBGSET_TEMP:
-        case DBGSET_INTERNAL:
-            // do nothing
-            break;
+        }
     }
 
-    RemoveFromList(ProcSets, (void *)s);
-    if (auto sym = FindSym(s->s_name)) {
-        RemoveSym(sym);
+    // The procset memory is controlled by the ProcSet list
+    if (auto loc = std::find_if(ProcSets.begin(), ProcSets.end(),
+                                [s](auto x) { return x.get() == s; }); loc != ProcSets.end()) {
+        ProcSets.erase(loc);
+    } else {
+        PrintOutError("Procset %s is not in ProcSet list\n", s->s_name.c_str());
     }
-    if (auto val = FindVal(s->s_name)) {
-        // Fixme - this can leak the value
-        RemoveVal(val);
-    }
-        
-    _free_procset(s);
 }
 
 dbgprocset_t *FindProcSet(const char *name) {
-    dbgprocset_t *s;
+    const auto look = (name[0] == '$' ? name+1 : name);
 
-    if (ProcSets == (list_t *)NULL) return (dbgprocset_t *)NULL;
-
-    SetList(ProcSets);
-
-    while ((s = (dbgprocset_t *)GetListElement(ProcSets)) !=
-           (dbgprocset_t *)NULL)
-        if (strcmp(s->s_name, name) == 0) return s;
-
-    return (dbgprocset_t *)NULL;
-}
-
-bool CheckProcSet(hentry_t* sym) {
-    dbgprocset_t* p = FindProcSet(SymLookup(sym));
-    return (p != NULL);
+    for (auto&& ps : ProcSets) {
+        if (ps->s_name == look)
+            return ps.get();
+    }
+    return nullptr;
 }
 
 void SetCurrentProcSet(dbgprocset_t *s) {
@@ -713,34 +418,26 @@ void SetCurrentProcSet(dbgprocset_t *s) {
 }
 
 void SetProcSetThreads(dbgprocset_t* procSet, const char* threads) {
-    char* t = (threads ? strdup(threads) : nullptr);
+    const char* t = (threads ? strdup(threads) : nullptr);
     std::swap(procSet->s_threads, t);
-    free(t);
+    free(const_cast<char*>(t));
 }
 
 dbgprocset_t *CurrentProcSet(void) { return CurrProcSet; }
 
-void SetProcSet(void) { SetList(ProcSets); }
-
-dbgprocset_t *GetProcSet(void) {
-    return (dbgprocset_t *)GetListElement(ProcSets);
-}
-
 void PrintProcSet(dbgprocset_t *s) {
-    int n = 0;
-    dbg_over_set_t *over_set;
 
-    if (EmptyList(s->s_over_set_list)) {
+
+    if (s->s_over_sets.empty()) {
         PrintOutMsg("none");
         return;
     }
 
-    SetList(s->s_over_set_list);
+    int n = 0;
 
     // Here we want to print the "actual" ranks in the procset, not the "offset"
     // ranks.
-    while ((over_set = (dbg_over_set_t *)GetListElement(s->s_over_set_list)) !=
-           NULL) {
+    for (auto over_set : s->s_over_sets) {
         PrintOutMsg("%s", over_set->s_di.c_str());
 
         std::string si = over_set->s_di_bs->toSetString();
@@ -761,17 +458,10 @@ void PrintProcSet(dbgprocset_t *s) {
     }
 }
 
-void SetOverlaySetForProcSet(dbgprocset_t *s) { SetList(s->s_over_set_list); }
-
-dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *s) {
-    dbg_over_set_t *set = (dbg_over_set_t *)GetListElement(s->s_over_set_list);
-    return set;
-}
-
 std::string GetProcSetString(const char *setname, const Bitset *group, const char* threads) {
     if (!setname) return "";
 
-    auto info = setname + group->toSetString();
+    auto info = (setname[0] == '$' ? setname+1 : setname) + group->toSetString();
     if (threads && threads[0]) {
         // insert the thread info before the end bracket
         auto siLen = info.size();

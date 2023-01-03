@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2012 by Guardsoft Pty Ltd.
  *
- * Copyright 2012-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2012-2013,2020-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -23,9 +23,11 @@
 
 //#include	"gram.h"
 
-int _get_block_size(int rank, int *local_data, int *dist, int *blockcyclic_val,
+enum class Distribution;
+
+int _get_block_size(int rank, int *local_data, Distribution *dist, int *blockcyclic_val,
                     int *proc_grid, int *block_size);
-int _get_hash_block_size(int rank, int *global_data, int *dist,
+int _get_hash_block_size(int rank, int *global_data, Distribution *dist,
                          int *blockcyclic_val, int *proc_grid, int *block_size);
 int _get_order_map(int rank, int *dim_order, int *order_map);
 int _get_pid_grid(int rank, int pindex, int *proc_grid, int *order_map,

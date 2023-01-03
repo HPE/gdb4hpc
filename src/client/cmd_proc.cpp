@@ -20,9 +20,6 @@
 #include <errno.h>
 #include <getopt.h>
 #include <cassert>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -37,6 +34,8 @@
 #include "client.h"
 #include "common_tools_fe.h"
 #include "useful.h"
+#include "gram.h"
+extern dbgprocset_t *CreateProcSetForInvoke(const std::string& name);
 
 static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& opts);
 static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* procset, const char* cloneName);
@@ -86,38 +85,29 @@ void PrintMIStoppedMsg(StoppedType type,const std::string& file, const std::stri
 
 static int cmd_info_application_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
-    dbgprocset_t *ps;
-    int num_ps = 0;
-    dbgprocset_t *c_ps;
-    dbg_over_set_t *over_set;
-    dbg_over_set_t *c_over_set;
-    int found;
-
     PrintOutMsg("%-10s %-10s %-5s %s\n", "Handle", "Ranks", "Focus",
                 "Application");
 
-    SetProcSet();
-    while ((ps = GetProcSet()) != NULL) {
+    int num_ps = 0;
+    for (auto&& ps : GetProcSets())  {
         if (ps->s_type != DBGSET_INVOKE) continue;
 
         ++num_ps;
 
         // Get the current process set.
-        c_ps = CurrentProcSet();
+        auto c_ps = CurrentProcSet();
 
-        SetOverlaySetForProcSet(ps);
-        while ((over_set = GetNextOverlaySetForProcSet(ps)) != NULL) {
+        for (auto over_set : ps->s_over_sets) {
             // point at the di
             auto* di = over_set->s_di.lock();
             PrintOutMsg("$%-9s %-10d ", di->handle().c_str(), di->numRanks());
 
             // reset found, we only print n if the di is not in the over_set
-            found = 0;
-            SetOverlaySetForProcSet(c_ps);
-            while ((c_over_set = GetNextOverlaySetForProcSet(c_ps)) != NULL) {
+            auto found = false;
+            for (auto c_over_set : c_ps->s_over_sets) {
                 if (di->handle() == c_over_set->s_di) {
                     PrintOutMsg("%-5s ", "y");
-                    ++found;
+                    found = true;
                     break;
                 }
             }
@@ -138,24 +128,14 @@ static int cmd_info_application_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static dbgprocset_t* getNewProcSet(const char* procName) {
+static dbgprocset_t* getNewProcSet(const std::string& procName) {
 
-    auto e = ParseExpr(procName);
-    if (!e) {
-        PrintError();
-        return nullptr;
+    auto lookName = procName;
+    if (auto br = lookName.find('{'); br != std::string::npos) {
+        lookName.erase(br, std::string::npos);
     }
-    
-    dbgprocset_t* existingProcSet = nullptr;
-
-    auto procSet = CreateProcSetForInvoke(e, existingProcSet);
-
-    // e is destructively modified by CreateProcSetForInvoke, so we cannot
-    // reuse it.   
-    FreeExpr(e); 
-    e = nullptr;
-
-    if (!procSet && existingProcSet) {
+               
+    if (dbgprocset_t* existingProcSet = FindProcSet(lookName.c_str())) {
         // give the user a chance to release the existing launch and re-use the
         // launch id.   Release and reuse is assumed in non-interactive contexts.
         if (!Client.confirm ||
@@ -164,16 +144,13 @@ static dbgprocset_t* getNewProcSet(const char* procName) {
 
             // Out with the old
             ReleaseProc(existingProcSet, DBG_DETACH);
-            existingProcSet = nullptr;
-
-            // In with the new
-            e = ParseExpr(procName);  // assume to work since it's the same string
-            procSet = CreateProcSetForInvoke(e, existingProcSet);
-            FreeExpr(e);
+        } else {
+            return nullptr;
         }
     }
 
-    return procSet;
+    // In with the new
+    return CreateProcSetForInvoke(procName);
 }
 
 /*
@@ -208,7 +185,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
     rec_set_t *rec_set = nullptr;
     rep_set_t *rep_set = nullptr;
     rep_set_t *quit_rep = nullptr;
-    auto ps = getNewProcSet(args.procset_name.c_str());
+    auto ps = getNewProcSet(args.procset_name);
 
     const auto exitWithFailure = [&](){
         // If XML mode is enabled, we want to print out a removed message.
@@ -273,7 +250,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
             }
 
             // Attach to submitted job
-            if (newHandle = DbgAttach(Client.proto, ps->s_name, pbs_job_id,
+            if (newHandle = DbgAttach(Client.proto, ps->s_name.c_str(), pbs_job_id,
                      Client.arch, Client.backend,
                      args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
                      args.gpu_flag, args.debug_flag); !newHandle.lock()) {
@@ -325,7 +302,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
                 + std::to_string(slurm_job_step_id->stepid);
 
             // Attach to submitted job
-            if (newHandle = DbgAttach(Client.proto, ps->s_name, slurmJobStepStr.c_str(),
+            if (newHandle = DbgAttach(Client.proto, ps->s_name.c_str(), slurmJobStepStr.c_str(),
                   Client.arch, Client.backend,
                   args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
                   args.gpu_flag, args.debug_flag); !newHandle.lock()) {
@@ -351,7 +328,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
 
         // Call the invoke in the dbg_client layer
         // moves args into the returned di as the d_launch member
-        if ((newHandle = DbgLaunch(ps->s_name, ps->s_nproc, std::move(args))); !newHandle.lock()) {
+        if ((newHandle = DbgLaunch(ps->s_name.c_str(), ps->s_nproc, std::move(args))); !newHandle.lock()) {
             // Do not print out an error message here since the lower layer already
             // printed it for us.
             return exitWithFailure();
@@ -456,14 +433,11 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         return nullptr;
     }
 
-    assert(oldProcset->s_type == DBGSET_INVOKE);
-
     // get convenience pointer to old procset's internal di
-    SetOverlaySetForProcSet(oldProcset);
-    auto* oldDi = GetNextOverlaySetForProcSet(oldProcset)->s_di.lock();
-
     // DBGSET_INVOKE procsets should only have one di
-    assert(GetNextOverlaySetForProcSet(oldProcset) == nullptr);
+    assert(oldProcset->s_type == DBGSET_INVOKE);
+    assert(oldProcset->s_over_sets.size() == 1);
+    auto* oldDi = oldProcset->s_over_sets[0]->s_di.lock();
 
     // validate that this di can be relaunched
     if (!oldDi) {
@@ -526,7 +500,8 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
 
         if (!repSet || ProcessErrorInRepSet(repSet)) {
             FreeRepSet(repSet);
-            PrintOutError("Warning: failed to set breakpoint for $%s.\n", newProcset->s_name);
+            PrintOutError("Warning: failed to set breakpoint for $%s.\n",
+                          newProcset->s_name.c_str());
             continue;
         }
 
@@ -544,7 +519,8 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
             // with the back-end mapping; the new BPs should all have the same id
             if (!theNewBpId) theNewBpId = newBp->id();  
             PrintOutMsg("Re-set breakpoint $%s::%d as new breakpoint $%s::%d.\n",
-                oldDi->handle().c_str(), oldBp.id(), newProcset->s_name, newBp->id());
+                        oldDi->handle().c_str(), oldBp.id(), newProcset->s_name.c_str(),
+                        newBp->id());
         }
 
         FreeRepSet(repSet);
@@ -563,74 +539,30 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         // TODO: do this in background thead?
 
         // claim old name and release old procset
-        auto oldName = strdup(oldProcset->s_name);
+        auto oldName = oldProcset->s_name;
         ReleaseProc(oldProcset, DBG_DEFAULT); // frees oldProcset
         oldProcset = nullptr;
-
-        // remove name of newly created tmp procset from the expression symbol tables
-        if (auto* val = FindVal(newProcset->s_name)) {
-            RemoveVal(val);
-        } else {
-            PrintOutError("Warning: didn't find val for %s.\n", newProcset->s_name);
-        }
-
-        if (auto* sym = FindSym(newProcset->s_name)) {
-            RemoveSym(sym);
-        } else {
-            PrintOutError("Warning: didn't find symbol for %s\n", newProcset->s_name);
-        }
 
         // Set names for the newly created procset/di. There are four names we need to update:
         // 1. The name of the newly created di (di.handle().name())
         // 2. The name of the newly created procset (procset.s_name)
         // 3. The stored handle in the newly created procset, used to look up the di
         //    (items in procset.s_over_set_list)
-        // 4. The name for the procset in the global expression/val hash tables
 
         // update newly created di's internal name (1)
-        SetOverlaySetForProcSet(newProcset);
-        auto newHandle = GetNextOverlaySetForProcSet(newProcset)->s_di;
-        newHandle = DbgInvoke::rename(newHandle, oldName);
+        auto newHandle = newProcset->s_over_sets[0]->s_di;
+        newHandle = DbgInvoke::rename(newHandle, oldName.c_str());
         if (!newHandle.lock()) {
             PrintOutError("Error: failed to rename newly created procset.\n");
             return nullptr;
         }
 
         // update newly created procset's name (2)
-        free(newProcset->s_name);
         newProcset->s_name = oldName;
 
         // update handle stored in newly created procset. (3)
         // The new procset only has one overlay set.
-        SetOverlaySetForProcSet(newProcset);
-        GetNextOverlaySetForProcSet(newProcset)->s_di = newHandle;
-
-        // get new symbol/val into global symbol/val table. (4)
-        // both are handled in the ParseExpr/EvalExpr functions.
-        std::string exprString = std::string("$") + newProcset->s_name;
-        // adds entry in symbol table
-        auto* expr = ParseExpr(exprString.c_str());
-        if (!expr) {
-            PrintError(); 
-            return nullptr;
-        }
-
-        val_t* newProcsetVal = nullptr;
-        // creates entry in val table
-        if (EvalExpr(&newProcsetVal, expr, nullptr) < 0) {
-            PrintError();
-            return nullptr;
-        }
-
-        assert(LVAL_TYPE(newProcsetVal) == lval_internal);
-        assert(RVAL_ACTUAL_TYPE(newProcsetVal) == rval_none);
-
-        // val returned above is a generic "internal value" val
-        // fix it up so that it is specifically a procset val
-        DestroyRval(RVAL_TYPE(newProcsetVal), RVAL_VAL(newProcsetVal));
-        RVAL_TYPE(newProcsetVal) = rval_proc;
-        RVAL_PROCSET(newProcsetVal) = newProcset;
-        RVAL_DESTROY(newProcsetVal) = 0;
+        newProcset->s_over_sets[0]->s_di = newHandle;
     }
 
     return newProcset;
@@ -655,48 +587,41 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
             // fall through
         case DBGSET_INTERNAL: {
             bool validProcset = true;
-            forEachOverlaySet(*oldProcset, [oldProcset, &validProcset](const auto* os){
+            for (const auto* os : oldProcset->s_over_sets) {
                 // we can't restart only part of a di, so a procset
                 // is invalid if it only includes a subset of a di.
                 auto* di = os->s_di.lock();
                 if (validProcset && *os->s_di_bs != *di->fullBitset()) {
                     PrintOutError("Error: $%s contains only a subset (%s) of $%s.\n",
-                        oldProcset->s_name, os->s_di_bs->toSetString().c_str(), os->s_di.c_str());
+                                  oldProcset->s_name.c_str(), os->s_di_bs->toSetString().c_str(),
+                                  os->s_di.c_str());
                     validProcset = false;
                 }
-            });
+            }
 
             if (!validProcset) return 0;
 
-            // create a list of procsets to relaunch. if we were to relaunch within
-            // forEachOverlaySet, the overlay set list would get a new entry upon
-            // each iteration and the loop would never end!
+            // create a list of procsets to relaunch.  Do in two passes because
+            // DoRelaunchInvoke modifies the s_over_sets!
             std::vector<dbgprocset_t*> toRelaunch;
-
-            bool success = true;
-            forEachOverlaySet(*oldProcset, [&toRelaunch, &success](const auto* os) {
-                if (!success) return;
-
+            for (auto&& os : oldProcset->s_over_sets) {
                 if (auto* diProcset = FindProcSet(os->s_di.c_str())) {
                     toRelaunch.push_back(diProcset);
                 } else {
                     PrintOutError("Error: failed to find procset for $%s!\n", os->s_di.c_str());
-                    success = false;
+                    return 0;
                 }
-            });
-
-            if (!success) return 0;
+            }
 
             for (auto* diProcset : toRelaunch) {
                 auto* newProcset = DoRelaunchInvoke(diProcset, clone);
                 if (!newProcset) {
-                    success = false;
-                    PrintOutError("Error: relaunching $%s failed!\n", diProcset->s_name);
-                    break;
+                    PrintOutError("Error: relaunching $%s failed!\n", diProcset->s_name.c_str());
+                    return 0;
                 }
             }
 
-            return success;
+            return 1;
         }
     }
 
@@ -804,7 +729,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (!DoAttach(proto, ps, app_ident, arch, backend, custom_gdb, gpu_flag, debug_flag)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
-            XMLPrintRemovedMsg(ps->s_name);
+            XMLPrintRemovedMsg(ps->s_name.c_str());
         }
         Free(app_ident);
         free(custom_gdb);
@@ -830,7 +755,8 @@ static int DoAttach(const char *proto, dbgprocset_t *ps,
     rep_set_t *quit_rep;
 
     // Note that we are reusing the invoke callback.
-    auto newHandle = DbgAttach(proto, ps->s_name, app_ident, arch, backend, gdb, gpu_flag, debug_flag);
+    auto newHandle = DbgAttach(proto, ps->s_name.c_str(), app_ident, arch, backend,
+                               gdb, gpu_flag, debug_flag);
 
     if (!newHandle.lock()) {
         PrintOutError("Could not attach to application: %s\n",
@@ -972,37 +898,18 @@ void PrintHaltedLocationSet(const char *setname, const Bitset *group, dbgloc_t *
 }
 
 static int cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    expr_t *e;
-    val_t *val;
-    dbgprocset_t *ps;
-
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: kill $proc\n");
         return 0;
     }
 
-    if ((e = ParseExpr(argv[1])) == (expr_t *)NULL) {
-        PrintError();
-        return 0;
-    }
-
-    if (EvalExpr(&val, e, rec_set) < 0) {
-        PrintError();
-        FreeExpr(e);
-        return 0;
-    }
-
-    FreeExpr(e);
-
-    if (RVAL_TYPE(val) != rval_proc) {
+    auto ps = FindProcSet(argv[1]);
+    if (!ps) {
         PrintOutError("Invalid process set argument.\n");
         return 0;
     }
-
-    // point at the procset
-    ps = RVAL_PROCSET(val);
-
+        
     // Ensure this is a DBGSET_INVOKE type, otherwise fail
     if (ps->s_type != DBGSET_INVOKE) {
         PrintOutError(
@@ -1019,36 +926,17 @@ static int cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 static int cmd_release_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    expr_t *e;
-    val_t *val;
-    dbgprocset_t *ps;
-
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: release $proc\n");
         return 0;
     }
 
-    if ((e = ParseExpr(argv[1])) == (expr_t *)NULL) {
-        PrintError();
+    auto ps = FindProcSet(argv[1]);
+    if (!ps) {
+        PrintOutError("No procset %s.\n", argv[1]);
         return 0;
     }
-
-    if (EvalExpr(&val, e, rec_set) < 0) {
-        PrintError();
-        FreeExpr(e);
-        return 0;
-    }
-
-    FreeExpr(e);
-
-    if (RVAL_TYPE(val) != rval_proc) {
-        PrintOutError("Invalid process set argument.\n");
-        return 0;
-    }
-
-    // point at the procset
-    ps = RVAL_PROCSET(val);
 
     // Ensure this is a DBGSET_INVOKE type, otherwise fail
     if (ps->s_type != DBGSET_INVOKE) {
@@ -1066,12 +954,10 @@ static int cmd_release_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
-    dbg_over_set_t *over_set;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
 
-    SetOverlaySetForProcSet(p);
-    while ((over_set = GetNextOverlaySetForProcSet(p)) != NULL) {
+    for (auto over_set : p->s_over_sets) {
         // point at the dbginvoke for this set
         auto di = over_set->s_di.lock();
         if (!di) {
@@ -1268,13 +1154,13 @@ static int show_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
 
 // external exposure
 void EndAll(void) {
-    dbgprocset_t *ps;
+    // make sure I'm iterating over a copy because the global list will be
+    // chaning
+    auto pss = std::vector<dbgprocset_t*>{};
+    for (auto ps : GetProcSets()) pss.push_back(ps.get());
 
-    SetProcSet();
-    while ((ps = GetProcSet()) != NULL) {
-        if (ps->s_type != DBGSET_INVOKE) continue;
-
-        ReleaseProc(ps, DBG_DEFAULT);
+    for (auto ps : pss) {
+        if (ps->s_type == DBGSET_INVOKE) ReleaseProc(ps, DBG_DEFAULT);
     }
 }
 

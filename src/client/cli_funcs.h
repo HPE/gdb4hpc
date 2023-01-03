@@ -282,6 +282,8 @@ extern void PrintOutMsg(const char *, ...) __attribute__((format (printf,1,2)));
 extern void vPrintOutMsg(const char *, va_list);
 extern void PrintError();
 extern void PrintOutOk();
+extern std::string FormatMIValue(std::string value);
+
 
 // Suppress output ot PrintOutError for the lifetime (RAII)
 class SuppressPrintOutError {

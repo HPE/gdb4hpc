@@ -33,7 +33,7 @@
 // Declarations from these headers are actually used here.
 #include <string>
 #include "client.h"
-#include "gram.h"
+#include "procset.h"
 #include "list.h"
 
 /*
@@ -59,7 +59,6 @@ extern void InitCmd_source(void);
 extern void InitCmd_thread();
 extern void InitCmd_step(void);
 extern void InitCmd_whatis(void);
-extern void InitBuiltinFuncs(void);
 
 void FinishCmd_blockmap();
 void FinishCmd_graph();

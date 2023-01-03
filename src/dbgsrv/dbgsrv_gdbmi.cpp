@@ -48,7 +48,6 @@
 #include "dbgsrv_proto.h"
 #include "dbgsrv_util.h"
 #include "defs.h"
-#include "expr.h"
 #include "useful.h"
 
 static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {

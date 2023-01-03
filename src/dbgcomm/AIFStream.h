@@ -7,6 +7,8 @@
 #include <memory>
 #include <functional>
 
+enum class CompareResult { Pass, Fail, Warn, Invalid };
+
 namespace ais {
     class Reader; class Writer; class DecompIterator; class Difference; class VStream;
 }
@@ -134,6 +136,11 @@ public:
     // return 0 on success.   
     static int compare(AIFStream* a, AIFStream* b, int* res, Difference& diff,
                        double* lo, double* hi, std::string& errMsg);
+
+
+    static CompareResult compareOp(AIFStream* a, const std::string& op, AIFStream* b,
+                                 Difference& diff, double* lo, double* hi,
+                                 std::string& errMsg);
 
     // simpler case of AIFStream::compare; returns true if a == b
     static bool compareEqual(AIFStream& a, AIFStream& b);

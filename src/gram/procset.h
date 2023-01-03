@@ -23,7 +23,6 @@
 
 #include "dense_bitset.h"
 #include "dbg_client.h"
-#include "hash.h"
 #include "slice.h"
 
 /*
@@ -81,30 +80,51 @@ struct dbg_over_set_t {
                                           // come into play with defset calculate which index
                                           // corresponds to which over_set
 };
-typedef struct dbg_over_set_t dbg_over_set_t;
 
 /*
 ** A procset consists of one or more overlay sets.
 */
 struct dbgprocset_t {
-    char* s_name;        // name of procset
+    dbgprocset_t(std::string nam, dbgset_type type, const char* threads);
+    ~dbgprocset_t();
+    
+    std::string s_name;        // name of procset
     dbgset_type s_type;  // type of procset
     int s_nproc;         // number of ranks in procset
     int s_init;          // Used for DBGSET_INVOKE, if the set was finalized
-    int s_num_sets;  // Used to keep track of the number of over_sets, each one
-                     // corresponding to a unique di
-    list_t* s_over_set_list;  // list of dbg_over_set_t
-    char* s_threads;
+    std::vector<dbg_over_set_t*> s_over_sets; // overlay sets
+    const char* s_threads;
 };
-typedef struct dbgprocset_t dbgprocset_t;
 
 dbgprocset_t *FindProcSet(const char *procsetName);
-bool CheckProcSet(hentry_t* sym);
 void SetProcSetThreads(dbgprocset_t* procSet, const char* threads);
 std::string GetProcSetString(const char* setName, const Bitset* group, const char* threads);
 std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
-// apply fn to each overlay set in procset
-void forEachOverlaySet(const dbgprocset_t& procset, std::function<void(const dbg_over_set_t* os)> fn);
 DbgInvoke::Handle getFirstDbgInvoke(const dbgprocset_t& procset);
+
+extern void InitProcSet(void);
+extern void FinishProcSet(void);
+dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *, slice_t *);
+extern int FinalizeProcSetForInvoke(dbgprocset_t *ps, DbgInvoke *di);
+extern rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps);
+extern void FreeProcSet(dbgprocset_t *);
+extern void SetCurrentProcSet(dbgprocset_t *);
+extern dbgprocset_t *FindProcSet(const char *name);
+extern dbgprocset_t *CurrentProcSet(void);
+extern void PrintProcSet(dbgprocset_t *);
+extern const std::vector<std::shared_ptr<dbgprocset_t>>& GetProcSets();
+
+extern void PrintMsgWithSetInfo(const char *setname, const Bitset *group,
+                                const char *f, ...) __attribute__((format (printf,3,4)));
+extern void PrintMsgWithSetAndThreadInfo(const char *setname, const Bitset *group,
+                                         const char* threads,
+                                         const char *f, ...) __attribute__((format (printf,4,5)));
+
+extern void PrintErrorWithSetInfo(const char *setname, const Bitset *group,
+                                  const char *f, ...) __attribute__((format (printf,3,4)));
+extern void PrintErrorWithSetAndThreadInfo(const char *setname, const Bitset *group,
+                                           const char* threads,
+                                           const char *f, ...) __attribute__((format (printf,4,5)));
+
 
 #endif /* !_PROCSET_H */

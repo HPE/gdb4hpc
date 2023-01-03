@@ -1,0 +1,293 @@
+/*******************************************************************************
+ * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ ******************************************************************************/
+
+#pragma once
+
+#include <string>
+#include <memory>
+#include <map>
+#include <vector>
+#include "dbginvoke.h"
+
+class AIFStream;
+class rep_set_t;
+class Bitset;
+class DbgInvoke;
+
+// Basic error type thrown by grammar and value 
+class EvalError : public std::exception {
+public:
+    EvalError(std::string err) : m_err(std::move(err)) {}
+    const char* what() const noexcept override { return m_err.c_str(); }
+private:
+    std::string m_err;
+};
+
+class ParseError : public EvalError {
+public:
+    ParseError(std::string err) : EvalError(std::move(err)) {}
+};
+
+class EvalErrorAlreadyReported : public std::exception {
+public:
+    EvalErrorAlreadyReported() {}
+    const char* what() const noexcept override { return "error was already printed"; }
+};
+
+class rec_set_t;
+
+struct dbgprocset_t;
+typedef struct dbgprocset_t dbgprocset_t;
+
+struct g_block_map_t;
+typedef struct g_block_map_t g_block_map_t;
+
+struct group_reply;
+typedef struct group_reply group_reply_t;
+
+
+// Map for accessing the globally stored procSets and blockmaps.
+// 
+class IdMap {
+public:
+    static std::pair<dbgprocset_t*,bool> getProcset(const std::string& procs);
+    
+    static std::pair<rec_set_t*,dbgprocset_t*> getRecSetForProcs(
+        const std::string& procs);
+    static g_block_map_t* getBlockmapForName(std::string name);
+
+    static bool idIsAvailable(const std::string& name, bool printMsg);
+    
+private:
+    static std::map<std::string, rec_set_t*> m_psetMap;
+};
+
+// struct for negotiating a common set of ranks for a binary operation
+struct ResultPair {
+    std::unique_ptr<Bitset> ranks;
+    bool ranksAreEq = false;
+    bool isRankToRank = true;
+    AIFStream* a = nullptr;
+    AIFStream* b = nullptr;
+    std::string label;
+};
+
+//---------------------------------------------------------------------------
+// The Value type holds the value of an expression which is retrieved or 
+// computed on demand.   The Expression and Value trees have some similarities,
+// but the Expression tree is wedded directly to the expression *syntax*,
+// while the Value type contains *semantics*.   So at evaluation time
+// a DSym will resolve to a Procset or Blockmap value.
+//
+// Not that Value types are evaluated lazily, so they can be built
+// up via recursion down the evaluation tree and then a print call
+// on the top level Value drives the full evalation.
+class Value {
+public:
+    Value(rec_set_t* rec_set);
+    virtual ~Value();
+    
+    rec_set_t* getRecSet() const { return m_rec_set; }
+    virtual std::string getExpr() const;
+
+    // primary interface for driving the evaluation of the value, it printed
+    // out to os
+    virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) = 0;
+
+    // used for pushing additional meta-info (like array length) for the 
+    // back-end gdb
+    virtual void addMetaInfo(const std::string& metaInfo);
+
+    //-- interface for negotiating a common set of ranks with a pair of replies --
+    // the next four functions all throw an exception for any value types that
+    // don't have an AIFStream(s) form.
+    // get the number of results and if there is a unique value
+    virtual std::pair<size_t, bool> getNumResults();
+
+    // get the next available result from the first operand - includes the ranks over
+    // which is defined.   result.ranks is of size numResults
+    virtual std::optional<ResultPair> getNextSet(bool rankToRank);
+
+    // find a result on the second operand that includes at least one rank in common
+    // update result.ranks with the common ranks, set result.ranksAreEq if result.ranks 
+    // is unchanged, and sets result.b with the the data stream of the second operand
+    virtual void getCommonRanks(ResultPair& result);
+    // finalizes the handshake by setting result.a to the data stream of the first operand,
+    // updates the first value to mark the ranks result.ranks as DONE, and sets
+    // result.label to the procset values from the common ranks (which are in result.ranks)
+    virtual void getCommonSet(ResultPair& result);
+
+protected:
+    rec_set_t* m_rec_set;
+};
+
+// The basic result for the result of an evaluation from the back-end gdb's.
+// The result is the aggregated set of different simple results (as AIFStream's)
+// paired with the set of ranks for each.
+class ReplyValue : public Value {
+public:
+    ReplyValue(rec_set_t* rec_set, const std::string& expr);
+    ~ReplyValue();
+
+    virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+    virtual void addMetaInfo(const std::string& metaInfo) override;
+    rec_set_t* getRecSet() const { return m_rec_set; }
+    std::string getExpr() const override { return m_expr; }
+
+    virtual rep_set_t* retrieve() const;
+
+    // functions for iterating through the matched ranks of a pair of values
+    std::pair<size_t, bool> getNumResults() override;
+    std::optional<ResultPair> getNextSet(bool rankToRank) override;
+    void getCommonRanks(ResultPair& result) override;
+    void getCommonSet(ResultPair& result) override;
+
+private:
+    std::unique_ptr<Bitset> toRankBits(DbgInvoke* di, const Bitset& grp);
+    std::unique_ptr<Bitset> toReplyBits(DbgInvoke* di, const Bitset& resGrp);
+    
+    std::string m_expr;
+    size_t m_numResults = 0;
+    std::vector<std::tuple<DbgInvoke*, std::unique_ptr<Bitset>,AIFStream*>> m_replies;
+    std::map<DbgInvoke*, std::pair<std::unique_ptr<Bitset>, size_t>> m_ranksPerDI;
+};
+
+// Base class for debugger results that are a single unique result, see
+// DecompValue for the classic example.
+class SingleValue : public Value {
+public:
+    SingleValue(rec_set_t* rec_set);
+    ~SingleValue() override;
+
+    // functions for iterating through the matched ranks of a pair of values
+    std::pair<size_t, bool> getNumResults() override;
+    std::optional<ResultPair> getNextSet(bool rankToRank) override;
+    void getCommonRanks(ResultPair& result) override;
+    void getCommonSet(ResultPair& result) override;
+
+protected:
+    virtual AIFStream* getAIF() = 0;
+    AIFStream* m_aif = nullptr;
+    bool m_processed = false;
+};
+  
+// A single array decomposed across multiple ranks
+class DecompValue : public SingleValue {
+public:
+    DecompValue(rec_set_t* rec_set, g_block_map_t*  blockMap,
+                std::unique_ptr<Value>&& val);
+    
+    virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+
+protected:
+    virtual AIFStream* getAIF() override;
+
+private:
+    g_block_map_t* m_blockMap;
+    std::unique_ptr<Value> m_val;
+};
+
+// A value based on a fully distribued block map.   It acts like a reply, but the
+// blockMap detemines the layout and size
+class DistributedBlockMapValue : public ReplyValue {
+public:
+    DistributedBlockMapValue(rec_set_t* rec_set, g_block_map_t*  blockMap,
+                             std::unique_ptr<Value>&& val);
+    
+    virtual void print(std::ostream& os, rec_set_t* rec_set,
+                       const std::string& format) override;
+
+    rep_set_t* retrieve() const override;
+
+private:
+    g_block_map_t* m_blockMap;
+    std::unique_ptr<Value> m_val;
+};
+
+// A value that is defined on the front end, support constant ints, doubles, or strings
+class AIFValue : public SingleValue {
+public:
+    AIFValue(rec_set_t* rec_set, const std::string& expr, AIFStream* aif); // takes control of aif.
+    void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+    std::string getExpr() const override;
+
+protected:
+    AIFStream* getAIF() override;
+    std::string m_expr;
+private:
+};
+
+// A value that is the result of applying an operator to two other values
+class BinaryFuncValue : public Value {
+public:
+    BinaryFuncValue(std::unique_ptr<Value>&& a, const std::string& op,
+                    std::unique_ptr<Value>&& b);
+    void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+
+    std::pair<size_t, bool> getNumResults() override;
+    std::optional<ResultPair> getNextSet(bool rankToRank) override;
+    void getCommonRanks(ResultPair& result) override;
+    void getCommonSet(ResultPair& result) override;
+
+protected:
+    AIFStream* getAIFStream(AIFStream* a, AIFStream* b) const;
+    void printL(std::ostream& os, const std::string& label,
+                AIFStream* a, AIFStream* b, const std::string& format) const;
+    AIFStream* getSingleResult();
+
+    std::unique_ptr<Value> m_a;
+    std::string m_op;
+    std::unique_ptr<Value> m_b;
+    std::optional<ResultPair> m_unprocessed;
+    bool m_processed = false;
+};
+
+// A procset like $a or $a{1,4..6}.  The value refers to the procset itself
+class ProcsetValue : public Value {
+public:
+    ProcsetValue(rec_set_t* rec_set, dbgprocset_t* tmpProcset);
+    ~ProcsetValue() override;
+
+    std::pair<DbgInvoke::Handle,std::unique_ptr<Bitset>> getProcSet();
+    dbgprocset_t* getProcset();
+    const std::string getThreads() const;
+    
+    virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+private:
+    dbgprocset_t* m_tmpProcset;
+};
+
+// A blockmap (decomposition) variable, i.e it refers to the blockmap
+// as an object.
+class BlockmapValue : public Value {
+public:
+    BlockmapValue(rec_set_t* rec_set, const std::string& name);
+    virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+    g_block_map_t* getBlockMap() const;
+private:
+    std::string m_name;
+};
+
+// The result of a comparison
+class ComparisonValue : public Value {
+public:
+    ComparisonValue(std::unique_ptr<Value>&& a, const std::string& op,
+                    std::unique_ptr<Value>&& b);
+
+    void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+
+    // Get the passed,failed and the diffference output if applicable
+    std::pair<CompareResult, std::string> getSimpleResult(rec_set_t* rec_set);
+
+private:
+    void getFullResult(std::optional<std::string>& passedSet,
+                       std::optional<std::string>& failed,
+                       std::optional<std::string>& warn,
+                       std::ostream& delta);
+    
+    std::unique_ptr<Value> m_a;
+    std::string m_op;
+    std::unique_ptr<Value> m_b;
+};
+

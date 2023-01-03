@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * dbgsrv_p2p.c
  *
- * Copyright 2012-2013,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2012-2013,2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -31,10 +31,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "cmdtoken.h"
 #include "dbgsrv_p2p.h"
 #include "defs.h"
-#include "expr.h"
 #include "useful.h"
 
 /* this function takes a procset name and load the netinfo from file to

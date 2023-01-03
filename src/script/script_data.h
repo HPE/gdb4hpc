@@ -12,15 +12,13 @@
 #include "script_settings.h"
 
 #include "blockmap.h"
-#include "expression_handle.h"
 #include "procset.h"
+#include "gram.h"
 
 #include <string>
 #include <variant>
 
 namespace script::data {
-
-using namespace ExpressionHandleShorthands;
 
 class InvalidAssertionError : public std::runtime_error {
 public:
@@ -91,12 +89,13 @@ class Assertion::ParsedAssertion {
     // a "live" assertion expression that has been checked to contain valid data (pointers
     // to DbgInvokes, procsets, etc.) at creation time. Created by Assertion::parse().
 public:
-    ExpressionHandle expression;
+    std::unique_ptr<gram::Expression> expression;
     std::vector<ProgramLocation> locations;
 
 private:
     friend Assertion;
-    ParsedAssertion(ExpressionHandle&& expr, std::vector<ProgramLocation>&& locations);
+    ParsedAssertion(std::unique_ptr<gram::Expression>&& expr,
+                    std::vector<ProgramLocation>&& locations);
 };
 
 class Script {

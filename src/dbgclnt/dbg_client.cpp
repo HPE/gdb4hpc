@@ -17,29 +17,14 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <assert.h>
-#include <arpa/inet.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
 #include <vector>
-#include <set>
-#include <algorithm>
 #include <mutex>
 
 #include "script_client.h"
 #include "dbg_client.h"
 #include "useful.h"
-#include "gram.h"
 #include "dbginvoke.h"
 
 /*
@@ -2219,11 +2204,8 @@ rep_set_t *DbgRestoreAfterDirectCmd(rec_set_t *set) {
 /*
 ** DBG_SETVAR: Set variable in program to new value.
 */
-rep_set_t *DbgSetVar(rec_set_t *set, const char *var, AIFStream *val) {
-    std::ostringstream valStr;
-    val->print(valStr);
-
-    auto request = CommandToSocProto(DBGCMD_SETVAR, var, valStr.str(), set->getThreads());
+rep_set_t *DbgSetVar(rec_set_t *set, const char *var, const char* val) {
+    auto request = CommandToSocProto(DBGCMD_SETVAR, var, val, set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 

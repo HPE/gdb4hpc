@@ -40,9 +40,8 @@
 #include "script_settings.h"
 #include "bitset.h"
 #include "client.h"
-#include "compare_util.h"
-#include "expression_handle.h"
 #include "useful.h"
+
 
 static cmdlist_t *ScriptCmds;
 static cmdlist_t *OldCmds;
@@ -79,7 +78,22 @@ static int cmd_info_diff_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 PrintOutMsg("For assertion %lu: %s\n", assert.id(), assert.string().c_str());
                 printHeader = false;
             }
-            printCompareResult(diff->result.get(), diff->difference.get(), *diff->recSet);
+            switch (diff->result) {
+            case CompareResult::Pass:
+                PrintOutMsg("Comparison is true.\n"); break;
+            case CompareResult::Fail:
+                PrintOutMsg("Comparison is false.\n"); break;
+            case CompareResult::Warn:
+                PrintOutMsg("Comparison is warn.\n"); break;
+            default:
+                PrintOutMsg("Comparison cannot be peformed.\n"); break;
+            }
+            if (!diff->diff.empty()) {
+                PrintOutMsg("The difference delta is:\n");
+                PrintOutMsg("%s", diff->diff.c_str());
+                            
+            }
+            //printCompareResult(diff->result.get(), diff->difference.get(), *diff->recSet);
             if (count > 1) {
                 PrintOutMsg("(x%lu)\n", count);
             }
@@ -249,73 +263,26 @@ static int cmd_info_script_cmd(rec_set_t *rec_set, int argc, char **argv) {
  ********************************/
 
 static int cmd_build_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    val_t *v;
-    expr_t *e;
-
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: build $script_name\n");
         return 0;
     }
-    
-    // check for debugger variables with given name
 
-    if ((e = ParseExpr(argv[1])) == (expr_t *)NULL) {
-        PrintError();
-        return 0;
-    }
-
-    if (EvalExpr(&v, e, rec_set) < 0) {
-        PrintError();
-        FreeExpr(e);
-        return 0;
-    }
-
-    FreeExpr(e);
-
-    if (LVAL_TYPE(v) != lval_internal) {
-        PrintOutError(
-            "A name must be specified for the assertion script. Names begin "
-            "with a \'$\' character.\n");
-        return 0;
-    }
-
-    switch (RVAL_ACTUAL_TYPE(v)) {
-        case rval_proc:
-            PrintOutError(
-                "A process set has already been defined using this name.\n");
-            return 0;
-        case rval_blockmap:
-            PrintOutError(
-                "A decomposition has already been defined using this name.\n");
-            return 0;
-        case rval_aif:
-            PrintOutError(
-                "A debugger variable has already been defined using this "
-                "name.\n");
-            return 0;
-        default:
-            break;
-    }
-
-    // not an existing debugger variable. but is it the name of an existing script?
-
-    auto name = std::string_view(argv[1] + 1); // trim $
-    if (name.size() == 0) {
-        PrintOutError(
-            "A name must be specified for the assertion script. Names begin "
-            "with a \'$\' character.\n");
-        return 0;
-    }
-
-    if (auto existing = script::getScript(name)) {
-        PrintOutError("Assertion script $%s has already been defined:\n", name.data());
+    if (auto existing = script::getScript(argv[1]+1)) {
+        PrintOutError("Assertion script %s has already been defined:\n", argv[1]);
         PrintOutError("%s\n", existing->string(3ul).c_str());
         return 0;
     }
 
+    // check for debugger variables with given name
+    if (!IdMap::idIsAvailable(argv[1], true)) {
+        return 0;
+    }
+
     // name is passed without $
-    g_pendingScript = std::make_unique<script::data::Script>(std::string{name});
+    auto name = std::string{argv[1]+1};
+    g_pendingScript = std::make_unique<script::data::Script>(name);
 
     OldCmds = SetCommands(ScriptCmds);
     cli_inc_prompt();
@@ -401,8 +368,6 @@ static int cmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv) {
  ********************************/
 
 static int cmd_script_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    namespace Ex = ExpressionHandleShorthands;
-
     if (!g_pendingScript) {
         PrintOutError("Tried to add an assert to a nonexistant script.");
         return 0;

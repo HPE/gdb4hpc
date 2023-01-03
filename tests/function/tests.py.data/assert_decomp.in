@@ -50,15 +50,15 @@ rhs{0..3}: Initial breakpoint, main at /src/C++/cpp_decomp.cpp:18
 30: maint set sync on
 31: build $decomp
 32:     # these should all pass
-33:     assert $b{$lhs::block@"cpp_decomp.cpp":79} == $b{$rhs::block@"cpp_decomp.cpp":79}
-34:     assert $c{$lhs::cyclic@"cpp_decomp.cpp":79} == $c{$rhs::cyclic@"cpp_decomp.cpp":79}
-35:     assert $bc{$lhs::blockCyclic@"cpp_decomp.cpp":79} == $bc{$rhs::blockCyclic@"cpp_decomp.cpp":79}
-36:     assert $2db{$lhs::block@"cpp_decomp.cpp":79} == $T{$rhs::cyclic@"cpp_decomp.cpp":79}
+33:     assert $b{$lhs::block}@"cpp_decomp.cpp":79 == $b{$rhs::block}@"cpp_decomp.cpp":79
+34:     assert $c{$lhs::cyclic}@"cpp_decomp.cpp":79 == $c{$rhs::cyclic}@"cpp_decomp.cpp":79
+35:     assert $bc{$lhs::blockCyclic}@"cpp_decomp.cpp":79 == $bc{$rhs::blockCyclic}@"cpp_decomp.cpp":79
+36:     assert $2db{$lhs::block}@"cpp_decomp.cpp":79 == $T{$rhs::cyclic}@"cpp_decomp.cpp":79
 37:     # these should all fail
-38:     assert $b{$lhs::block@"cpp_decomp.cpp":92} == $b{$rhs::block@"cpp_decomp.cpp":92}
-39:     assert $c{$lhs::cyclic@"cpp_decomp.cpp":92} == $c{$rhs::cyclic@"cpp_decomp.cpp":92}
-40:     assert $bc{$lhs::blockCyclic@"cpp_decomp.cpp":92} == $bc{$rhs::blockCyclic@"cpp_decomp.cpp":92}
-41:     assert $2db{$lhs::block@"cpp_decomp.cpp":92} == $T{$rhs::cyclic@"cpp_decomp.cpp":92}
+38:     assert $b{$lhs::block}@"cpp_decomp.cpp":92 == $b{$rhs::block}@"cpp_decomp.cpp":92
+39:     assert $c{$lhs::cyclic}@"cpp_decomp.cpp":92 == $c{$rhs::cyclic}@"cpp_decomp.cpp":92
+40:     assert $bc{$lhs::blockCyclic}@"cpp_decomp.cpp":92 == $bc{$rhs::blockCyclic}@"cpp_decomp.cpp":92
+41:     assert $2db{$lhs::block}@"cpp_decomp.cpp":92 == $T{$rhs::cyclic}@"cpp_decomp.cpp":92
 42: end
 Assertion script $decomp compiled.
 43: start $decomp
@@ -71,14 +71,14 @@ Saved assertion scripts:
 $decomp
 45: info script $decomp
 Assertion script $decomp:
-Assertion 1: $b{$lhs::block@"cpp_decomp.cpp":79} == $b{$rhs::block@"cpp_decomp.cpp":79}
-Assertion 2: $c{$lhs::cyclic@"cpp_decomp.cpp":79} == $c{$rhs::cyclic@"cpp_decomp.cpp":79}
-Assertion 3: $bc{$lhs::blockCyclic@"cpp_decomp.cpp":79} == $bc{$rhs::blockCyclic@"cpp_decomp.cpp":79}
-Assertion 4: $2db{$lhs::block@"cpp_decomp.cpp":79} == $T{$rhs::cyclic@"cpp_decomp.cpp":79}
-Assertion 5: $b{$lhs::block@"cpp_decomp.cpp":92} == $b{$rhs::block@"cpp_decomp.cpp":92}
-Assertion 6: $c{$lhs::cyclic@"cpp_decomp.cpp":92} == $c{$rhs::cyclic@"cpp_decomp.cpp":92}
-Assertion 7: $bc{$lhs::blockCyclic@"cpp_decomp.cpp":92} == $bc{$rhs::blockCyclic@"cpp_decomp.cpp":92}
-Assertion 8: $2db{$lhs::block@"cpp_decomp.cpp":92} == $T{$rhs::cyclic@"cpp_decomp.cpp":92}
+Assertion 1: $b{$lhs::block}@"cpp_decomp.cpp":79 == $b{$rhs::block}@"cpp_decomp.cpp":79
+Assertion 2: $c{$lhs::cyclic}@"cpp_decomp.cpp":79 == $c{$rhs::cyclic}@"cpp_decomp.cpp":79
+Assertion 3: $bc{$lhs::blockCyclic}@"cpp_decomp.cpp":79 == $bc{$rhs::blockCyclic}@"cpp_decomp.cpp":79
+Assertion 4: $2db{$lhs::block}@"cpp_decomp.cpp":79 == $T{$rhs::cyclic}@"cpp_decomp.cpp":79
+Assertion 5: $b{$lhs::block}@"cpp_decomp.cpp":92 == $b{$rhs::block}@"cpp_decomp.cpp":92
+Assertion 6: $c{$lhs::cyclic}@"cpp_decomp.cpp":92 == $c{$rhs::cyclic}@"cpp_decomp.cpp":92
+Assertion 7: $bc{$lhs::blockCyclic}@"cpp_decomp.cpp":92 == $bc{$rhs::blockCyclic}@"cpp_decomp.cpp":92
+Assertion 8: $2db{$lhs::block}@"cpp_decomp.cpp":92 == $T{$rhs::cyclic}@"cpp_decomp.cpp":92
 Use "info script $decomp results" for results.
 46: info script $decomp results
 Results summary for script $decomp:
@@ -89,63 +89,67 @@ Passed: 4, Passed with warning: 0, Failed: 4, Indeterminate: 0
 Assertion results:
 
 Assertion 1:
-$b{$lhs::block@"cpp_decomp.cpp":79} == $b{$rhs::block@"cpp_decomp.cpp":79}
+$b{$lhs::block}@"cpp_decomp.cpp":79 == $b{$rhs::block}@"cpp_decomp.cpp":79
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
 Assertion 2:
-$c{$lhs::cyclic@"cpp_decomp.cpp":79} == $c{$rhs::cyclic@"cpp_decomp.cpp":79}
+$c{$lhs::cyclic}@"cpp_decomp.cpp":79 == $c{$rhs::cyclic}@"cpp_decomp.cpp":79
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
 Assertion 3:
-$bc{$lhs::blockCyclic@"cpp_decomp.cpp":79} == $bc{$rhs::blockCyclic@"cpp_decomp.cpp":79}
+$bc{$lhs::blockCyclic}@"cpp_decomp.cpp":79 == $bc{$rhs::blockCyclic}@"cpp_decomp.cpp":79
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
 Assertion 4:
-$2db{$lhs::block@"cpp_decomp.cpp":79} == $T{$rhs::cyclic@"cpp_decomp.cpp":79}
+$2db{$lhs::block}@"cpp_decomp.cpp":79 == $T{$rhs::cyclic}@"cpp_decomp.cpp":79
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
 Assertion 5:
-$b{$lhs::block@"cpp_decomp.cpp":92} == $b{$rhs::block@"cpp_decomp.cpp":92}
+$b{$lhs::block}@"cpp_decomp.cpp":92 == $b{$rhs::block}@"cpp_decomp.cpp":92
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
 Assertion 6:
-$c{$lhs::cyclic@"cpp_decomp.cpp":92} == $c{$rhs::cyclic@"cpp_decomp.cpp":92}
+$c{$lhs::cyclic}@"cpp_decomp.cpp":92 == $c{$rhs::cyclic}@"cpp_decomp.cpp":92
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
 Assertion 7:
-$bc{$lhs::blockCyclic@"cpp_decomp.cpp":92} == $bc{$rhs::blockCyclic@"cpp_decomp.cpp":92}
+$bc{$lhs::blockCyclic}@"cpp_decomp.cpp":92 == $bc{$rhs::blockCyclic}@"cpp_decomp.cpp":92
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
 Assertion 8:
-$2db{$lhs::block@"cpp_decomp.cpp":92} == $T{$rhs::cyclic@"cpp_decomp.cpp":92}
+$2db{$lhs::block}@"cpp_decomp.cpp":92 == $T{$rhs::cyclic}@"cpp_decomp.cpp":92
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
 47: info diff
 Stored assertion deltas:
 In assertion script $decomp:
-For assertion 5: $b{$lhs::block@"cpp_decomp.cpp":92} == $b{$rhs::block@"cpp_decomp.cpp":92}
-Comparison is false. The difference delta is:
+For assertion 5: $b{$lhs::block}@"cpp_decomp.cpp":92 == $b{$rhs::block}@"cpp_decomp.cpp":92
+Comparison is false.
+The difference delta is:
 [2]:-10001.9
 [6]:-10005.9
 [10]:-10009.9
 [14]:-10013.9
 
-For assertion 6: $c{$lhs::cyclic@"cpp_decomp.cpp":92} == $c{$rhs::cyclic@"cpp_decomp.cpp":92}
-Comparison is false. The difference delta is:
+For assertion 6: $c{$lhs::cyclic}@"cpp_decomp.cpp":92 == $c{$rhs::cyclic}@"cpp_decomp.cpp":92
+Comparison is false.
+The difference delta is:
 [8]:-10007.9
 [9]:-10008.9
 [10]:-10009.9
 [11]:-10010.9
 
-For assertion 7: $bc{$lhs::blockCyclic@"cpp_decomp.cpp":92} == $bc{$rhs::blockCyclic@"cpp_decomp.cpp":92}
-Comparison is false. The difference delta is:
+For assertion 7: $bc{$lhs::blockCyclic}@"cpp_decomp.cpp":92 == $bc{$rhs::blockCyclic}@"cpp_decomp.cpp":92
+Comparison is false.
+The difference delta is:
 [8]:-10007.9
 [10]:-10009.9
 [12]:-10011.9
 [14]:-10013.9
 
-For assertion 8: $2db{$lhs::block@"cpp_decomp.cpp":92} == $T{$rhs::cyclic@"cpp_decomp.cpp":92}
-Comparison is false. The difference delta is:
+For assertion 8: $2db{$lhs::block}@"cpp_decomp.cpp":92 == $T{$rhs::cyclic}@"cpp_decomp.cpp":92
+Comparison is false.
+The difference delta is:
 [2][0]:-10007.9
 [2][1]:-10008.9
 [2][2]:-10009.9

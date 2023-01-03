@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -17,14 +17,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <iostream>
-#include <iomanip>
 #include <map>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "client.h"
 #include "useful.h"
@@ -902,9 +895,7 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_set_break_pending_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
-    const char *s;
-    PendingBrkType pending_val;
-    ct_val cv;
+
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -913,30 +904,20 @@ static int cmd_set_break_pending_cmd(rec_set_t *rec_set, int argc,
     }
 
     // only look at the first arg
-    s = argv[1];
+    auto s = std::string{argv[1]};
 
-    switch (ScanString(&cv, &s)) {
-        case CT_AUTO:
-            pending_val = PendingBrkType::Auto;
-            break;
+    PendingBrkType pending_val;
 
-        case CT_TRUE:
-            pending_val = PendingBrkType::On;
-            break;
-
-        case CT_FALSE:
-            pending_val = PendingBrkType::Off;
-            break;
-
-        default:
-            PrintOutError("Encountered something other than auto or on or off.\n");
-            PrintOutError(
-                "See \"help set breakpoint pending\" for more information.\n");
-            return 0;
+    if (s == "auto") pending_val = PendingBrkType::Auto;
+    else if (s == "on") pending_val = PendingBrkType::On;
+    else if (s == "off") pending_val = PendingBrkType::Off;
+    else {
+        PrintOutError("Encountered something other than auto or on or off.\n");
+        PrintOutError("See \"help set breakpoint pending\" for more information.\n");
+        return 0;
     }
 
     Client.brk_pending = pending_val;
-
     return 1;
 }
 

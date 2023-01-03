@@ -4,7 +4,6 @@
 
 #include "script_data.h"
 #include "blockmap.h"
-#include "gram.h"
 
 #include <unordered_map>
 #include <iomanip>
@@ -21,8 +20,8 @@
 
 namespace script::data {
 
-static std::vector<ProgramLocation> extractProgramLocations(const ExpressionHandle& expr);
-static void enforceValidExpression(const ExpressionHandle& expr);
+static std::vector<ProgramLocation> extractProgramLocations(const gram::Expression& expr);
+static void enforceValidExpression(const gram::Expression& expr);
 static void enforceValidLocations(const std::vector<ProgramLocation>& locations);
 
 ProgramLocation::ProgramLocation(DbgInvoke::Handle di, std::unique_ptr<Bitset>&& bitset,
@@ -70,130 +69,86 @@ Assertion::Assertion(size_t id, settings::Assertion settings, std::string&& expr
 
 Assertion::ParsedAssertion Assertion::parse() const {
     try {
-        auto expr = ExpressionHandle(m_string);
-        enforceValidExpression(expr);
+        auto expr = ParseString(m_string);
+        enforceValidExpression(*expr);
 
-        auto locations = extractProgramLocations(expr);
+        auto locations = extractProgramLocations(*expr);
         enforceValidLocations(locations);
 
         return ParsedAssertion(std::move(expr), std::move(locations));
-    } catch (const ExpressionHandle::ParseError& e) {
-        throw InvalidAssertionError(e.what());
+    } catch (const ParseError& e) {
+        auto msg = "Parsing of \"" + m_string + "\" failed\n" + e.what();
+        throw InvalidAssertionError(msg);
+    } catch (const std::exception& e) {
+        auto msg = std::string{e.what()} + " in \"" + m_string + "\"";
+        throw InvalidAssertionError(msg);
     }
-    // letting InvalidAssertionError escape
 }
 
 const std::string& Assertion::string() const {
     return m_string;
 }
 
-static std::vector<ProgramLocation> extractProgramLocations(const ExpressionHandle& expr) {
+static std::pair<DbgInvoke::Handle,std::unique_ptr<Bitset>> getProcSet(const gram::Expression& expr) {
+    const gram::Expression* e = &expr;
+    try {
+        while (true) {
+            if (auto bm = dynamic_cast<const gram::DSymArray*>(e)) {
+                // blockmap expression, we get the procset from the
+                // wrapped values
+                e = bm->getIdcs();
+            } else if (auto sv = dynamic_cast<const gram::ScopedVal*>(e)) {
+                e = sv->getScope();
+                if (auto ps = dynamic_cast<const gram::DSym*>(e)) {
+                    auto val = ps->eval(nullptr);
+                    if (auto psval = dynamic_cast<ProcsetValue*>(val.get())) {
+                        return psval->getProcSet();
+                    }
+                }
+                // otherwise nexted scopes
+            } else {
+                break;
+            }
+        }
+    } catch (const EvalError& err) {
+        throw InvalidAssertionError(err.what());
+    }
+    throw InvalidAssertionError("Assertion values must have a procset");
+}
+    
+
+static std::vector<ProgramLocation> extractProgramLocations(const gram::Expression& expr) {
     // every variable used in the expression is required to specify the procset
     // and file/line number so the assertion script can set breakpoints and know
     // where/when to actually run the evaluation. if we find a variable that is
     // missing some of that information, it's unusable, and we throw InvalidAssertionError.
-
-    using namespace std::string_literals;
-    auto result = std::vector<ProgramLocation>{};
-
     try {
-        const auto& rawExpr = expr.raw();
-        const auto top = rawExpr.e_lval - 1;
-
-        // scan the stack for <var> or <blockmap> tags, which are the start of variables
-        // tagged with locations, and parse them. assemble<ProgVarExpr> will try to
-        // extract the variable and the location all at once and fail if it can't satisfy
-        // everything.
-        for (int i = top; i >= 0; --i) {
-            switch (rawExpr.e_expr[i].e_op) {
-            case EXPR_BLOCKMAP:
-            case EXPR_VAR: {
-                auto var = expr.assembleFromOffset<ProgVarExpr>(top - i);
-
-                // successful parse, now validate the procset
-
-                const auto* pset = FindProcSet(var.procsetName().c_str());
-
-                if (!pset) {
-                    // procset is no longer valid
-                    throw InvalidAssertionError(std::string{"$"} + var.procsetName() +
-                                                " in \"" + expr.string() +
-                                                "\" is expired");
-                }
-
-                auto ranksInProcset = 0;
-                forEachOverlaySet(*pset, [&ranksInProcset](auto* os) {
-                    ranksInProcset += os->s_di_bs->numSet();
-                });
-
-                auto& procSubScr = var.procsetSubscript();
-                for (int i = 0; i < procSubScr.getRank(); i++) {
-                    // ensure low <= high
-                    if (procSubScr.getLow(i) > procSubScr.getHigh(i)) {
-                        throw InvalidAssertionError(
-                            "Invalid procset slice; low index larger than high index in "
-                            "$" + var.procsetName() + "::{...}");
-                    }
-
-                    // no negative indices allowed
-                    if (procSubScr.getLow(i) < 0 || procSubScr.getHigh(i) < 0) {
-                        throw InvalidAssertionError(
-                            "Invalid procset slice; negative index: $"s +
-                            var.procsetName() + "::{...}");
-                    }
-
-                    // no indices above the number of ranks in the procset allowed
-                    if (procSubScr.getLow(i) >= ranksInProcset ||
-                        procSubScr.getHigh(i) >= ranksInProcset) {
-                        throw InvalidAssertionError(
-                            "Invalid procset slice; out of bounds: $"s +
-                            var.procsetName() +
-                            "::" + procSubScr.createBitset()->toSetString());
-                    }
-                }
-
-                // procset is good. now create ProgramLocations from its dis
-                forEachOverlaySet(*pset, [&](const auto* os) {
-                    result.emplace_back(
-                        os->s_di, sliceBitset(*os, &procSubScr), var.location().name(),
-                        var.location().lineNumber());
-                });
-                break;
-            }
-            default:
-                // not interested in this token
-                break;
-            }
+        auto result = std::vector<ProgramLocation>{};
+        auto assertions = expr.getAssertions();
+        for (auto&& assertExpr : assertions) {
+            auto [file, line ] = assertExpr->getLocation();
+            auto [ di, grp ] = getProcSet(*assertExpr->getExpr());
+            result.emplace_back(di, std::move(grp), file, line);
         }
 
-        LOG("Extracted locations:");
-        for ([[maybe_unused]] const auto& loc : result) {
-            LOG("- " << loc.getLogString());
-        }
-    } catch (const ParseError& e) {
-        LOG(e.what());
-        throw InvalidAssertionError("Failed to extract location; Syntax error: "s + e.what());
+        return result;
+    } catch (const EvalError& err) {
+        throw InvalidAssertionError(err.what());
     }
-
-    return result;
 }
 
-static void enforceValidExpression(const ExpressionHandle& expr) {
+static void enforceValidExpression(const gram::Expression& expr) {
     // expression must be a comparison (==, !=, <, <=, >, >=),
     // so check symbol on top of stack
-    switch (expr.raw().e_expr[expr.raw().e_lval - 1].e_op) {
-    case EXPR_OPEQUAL:
-    case EXPR_OPNOTEQUAL:
-    case EXPR_OPLT:
-    case EXPR_OPLEQ:
-    case EXPR_OPGT:
-    case EXPR_OPGEQ:
-        // ok
-        break;
-    default:
-        throw InvalidAssertionError("Assertion expression must be a "
-                                    "comparison (==, !=, <, <=, >, >=)");
+    if (auto binOp = dynamic_cast<const gram::Binop*>(&expr)) {
+        auto op = binOp->getOp();
+        static auto validOps = { "=", "==", "!=", "<", "<=", ">", ">=" };
+        if (std::find(validOps.begin(), validOps.end(), op) != validOps.end())
+            return;
     }
+
+    throw InvalidAssertionError("Assertion expression must be a "
+                                "comparison (==, !=, <, <=, >, >=)");
 }
 
 static void enforceValidLocations(const std::vector<ProgramLocation>& locations) {
@@ -363,7 +318,8 @@ std::string Assertion::settingsString() const {
     return settingsStringHelper(m_settings);
 }
 
-Assertion::ParsedAssertion::ParsedAssertion(ExpressionHandle&& expr, std::vector<ProgramLocation>&& locs)
+Assertion::ParsedAssertion::ParsedAssertion(std::unique_ptr<gram::Expression>&& expr,
+                                            std::vector<ProgramLocation>&& locs)
     : expression{std::move(expr)}
     , locations{std::move(locs)} {}
 

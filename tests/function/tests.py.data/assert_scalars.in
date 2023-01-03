@@ -50,16 +50,16 @@ Current value: 0.1, 0.99.
 35:     assert $a{0}::i@"c_type_test.c":239 = $b{0}::i@"c_cmp_diff.c":234
 37:     # all of these are errors and should generate an error message and not set an assertion
 38:     assert $a{3}::assertTest@"c_type_test.c":166 == $a{0}::assertTest@"c_type_test.c":166
-Error: Invalid procset slice; out of bounds: $a::{3}.
+Error: ranks are out of range in $a{3} in "$a{3}::assertTest@"c_type_test.c":166 == $a{0}::assertTest@"c_type_test.c":166".
 Command resulted in an error: 38:     assert $a{3}::assertTest@"c_type_test.c":166 == $a{0}::assertTest@"c_type_test.c":166
 39:     assert $a{1}::assertTest@"c_type_test.c":166 == $a{3..4}::assertTest@"c_type_test.c":166
-Error: Invalid procset slice; out of bounds: $a::{3..4}.
+Error: ranks are out of range in $a{3..4} in "$a{1}::assertTest@"c_type_test.c":166 == $a{3..4}::assertTest@"c_type_test.c":166".
 Command resulted in an error: 39:     assert $a{1}::assertTest@"c_type_test.c":166 == $a{3..4}::assertTest@"c_type_test.c":166
 40:     assert $a{1}::assertTest@"c_type_test.c":166 == $a{-3}::assertTest@"c_type_test.c":166
-Error: Invalid procset slice; negative index: $a::{...}.
+Error: ranks are out of range in $a{-3} in "$a{1}::assertTest@"c_type_test.c":166 == $a{-3}::assertTest@"c_type_test.c":166".
 Command resulted in an error: 40:     assert $a{1}::assertTest@"c_type_test.c":166 == $a{-3}::assertTest@"c_type_test.c":166
 41:     assert $a{1..0}::assertTest@"c_type_test.c":166 == $a{0}::assertTest@"c_type_test.c":166
-Error: Invalid procset slice; low index larger than high index in $a::{...}.
+Error: ranks are out of range in $a{1..0} in "$a{1..0}::assertTest@"c_type_test.c":166 == $a{0}::assertTest@"c_type_test.c":166".
 Command resulted in an error: 41:     assert $a{1..0}::assertTest@"c_type_test.c":166 == $a{0}::assertTest@"c_type_test.c":166
 41: end
 Assertion script $scalars compiled.
@@ -148,43 +148,43 @@ Passes: 0, Passes with warnings: 0, Failures: 1.
 Stored assertion deltas:
 In assertion script $scalars:
 For assertion 5: $a{0}::ld@"c_type_test.c":200 >= $b{0}::ld@"c_cmp_diff.c":195
-{0}: Comparison is false.
+Comparison is false.
 The difference delta is:
 {0}: 1
 (x10)
 
 For assertion 6: $a{0}::lli@"c_type_test.c":200 > $b{0}::lli@"c_cmp_diff.c":195
-{0}: Comparison is false.
+Comparison is false.
 The difference delta is:
 {0}: 1
 (x10)
 
 For assertion 7: $a{0}::i@"c_type_test.c":200 = $b{0}::i@"c_cmp_diff.c":195
-{0}: Comparison is false.
+Comparison is false.
 The difference delta is:
 {0}: 1
 (x10)
 
 For assertion 9: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
-{0}: Comparison is warn.
+Comparison is warn.
 The difference delta is:
 {0}: 1
 (x10)
 
 For assertion 10: $a{0}::d@"c_type_test.c":200 == $b{0}::d@"c_cmp_diff.c":195
-{0}: Comparison is false.
+Comparison is false.
 The difference delta is:
 {0}: 1
 (x10)
 
 For assertion 11: $a{0}::i@"c_type_test.c":239 = $b{0}::i@"c_cmp_diff.c":234
-{0}: Comparison is false.
+Comparison is false.
 The difference delta is:
 {0}: 1
 
 49: info diff $scalars 9
 For assertion 9: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
-{0}: Comparison is warn.
+Comparison is warn.
 The difference delta is:
 {0}: 1
 (x10)

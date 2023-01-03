@@ -28,13 +28,11 @@
 #include <unistd.h>
 
 #include "blockmap_util.h"
-#include "cmdtoken.h"
 #include "dbg.h"
 #include "dbgsrv_defs.h"
 #include "dbgsrv_libmi2aif.h"
 #include "dbgsrv_p2p.h"
 #include "dbgsrv_util.h"
-#include "expr.h"
 #include "useful.h"
 
 extern int sock_fd;
@@ -288,42 +286,6 @@ int _get_slice_destination(int rank, int *global_start_loc, int *data_size,
     }
 
     return des;
-}
-
-// Minh
-// andrewg fixed implicit calls to Free on 8/10/10
-int _get_overlap_info(int *final_size, blockmap_info bm1, blockmap_info bm2) {
-    int rank;
-    int *block_size;
-    int *block_size1;
-    int *block_size2;
-    int i;
-    blockmap_info *bm;
-
-    rank = bm1.rank;
-
-    block_size1 = (int *)Alloc(sizeof(int) * rank);
-    block_size2 = (int *)Alloc(sizeof(int) * rank);
-
-    for (i = 0; i < 2; i++) {
-        bm = i == 0 ? &bm1 : &bm2;
-        block_size = i == 0 ? block_size1 : block_size2;
-        // call a function from blockmap.c
-        if (_get_hash_block_size(rank, bm->m_data, bm->m_distribute,
-                                 bm->m_blockcyclic_val, bm->m_procs,
-                                 block_size) != 1) {
-            if (final_size) Free(final_size);
-            return -1;
-        }
-    }
-
-    for (i = 0; i < rank; i++)
-        final_size[i] = gcd(block_size1[i], block_size2[i]);
-
-    Free(block_size1);
-    Free(block_size2);
-
-    return 0;
 }
 
 int _get_data_index(int rank, int *data, int *index) {

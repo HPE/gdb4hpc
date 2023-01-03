@@ -85,76 +85,40 @@ b{0..2}: 'boy howdy!          '
 {0..2}: Comparison is true.
 29: compare $a::int_2 != $b::int_2
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 30: compare $a::int_3 != $b::int_3
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 31: compare $a::long_1 != $b::long_1
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 32: compare $a::long_2 != $b::long_2
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 33: compare $a::long_3 != $b::long_3
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 34: compare $a::float_1 != $b::float_1
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 35: compare $a::float_2 != $b::float_2
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 36: compare $a::float_3 != $b::float_3
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 37: compare $a::double_1 != $b::double_1
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 38: compare $a::double_2 != $b::double_2
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 39: compare $a::double_3 != $b::double_3
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 40: compare $a::complex_1 != $b::complex_1
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 41: compare $a::complex_2 != $b::complex_2
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 42: compare $a::complex_3 != $b::complex_3
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 43: compare $a::bool_1 != $b::bool_1
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 44: compare $a::bool_2 != $b::bool_2
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 45: compare $a::bool_3 != $b::bool_3
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}: 
 46: compare $a::word != $b::word
 {0..2}: Comparison is false.
-The difference delta is:
-{0..2}:
 47: # There is a bug in the amd fortran compiler with arrays declared with (0:9) syntax
 47: p int_0???PE-44512
 a{0..2}: (7, 9, 11, 13, 15, 17, 19, 21, 23, 25)
@@ -224,17 +188,17 @@ The difference delta is:
 {0..2}: Comparison is false.
 The difference delta is:
 {0..2}: (1)r:98.9
-(1)i:96.9
+{0..2}: (1)i:96.9
 72: compare $a::complex_2 == $b::complex_2
 {0..2}: Comparison is false.
 The difference delta is:
 {0..2}: (1,2)r:94.8
-(1,2)i:103.2
+{0..2}: (1,2)i:103.2
 73: compare $a::complex_3 == $b::complex_3
 {0..2}: Comparison is false.
 The difference delta is:
 {0..2}: (1,2,3)r:85.5
-(1,2,3)i:112.5
+{0..2}: (1,2,3)i:112.5
 74: compare $a::bool_1 == $b::bool_1
 {0..2}: Comparison is false.
 The difference delta is:
@@ -256,7 +220,7 @@ The difference delta is:
 {0..2}: Comparison is false.
 The difference delta is:
 {0..2}: (0):92
-(9):-124
+{0..2}: (9):-124
 79: compare $a::int_0_2 == $b::int_0_2
 {0..2}: Comparison is false.
 The difference delta is:

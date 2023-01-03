@@ -12,9 +12,6 @@
 #include "dbgclnt_breakpoints.h"
 #include "dbg_client.h"
 #include "dbginvoke.h"
-#include "expression_handle.h"
-#include "val.h"
-#include "gram.h"
 
 #include <deque>
 #include <functional>
@@ -24,8 +21,6 @@
 #include <vector>
 
 namespace script {
-
-using ValPtr = std::unique_ptr<val_t, decltype(&DestroyVal)>;
 
 class ScriptRunner {
     // Runs an assertion script. Sends start/stop/compare/etc commands to the
@@ -41,8 +36,8 @@ private:
     class Ranks;
     struct Result {
         std::unique_ptr<rec_set_t> recSet;
-        ValPtr result;
-        ValPtr difference;
+        CompareResult result;
+        std::string diff;
 
         // return true if two results, in particular their stored difference values,
         // are the same
@@ -227,7 +222,7 @@ public:
     std::unique_ptr<rec_set_t> createRecSet() const;
 
     // return the original expression in a form that can be used with EvalCompare.
-    const ExpressionHandle::View& expressionHandle() const;
+    const gram::Expression& expressionHandle() const;
 
     // return a human readable representation of the assert expression, as it was
     // originally typed.
@@ -241,13 +236,8 @@ private:
     const data::Assertion &m_assert;
     data::Assertion::ParsedAssertion m_parsed;
 
-    // convenience member. reference to m_parsed.expression
-    ExpressionHandle& m_orig_expression;
     // convenience member. reference to m_parsed.locations
     std::vector<data::ProgramLocation>& m_locs;
-
-    // returned by expressionHandle()
-    ExpressionHandle::View m_eval_expression;
 
     // <breakpoint id, ProgramLocation>
     // pointers to ProgramLocations inside of m_locs

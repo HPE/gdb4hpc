@@ -19,8 +19,8 @@ Assertion script $deadlock compiled.
 7: maint set sync on
 8: start $deadlock
 Sending continue to application...
-a{0}: Breakpoint 2, main at /src/c/c_inc.c:14
-a{1}: Breakpoint 3, main at /src/c/c_inc.c:14
+a{0}: Breakpoint 1, main at /src/c/c_inc.c:14
+a{1}: Breakpoint 4, main at /src/c/c_inc.c:14
 Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
 Assertion script $deadlock stopped.
 9: frame

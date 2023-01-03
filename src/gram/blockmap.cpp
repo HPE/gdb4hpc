@@ -17,7 +17,6 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,73 +29,43 @@
 #include "blockmap_util.h"
 #include "client_settings.h"
 #include "defs.h"
-#include "gram.h"
 #include "useful.h"
+#include "blockmap.h"
 
-#define BLOCKMAP_TABLE_SIZE 7 /* 2^7 = 128 = number that can be active */
-
-static htable_t *_block_map_table = (htable_t *)NULL;
-static list_t *_block_map_list = (list_t *)NULL;
-// int	EvalBlockMapFunc(int *, g_block_map_t *, func_t *, int);
+static std::map<std::string, std::shared_ptr<g_block_map_t>> _block_map_table;
+static std::vector<std::shared_ptr<g_block_map_t>> _block_map_list;
 
 /*
 ** Find a map.
 */
-g_block_map_t *FindBlockMap(const char *blockmap) {
-    hentry_t *h;
-
-    if ((h = HashSearch(_block_map_table, blockmap)) != (hentry_t *)NULL)
-        return (g_block_map_t *)h->h_data;
-
-    return (g_block_map_t *)NULL;
+g_block_map_t *FindBlockMap(const std::string& blockmap) {
+    if (auto loc = _block_map_table.find(blockmap); loc != _block_map_table.end()) {
+        return loc->second.get();
+    }
+    return nullptr;
 }
 
-int CheckBlockMap(hentry_t *sym) {
-    g_block_map_t *m = FindBlockMap(SymLookup(sym));
-
-    return m != (g_block_map_t *)NULL;
-}
-
-void SetBlockMap(void) {
-    if (_block_map_list != (list_t *)NULL) SetList(_block_map_list);
-}
-
-g_block_map_t *GetBlockMap(void) {
-    if (_block_map_list == (list_t *)NULL) return (g_block_map_t *)NULL;
-
-    return (g_block_map_t *)GetListElement(_block_map_list);
+const std::vector<std::shared_ptr<g_block_map_t>> GetBlockMapList() {
+    return _block_map_list;
 }
 
 // TODO: When I wrote this (andrewg) I am still not 100% confident on how
 // blockmap works. So this function should be made more versatile at some point.
-int VerifyBlockMap(hentry_t *sym) {
-    g_block_map_t *m;
-    int i, count, star_dims;
-
-    if (sym == NULL) {
-        SetError("Attempted to lookup null decomposition sym.");
-        return 0;
-    }
-
-    if ((m = FindBlockMap(SymLookup(sym))) == NULL) {
-        SetError("Could not find a decomposition named %s.", SymLookup(sym));
-        return 0;
-    }
-
+bool VerifyBlockMap(g_block_map_t* m) {
     // Check data definition
     if (m->m_data == (int *)NULL) {
         SetError(
             "Must provide a dimension definition before ending a "
             "decomposition.");
-        return 0;
+        return false;
     }
 
     // Check distribute definition
-    if (m->m_distribute == (int *)NULL) {
+    if (m->m_distribute == nullptr) {
         SetError(
             "Must provide a distribute definition before ending a "
             "decomposition.");
-        return 0;
+        return false;
     }
 
     // Check grid definition
@@ -104,19 +73,20 @@ int VerifyBlockMap(hentry_t *sym) {
         SetError(
             "Must provide a proc_grid definition before ending a "
             "decomposition.");
-        return 0;
+        return false;
     }
 
     // We need to count the number of non-distributed dimensions to ensure they
     // match between each definition.
-    for (i = 0, count = 0; i < m->m_rank; ++i) {
-        if (m->m_distribute[i] == CT_STAR) ++count;
+    int count = 0;
+    for (auto i = 0; i < m->m_rank; ++i) {
+        if (m->m_distribute[i] == Distribution::Star) ++count;
     }
 
-    star_dims = count;
+    int star_dims = count;
 
     // Check to make sure the grid definition matches
-    for (i = 0, count = 0; i < m->m_rank; ++i) {
+    for (int i = 0, count = 0; i < m->m_rank; ++i) {
         if (m->m_procs[i] == 1) ++count;
     }
 
@@ -124,20 +94,20 @@ int VerifyBlockMap(hentry_t *sym) {
         SetError(
             "'*' allocation mismatch between distribute and proc_grid "
             "definition.");
-        return 0;
+        return false;
     }
 
     // check order definition
-    if (m->m_dim_order == (int *)NULL) {
+    if (!m->m_dim_order) {
         // If this is a 1-D distribution we can assume the dimension ordering
         if (m->m_rank - star_dims == 1) {
             // note here that count now refers to the number of "numbers"
             // written to make sure there isn't an issue in the logic
             count = 0;
-            m->m_dim_order = (int *)Alloc(sizeof(int) * m->m_rank);
-            for (i = 0; i < m->m_rank; ++i) {
-                if (m->m_distribute[i] == CT_STAR) {
-                    m->m_dim_order[i] = CT_STAR;
+            m->m_dim_order = new int[m->m_rank];
+            for (int i = 0; i < m->m_rank; ++i) {
+                if (m->m_distribute[i] == Distribution::Star) {
+                    m->m_dim_order[i] = int(Distribution::Star);
                 } else {
                     m->m_dim_order[i] = 1;
                     ++count;
@@ -148,98 +118,71 @@ int VerifyBlockMap(hentry_t *sym) {
                 SetError(
                     "'*' allocation mismatch between distribute and dim_order "
                     "definitions.");
-                return 0;
+                return false;
             }
         } else {
             SetError(
                 "Must provide a dim_order definition before ending a "
                 "decomposition.");
-            return 0;
+            return false;
         }
     } else {
         // Check to make sure the order definition matches
-        for (i = 0, count = 0; i < m->m_rank; ++i) {
-            if (m->m_dim_order[i] == CT_STAR) ++count;
+        for (int i = 0, count = 0; i < m->m_rank; ++i) {
+            if (m->m_dim_order[i] == int(Distribution::Star)) ++count;
         }
 
         if (star_dims != count) {
             SetError(
                 "'*' allocation mismatch between distribute and dim_order "
                 "definition.");
-            return 0;
+            return false;
         }
     }
 
     // check that the dimension in each direction is a multiple of the number of ranks
-    for (i=0; i<m->m_rank; ++i) {
-        if (m->m_distribute[i] != CT_STAR &&
+    for (int i=0; i<m->m_rank; ++i) {
+        if (m->m_distribute[i] != Distribution::Star &&
             m->m_data[i] % m->m_procs[i] != 0) {
             SetError("dimension size %d is not a multiple of proc_grid %d.",
                      m->m_data[i], m->m_procs[i]);
-            return 0;
+            return false;
         }
     }
 
-    return 1;
+    return true;
 }
 
 /*
-** Create a new map.
+** Create a new map and add to the table
 */
-g_block_map_t *NewBlockMap(hentry_t *sym) {
-    g_block_map_t *m;
+g_block_map_t::g_block_map_t(const std::string& name, bool debug)
+    : m_name(name),
+      m_rank(0),
+      m_distribute(nullptr),
+      m_data(nullptr),
+      m_procs(nullptr),
+      m_blockcyclic_val(nullptr),
+      m_dim_order(nullptr),
+      m_debug(debug) {
+    if (name.size() && name[0] != '$') m_name = '$' + m_name;
+}
 
-    m = (g_block_map_t *)Alloc(sizeof(g_block_map_t));
-    m->m_sym = sym;
-    m->m_distribute = (int *)NULL;
-    m->m_data = (int *)NULL;
-    m->m_procs = (int *)NULL;
-    m->m_blockcyclic_val = (int *)NULL;
-    m->m_dim_order = (int *)NULL;
-    m->m_rank = 0;
-    m->m_builtin = (int (*)(list_t *))NULL;
-    m->m_debug = 0;
-
-    if (sym == (hentry_t *)NULL) return m;
-
-    if (_block_map_list == (list_t *)NULL) _block_map_list = NewList();
-
-    if (_block_map_table == (htable_t *)NULL)
-        _block_map_table = HashCreate(BLOCKMAP_TABLE_SIZE);
-
-    if (HashInsert(_block_map_table, SymLookup(sym), (void *)m) ==
-        (hentry_t *)NULL) {
-        SetError("Too many decompositions defined");
-        return (g_block_map_t *)NULL;
-        ;
-    }
-
-    AddToList(_block_map_list, (void *)m);
-
-    return m;
+g_block_map_t::~g_block_map_t() {
+    delete[] m_distribute;
+    delete[] m_data;
+    delete[] m_procs;
+    delete[] m_blockcyclic_val;
+    delete[] m_dim_order;
 }
 
 /*
 ** Free a map.
 */
-void DestroyBlockMap(g_block_map_t *m) {
-    hentry_t *h;
 
-    if (m == (g_block_map_t *)NULL) return;
-
-    if ((h = HashSearch(_block_map_table, SymLookup(m->m_sym))) !=
-        (hentry_t *)NULL)
-        HashRemove(_block_map_table, h);
-
-    RemoveFromList(_block_map_list, (void *)m);
-
-    if (m->m_distribute != (int *)NULL) Free(m->m_distribute);
-    if (m->m_data != (int *)NULL) Free(m->m_data);
-    if (m->m_procs != (int *)NULL) Free(m->m_procs);
-    if (m->m_blockcyclic_val != (int *)NULL) Free(m->m_blockcyclic_val);
-    if (m->m_dim_order != (int *)NULL) Free(m->m_dim_order);
-
-    Free(m);
+void RegisterBlockMap(std::shared_ptr<g_block_map_t> bm) {
+    _block_map_table[bm->m_name] = bm;
+    _block_map_list.push_back(bm);
 }
 
 namespace {
@@ -259,10 +202,10 @@ public:
 
 private:
     int m_dimIdx;               // dimension represented
-    int m_distribute;           // distribute scheme (from cmdtoken.h)
+    Distribution m_distribute;  // distribute scheme
     size_t m_len;               // number of elements in this dimension
     size_t m_numProcs;          // number of process for distibuting 
-    size_t m_blockCyclic;       // cycle count for the CT_BLOCK_CYCLIC
+    size_t m_blockCyclic;       // cycle count for the Distriubution::BlockCyclic
     size_t m_dimOrder;
 
     size_t m_blockLen;          // number of elements in each block
@@ -308,18 +251,18 @@ void indexer1D::map(size_t& dataIdx, size_t& procIdx, size_t& repeat,
     auto idx = dataIdx / m_dataScale;
     
     switch (m_distribute) {
-    case CT_BLOCK:
+    case Distribution::Block:
         dproc = idx / m_blockLen;
         repeat = m_blockLen;
         break;
-    case CT_CYCLIC:
+    case Distribution::Cyclic:
         dproc = idx % m_numProcs;
         break;
-    case CT_STAR:
+    case Distribution::Star:
         dproc = 0;
         repeat = m_len;
         break;
-    case CT_BLOCK_CYCLIC:
+    case Distribution::BlockCyclic:
         dproc = (idx / m_blockCyclic) % m_numProcs;
         repeat = m_blockCyclic;
         break;
@@ -345,8 +288,8 @@ void indexer1D::setDataSize(indexer1D* prev) {
 }
 
 void indexer1D::setProcSize(const indexer1D& oproc) {
-    if (m_distribute != CT_STAR &&
-        oproc.m_distribute != CT_STAR &&
+    if (m_distribute != Distribution::Star &&
+        oproc.m_distribute != Distribution::Star &&
         m_dimOrder > oproc.m_dimOrder) {
         m_procScale *= oproc.m_numProcs;
     }
@@ -358,8 +301,8 @@ std::string GetBlockMapMsg(g_block_map_t *m) {
     std::stringstream sc; //stringstream for cli messages
     std::stringstream sm; //stringstream for mi messages
 
-    sc<<"$"<<SymLookup(m->m_sym)<<":\n";
-    sm<<"{decomp_name=\""<<SymLookup(m->m_sym);
+    sc<<"$"<<m->m_name<<":\n";
+    sm<<"{decomp_name=\""<<m->m_name;
 
     if (m->m_rank == 0) {
         SetError("Invalid decomposition.");
@@ -380,25 +323,25 @@ std::string GetBlockMapMsg(g_block_map_t *m) {
 
     sc<<"\tdistribute ";
     sm<<"\",distribute=\"";
-    if (m->m_distribute == (int *)NULL) {
+    if (m->m_distribute == nullptr) {
         SetError("Invalid distribute definition for decomposition.");
         return "";
     } else {
         for (i = 0; i < m->m_rank; i++) {
             switch (m->m_distribute[i]) {
-                case CT_BLOCK:
+                case Distribution::Block:
                     sc<<"block"<<(i+1==m->m_rank ? "\n" : ",");
                     sm<<"block"<<(i+1==m->m_rank ? "" : ",");
                     break;
-                case CT_CYCLIC:
+                case Distribution::Cyclic:
                     sc<<"cyclic"<<(i+1==m->m_rank ? "\n" : ",");
                     sm<<"cyclic"<<(i+1==m->m_rank ? "" : ",");
                     break;
-                case CT_STAR:
+                case Distribution::Star:
                     sc<<"*"<<(i+1==m->m_rank ? "\n" : ",");
                     sm<<"*"<<(i+1==m->m_rank ? "" : ",");
                     break;
-                case CT_BLOCK_CYCLIC:
+                case Distribution::BlockCyclic:
                     sc<<m->m_blockcyclic_val[i]<<(i+1==m->m_rank ? "\n" : ",");
                     sm<<m->m_blockcyclic_val[i]<<(i+1==m->m_rank ? "" : ",");
                     break;
@@ -434,7 +377,7 @@ std::string GetBlockMapMsg(g_block_map_t *m) {
         return "";
     } else {
         for (i = 0; i < m->m_rank; i++) {
-            if (m->m_dim_order[i] == CT_STAR){
+            if (m->m_dim_order[i] == int(Distribution::Star)){
                 sc<<"*"<<(i+1==m->m_rank ? "\n" : ",");
                 sm<<"*"<<(i+1==m->m_rank ? "" : ",");
             }else{
@@ -456,28 +399,20 @@ std::string GetBlockMapMsg(g_block_map_t *m) {
 }
 
 void FinishBlockMap(void) {
-    g_block_map_t *m;
-
-    SetList(_block_map_list);
-
-    while ((m = (g_block_map_t *)GetListElement(_block_map_list)) !=
-           (g_block_map_t *)NULL)
-        DestroyBlockMap(m);
-
-    DestroyList(_block_map_list, (void (*)(void *))NULL);
-    HashDestroy(_block_map_table, (void (*)(char *, void *))NULL);
+    _block_map_table.clear();
+    _block_map_list.clear();
 }
 
 bool BlockMapIsDegen(g_block_map_t* m) {
     for (int i=0; i<m->m_rank; ++i) {
-        if (m->m_distribute[i] != CT_STAR) return false;
+        if (m->m_distribute[i] != Distribution::Star) return false;
     }
     return true;
 }
 size_t BlockMapGetElementsPerRank(g_block_map_t* m) {
     size_t len = 1;
     for (int i=0; i<m->m_rank; ++i) {
-        if (m->m_distribute[i] == CT_STAR) {
+        if (m->m_distribute[i] == Distribution::Star) {
             len *= m->m_data[i];
         } else if (m->m_procs[i] > 0) {
             // there's no reason m_procs[i] would be zero,
@@ -488,11 +423,9 @@ size_t BlockMapGetElementsPerRank(g_block_map_t* m) {
     return len;
 }
 
-/*
-** Extract and combine data using blockmap function.
-*/
-AIFStream *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
-                                   int array_size, rep_set_t *rep_set) {
+AIFStream *construct_blockmap_data(g_block_map_t *bm,
+                                   rec_set_t* rec_set,
+                                   rep_set_t *rep_set) {
     if (!rep_set) return nullptr;
 
     // Make sure that there were no errors and we received rep_set, otherwise
@@ -505,29 +438,41 @@ AIFStream *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
         PrintOutError("Cannot build blockmap due to empty reply!\n");
         return nullptr;
     }
-    // FIXME: Currently this only works with sets that have only 1 over_set
-    if (procset->s_num_sets != 1) {
-        PrintOutError(
-            "Cannot build blockmap due to multiple handles in procset!\n");
-        return nullptr;
+
+    size_t numRanks = 0;
+
+    // map each DI to the subset of involved ranks and to an offset
+    // within the out ranks
+    auto dis = std::map<DbgInvoke*,std::pair<Bitset*,size_t>>{};
+    
+    auto rcvs = rec_set->getReceivers();
+    for (auto rcv : rcvs) {
+        dis[&rcv->rec_di] = std::make_pair(rcv->rec_group.get(), numRanks);
+        numRanks += rcv->rec_group->numSet();
     }
 
-    // FIXME: This only works with procsets having a single over_set, i.e.
-    // DBGSET_INVOKE
-    SetOverlaySetForProcSet(procset);
-    auto over_set = GetNextOverlaySetForProcSet(procset);
-
     // Create an array of aif values
-    auto da = std::vector<AIFStream*>{size_t(array_size)};
+    auto da = std::vector<AIFStream*>{numRanks};
 
     // process rep_set, placing the AIF data into the array
     for (auto&& reply : rep_set) {
-        // Now loop over every rank to see if its in this reply
-        // FIXME: There must be a more efficient way to do this...
-        for (int i = 0; i < array_size; ++i) {
-            // Check if this rank is in this reply
-            if (reply->rep_group->test(i + over_set->s_ps_offset)) {
-                da[i] = EVENT_DATA(reply->rep_event)->join();
+        // A blockmap across multiple DI's seems weird, but we can track
+        // an offset for the mapping, so it's not a lot of work
+        auto [ rcvGrp, offset ] = dis[reply->rep_di.lock()];
+        auto repGrp = reply->rep_group.get();
+        auto dsIdx = offset;
+
+        // A blockmap across a subset of the procset is a bit more likely,
+        // so note how we're testing the rsvGrp first since it determines 
+        // the index within the result
+        for (size_t i = 0, n = rcvGrp->sizeInBits(); i < n; ++i) {
+            if (rcvGrp->test(i)) {
+                // Check if this rank is in this reply
+                if (repGrp->test(i)) {
+                    // Why is the join here?
+                    da[dsIdx] = EVENT_DATA(reply->rep_event)->join();
+                }
+                ++dsIdx;
             }
         }
     }
@@ -540,6 +485,7 @@ AIFStream *construct_blockmap_data(g_block_map_t *bm, dbgprocset_t *procset,
 
     return a;
 }
+
 
 // Print out an AIF (presumably stream) value reformated by a block map
 void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, std::ostream& out) {

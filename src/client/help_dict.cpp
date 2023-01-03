@@ -1307,7 +1307,7 @@ const char* const cmd_info_threads_help[] = {
     "returned by thread find.",
     nullptr};
 
-const char * const cmd_info_blockmap_help[] = {
+const char * const cmd_info_decomposition_help[] = {
     "Summary: Display defined decompositions.", "",
     "Description:", "Display the names of defined decompositions.", 0};
 

@@ -545,9 +545,6 @@ void SubShell::readThread(int fid) {
 
 static int cmd_maint_set_earlyentry_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
-    const char *s;
-    ct_val cv;
-
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: maint set earlyentry [on|off]\n");
@@ -555,20 +552,14 @@ static int cmd_maint_set_earlyentry_cmd(rec_set_t *rec_set, int argc,
     }
 
     // only look at the first arg
-    s = argv[1];
-
-    switch (ScanString(&cv, &s)) {
-        case CT_TRUE:
-            Client.early_entry = 1;
-            break;
-        case CT_FALSE:
-            Client.early_entry = 0;
-            break;
-        default:
-            PrintOutError("Encountered something other than on or off.\n");
-            PrintOutError(
-                "See \"help maint set earlyentry\" for more information.\n");
-            return 0;
+    auto s = std::string{argv[1]};
+    if (s == "on") Client.early_entry = 1;
+    else if (s == "off") Client.early_entry = 0;
+    else {
+        PrintOutError("Encountered something other than on or off.\n");
+        PrintOutError(
+            "See \"help maint set earlyentry\" for more information.\n");
+        return 0;
     }
 
     return 1;
@@ -586,9 +577,6 @@ static int cmd_maint_show_earlyentry_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_maint_set_unsafe_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
-    const char *s;
-    ct_val cv;
-
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: maint set unsafe [on|off]\n");
@@ -596,20 +584,15 @@ static int cmd_maint_set_unsafe_cmd(rec_set_t *rec_set, int argc,
     }
 
     // only look at the first arg
-    s = argv[1];
+    auto s = std::string{argv[1]};
 
-    switch (ScanString(&cv, &s)) {
-        case CT_TRUE:
-            Client.unsafe = 1;
-            break;
-        case CT_FALSE:
-            Client.unsafe = 0;
-            break;
-        default:
-            PrintOutError("Encountered something other than on or off.\n");
-            PrintOutError(
-                "See \"help maint set unsafe\" for more information.\n");
-            return 0;
+    if (s == "on") Client.unsafe = 1;
+    else if (s == "off") Client.unsafe = 0;
+    else {
+        PrintOutError("Encountered something other than on or off.\n");
+        PrintOutError(
+            "See \"help maint set unsafe\" for more information.\n");
+        return 0;
     }
 
     return 1;
@@ -627,9 +610,6 @@ static int cmd_maint_show_unsafe_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_maint_set_sync_cmd(rec_set_t *rec_set, int argc,
                                            char **argv) {
-    const char *s;
-    ct_val cv;
-
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: maint set sync [on|off]\n");
@@ -637,28 +617,25 @@ static int cmd_maint_set_sync_cmd(rec_set_t *rec_set, int argc,
     }
 
     // only look at the first arg
-    s = argv[1];
+    auto s = std::string{argv[1]};
 
-    switch (ScanString(&cv, &s)) {
-        case CT_TRUE:
-            Client.sync_wait = 1;
-            break;
-        case CT_FALSE:
-            // Possibly reset if we are currently blocking
-            // Note that this is probably unecessary since I don't know how this
-            // command could possibly execute without being unblocked, but it is
-            // good practice I suppose.
-            if (Client.sync_blocked) {
-                DbgUnmaskInput();
-                Client.sync_blocked = 0;
-            }
-            Client.sync_wait = 0;
-            break;
-        default:
-            PrintOutError("Encountered something other than on or off.\n");
-            PrintOutError(
-                "See \"help maint set sync\" for more information.\n");
-            return 0;
+    if (s == "on") {
+        Client.sync_wait = 1;
+    } else if (s == "off") {
+        // Possibly reset if we are currently blocking
+        // Note that this is probably unecessary since I don't know how this
+        // command could possibly execute without being unblocked, but it is
+        // good practice I suppose.
+        if (Client.sync_blocked) {
+            DbgUnmaskInput();
+            Client.sync_blocked = 0;
+        }
+        Client.sync_wait = 0;
+    } else {
+        PrintOutError("Encountered something other than on or off.\n");
+        PrintOutError(
+            "See \"help maint set sync\" for more information.\n");
+        return 0;
     }
 
     return 1;
@@ -802,13 +779,6 @@ static int class_show_sub_cmd_prompt_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_set_error_cmd(rec_set_t *rec_set, int argc,
                                       char **argv) {
-    const char *s;
-    char *buf;
-    long double lower;
-    long double upper;
-    long double ulp;
-    ct_val cv;
-
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: set error [warn] [error]\n");
@@ -816,44 +786,17 @@ static int cmd_set_error_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    buf = ArgsToBuf(&argv[1], argc - 1);
-
-    s = buf;
-
-    switch (ScanString(&cv, &s)) {
-        case CT_FLOAT:
-            lower = cv.cv_float;
-            break;
-        case CT_INT:
-            lower = (long double)cv.cv_int;
-            break;
-        default:
-            PrintOutError(
-                "Encountered a non-numeric value for the warning epsilon "
-                "argument.\n");
-            PrintOutError("Must be a numeric value. Example: 1e-16\n");
-            Free(buf);
-            return 0;
+    double lower, upper, ulp;
+    try {
+        lower = std::stod(argv[1]);
+        upper = std::stod(argv[2]);
+    } catch (...) {
+        PrintOutError(
+            "Encountered a non-numeric value for the warning epsilon "
+            "argument.\n");
+        PrintOutError("Must be a numeric value. Example: 1e-16\n");
+        return 0;
     }
-
-    switch (ScanString(&cv, &s)) {
-        case CT_FLOAT:
-            upper = cv.cv_float;
-            break;
-        case CT_INT:
-            upper = (long double)cv.cv_int;
-            break;
-        default:
-            PrintOutError(
-                "Encountered a non-numeric value for the error epsilon "
-                "argument.\n");
-            PrintOutError("Must be a numeric value. Example: 2e-15\n");
-            Free(buf);
-            return 0;
-    }
-
-    // Done with buf
-    Free(buf);
 
     // ensure upper and lower are ever so slightly greater than zero.
     if ((lower == 0.0) || (upper == 0.0)) {
@@ -972,9 +915,6 @@ static int cmd_set_logging_cmd(rec_set_t *rec_set, int argc, char **argv){
 
 static int cmd_set_print_entryframe_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
-    const char *s;
-    int entryframe_flag;
-    ct_val cv;
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -983,26 +923,19 @@ static int cmd_set_print_entryframe_cmd(rec_set_t *rec_set, int argc,
     }
 
     // only look at the first arg
-    s = argv[1];
+    auto s = std::string{argv[1]};
 
-    switch (ScanString(&cv, &s)) {
-        case CT_TRUE:
-            entryframe_flag = 1;
-            break;
+    int entryframe_flag = 1;
 
-        case CT_FALSE:
-            entryframe_flag = 0;
-            break;
-
-        default:
-            PrintOutError("Encountered something other than true or false.\n");
-            PrintOutError(
-                "See \"help set print entry-frame\" for more information.\n");
-            return 0;
+    if (s == "true") entryframe_flag = 1;
+    else if (s == "false") entryframe_flag = 0;
+    else {
+        PrintOutError("Encountered something other than true or false.\n");
+        PrintOutError("See \"help set print entry-frame\" for more information.\n");
+        return 0;
     }
 
     Client.print_entry_frame = entryframe_flag;
-
     return 1;
 }
 
@@ -1018,9 +951,6 @@ static int cmd_show_print_entryframe_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_set_print_sourceonstep_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
-    const char *s;
-    int sourceonstep_flag;
-    ct_val cv;
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -1029,22 +959,16 @@ static int cmd_set_print_sourceonstep_cmd(rec_set_t *rec_set, int argc,
     }
 
     // only look at the first arg
-    s = argv[1];
+    auto s = std::string{argv[1]};
+    auto sourceonstep_flag = 1;
 
-    switch (ScanString(&cv, &s)) {
-        case CT_TRUE:
-            sourceonstep_flag = 1;
-            break;
-
-        case CT_FALSE:
-            sourceonstep_flag = 0;
-            break;
-
-        default:
-            PrintOutError("Encountered something other than true or false.\n");
-            PrintOutError(
-                "See \"help set print source-on-step\" for more information.\n");
-            return 0;
+    if (s == "true") sourceonstep_flag = 1;
+    else if (s == "false") sourceonstep_flag = 0;
+    else {
+        PrintOutError("Encountered something other than true or false.\n");
+        PrintOutError(
+            "See \"help set print source-on-step\" for more information.\n");
+        return 0;
     }
 
     Client.print_source_on_step = sourceonstep_flag;

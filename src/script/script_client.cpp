@@ -3,16 +3,10 @@
  ******************************************************************************/
 
 #include "script_client.h"
-#include "compare_util.h"
 #include "cli_funcs.h"
 #include "client.h"
 #include "dbg_client.h"
-#include "gram.h"
-#include "procset.h"
-#include "val.h"
-#include "gram.h"
 #include "onscopeexit.h"
-
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
@@ -370,86 +364,63 @@ bool ScriptRunner::hasReadyAsserts() const {
 
 bool ScriptRunner::evaluateReadyAsserts() {
     for (auto& assert : m_pendingAsserts) {
-        if (assert.isReady()) {
-            // XXX: EvalCompare waits until it's substantially lost in the
-            // expr.cpp/gram.cpp logic to bother looking at the Client's epsilon values,
-            // so we have to set/unset here in order to support per-assertion epsilons
+        if (!assert.isReady()) continue;
 
-            // keep track of old values
-            auto oldLow = Client.cmp_lower_eps;
-            auto oldHigh = Client.cmp_upper_eps;
+        // XXX: EvalCompare waits until it's substantially lost in the
+        // expr.cpp/gram.cpp logic to bother looking at the Client's epsilon values,
+        // so we have to set/unset here in order to support per-assertion epsilons
 
-            Client.cmp_lower_eps = assert.settings().error.first;
-            Client.cmp_upper_eps = assert.settings().error.second;
+        // keep track of old values
+        auto oldLow = Client.cmp_lower_eps;
+        auto oldHigh = Client.cmp_upper_eps;
 
-            // returned by EvalCompare below
-            val_t* rawResult = nullptr;
-            val_t* rawDifference = nullptr;
+        Client.cmp_lower_eps = assert.settings().error.first;
+        Client.cmp_upper_eps = assert.settings().error.second;
 
-            OnScopeExit cleanupPtrs = [&](){
-                DestroyVal(rawResult);     // nullptr is fine
-                DestroyVal(rawDifference); // nullptr is fine
+        // returned by EvalCompare below
+        OnScopeExit cleanupPtrs = [&](){
+            // restore error settings
+            Client.cmp_lower_eps = oldLow;
+            Client.cmp_upper_eps = oldHigh;
+        };
 
-                // restore error settings
-                Client.cmp_lower_eps = oldLow;
-                Client.cmp_upper_eps = oldHigh;
-            };
+        LOG("Evaluating " << assert.id() << ": " << assert.string());
+        if (assert.settings().verboseEval) {
+            PrintOutMsg("Evaluating assertion %lu: %s\n", assert.id(), assert.string().c_str());
+        }
 
-            LOG("Evaluating " << assert.id() << ": " << assert.string());
-            if (assert.settings().verboseEval) {
-                PrintOutMsg("Evaluating assertion %lu: %s\n", assert.id(), assert.string().c_str());
-            }
-
-            // Print elements affects what data gets sent back and thus affects
-            // compare results. ClientSetPrintElements only does work if the value is
-            // different from the current setting, so it's ok to call it every iteration
-            if (Client.print_elements != 0) m_oldPrintElements = Client.print_elements;
-            ClientSetPrintElements(0, &m_fullRecSet);
+        // Print elements affects what data gets sent back and thus affects
+        // compare results. ClientSetPrintElements only does work if the value is
+        // different from the current setting, so it's ok to call it every iteration
+        if (Client.print_elements != 0) m_oldPrintElements = Client.print_elements;
+        ClientSetPrintElements(0, &m_fullRecSet);
             
-            auto recSet = assert.createRecSet();
-            auto& expr = assert.expressionHandle();
+        auto recSet = assert.createRecSet();
+        auto& expr = assert.expressionHandle();
 
-            if (EvalCompare(&rawResult, &rawDifference, &expr.raw(), recSet.get()) < 0 || !rawResult) {
-                PrintOutError("Error in evaluation of \"%s\".\n", assert.string().c_str());
-                PrintError();
-                uninstall();
-                return false;
-            }
+        try {
+            auto res = expr.evalCompare(recSet.get());
 
-            // wrap in smart pointers
-            using ValPtr = std::unique_ptr<val_t, decltype(&DestroyVal)>;
-            auto result = ValPtr(rawResult, DestroyVal); 
-            auto difference = ValPtr(rawDifference, DestroyVal);
-            rawResult = nullptr;
-            rawDifference = nullptr;
+            auto [ simpleResult, diff] = res->getSimpleResult(recSet.get());
 
             if (assert.settings().verboseEval) {
-                printCompareResult(result.get(), difference.get(), *recSet);
+                res->print(Client.cli_out->ostream(), recSet.get(), "");
             }
 
-            // record result - update counters
+            // record the result - update counters
             auto& resultPack = m_results[assert.id()]; // creates if not present
-            auto simpleResult = simpleCompareResult(*result);
 
             switch (simpleResult) {
-            case CompareResult::Pass:
-                resultPack.passes++;
-                break;
-            case CompareResult::Warn:
-                resultPack.warnings++;
-                break;
-            case CompareResult::Fail:
-                resultPack.failures++;
-                break;
-            case CompareResult::Unknown:
-                // not counted
-                break;
+            case CompareResult::Pass:    resultPack.passes++; break;
+            case CompareResult::Warn:    resultPack.warnings++; break;
+            case CompareResult::Fail:    resultPack.failures++; break;
+            case CompareResult::Invalid: break; // not counted
             }
 
             // record result - update result/diffs
             resultPack.results.emplace_back(Result{.recSet = std::move(recSet),
-                                           .result = std::move(result),
-                                           .difference = std::move(difference)});
+                                                   .result = simpleResult,
+                                                   .diff = std::move(diff)});
 
             if (Client.XML_mode) {
                 PrintOutLine(XML_RESULT, name().c_str(), assert.id(), resultPack.passes,
@@ -461,6 +432,12 @@ bool ScriptRunner::evaluateReadyAsserts() {
                 m_manualFinishFlag = true;
                 break;
             }
+
+        } catch (EvalError& err) {
+            PrintOutError("Error in evaluation of \"%s\".\n", assert.string().c_str());
+            PrintOutError("%s\n", err.what());
+            uninstall();
+            return false;
         }
     }
 
@@ -504,7 +481,7 @@ std::vector<std::pair<const data::Assertion*, const SR::Result*>> ScriptRunner::
         const auto& assert = m_script->asserts()[id - 1];
 
         for (const auto& result : resultPack.results) {
-            auto simpleResult = simpleCompareResult(*result.result);
+            auto simpleResult = result.result;
             if (simpleResult == CompareResult::Warn || simpleResult == CompareResult::Fail) {
                 r.emplace_back(&assert, &result);
             }
@@ -525,10 +502,9 @@ std::vector<std::pair<const SR::Result*, size_t>> ScriptRunner::getCondensedDiff
     if (auto it = m_results.find(assert.id()); it != m_results.end()) {
         for (const auto& result : it->second.results) {
             const auto& Pass = CompareResult::Pass;
-            const auto& Unkn = CompareResult::Unknown;
+            const auto& Unkn = CompareResult::Invalid;
 
-            if (simpleCompareResult(*result.result) != Pass &&
-                simpleCompareResult(*result.result) != Unkn) {
+            if (result.result != Pass && result.result != Unkn) {
                 if (stats.size() == 0) {
                     stats.emplace_back(std::make_pair(&result, 1ul));
                 } else {
@@ -568,19 +544,11 @@ std::string ScriptRunner::summary() const {
     size_t indet = 0;
     for (const auto& [id, resultPack] : m_results) {
         for (const auto& result : resultPack.results) {
-            switch (simpleCompareResult(*result.result)) {
-            case CompareResult::Pass:
-                pass++;
-                break;
-            case CompareResult::Warn:
-                warn++;
-                break;
-            case CompareResult::Fail:
-                fail++;
-                break;
-            case CompareResult::Unknown:
-                indet++;
-                break;
+            switch (result.result) {
+            case CompareResult::Pass: pass++; break;
+            case CompareResult::Warn: warn++; break;
+            case CompareResult::Fail: fail++; break;
+            case CompareResult::Invalid: indet++; break;
             }
         }
     }
@@ -875,59 +843,7 @@ std::tuple<size_t, size_t, size_t> ScriptRunner::getResultTotals() const {
 }
 
 bool SR::Result::operator==(const Result& other) const {
-    if (simpleCompareResult(*result) != simpleCompareResult(*other.result)) {
-        return false;
-    }
-
-    const auto& Pass = CompareResult::Pass;
-    const auto& Unknown = CompareResult::Unknown;
-
-    // both results known to be the same
-    if (simpleCompareResult(*result) == Pass || simpleCompareResult(*result) == Unknown) {
-        return true;
-    }
-
-    if (RetrieveContents(difference.get(), recSet.get())) return false;
-    if (RetrieveContents(other.difference.get(), other.recSet.get())) return false;
-
-    // results are warn/fail; compare the two results' diffs
-    if (RVAL_TYPE(difference) != RVAL_TYPE(other.difference)) {
-        return false;
-    }
-
-    switch (difference->val_rval_type) {
-        case rval_aif: {
-            auto* aisL = difference->rval_u.rval_aif;
-            auto* aisR = other.difference->rval_u.rval_aif;
-            return AIFStream::compareEqual(*aisL, *aisR);
-        }
-
-        case rval_reply: {
-            auto* repSetL = difference->rval_u.rval_reply;
-            auto* repSetR = other.difference->rval_u.rval_reply;
-
-            if (repSetL->getNumReplies() != repSetR->getNumReplies()) {
-                return false;
-            }
-
-            for (size_t i = 0; i < repSetL->getNumReplies(); i++) {
-                auto* repL = repSetL->getReplies()[i];
-                auto* repR = repSetR->getReplies()[i];
-
-                if (repL->rep_di != repR->rep_di) return false;
-                if (*repL->rep_group != *repR->rep_group) return false;
-
-                auto* aisL = repL->rep_event->ev_u.ev_u_data;
-                auto* aisR = repR->rep_event->ev_u.ev_u_data;
-                if (!AIFStream::compareEqual(*aisL, *aisR) != 0) return false;
-            }
-
-            return true;
-        }
-
-        default:
-            return false;
-    }
+    return ( result == other.result && diff == other.diff);
 }
 
 static std::unique_ptr<rec_set_t> createRecSetForLocation(const data::ProgramLocation& loc) {
@@ -946,14 +862,8 @@ static std::unique_ptr<rec_set_t> createRecSetForLocation(const data::ProgramLoc
 SR::Assertion::Assertion(const data::Assertion& assert)
     : m_assert{assert}
     , m_parsed{assert.parse()} // throws InvalidAssertionError on error
-    , m_orig_expression{m_parsed.expression}
     , m_locs{m_parsed.locations}
-    , m_eval_expression{m_orig_expression.view()}
 {
-    // evaluation will fail if expression contains locations (@"filename":linenum), so
-    // filter them out
-    m_eval_expression.filterOut<ExpressionHandle::ProgLocExpr>();
-
     for (const auto& loc : m_locs) {
         m_breakpointLocs.emplace_back(-1, &loc);
     }
@@ -1163,8 +1073,8 @@ SR::Assertion::ranksMap() const {
     return m_fullSets;
 }
 
-const ExpressionHandle::View& SR::Assertion::expressionHandle() const {
-    return m_eval_expression;
+const gram::Expression& SR::Assertion::expressionHandle() const {
+    return *m_parsed.expression;
 }
 
 std::unique_ptr<rec_set_t> SR::Assertion::createRecSet() const {

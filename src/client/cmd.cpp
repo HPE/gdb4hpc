@@ -30,7 +30,6 @@
 #include "bitset.h"
 #include "dbgevent.h"
 #include "mi_funcs.h"
-
 /*
 ** Internal global variables
 */
@@ -517,7 +516,6 @@ void InitCommands() {
     InitCmd_env();
     InitCmd_iostat();
     InitCmd_frame();
-    InitCmd_func();
     InitCmd_go();
     InitCmd_script();
     InitCmd_list();
@@ -543,11 +541,7 @@ void InitCommands() {
     _alphabetize_cmd_list(UnsetCmds->cmd_list);
     _alphabetize_cmd_list(UsageCmds->cmd_list);
 
-    InitCmdToken();
-
     (void)SetCommands(Cmds);
-
-    InitBuiltinFuncs();
 };
 
 void DestroyCommands(void) {
@@ -560,7 +554,6 @@ void DestroyCommands(void) {
     FinishCmd_blockmap();
     DestroyCommandList(Cmds);
     DestroyCmd_class();
-    FinishCmdToken();
 }
 
 // queue a command to later be executed by ExecuteQueuedCommands

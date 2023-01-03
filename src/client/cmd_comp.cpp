@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -26,13 +26,26 @@
 #include "client.h"
 #include "useful.h"
 #include "dense_bitset.h"
-#include "compare_util.h"
+#include "gram.h"
+#include "eval.h"
 
+namespace {
+    class CachePrintElements {
+    public:
+        CachePrintElements(rec_set_t* rec_set) :
+            m_rec_set(rec_set), m_oldVal(Client.print_elements) {
+            ClientSetPrintElements(0, rec_set);
+        }
+        ~CachePrintElements() {
+            ClientSetPrintElements(m_oldVal, m_rec_set);
+        }
+    private:
+        rec_set_t* m_rec_set;
+        int m_oldVal;
+    };
+}
+        
 static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    char *buf;
-    val_t *val_res = nullptr;
-    val_t *val_diff = nullptr;
-    expr_t *e;
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -46,55 +59,42 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 1;
     }
 
-    buf = ArgsToBuf(&argv[1], argc - 1);
-
-    if ((e = ParseExpr(buf)) == (expr_t *)nullptr) {
-        PrintError();
-        Free(buf);
-        return 0;
-    }
-
-    // done with buf
-    Free(buf);
-
-    // FIXME: this is inefficient, but since the print elements setting affects
-    // what gets sent back, we need to set/reset it before evaluating a compare
-    //
-    // set print elements to unlimited
-    int oldPrintElements = Client.print_elements;
-    ClientSetPrintElements(0, rec_set);
+    auto args = ArgsToString(&argv[1], argc - 1);
 
     DPERFLOG(SetTimerStart("compare"));
+    try {
+        auto expr = ParseString(args);
 
-    if (EvalCompare(&val_res, &val_diff, e, rec_set) < 0) {
-        PrintError();
-        FreeExpr(e);
+        auto printElems = CachePrintElements(rec_set);
+
+        // The EvalCompare function will read the current values of
+        // Client.cmp_lower_eps and Client.cmp_upper_eps to implement epsilon
+        // tolerances for floating point values.
+
+        auto res = expr->evalCompare(rec_set);
+
+        if (!Client.MI_mode) {
+            res->print(Client.cli_out->ostream(), rec_set, "");
+        } else {
+            auto os = std::ostringstream{};
+            res->print(os, rec_set, "");
+            auto val = FormatMIValue(os.str());
+
+            // Front load the result
+            auto look = std::string{"Comparison is "};
+            if (auto pos = val.find(look); pos != std::string::npos) {
+                val.erase(0, pos+look.size());
+                val[0] = std::toupper(val[0]);
+            }
+            PrintOutMIResult(MIResult::DONE,"compare={result=\"%s\"}\n", val.c_str());
+        } 
+    } catch (EvalError& err) {
+        auto msg = std::string{err.what()} + "\n";
+        PrintOutError(msg.c_str());
         return 0;
     }
 
     DPERFLOG(SetTimerStopAndLog("compare"));
-
-    // set print elements back to client setting
-    ClientSetPrintElements(oldPrintElements, rec_set);
-
-    FreeExpr(e);
-
-    /*
-    ** The EvalCompare function will read the current values of
-    *Client.cmp_lower_eps
-    ** and Client.cmp_upper_eps to implement epsilon tolerances for floating
-    *point
-    ** values.
-    **
-    ** TODO: We should save the difference data instead of displaying it
-    **       similar to what graph does with info diff.
-    */
-
-    printCompareResult(val_res, val_diff, *rec_set);
-
-    if (val_diff != nullptr) DestroyVal(val_diff);
-
-    if (val_res != nullptr) DestroyVal(val_res);
 
     return 1;
 }

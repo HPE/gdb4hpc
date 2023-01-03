@@ -109,7 +109,7 @@ extern const char* const cmd_info_source_help[];
 extern const char* const cmd_info_sources_help[];
 extern const char* const cmd_info_status_help[];
 extern const char* const cmd_info_threads_help[];
-extern const char* const cmd_info_blockmap_help[];
+extern const char* const cmd_info_decomposition_help[];
 extern const char* const cmd_info_diff_help[];
 extern const char* const cmd_info_script_help[];
 extern const char* const cmd_info_iostat_help[];

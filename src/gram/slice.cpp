@@ -22,9 +22,9 @@
 #include <algorithm>
 
 #include "defs.h"
-#include "gram.h"
 #include "useful.h"
 #include "sparse_bitset.h"
+#include "slice.h"
 
 #define INIT_SLICE 4
 
@@ -186,7 +186,7 @@ void slice_t::parseIdcs() {
         arg = arg.substr(1,arg.size()-2);
     }
         
-    auto nonMatch = arg.find_first_not_of("0123456789,:*");
+    auto nonMatch = arg.find_first_not_of("0123456789,:*-");
     if (nonMatch != std::string::npos) {
         DPRINT("argument is not a slice, it has: %c\n", arg[nonMatch]);
         return;

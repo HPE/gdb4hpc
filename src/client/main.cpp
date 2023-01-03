@@ -540,7 +540,6 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    InitVal();
     InitProcSet();
     InitCommands();
 
@@ -623,8 +622,6 @@ int main(int argc, char *argv[]) {
     EndAll();
     DbgFinalize();
     FinishProcSet();
-    FinishFunc();
-    FinishVal();
     DestroyCommands();
     DestroyCLI();
 

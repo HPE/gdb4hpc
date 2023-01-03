@@ -47,9 +47,9 @@ b{0..1}: 9.5
 b{0..1}: 9.5
 20: # run compare command
 21: compare $b{0}::area1=$b{1}::area1
-{0..1}: Comparison is true.
+{0}: Comparison is true.
 22: compare $b{0}::area2=$b{1}::area2
-{0..1}: Comparison is true.
+{0}: Comparison is true.
 23: # print the containers to verify the pretty printing
 24: print l
 b{0..1}: {std::__cxx11::_List_base<int, std::allocator<int> > = {_M_impl = {std::__cxx11::_List_base<int, std::allocator<int> >::_Node_alloc_type = {std::__allocator_base<std::_List_node<int> > = {}}, _M_node = {std::__detail::_List_node_base = {_M_next = (std::__detail::_List_node_base*) <2>, _M_prev = (std::__detail::_List_node_base*) <3>}, _M_size = 10}}}}

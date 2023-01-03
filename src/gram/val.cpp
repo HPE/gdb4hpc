@@ -1,994 +1,867 @@
-/*********************************************************************************\
- * Value routines
- *
- * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
- *
- * Copyright 2010-2014,2020-2022 Hewlett Packard Enterprise Development LP.
- *
- * Unpublished Proprietary Information.
- * This unpublished work is protected to trade secret, copyright and other laws.
- * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
- * no part of this work or its content may be used, reproduced or disclosed
- * in any form.
- *********************************************************************************/
+/*******************************************************************************
+ * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ ******************************************************************************/
 
-/*
-** TODO: The following is old. The entire interface was changed. Please write
-**        updated documentation for this interface.
-**
-** How vals work.
-**
-** Value Reference:
-**
-** Data read from a program being debugged is stored in a val with
-** type lval_gdb. Literal values are stored in a val of type lval_none.
-**
-** Indexing or slicing a val (and possibly derefrencing) creates
-** a new val whose type depends on the original type of the val.
-** For lval_gdb and lval_none, the new type is lval_none.
-** For lval_internal and lval_ref, the new type is lval_ref.
-** An lval_ref type contains a pointer to the original val.
-**
-** Value Assignment:
-**
-** The lval of an assignment is only allowed to be lval_gdb, lval_internal
-** or lval_ref.
-**
-** When a new value is assigned to an internal variable using (1) or (2)
-** below, the type of the new value is changed to lval_internal. This
-** means that an lval_ref also becomes an lval_internal again. Assignment
-** using (3) does not change the type, since the data is just copied to
-** an existing val.
-**
-** 1) Assigning to a non-existent variable works like this. Referencing
-** a non-existent variable causes a new value to be created of type
-** lval_internal and whose value is empty (either v0 or an array of v0).
-** This value is then discarded and replaced with the val being assigned.
-**
-** 2) Assigning to an existing variable just results in the current val
-** being discarded and replaced with the new val.
-**
-** 3) Assigning to an array location or slice is more complicated. First
-** the location or slice is evaluated, resulting in a new val of
-** type lval_ref (as described above). The assignment detects the
-** lval_ref and uses the pointer to the original variable along with
-** the size and shape of the lval_ref to determine where to store
-** the data.
-**
-** Destroying Vals
-**
-** The only special type of val is lval_internal which is sticky. That
-** is, a call to DestroyVal() doesn't do anything.
-*/
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
-
-#include <signal.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "dbg_client.h"
-#include "defs.h"
+#include "eval.h"
 #include "gram.h"
-#include "useful.h"
+#include <iostream>
+#include <cstring>
+#include <unistd.h>
 
-// Static functions
-static void Destroyrval_ref(rval_ref_val *);
-static rval_ref_val *NewRvalRef(void);
+// remove these when I pull new_print_cmd
+#include "args.h"
+#include "cli_funcs.h"
+#include "client_settings.h"
+#include "dbg_client.h"
+#include "../gram/procset.h"
+#include "../gram/slice.h"
+#include "../gram/blockmap.h"
 
-#define DBG_VAL_TABLE_SIZE 7 /* 2^7 = 128 */
+// clean these up
+struct dbgprocset_t;
+typedef struct dbgprocset_t dbgprocset_t;
+extern dbgprocset_t *FindProcSet(const char *name);
+extern dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice);
+extern void FreeProcSet(dbgprocset_t *s);
+extern rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps);
+extern rep_set_t *DbgEvalExpr(rec_set_t *set, const char *exp);
+extern void SetOverlaySetForProcSet(dbgprocset_t *s);
+extern dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *s);
+struct g_block_map_t;
+typedef struct g_block_map_t g_block_map_t;
+extern g_block_map_t *FindBlockMap(const std::string& blockmap);
 
-htable_t *_val_table = (htable_t *)NULL;
-val_t _lval = {lval_internal, {NULL}, rval_aif, {NULL}, 0};
+std::map<std::string, rec_set_t*> IdMap::m_psetMap;
 
-void InitVal(void) {
-    if (_val_table == (htable_t *)NULL)
-        _val_table = HashCreate(DBG_VAL_TABLE_SIZE);
+std::pair<rec_set_t*,dbgprocset_t*>
+IdMap::getRecSetForProcs(const std::string& procs) {
+
+    auto [procSet, isTmp] = getProcset(procs);
+
+    if (!procSet) {
+        throw EvalError("no procset for " + procs);
+    }
+
+    auto rec_set = CreateRecSetForProcset(procSet);
+    return std::make_pair(rec_set, isTmp ? procSet : nullptr);
 }
 
-void _destroy_val(char *s, void *d) {
-    DestroyInternalVal((val_t *)d);
-    DestroyVal((val_t *)d);
-}
+std::pair<dbgprocset_t*,bool> IdMap::getProcset(const std::string& procs) {
+    auto brace = procs.find('{',1);
+    auto name = std::string{};
+    auto slice = std::unique_ptr<slice_t>{};
 
-void FinishVal(void) {
-    HashDestroy(_val_table, _destroy_val);
-    _val_table = (htable_t *)NULL;
-}
+    if (brace == std::string::npos) {
+        name = procs.substr(1);
+    } else {
+        name = procs.substr(1,brace-1);
+        auto endBrace = procs.find('}', brace+1);
+        auto sliceArg = procs.substr(brace+1, endBrace-brace-1);
 
-/*
-** This function was very confusing to me for a long time.
-** Its primary function is to create a temporary val for a sym when it is going
-** to be used with the AssignVal function. This function creates a NewVal from
-** the lval and rval val's that are passed in.
-*/
-val_t *MakeTransitoryLval(hentry_t *sym) {
-    _lval.lval_u.lval_sym = sym;
-    return &_lval;
-}
-
-/*
-** This function is used to return the actual rval, i.e. dereferencing
-*references
-** This is not actual dereference, but we want to know the type a reference is
-** pointing at.
-*/
-rval_type GetActualRvalType(val_t *val) {
-    rval_ref_val *ref;
-
-    if (val == NULL) return rval_none;
-
-    if (RVAL_TYPE(val) == rval_ref) {
-        switch (RVAL_REF_TYPE(val)) {
-            case rval_ref:
-                ref = REF_VAL(RVAL_REF_VAL(val));
-                // need to loop through to determine the type
-                while (ref->ref_type == rval_ref) {
-                    ref = REF_VAL(*(ref->ref_val));
-                }
-                return ref->ref_type;
-
-            default:
-                // for everything else the actual rval is known by the ref type
-                return RVAL_REF_TYPE(val);
+        // translate to slice format
+        for (size_t i=0; (i=sliceArg.find("..")) != std::string::npos; ++i) {
+            sliceArg.replace(i,2,":");
         }
+        slice.reset(new slice_t);
+        slice->setArgs(sliceArg.c_str());
     }
 
-    // for everything other than rval_ref, the actual rval is known
-    return RVAL_TYPE(val);
-}
+    auto isTmp = false;
+    auto procSet = FindProcSet(name.c_str());
 
-/*
-** This function is used to return the actual AIF val, ignoring refs.
-*/
-AIFStream *GetActualAIF(val_t *val) {
-    rval_ref_val *ref;
-
-    if (val == NULL) return NULL;
-
-    switch (RVAL_TYPE(val)) {
-        case rval_ref:
-            // switch on the ref rval type
-            switch (RVAL_REF_TYPE(val)) {
-                case rval_ref:
-                    ref = REF_VAL(RVAL_REF_VAL(val));
-                    // need to loop through to get at the base
-                    while (ref->ref_type == rval_ref) {
-                        ref = REF_VAL(*(ref->ref_val));
-                    }
-
-                    // ref is now pointing at the base, make sure its an AIF
-                    // type
-                    if (ref->ref_type != rval_aif) {
-                        // The base is something other than AIF!
-                        SetError(
-                            "Internal error: Called GetActualAIF with rval_ref "
-                            "other than AIF.\n");
-                        return NULL;
-                    }
-
-                    // return the base
-                    return AIF_VAL(*(ref->ref_val))->join();
-
-                case rval_aif:
-                    // Can return the AIF type directly
-                    return AIF_VAL(RVAL_REF_VAL(val))->join();
-
-                // Everything else is an error!
-                default:
-                    SetError(
-                        "Internal error: Called GetActualAIF with rval_ref "
-                        "other than AIF.\n");
-                    return NULL;
+    if (procSet && slice) {
+        // check the result
+        int n = procSet->s_nproc;
+        for (int i=0, r=slice->getRank(); i<r; ++i) {
+            if (slice->getLow(i) < 0 || slice->getHigh(i) >= n ||
+                slice->getLow(i) > slice->getHigh(i)) {
+                throw EvalError("ranks are out of range in " + procs);
             }
-            // shouldn't get here
-            break;
-
-        case rval_aif:
-            // Can return the AIF type directly
-            return (RVAL_AIF(val) ? RVAL_AIF(val)->join() : nullptr);
-
-        // Everything else is an error!
-        default:
-            SetError("Internal error: Called GetActualAIF without AIF rval.\n");
-            return NULL;
-    }
-
-    // Shouldn't get here
-    SetError("Internal error: GetActualAIF escaped control statement!!\n");
-    return NULL;
-}
-
-/*
-** This function is used to return the actual reply set val, ignoring refs.
-*/
-rep_set_t *GetActualReply(val_t *val) {
-    rval_ref_val *ref;
-
-    if (val == NULL) return NULL;
-
-    switch (RVAL_TYPE(val)) {
-        case rval_ref:
-            // switch on the ref rval type
-            switch (RVAL_REF_TYPE(val)) {
-                case rval_ref:
-                    ref = REF_VAL(RVAL_REF_VAL(val));
-                    // need to loop through to get at the base
-                    while (ref->ref_type == rval_ref) {
-                        ref = REF_VAL(*(ref->ref_val));
-                    }
-
-                    // ref is now pointing at the base, make sure its a reply
-                    // type
-                    if (ref->ref_type != rval_reply) {
-                        // The base is something other than reply!
-                        SetError(
-                            "Internal error: Called GetActualReply with "
-                            "rval_ref other than reply.\n");
-                        return NULL;
-                    }
-
-                    // return the base
-                    return REPLY_VAL(*(ref->ref_val));
-
-                case rval_reply:
-                    // Can return the reply type directly
-                    return REPLY_VAL(RVAL_REF_VAL(val));
-
-                // Everything else is an error!
-                default:
-                    SetError(
-                        "Internal error: Called GetActualReply with rval_ref "
-                        "other than reply.\n");
-                    return NULL;
-            }
-            // shouldn't get here
-            break;
-
-        case rval_reply:
-            // Can return the reply type directly
-            return RVAL_REPLY(val);
-
-        // Everything else is an error!
-        default:
-            SetError(
-                "Internal error: Called GetActualReply without reply rval.\n");
-            return NULL;
-    }
-
-    // Shouldn't get here
-    SetError("Internal error: GetActualReply escaped control statement!!\n");
-    return NULL;
-}
-
-/*
-** This function is used to return the actual procset val, ignoring refs.
-*/
-dbgprocset_t *GetActualProcset(val_t *val) {
-    rval_ref_val *ref;
-
-    if (val == NULL) return NULL;
-
-    switch (RVAL_TYPE(val)) {
-        case rval_ref:
-            // switch on the ref rval type
-            switch (RVAL_REF_TYPE(val)) {
-                case rval_ref:
-                    ref = REF_VAL(RVAL_REF_VAL(val));
-                    // need to loop through to get at the base
-                    while (ref->ref_type == rval_ref) {
-                        ref = REF_VAL(*(ref->ref_val));
-                    }
-
-                    // ref is now pointing at the base, make sure its a procset
-                    // type
-                    if (ref->ref_type != rval_proc) {
-                        // The base is something other than procset!
-                        SetError(
-                            "Internal error: Called GetActualProcset with "
-                            "rval_ref other than process set.\n");
-                        return NULL;
-                    }
-
-                    // return the base
-                    return PROCSET_VAL(*(ref->ref_val));
-
-                case rval_proc:
-                    // Can return the process set type directly
-                    return PROCSET_VAL(RVAL_REF_VAL(val));
-
-                // Everything else is an error!
-                default:
-                    SetError(
-                        "Internal error: Called GetActualProcset with rval_ref "
-                        "other than process set.\n");
-                    return NULL;
-            }
-            // shouldn't get here
-            break;
-
-        case rval_proc:
-            // Can return the process set type directly
-            return RVAL_PROCSET(val);
-
-        // Everything else is an error!
-        default:
-            SetError(
-                "Internal error: Called GetActualProcset without process set "
-                "rval.\n");
-            return NULL;
-    }
-
-    // Shouldn't get here
-    SetError("Internal error: GetActualProcset escaped control statement!!\n");
-    return NULL;
-}
-
-/*
-** Retrieve the contents of a val_t from the backend
-*/
-int RetrieveContents(val_t *val, rec_set_t *rec_set) {
-    AIFStream *a = NULL;
-    dbgprocset_t *target_procset = NULL;
-    rec_set_t *target_recset = NULL;
-    rep_set_t *rep_set = NULL;
-    dbg_over_set_t *over_set = NULL;
-
-    DPRINT("In RetrieveContents\n");
-
-    if (val == NULL) return 0;
-
-    // We need to evaluate the value of the variable on the debug backends
-
-    // Set the target_procset/target_expr based on the lval type
-    auto target_expr = std::string{};
-    switch (LVAL_TYPE(val)) {
-        case lval_gdb:
-            DPRINT("RetrieveContents: lval is lval_gdb\n");
-            // the rval of a gdb type should always be rval_reply, but
-            // lets just check to ensure this is the case.
-            if (RVAL_ACTUAL_TYPE(val) != rval_reply) return 0;
-
-            // if the rval is not null, return and use the cached value
-            if (RVAL_ACTUAL_REPLY(val) != NULL) return 0;
-
-            target_expr = LVAL_GDB_EXPR(val);
-            target_procset = LVAL_GDB_PROCSET(val);
-            break;
-
-        case lval_blockmap:
-            DPRINT("RetrieveContents: lval is lval_blockmap\n");
-            // the rval of a blockmap type should always be rval_aif, but
-            // lets just check to ensure this is the case.
-            if (RVAL_ACTUAL_TYPE(val) != rval_aif) return 0;
-
-            // if the rval is not null, return and use the cached value
-            if (RVAL_ACTUAL_AIF(val)) {
-                return 0;
-            } else {
-                // [[..]] is meta-data, we use to give the expected length it couldn't
-                // get from a raw C/C++ pointer.
-                auto bm = LVAL_BM_BLOCKMAP(val);
-                std::ostringstream os;
-                os << "[[@" << BlockMapGetElementsPerRank(bm) << "]]" << LVAL_BM_GDB_EXPR(val);
-                target_expr = os.str();
-            }
-
-            target_procset = LVAL_BM_GDB_PROCSET(val);
-            break;
-
-        default:
-            DPRINT("RetrieveContents: lval is a const, returning...\n");
-            // Don't need to retrieve anything for the other types
-            return 0;
-    }
-
-    // if target_procset is not null, then the user provided a process targeted
-    // command.
-    if (target_procset != NULL) {
-        DPRINT(
-            "RetrieveContents: target_procset was specified. Going to use "
-            "process targeted method.\n");
-
-        // This gets free'ed later
-        target_recset = NewRecSet();
-
-        SetOverlaySetForProcSet(target_procset);
-        while ((over_set = GetNextOverlaySetForProcSet(target_procset)) != NULL) {
-            // create a group_recv_t for the over_set and add it to the res
-            auto diptr = over_set->s_di.lock();
-            if (!diptr) {
-                PrintOutMsg("Warning: expired procset $%s. Ignoring.\n", over_set->s_di.c_str());
-                continue;
-            }
-
-            AddReceiverToSet(
-                target_recset,
-                NewGroupReceiver(*diptr, over_set->s_di_bs.get())
-            );
         }
-
-        target_recset->setThreads(target_procset->s_threads);
-        rec_set = target_recset;
+        // lookat: how is the memory for this handled?
+        procSet = CreateTempProcSetSlice(procSet, slice.get());
+        isTmp = true;
     }
 
-    // ensure rec_set is not null, if so we have an error!
-    if (rec_set == NULL) {
-        SetError("RetrieveContents called with null rec_set!\n");
-        return -1;
+    return std::make_pair(procSet, isTmp);
+
+}
+
+g_block_map_t* IdMap::getBlockmapForName(std::string name) {
+    return FindBlockMap(name);
+}
+
+// verify the at debug variable $name is not already in use.
+// Print a warning if printMsg is true.
+bool IdMap::idIsAvailable(const std::string& name, bool printMsg) {
+    const char* existingType = nullptr;
+    if (FindProcSet(name.c_str())) {
+        existingType = "procset";
+    } else if (FindBlockMap(name)) {
+        existingType = "decomposition";
+    } else {
+        return true;
     }
 
-    // Evaluate the expression
-    rep_set = DbgEvalExpr(rec_set, target_expr.c_str());
+    if (printMsg) {
+        PrintOutError("%s is already defined as a %s.\n", name.c_str(), existingType);
+    }
 
-    // Process errors - If there were no replies in the set we want to make sure
-    // the rval gets NULL'ed. I don't think this is ever possible without an
-    // error being generated.   Note: be sure not to call any functions here that
-    // try to aggregate the result.
-    if (!rep_set || ProcessErrorInRepSet(rep_set) || rep_set->isEmpty()) {
-        // Free the rep_set, we are done with it
+    return false;
+}
+
+Value::Value(rec_set_t* rec_set) : m_rec_set(rec_set) {}
+
+Value::~Value() {}
+
+std::string Value::getExpr() const {
+    throw EvalError("type is not a program value");
+}
+
+void Value::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+    os << "Value::print is undefined\n";
+}
+
+void Value::addMetaInfo(const std::string& metaInfo) {}
+
+std::pair<size_t, bool> Value::getNumResults() {
+    throw EvalError("Type does not support operations");
+}
+std::optional<ResultPair> Value::getNextSet(bool rankToRank) {
+    throw EvalError("Type does not support operations");
+}
+
+void Value::getCommonRanks(ResultPair& ranks) {
+    throw EvalError("Type does not support operations");
+}
+void Value::getCommonSet(ResultPair& ranks) {
+    throw EvalError("Type does not support operations");
+}
+
+
+ReplyValue::ReplyValue(rec_set_t* rec_set, const std::string& expr) : Value(rec_set), m_expr(expr) {
+    if (!rec_set) {
+        throw std::runtime_error("cannot evaluate " + expr + " without a process");
+    }
+}
+
+ReplyValue::~ReplyValue() {
+    for ( auto& [di, grp, aif] : m_replies)
+        delete aif;
+}
+
+void ReplyValue::addMetaInfo(const std::string& metaInfo) {
+    m_expr = metaInfo + m_expr;
+}
+
+rep_set_t* ReplyValue::retrieve() const
+{
+    auto rep_set = DbgEvalExpr(m_rec_set, m_expr.c_str());
+    if (!rep_set || rep_set->isEmpty()) {
         FreeRepSet(rep_set);
-
-        // Ensure the RVAL is nulled
-        switch (LVAL_TYPE(val)) {
-            case lval_gdb:
-                RVAL_REPLY(val) = NULL;
-                SetError("Could not retrieve contents of val.");
-                if (target_recset != NULL) FreeRecSet(target_recset);
-                return -1;
-
-            case lval_blockmap:
-                RVAL_AIF(val) = NULL;
-                SetError("Could not retrieve contents of val.");
-                if (target_recset != NULL) FreeRecSet(target_recset);
-                return -1;
-
-            default:
-                // do nothing - shouldn't get here
-                SetError("Could not retrieve contents of val.");
-                if (target_recset != NULL) FreeRecSet(target_recset);
-                return -1;
-        }
-    }
-
-    // Set the RVAL based on its type.
-    // Conduct special post processing for blockmap types
-    auto bm = ( LVAL_TYPE(val) == lval_blockmap ? LVAL_BM_BLOCKMAP(val) : nullptr);
-
-    if (bm && !BlockMapIsDegen(bm)) {
-        // construct the blockmap based on the replies - This does error
-        // checking for us.
-        a = construct_blockmap_data(bm, LVAL_BM_GDB_PROCSET(val),
-                                    LVAL_BM_ARRAY_SIZE(val), rep_set);
-        // Free the rep_set, we are done with it
+        //SetError("Could not retrieve contents of val.");
+        throw EvalError("Could not retrieve value of " + m_expr);
+    } else if (ProcessErrorInRepSet(rep_set)) {
         FreeRepSet(rep_set);
-        // assign the AIF result to the val
-        RVAL_AIF(val) = a;
-    } else if (bm) {
-        // A degenerate blocks map has every dimension listed as "distributed",
-        // ie '*'.   These are treated like regular values, the decomposition
-        // just defines the shape
-        RVAL_TYPE(val) = rval_reply;
-        RVAL_REPLY(val) = rep_set;
-
-    } else if (LVAL_TYPE(val) == lval_gdb) {
-        // assign the reply to the val
-
-        RVAL_REPLY(val) = rep_set;
+        throw EvalErrorAlreadyReported();
     }
 
-    // cleanup
-    if (target_recset != NULL) FreeRecSet(target_recset);
-
-    return 0;
+    return rep_set;
 }
 
-static rval_ref_val *NewRvalRef(void) {
-    rval_ref_val *rtn;
+static std::string getLabel(rec_set_t* rec_set, group_reply* reply, const std::string& format) {
+    auto threads = rec_set ? rec_set->getThreads() : nullptr;
+    auto diName = reply->rep_di.c_str();
 
-    rtn = (rval_ref_val *)Alloc(sizeof(rval_ref_val));
-    rtn->ref_val = (rval_val *)Alloc(sizeof(rval_val));
+    auto label = GetProcSetString(diName, reply->rep_group.get(), threads);
+    if (label.empty()) ;
+    else if (format.find("csv") == std::string::npos) label += ": ";
+    else label = "\"" + label + "\",";
 
-    return rtn;
+    return label;
 }
+    
 
-val_t *NewVal(lval_type ltype, ...) {
-    val_t *v;
-    va_list args;
+void ReplyValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+    // ask the back-end for the values
+    auto rep_set = retrieve();
 
-    v = (val_t *)Alloc(sizeof(val_t));
-
-    RVAL_DESTROY(v) = 0;
-
-    va_start(args, ltype);
-
-    // set the lval
-    switch (LVAL_TYPE(v) = ltype) {
-        case lval_none:
-            // ensure it gets nulled
-            memset(&LVAL_VAL(v), 0, sizeof(lval_val));
-            break;
-
-        case lval_internal:
-            LVAL_SYM(v) = va_arg(args, hentry_t *);
-            break;
-
-        case lval_gdb:
-            // This case should return, we don't allow the caller to specify an
-            // rval type. It must be a RVAL_REPLY.
-            LVAL_GDB_PROCSET(v) = va_arg(args, dbgprocset_t *);
-            LVAL_GDB_EXPR(v) = strdup(va_arg(args, char *));
-            // The rval is assumed.
-            RVAL_TYPE(v) = rval_reply;
-            RVAL_REPLY(v) = (rep_set_t *)NULL;
-            va_end(args);
-            return v;
-
-        case lval_blockmap:
-            // This case should return, we don't allow the caller to specify an
-            // rval type. It must be a RVAL_REPLY.
-            LVAL_BM_GDB_PROCSET(v) = va_arg(args, dbgprocset_t *);
-            LVAL_BM_GDB_EXPR(v) = strdup(va_arg(args, char *));
-            LVAL_BM_BLOCKMAP(v) = va_arg(args, g_block_map_t *);
-            LVAL_BM_ARRAY_SIZE(v) = va_arg(args, int);
-            // The rval is assumed.
-            RVAL_TYPE(v) = rval_aif;
-            RVAL_AIF(v) = nullptr;
-            va_end(args);
-            return v;
+    for ( auto reply : rep_set) {
+        // AIFPrint doesn't play nice with editline...
+        auto aif = EVENT_DATA(reply->rep_event);
+        auto label = getLabel(rec_set, reply, format);
+        aif->print(os, label, format);
+        os << "\n";
     }
 
-    // set the rval
-    switch (RVAL_TYPE(v) = (rval_type)va_arg(args, int)) {
-        case rval_none:
-            // ensure it gets nulled
-            memset(&RVAL_VAL(v), 0, sizeof(rval_val));
-            break;
-
-        case rval_aif:
-            RVAL_AIF(v) = va_arg(args, AIFStream *);
-            break;
-
-        case rval_proc:
-            RVAL_PROCSET(v) = va_arg(args, dbgprocset_t *);
-            break;
-
-        case rval_blockmap:
-            RVAL_BLOCKMAP(v) = va_arg(args, g_block_map_t *);
-            break;
-
-        case rval_ref:
-            RVAL_TYPE(v) = rval_ref;
-            RVAL_REF(v) = NewRvalRef();
-
-            RVAL_REF_SLICE(v) = va_arg(args, slice_t *);
-            RVAL_REF_TYPE(v) = (rval_type)va_arg(args, int);
-            RVAL_REF_VAL(v) = va_arg(args, rval_val);
-            // we want to mark the ref rval for destruction
-            RVAL_DESTROY(v) = 1;
-            break;
-
-        case rval_reply:
-            RVAL_REPLY(v) = va_arg(args, rep_set_t *);
-            break;
-    }
-
-    va_end(args);
-
-    return v;
+    FreeRepSet(rep_set);
 }
 
-/*
-** Destroy a value. Does not do anything to lval_internal, which
-** can only be destroyed by calling AssignVal().
-*/
-void DestroyVal(val_t *v) {
-    if (v == (val_t *)NULL) return;
+std::pair<size_t, bool> ReplyValue::getNumResults() {
+    auto rep_set = retrieve();
+    m_numResults = 0;
 
-    // destroy the lval
-    switch (LVAL_TYPE(v)) {
-        case lval_none:
-            break;
+    // assemble the information to map a reply into the bits
+    // w.r.t the current set of results
+    DbgInvoke* prevDi = nullptr;
+    Bitset* diRanks = nullptr;
+    for (auto reply : rep_set) {
+        DbgInvoke* di = reply->rep_di.lock();
 
-        case lval_internal:
-            if (!RVAL_DESTROY(v)) return;
-            break;
+        // we are assuming that rep_set segregated by di
+        if (di != prevDi) { diRanks = nullptr; prevDi = di; }
 
-        case lval_blockmap:
-            // Check to see if the procset is DBGSET_TEMP, if so we destroy it
-            if (LVAL_BM_GDB_PROCSET(v) != NULL) {
-                switch (LVAL_BM_GDB_PROCSET(v)->s_type) {
-                    case DBGSET_TEMP:
-                        FreeProcSet(LVAL_GDB_PROCSET(v));
-                        break;
+        // we want the ranks from this di that were involved in the
+        // query, and the relative offset to overlay multiple DI's
+        if (!diRanks) {
+            auto grp = reply->rep_group->clone();
+            diRanks = grp.get();
+            m_ranksPerDI[di] = std::make_pair(std::move(grp),m_numResults);
+        } else {
+            *diRanks |= *reply->rep_group;
+        }
 
-                    default:
-                        // do nothing
-                        break;
-                }
-            }
-            Free(LVAL_BM_GDB_EXPR(v));
-            break;
-
-        case lval_gdb:
-            // Check to see if the procset is DBGSET_TEMP, if so we destroy it
-            if (LVAL_GDB_PROCSET(v) != NULL) {
-                switch (LVAL_GDB_PROCSET(v)->s_type) {
-                    case DBGSET_TEMP:
-                        FreeProcSet(LVAL_GDB_PROCSET(v));
-                        break;
-
-                    default:
-                        // do nothing
-                        break;
-                }
-            }
-            Free(LVAL_GDB_EXPR(v));
-            break;
+        m_numResults += reply->rep_group->numSet();
     }
 
-    // destroy the rval
-    DestroyRval(RVAL_TYPE(v), RVAL_VAL(v));
+    // extract the result info from the rep_set before I throw it away
+    for (auto reply : rep_set) {
+        DbgInvoke* di = reply->rep_di.lock();
+        AIFStream* aif = nullptr;
 
-    Free(v);
-}
-
-/*
-** Destroy the rvalue of a val.
-*/
-void DestroyRval(rval_type rtype, rval_val rval) {
-    switch (rtype) {
-        case rval_none:
-            return;
-
-        case rval_aif:
-            delete AIF_VAL(rval);
-            return;
-
-        case rval_blockmap:
-            // FIXME: Make use of this
-            // DestroyBlockMap(RVAL_BLOCKMAP(v));
-            return;
-
-        case rval_reply:
-            FreeRepSet(REPLY_VAL(rval));
-            return;
-
-        case rval_proc:
-            // FIXME: Make use of this
-            // FreeProcSet(RVAL_PROCSET(v));
-            return;
-
-        case rval_ref:
-            Destroyrval_ref(REF_VAL(rval));
-            return;
-    }
-}
-
-/*
-** Used to destroy a rval_ref type, these can be infinite depth, so we need
-** a function to be recursive.
-*/
-static void Destroyrval_ref(rval_ref_val *ref) {
-    if (ref == NULL) return;
-
-    // destroy the ref slice
-    delete ref->ref_slice;
-
-    // destroy the ref val
-    if (ref->ref_val != NULL) {
-        DestroyRval(ref->ref_type, *(ref->ref_val));
+        // lookat: should check this is a data event
+        std::swap(aif, EVENT_DATA(reply->rep_event));
+        m_replies.push_back(std::make_tuple(di, toRankBits(di, *reply->rep_group), aif));
     }
 
-    // destroy the val pointer and the ref
-    Free(ref->ref_val);
-    Free(ref);
+    delete rep_set;
+    return std::make_pair(m_numResults, m_replies.size());
 }
 
-/*
-** Special case to mark an lval_internal for destruction.
-*/
-void DestroyInternalVal(val_t *v) {
-    if (v == (val_t *)NULL) return;
+// This function maps a group_reply onto a the bits of this specific value.   A rec_set 
+// may contain multiple di's and/or may refer to only a subset of the ranks.  Thus
+// if you did something like p $a{1,4..5} the returned bit set will be of size 3.
+// bit 1 in replyGrp maps to bit 0 or the returned grp, bit 4 maps to bit 1, etc.
+std::unique_ptr<Bitset> ReplyValue::toRankBits(DbgInvoke* di, const Bitset& replyGrp) {
+    // get ranks in terms of the active ranks
+    auto ranks = std::unique_ptr<Bitset>(new DenseBitset(m_numResults));
+    auto& [ allRanks, offset] = m_ranksPerDI[di];
+    auto locIdx = offset;
+    auto it = allRanks->iterator();
+    for (size_t i; (i=**it) != Bitset::None; ++*it, ++locIdx) {
+        if (replyGrp.test(i)) ranks->set(locIdx);
+    }
+    return ranks;
+}
 
-    switch (LVAL_TYPE(v)) {
-        case lval_internal:
-            break;
-
-        default:
-            return;
+// This is the inverse of toRankBits.   It takes the group related to the actual results
+// and maps it back to the group defined by the given di.   And individual reply never
+// straddles multiple di's so we can pass it in as a argument
+std::unique_ptr<Bitset> ReplyValue::toReplyBits(DbgInvoke* di, const Bitset& resGrp) {
+    auto& [ diRanks, offset ] = m_ranksPerDI[di];
+    auto replyGrp = diRanks->clone();
+    auto resIdx = offset;
+    auto it = diRanks->iterator();
+    for (size_t i; (i=**it) != Bitset::None; ++*it, ++resIdx) {
+        if (!resGrp.test(resIdx)) replyGrp->unset(i);
     }
 
-    RVAL_DESTROY(v) = 1;
+    return replyGrp;
 }
 
-rval_val CopyRval(rval_type rtype, rval_val rval) {
-    rval_val new_rval;
+// get the next reply when this is the first operand
+std::optional<ResultPair> ReplyValue::getNextSet(bool rankToRank) {
+    if (m_replies.empty()) return std::optional<ResultPair>{};
 
-    switch (rtype) {
-        case rval_none:
-            // ensure it gets nulled
-            memset(&new_rval, 0, sizeof(rval_val));
-            return new_rval;
+    // we set the ranks here, but delay setting the aifStream because
+    // we don't yet know if it needs to be cloned or not
+    auto& [ di, grp, aif ] = m_replies.front();
+    ResultPair pr;
+    pr.isRankToRank = rankToRank;
+    if (rankToRank) pr.ranks = grp->clone();
+    
+    return pr;
+}
 
-        case rval_aif:
-            AIF_VAL(new_rval) = AIF_VAL(rval)->clone();
-            return new_rval;
+// modify the result set as the second operand.   The first operand has
+// set the pr.ranks, and we are looking for the first result that
+// overlaps.
+void ReplyValue::getCommonRanks(ResultPair& pr) {
 
-        case rval_blockmap:
-            // A blockmap val is a pointer to a blockmap. These are impossible
-            // to copy right now.
-            BLOCKMAP_VAL(new_rval) = BLOCKMAP_VAL(rval);
-            return new_rval;
+    for (auto repIt = m_replies.begin(); repIt != m_replies.end(); ++repIt) {
+        auto& [ di, repGrp, aif] = *repIt;
+        if (pr.isRankToRank) {
+            if (!repGrp->hasCommonBits(*pr.ranks)) continue; 
 
-        case rval_reply:
-            // A reply val is a pointer to a reply set. These are impossible to
-            // copy right now.
-            REPLY_VAL(new_rval) = REPLY_VAL(rval);
-            return new_rval;
+            // at least some ranks are shared.  Note ranks and repGrp are
+            // w.r.t the current reply set not computational ranks
+            auto origN = pr.ranks->numSet();
 
-        case rval_proc:
-            // A procset val is a pointer to a procset. These are impossible
-            // to copy right now.
-            PROCSET_VAL(new_rval) = PROCSET_VAL(rval);
-            return new_rval;
+            // modify pr.ranks to have the shared set
+            *pr.ranks &= *repGrp;
+            *repGrp -= *pr.ranks;
 
-        case rval_ref: {
-            // TODO: How to support this??? I cannot envision a case where this
-            // will be used, but its here just in case someone decides its
-            // useful to support.
-            REF_VAL(new_rval) = NewRvalRef();
+            auto newN = pr.ranks->numSet();
+            pr.ranksAreEq = (origN == newN);
+        }
 
-            REF_VAL(new_rval)->ref_slice = CopySlice(REF_VAL(rval)->ref_slice);
-            REF_VAL(new_rval)->ref_type = REF_VAL(rval)->ref_type;
-            *(REF_VAL(new_rval)->ref_val) =
-                CopyRval(REF_VAL(rval)->ref_type, *(REF_VAL(rval)->ref_val));
-            return new_rval;
+        if (!pr.isRankToRank || repGrp->isEmpty()) {
+            // last result from this reply
+            pr.b = aif;
+            m_replies.erase(repIt);
+            return;
+        } else {
+            // not every reply matched, it needs to stay around
+            // for further matching
+            pr.b = aif->clone();
+            return;
         }
     }
-
-    // Shouldn't get here.
-
-    // ensure it gets nulled
-    memset(&new_rval, 0, sizeof(rval_val));
-
-    return new_rval;
+    throw EvalError("Matching error for binary operation");
 }
 
-val_t *CopyVal(val_t *val) {
-    val_t *v = NULL;
-
-    if (val == (val_t *)NULL) return (val_t *)NULL;
-
-    // First switch on the lval type, then switch on the rval type. We call
-    // the NewVal function with the proper arguments that way.
-    switch (LVAL_TYPE(val)) {
-        case lval_none:
-            switch (RVAL_TYPE(val)) {
-                case rval_none:
-                    v = NewVal(lval_none, rval_none);
-                    break;
-
-                case rval_aif:
-                    v = NewVal(lval_none, rval_aif, RVAL_AIF(val)->join()->clone());
-                    break;
-
-                case rval_blockmap:
-                    v = NewVal(lval_none, rval_blockmap, RVAL_BLOCKMAP(val));
-                    break;
-
-                case rval_proc:
-                    v = NewVal(lval_none, rval_proc, RVAL_PROCSET(val));
-                    break;
-
-                case rval_reply:
-                    v = NewVal(lval_none, rval_reply, RVAL_REPLY(val));
-                    break;
-
-                case rval_ref:
-                    v = NewVal(lval_none, rval_ref,
-                               CopySlice(RVAL_REF_SLICE(val)),
-                               RVAL_REF_TYPE(val),
-                               CopyRval(RVAL_REF_TYPE(val), RVAL_REF_VAL(val)));
-                    break;
-            }
-            break;
-
-        case lval_internal:
-            switch (RVAL_TYPE(val)) {
-                case rval_none:
-                    v = NewVal(lval_internal, LVAL_SYM(val), rval_none);
-                    break;
-
-                case rval_aif:
-                    v = NewVal(lval_internal, LVAL_SYM(val), rval_aif,
-                               RVAL_AIF(val)->join()->clone());
-                    break;
-
-                case rval_blockmap:
-                    v = NewVal(lval_internal, LVAL_SYM(val), rval_blockmap,
-                               RVAL_BLOCKMAP(val));
-                    break;
-
-                case rval_proc:
-                    v = NewVal(lval_internal, LVAL_SYM(val), rval_proc,
-                               RVAL_PROCSET(val));
-                    break;
-
-                case rval_reply:
-                    v = NewVal(lval_internal, LVAL_SYM(val), rval_reply,
-                               RVAL_REPLY(val));
-
-                case rval_ref:
-                    v = NewVal(lval_internal, LVAL_SYM(val), rval_ref,
-                               CopySlice(RVAL_REF_SLICE(val)),
-                               RVAL_REF_TYPE(val),
-                               CopyRval(RVAL_REF_TYPE(val), RVAL_REF_VAL(val)));
-                    break;
-            }
-            break;
-
-        case lval_gdb:
-            // GDB lval's should only have reply rvals!!!
-            switch (RVAL_TYPE(val)) {
-                case rval_reply:
-                    v = NewVal(lval_gdb, LVAL_GDB_PROCSET(val),
-                               LVAL_GDB_EXPR(val));
-                    if (RVAL_AIF(val)) {
-                        RVAL_AIF(v) = RVAL_AIF(val)->clone();
-                    }
-                    break;
-
-                case rval_aif:
-                case rval_none:
-                case rval_blockmap:
-                case rval_proc:
-                case rval_ref:
-                    SetError(
-                        "Internal error: lval_gdb must have rval_reply.\n");
-                    break;
-            }
-            break;
-
-        case lval_blockmap:
-            // Why is this? This should work with a CopyAIF call...
-            SetError("Internal error: lval_blockmap cannot be copied!\n");
-            break;
+// final part of the handshake, we're back on the first operand.
+// we've established the set of results that match (in result.ranks)
+// and now we set result.a with our result and define result.label
+void ReplyValue::getCommonSet(ResultPair& result) {
+    auto& [ di, grp, aif ] = m_replies.front();
+    
+    if (!result.isRankToRank || result.ranksAreEq) {
+        // The entire remainder of the first reply matches
+        result.a = aif;
+        m_replies.erase(m_replies.begin());
+    } else {
+        // not all of the reply matches
+        *grp -= *result.ranks;
+        result.a = aif->clone();
     }
 
-    return v;
-}
-
-/*
-** Read Value.
-*/
-val_t *GetVal(hentry_t *sym) {
-    hentry_t *h;
-
-    if ((h = HashSearch(_val_table, SymLookup(sym))) == (hentry_t *)NULL)
-        return (val_t *)NULL;
-
-    return (val_t *)h->h_data;
-}
-
-/*
-** Assign value to debugger variable.
-** Note that this is the only "approved" method of assigning the rval of an
-** internal variable.
-** This function creates a new val and inserts it into the internal val table
-** that consists of the lval of the provided lval and the rval of the provided
-** rval.
-*/
-int AssignVal(val_t *lval, val_t *rval, rec_set_t *rec_set) {
-    char *var;
-    val_t *val = NULL;
-    hentry_t *h;
-
-    switch (LVAL_TYPE(lval)) {
-        case lval_internal:
-            // lookup the string name of the symbol
-            var = SymLookup(LVAL_SYM(lval));
-
-            // try to look up the symbol in the hash table, otherwise add it to
-            // the hash table
-            if ((h = HashSearch(_val_table, var)) == NULL) {
-                if ((h = HashInsert(_val_table, var, NULL)) == NULL) {
-                    SetError(
-                        "Internal error: Cannot add lval symbol to the val "
-                        "hash table!\n");
-                    return -1;
-                }
-            }
-
-            switch (RVAL_TYPE(rval)) {
-                case rval_none:
-                    val = NewVal(lval_internal, LVAL_SYM(lval), rval_none);
-                    break;
-
-                case rval_aif:
-                    // Make sure to refresh the contents
-                    if (VAL_RETRIEVE(rval, rec_set)) {
-                        return -1;
-                    }
-                    val = NewVal(lval_internal, LVAL_SYM(lval), rval_aif,
-                                 RVAL_AIF(rval)->join()->clone());
-                    break;
-
-                case rval_proc:
-                    val = NewVal(lval_internal, LVAL_SYM(lval), rval_proc,
-                                 RVAL_PROCSET(rval));
-                    break;
-
-                case rval_blockmap:
-                    val = NewVal(lval_internal, LVAL_SYM(lval), rval_blockmap,
-                                 RVAL_BLOCKMAP(rval));
-                    break;
-
-                case rval_ref:
-                    val = NewVal(
-                        lval_internal, LVAL_SYM(lval), rval_ref,
-                        CopySlice(RVAL_REF_SLICE(rval)), RVAL_REF_TYPE(rval),
-                        CopyRval(RVAL_REF_TYPE(rval), RVAL_REF_VAL(rval)));
-                    break;
-
-                case rval_reply:
-                    // Make sure to refresh the contents
-                    if (VAL_RETRIEVE(rval, rec_set)) {
-                        return -1;
-                    }
-                    val = NewVal(lval_internal, LVAL_SYM(lval), rval_reply,
-                                 CopyRepSet(RVAL_REPLY(rval)));
-                    break;
-            }
-
-            // Make sure that the hash entries data is not set, otherwise free
-            // it.
-            // FIXME: I don't know how to fix this, sometimes other code will
-            // try to cleanup and doing the following causes a segfault.
-            /*
-            if ( h->h_data != NULL )
-            {
-                    _destroy_val(h->h_key, h->h_data);
-            }
-            */
-
-            h->h_data = (void *)val;
-            return 0;
-
-        case lval_blockmap:
-            SetError("Internal error: Cannot assign rval to lval_blockmap!\n");
-            return -1;
-
-        case lval_gdb:
-            SetError("Internal error: Cannot assign rval to lval_gdb!\n");
-            return -1;
-
-        case lval_none:
-            SetError("Internal error: Cannot assign rval to lval_blockmap!\n");
-            return -1;
-    }
-
-    // Shouldn't get here
-    return 0;
-}
-
-/*
-** Remove association between an internal variable and its symbol.
-*/
-void RemoveVal(hentry_t *sym) {
-    val_t *val [[maybe_unused]];
-    hentry_t *hval = NULL;
-
-    hval = HashSearch(_val_table, SymLookup(sym));
-
-    if (hval != NULL) {
-        val = (val_t *)hval->h_data;
-        HashRemove(_val_table, hval);
+    // at the moment, we're printing a label based on the
+    // ranks in the first operand.   This could be changed
+    if (result.isRankToRank) {
+        auto replyGrp = toReplyBits(di, *result.ranks);
+        result.label = replyGrp->toSetString() + ": ";
     }
 }
 
-hentry_t* FindVal(const char* name) {
-    return HashSearch(_val_table, name);
+DecompValue::DecompValue(rec_set_t* rec_set, g_block_map_t*  blockMap,
+                         std::unique_ptr<Value>&& val)
+    : SingleValue(rec_set), m_blockMap(blockMap), m_val(std::move(val))
+{}
+
+void DecompValue::print(std::ostream& os, rec_set_t* rec_set,
+                        const std::string& format) {
+
+    auto aif = getAIF();
+    aif->print(os, "", format);
+    os << "\n";
 }
+
+AIFStream* DecompValue::getAIF() {
+    if (m_aif)
+        return m_aif;
+
+    auto val = dynamic_cast<ReplyValue*>(m_val.get());
+    if (!val) {
+        throw EvalError("Decomposition must refer to a progam value");
+    }
+
+    auto rep_set = val->retrieve();
+
+    auto aif = construct_blockmap_data(m_blockMap, val->getRecSet(), rep_set);
+    return m_aif = aif;
+}
+
+DistributedBlockMapValue::DistributedBlockMapValue(rec_set_t* rec_set, g_block_map_t*  blockMap,
+                                                   std::unique_ptr<Value>&& val)
+    : ReplyValue(rec_set, val->getExpr()), m_blockMap(blockMap), m_val(std::move(val))
+{}
+
+rep_set_t* DistributedBlockMapValue::retrieve() const {
+    auto val = dynamic_cast<ReplyValue*>(m_val.get());
+    if (!val) {
+        throw EvalError("Decomposition must refer to a progam value");
+    }
+
+    return val->retrieve();
+}
+
+void DistributedBlockMapValue::print(std::ostream& os, rec_set_t* rec_set,
+                                     const std::string& format) {
+
+    auto rep_set = retrieve();
+    for ( auto reply : rep_set) {
+        auto label = getLabel(m_rec_set, reply, format);
+        auto aif = EVENT_DATA(reply->rep_event);
+
+        os << label;
+        PrintWithBlockMap(aif, m_blockMap, os);
+        os << "\n";
+    }
+
+    FreeRepSet(rep_set);
+}
+
+
+AIFValue::AIFValue(rec_set_t* rec_set, const std::string& expr, AIFStream* aif)
+    : SingleValue(rec_set), m_expr(expr) {
+    m_aif = aif;
+}
+
+AIFStream* AIFValue::getAIF() {
+    return m_aif;
+}
+
+void AIFValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+    m_aif->print(os, "", format);
+    os << "\n";
+}
+
+std::string AIFValue::getExpr() const { return m_expr; }
+
+SingleValue::SingleValue(rec_set_t* rec_set) : Value(rec_set) {}
+SingleValue::~SingleValue() { delete m_aif; }
+
+std::pair<size_t, bool> SingleValue::getNumResults() { return std::make_pair(1,true); }
+std::optional<ResultPair> SingleValue::getNextSet(bool rankToRank) {
+    if (m_processed) return std::optional<ResultPair>{};
+    m_processed = true;
+    return ResultPair{.isRankToRank=rankToRank};
+}
+void SingleValue::getCommonRanks(ResultPair& result) {
+    // as a second argument, match everyone
+    result.ranksAreEq = true;
+    //result.b = m_aif->clone();  // clone does not work for decomp -- revisit
+    result.b = getAIF();
+    m_aif = nullptr;
+}
+void SingleValue::getCommonSet(ResultPair& result) {
+    //result.a = m_aif->clone();  // revisit
+    result.a = getAIF();
+    m_aif = nullptr;
+
+    // lookat: I should be able to get a label for the second operand
+    // if a ReplyValue
+    result.label = "";
+}
+
+
+ProcsetValue::ProcsetValue(rec_set_t* rec_set, dbgprocset_t* tmpPs)
+    : Value(rec_set), m_tmpProcset(tmpPs)
+{
+    if (!rec_set) {
+        throw std::runtime_error("null rec_set");
+    }
+}
+
+ProcsetValue::~ProcsetValue() {
+    FreeProcSet(m_tmpProcset);
+}
+
+void ProcsetValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+    os << m_rec_set << "\n";
+}
+
+std::pair<DbgInvoke::Handle,std::unique_ptr<Bitset>>
+ProcsetValue::getProcSet() {
+
+    auto rcvs = m_rec_set->getReceivers();
+    if (rcvs.size() != 1) {
+        throw EvalError("Procset must be on a single app launch.");
+    }
+    auto rcv = rcvs[0];
+    return std::make_pair(rcv->rec_di.handle(), rcv->rec_group->clone());
+}
+
+BlockmapValue::BlockmapValue(rec_set_t* rec_set, const std::string& name)
+    : Value(rec_set), m_name(name) {}
+
+void BlockmapValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+}
+
+g_block_map_t* BlockmapValue::getBlockMap() const { return FindBlockMap(m_name); }
+
+BinaryFuncValue::BinaryFuncValue(std::unique_ptr<Value>&& a,
+                                 const std::string& op,
+                                 std::unique_ptr<Value>&& b) :
+    Value(a->getRecSet()), m_a(std::move(a)), m_op(op), m_b(std::move(b))
+{}
+
+void BinaryFuncValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+    // check if the values can be matched up.
+    auto [ NA, uniqueNA ] = m_a->getNumResults();
+    auto [ NB, uniqueNB ] = m_b->getNumResults();
+
+    if ( NA == NB || (uniqueNA && uniqueNB)) {
+        // we can do a rank by rank operation
+        while ( auto pr = m_a->getNextSet(NA == NB)) {
+            m_b->getCommonRanks(*pr);
+            m_a->getCommonSet(*pr);
+            printL(os, pr->label, pr->a, pr->b, format);
+        }
+    } else {
+        throw EvalError("Operands of " + m_op + " cannot be matched by rank.");
+    }
+}
+
+AIFStream* BinaryFuncValue::getAIFStream(AIFStream* a, AIFStream* b) const {
+    auto op = m_op;
+    if (op == "+")
+        return AIFStream::add(a, b);
+    else if (op == "-")
+        return AIFStream::sub(a,b);
+    else if (op == "/")
+        return AIFStream::div(a,b);
+    else {
+        delete a;
+        delete b;
+        throw EvalError("operator " + op + " is not supported");
+    }
+
+}
+
+void BinaryFuncValue::printL(std::ostream& os, const std::string& label,
+                             AIFStream* a, AIFStream* b,
+                             const std::string& format) const {
+    auto aif = getAIFStream(a,b);
+    aif->print(os, label, format);
+    os << "\n";
+    delete aif;
+}
+
+std::pair<size_t, bool> BinaryFuncValue::getNumResults() {
+    auto [ ra, ua ] = m_a->getNumResults();
+    auto [ rb, ub ] = m_b->getNumResults();
+    if (ra == rb) {
+        return std::make_pair( ra, std::max(ua,ub));
+    } else if ( ua && ub) {
+        return std::make_pair(1,true);
+    } else {
+        throw EvalError("Operands of " + m_op + " cannot be matched by rank.");
+    }
+}
+
+std::optional<ResultPair> BinaryFuncValue::getNextSet(bool rankToRank) {
+    if (!rankToRank) {
+        if (m_processed) return std::optional<ResultPair>{};
+        m_processed = true;
+        return ResultPair{.isRankToRank=false};
+    }
+        
+    if (m_unprocessed) {
+        return ResultPair{.ranks = m_unprocessed->ranks->clone(),
+                              .isRankToRank = rankToRank};
+    }
+
+    auto res = m_a->getNextSet(rankToRank);
+    if (!res) return res;       // done processing
+
+    m_b->getCommonRanks(*res);
+    m_a->getCommonSet(*res);
+
+    // to get the common ranks for our two operands, we had to push ahead
+    // of the normal process so we have a pair of AIFStreams that we'll
+    // need to cache for getCommonSet
+    m_unprocessed.swap(res);
+
+    return ResultPair{.ranks = m_unprocessed->ranks->clone(),
+            .isRankToRank = true};
+}
+
+// This binary value is the second term of some larger expression,
+// This function find ranks that are a subset of pr.ranks
+// then stores our result stream into pr.b and updates pr.ranks
+// with the common ranks (and potentiall sets pr.ranksAreEq)
+void BinaryFuncValue::getCommonRanks(ResultPair& pr) {
+    // Get the common ranks of pr and m_a
+    if (!pr.isRankToRank) {
+        pr.b = getSingleResult();
+        return;
+    }
+        
+    ResultPair loc{.isRankToRank = true};
+
+    auto eqA = false;
+    AIFStream* a = nullptr;
+    if (m_unprocessed) {
+        // algorithmically, we expect that that any
+        // ranks left over from the previous call to getCommonRanks
+        // are a subset of pr.ranks
+        eqA = (*m_unprocessed->ranks == *pr.ranks);
+        loc.ranks = std::move(m_unprocessed->ranks);
+        a = m_unprocessed->a;
+        m_unprocessed.reset();
+    } else {
+        // if we don't have any ranks left over from the
+        // previous getCommonRanks, just get common ranks with the
+        // usual function
+        loc.ranks = pr.ranks->clone();
+        m_a->getCommonRanks(loc);
+        eqA = loc.ranksAreEq;
+
+        // "reverse the polarity" so we can treat those
+        // common ranks like the output from m_a->getNextSet.
+        a = loc.b;
+        loc.b = nullptr;
+    } 
+
+    // now we "reverse the polarity" so we can treat those
+    // common ranks like the output from m_a->getNextSet.
+    auto ranksA = std::unique_ptr<Bitset>{};
+    ranksA = loc.ranks->clone();
+    
+    m_b->getCommonRanks(loc);  // make loc.ranks the common ranks and set loc.b
+    auto b = loc.b;
+
+    // so a and b are the AIFStreams of your operators and loc.ranks are
+    // the common set, and loc.ranksAreEq if the A and B sets are the same
+    if (eqA && loc.ranksAreEq) {
+        pr.ranksAreEq = true;
+        pr.b = getAIFStream(a, b);
+        return;
+    } else if (loc.ranksAreEq) {
+        // all computed ranks of a are consumed
+        pr.ranksAreEq = false;
+        *pr.ranks &= *loc.ranks;
+        pr.b = getAIFStream(a, b);
+    } else {
+        // some ranks of A are left over for next call
+        *ranksA -= *loc.ranks;
+        m_unprocessed.emplace();
+        m_unprocessed->ranks = std::move(ranksA);
+        m_unprocessed->a = a;
+
+        pr.ranksAreEq = false;
+        *pr.ranks &= *loc.ranks;
+        pr.b = getAIFStream(a->clone(), b);
+    } 
+}
+
+void BinaryFuncValue::getCommonSet(ResultPair& result) {
+    if (!result.isRankToRank) {
+        result.a = getSingleResult();
+        result.label = "";
+        return;
+    }
+
+    // get nextSet cached the value in m_unprocessed
+    auto& r = *m_unprocessed;
+
+    if (result.ranksAreEq) {
+        result.a = getAIFStream(r.a, r.b);
+        result.label = std::move(r.label);
+        m_unprocessed.reset();
+        return;
+    }
+
+    // we've only used a portion of the used ranks
+    result.a = getAIFStream(r.a->clone(), r.b->clone());
+    *r.ranks -= *result.ranks;
+    result.label = "not the right label";
+}
+
+AIFStream* BinaryFuncValue::getSingleResult() {
+    if (auto loc = m_a->getNextSet(false)) {
+        m_b->getCommonRanks(*loc);
+        m_a->getCommonSet(*loc);
+        return getAIFStream(loc->a, loc->b);
+    } else {
+        throw EvalError("Unable to get result from first operand.");
+    }
+}
+
+ComparisonValue::ComparisonValue(std::unique_ptr<Value>&& a, const std::string& op,
+                                 std::unique_ptr<Value>&& b) :
+    Value(a->getRecSet()), m_a(std::move(a)), m_op(op), m_b(std::move(b)) {
+    if (op == "=") m_op = "==";
+}
+
+static void getDiffStr(std::ostream& os,
+                       const std::string& label, const std::string& diffStr) {
+
+    if (Client.MI_mode) {
+        os << diffStr;
+        return;
+    } else if (label.empty()) {
+        os << diffStr << "\n";
+        return;
+    }
+
+    // insert label info each line of the result
+    os << label;
+    for (auto c : diffStr) {
+        if (c == '\n') os << "\n" << label;
+        else os << c;
+    }
+    os << "\n";
+}
+
+void ComparisonValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+    std::optional<std::string> passed, failed, warn;
+    auto deltaSS = std::ostringstream{};
+
+    getFullResult(passed, failed, warn, deltaSS);
+
+    auto printDelta = (m_op != "!=");
+    auto sep = "\n";
+    if (printDelta) {
+        // match previous behavior
+        if ((failed && failed->find('{') == std::string::npos) ||
+            (warn && warn->find('{') == std::string::npos)) sep = " ";
+    }
+
+    if (passed) os << *passed << "Comparison is true.\n";
+    if (failed) os << *failed << "Comparison is false." << sep;
+    if (warn) os << *warn << "Comparison is warn." << sep;
+
+    if (printDelta && (failed || warn)) {
+        os << "The difference delta is:\n";
+        os << deltaSS.str();
+    }
+ 
+}
+
+std::pair<CompareResult, std::string>
+ComparisonValue::getSimpleResult(rec_set_t* rec_set) {
+    std::optional<std::string> passed, failed, warn;
+    auto deltaSS = std::ostringstream{};
+
+    try {
+        getFullResult(passed, failed, warn, deltaSS);
+
+        auto res = CompareResult::Pass;
+        if (failed) res = CompareResult::Fail;
+        else if (warn) res = CompareResult::Warn;
+
+        return std::make_pair(res, std::move(deltaSS.str()));
+
+    } catch (EvalError& err) {
+        return std::make_pair(CompareResult::Invalid, std::string(err.what()));
+    }
+}
+
+// combine two pieces of procset notation into a single combined procset
+static std::string combineLabels(const std::string& labelA, const std::string &labelB){
+    if (labelA.find('}', labelA.find('{')) ==  std::string::npos ||
+        labelB.find('}', labelB.find('{')) == std::string::npos) return labelA;
+
+    std::ostringstream os;
+    const auto* a = labelA.c_str(), *b = labelB.c_str();
+
+    // preamble
+    for ( ; *a && *a != '{'; ++a) os << *a;
+    b = strchr(b,'{') + 1;
+    if (!*a) return ""; else os << *(a++);
+
+    // prime the pump - b is normally the value not used in the previous
+    // iteration in the loop
+    char *nextA = nullptr, *nextB = nullptr;
+    int bval = strtol(b,&nextB,10);
+    if (nextB == b) return "" ; else b = nextB;
+
+    int lastVal = -2; bool inRange = false;
+
+    const char end = '}';
+    while (true) {
+        int aval = INT_MAX;
+        if (*a != end) {
+            aval = strtol(a,&nextA,10);
+            if (nextA == a) return ""; else a = nextA;
+        }
+            
+        if (bval < aval) {
+            // a,aval is the next in order
+            std::swap(a,b);
+            std::swap(aval,bval);
+        }
+
+        if (aval == lastVal+1) {
+            inRange = true;
+        } else if (inRange) {
+            os << ".." << lastVal << "," << aval;
+            inRange = false;
+        } else {
+            os << aval;
+        }
+
+        if (a[0]=='.' && a[1]=='.') {
+            // we don't write out now, the other label may
+            // extend the range
+            inRange = true;
+            lastVal = strtol(a+2,&nextA,10);
+            a = nextA;
+        } else {
+            lastVal = aval;
+        }
+
+        if (*a == ',') ++a;
+        else if (*a == end) {
+            if (*b == end) break;
+        } else {
+            return "";
+        }
+    }
+    // the last value was not written out
+    if (bval == lastVal+1) os << ".." << bval;
+    else {
+        if (inRange) os << ".." << lastVal;
+        if (bval != INT_MAX) os << "," << bval;
+    }
+
+    // } and everything after
+    for ( ; *a; ++a) os << *a;
+
+    return os.str();
+}
+
+void ComparisonValue::getFullResult(std::optional<std::string>& passed,
+                                    std::optional<std::string>& failed,
+                                    std::optional<std::string>& warn,
+                                    std::ostream& deltaSS)
+{
+    auto lowerEps = Client.cmp_lower_eps, upperEps = Client.cmp_upper_eps;
+    
+    auto printDelta = (m_op != "!=");
+
+    // check if the values can be matched up.
+    auto [ NA, uniqueNA ] = m_a->getNumResults();
+    auto [ NB, uniqueNB ] = m_b->getNumResults();
+
+    if ( NA == NB || (uniqueNA && uniqueNB)) {
+        // we can do a rank by rank operation
+        while ( auto pr = m_a->getNextSet(NA == NB)) {
+            m_b->getCommonRanks(*pr);
+            m_a->getCommonSet(*pr);
+
+            AIFStream::Difference diff;
+            auto errMsg = std::string{};
+            auto res = AIFStream::compareOp(pr->a, m_op, pr->b, diff, &lowerEps, &upperEps, errMsg);
+
+            delete pr->a;
+            delete pr->b;
+            pr->a = pr->b = nullptr;
+
+            switch (res) {
+            case CompareResult::Pass:
+                passed = (passed ? combineLabels(*passed,pr->label) : pr->label);
+                break;
+
+            case CompareResult::Fail:
+                failed = (failed ? combineLabels(*failed,pr->label) : pr->label);
+                if (printDelta) getDiffStr(deltaSS, pr->label, diff.getResult());
+                break;
+            case CompareResult::Warn:
+                warn = (warn ? combineLabels(*warn,pr->label) : pr->label);
+                if (printDelta) getDiffStr(deltaSS, pr->label, diff.getResult());
+                break;
+            case CompareResult::Invalid:
+                throw EvalError(errMsg.c_str());
+            }
+        }
+    } else {
+        throw EvalError("Cannot compare mismatched values.");
+    }
+
+    //os << "Don't forget MI!!!!\n";
+}
+

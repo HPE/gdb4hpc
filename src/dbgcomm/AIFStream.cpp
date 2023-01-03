@@ -558,6 +558,59 @@ int AIFStream::compare(AIFStream* a, AIFStream* b, int* res, Difference& diff,
     }
 }
 
+CompareResult
+AIFStream::compareOp(AIFStream* a, const std::string& op, AIFStream* b,
+                     Difference& diff,
+                     double* lo, double* hi, std::string& errMsg)
+{
+    const auto PASS = CompareResult::Pass, FAIL = CompareResult::Fail,
+        WARN = CompareResult::Warn, INVALID = CompareResult::Invalid;
+
+    auto& valA = a->getVStream();
+    auto& valB = b->getVStream();
+
+    try {
+        auto cmp = ais::compare(valA, valB, diff.getAis(), lo ? *lo : 0.0, hi ? *hi : 0.0);
+        using namespace ais;
+
+        bool lt = cmp[LT], ltw = cmp[WARN_LT], eq = cmp[EQ],
+            gt = cmp[GT], gtw = cmp[WARN_GT], nc = cmp[NOT_COMPARABLE];
+
+        bool ltx = (lt || ltw);
+        bool gtx = (gt || gtw);
+
+        // LOOKAT: this return value is used to report <, <=, >, >=, but it doesn't
+        // account for it being a combination of multiple values, so there isn't a value
+        // for less than AND greater than
+
+        if (nc) {
+            errMsg = "Comparison cannot be applied to this type.";
+            return INVALID;
+        }
+        else if (op == "==" || op == "=") {
+            if (lt || gt) return FAIL;
+            else if (ltw || gtw) return WARN;
+            else return PASS;
+        } else if (op == "!=") {
+            return (lt || gt ? PASS : FAIL);  // is this correct w.r.t ltw and gtw
+        } else if (op == "<") {
+            return (!eq && !gtx ? PASS : FAIL);
+        } else if (op == "<=") {
+            return (!gtx ? PASS : FAIL);
+        } else if (op == ">=") {
+            return (!ltx ? PASS : FAIL);
+        } else if (op == ">") {
+            return (!eq && !ltx ? PASS : FAIL);
+        } else {
+            return INVALID;
+        }
+    } catch (std::exception& e) {
+        errMsg = e.what();
+        return INVALID;
+    }
+}
+
+
 bool AIFStream::compareEqual(AIFStream& a, AIFStream& b) {
     AIFStream::Difference diff; // unused
     std::string error;          // unused

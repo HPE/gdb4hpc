@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -23,14 +23,12 @@
 
 #include "client.h"
 #include "useful.h"
+#include "gram.h"
 
 /*
 ** TODO: array assignment.
 */
 static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    expr_t *e1;
-    expr_t *e2;
-    char *buf;
 
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
@@ -42,31 +40,32 @@ static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    if ((e1 = ParseExpr(argv[1])) == (expr_t *)NULL) {
-        PrintError();
+    try {
+
+        auto varExpr = ParseString(argv[1]);
+        auto val = varExpr->eval(rec_set);
+
+        auto rv = dynamic_cast<ReplyValue*>(val.get());
+        if (!rv) {
+            PrintOutError("Only assignment to program variables is supported.\n");
+            return 0;
+        }
+
+        auto value = ArgsToString(&argv[2], argc - 2);
+
+        // run through the parser just to check for validity
+        auto valExpr = ParseString(value);
+
+        auto rep_set = DbgSetVar(rv->getRecSet(), rv->getExpr().c_str(), value.c_str());
+
+        ProcessErrorInRepSet(rep_set);
+        FreeRepSet(rep_set);
+        
+    } catch (EvalError& err) {
+        PrintOutError("Could not parse expression: %s\n", err.what());
         return 0;
     }
 
-    buf = ArgsToBuf(&argv[2], argc - 2);
-
-    if ((e2 = ParseExpr(buf)) == (expr_t *)NULL) {
-        PrintError();
-        Free(buf);
-        return 0;
-    }
-
-    // done with buf
-    Free(buf);
-
-    if (AssignExpr(e1, e2, rec_set) < 0) {
-        PrintError();
-        FreeExpr(e1);
-        FreeExpr(e2);
-        return 0;
-    }
-
-    FreeExpr(e1);
-    FreeExpr(e2);
     return 1;
 }
 

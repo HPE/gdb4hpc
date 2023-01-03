@@ -1173,7 +1173,7 @@ static dbgbp_t *SocProtoToBP(const char *s) {
         res->bp_pending = getint(s);
         res->bp_ignore = getint(s);
         res->bp_hits = getint(s);
-        res->bp_stmt = getstring(s);
+        res->bp_stmt = getStdString(s);
     }
 
     res->bp_enabled = getint(s);

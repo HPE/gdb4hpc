@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cmd_passthru.c - Command line interface routines.
  *
- * Copyright 2012-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2012-2022 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -14,14 +14,6 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
-
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <algorithm>
 
 #include "client.h"
 #include "useful.h"

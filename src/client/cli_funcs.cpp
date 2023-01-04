@@ -964,8 +964,6 @@ void vPrintOutError(const char *format, va_list arg_list) {
         vfprintf(f, format, arg_list);
     }
 
-    if (!Client.MI_mode) cli_reset_stream();
-
     // restore input processing
     DbgUnmaskInput();
 }

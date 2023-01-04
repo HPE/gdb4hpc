@@ -1,8 +1,7 @@
 ------------------------------------------------------------------------
 Except for the third party modules discussed below and software licensed
 by Cray through proprietary agreements, components, files or programs
-contained within this package or product are Copyright 2001-2020 Hewlett Packard
-Enterprise Development LP.
+contained within this package or product are <COPYRIGHT>
 ------------------------------------------------------------------------
 
 Bob Jenkins Hash Function

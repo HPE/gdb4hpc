@@ -121,14 +121,8 @@ public:
 
     // create a stream by operating on 1 or 2 existing streams
     // the input streams are consumed
-    static AIFStream* add(AIFStream* a, AIFStream* b);
-    static AIFStream* sub(AIFStream* a, AIFStream* b);
-    static AIFStream* mul(AIFStream* a, AIFStream* b);
-    static AIFStream* div(AIFStream* a, AIFStream* b);
-    static AIFStream* rem(AIFStream* a, AIFStream* b);
-    static AIFStream* And(AIFStream* a, AIFStream* b);
-    static AIFStream* Or(AIFStream* a, AIFStream* b);
-    static AIFStream* neg(AIFStream* a);
+    static AIFStream* fromBinOp(AIFStream* a, const std::string& op, AIFStream* b);
+    static AIFStream* fromUnaryOp(const std::string& op, AIFStream* a);
 
     // Compare two streams of data for equality, or near equality
     // *res is 0 if equal, 1 if a > b, 2 a >~ n, -1 a < b, -2 a <~ n

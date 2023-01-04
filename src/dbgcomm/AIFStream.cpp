@@ -437,38 +437,42 @@ inline AIFStream* AIFStreamFromBinaryOp(AIFStream* a, AIFStream* b, T op) {
     return new AIFStream{vs};
 }
 
-AIFStream* AIFStream::add(AIFStream* a, AIFStream* b) {
-    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x+y; });
+AIFStream* AIFStream::fromBinOp(AIFStream* a, const std::string& op, AIFStream* b) {
+    if (op == "+") {
+        return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x+y; });
+    } else if (op == "-") {
+        return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x-y; });
+    } else if (op == "*") {
+        return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x*y; });
+    } else if (op == "/") {
+        return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { if (y != 0) return x/y; else return y/1; });
+    } else if (op == "%") {
+        return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) {
+                                             if constexpr ( std::is_integral<decltype(x)>::value) {
+                                                     return x % y;
+                                                 } else {
+                                                 return fmod(x,y);
+                                             }});
+    } else if (op == "&&") {
+        return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x && y; });
+    } else if (op == "||") {
+        return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x || y; });
+    } else {
+        return nullptr;
+    }
 }
-AIFStream* AIFStream::sub(AIFStream* a, AIFStream* b) {
-    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x-y; });
-}
-AIFStream* AIFStream::mul(AIFStream* a, AIFStream* b) {
-    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x*y; });
-}
-AIFStream* AIFStream::div(AIFStream* a, AIFStream* b) {
-    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { if (y != 0) return x/y; else return y/1; });
-}
-AIFStream* AIFStream::rem(AIFStream* a, AIFStream* b) {
-    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) {
-                                         if constexpr ( std::is_integral<decltype(x)>::value) {
-                                                 return x % y;
-                                             } else {
-                                             return fmod(x,y);
-                                         }});
-}
-AIFStream* AIFStream::And(AIFStream* a, AIFStream* b) {
-    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x && y; });
-}
-AIFStream* AIFStream::Or(AIFStream* a, AIFStream* b) {
-    return AIFStreamFromBinaryOp(a,b,[](auto x, auto y) { return x || y; });
-}
-AIFStream* AIFStream::neg(AIFStream* a) {
-    auto cloneA = new AIFStream(std::move(*a));
-    auto negOp = [](auto x) {
-                     if constexpr (std::is_arithmetic_v<decltype(x)>) return -x; else return x;};
-    auto negStream = makeUnaryOpStream(cloneA->getVStreamPtr(), negOp);
-    return new AIFStream(negStream);
+
+AIFStream* AIFStream::fromUnaryOp(const std::string& op, AIFStream* a) {
+    if (op == "-") {
+        // templatize this when there is more than one supported operator
+        auto cloneA = new AIFStream(std::move(*a));
+        auto negOp = [](auto x) {
+                         if constexpr (std::is_arithmetic_v<decltype(x)>) return -x; else return x;};
+        auto negStream = makeUnaryOpStream(cloneA->getVStreamPtr(), negOp);
+        return new AIFStream(negStream);
+    } else {
+        return nullptr;
+    }
 }
 
 // Class for accumulating differenced during a comparison operation.

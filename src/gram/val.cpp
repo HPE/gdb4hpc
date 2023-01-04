@@ -426,7 +426,9 @@ std::pair<size_t, bool> SingleValue::getNumResults() { return std::make_pair(1,t
 std::optional<ResultPair> SingleValue::getNextSet(bool rankToRank) {
     if (m_processed) return std::optional<ResultPair>{};
     m_processed = true;
-    return ResultPair{.isRankToRank=rankToRank};
+    // the rankToRank argument is the *intent* to be rank-to-rank, but a single value
+    // cannot be rank to rank.
+    return ResultPair{.isRankToRank=false};
 }
 void SingleValue::getCommonRanks(ResultPair& result) {
     // as a second argument, match everyone
@@ -505,17 +507,12 @@ void BinaryFuncValue::print(std::ostream& os, rec_set_t* rec_set, const std::str
 }
 
 AIFStream* BinaryFuncValue::getAIFStream(AIFStream* a, AIFStream* b) const {
-    auto op = m_op;
-    if (op == "+")
-        return AIFStream::add(a, b);
-    else if (op == "-")
-        return AIFStream::sub(a,b);
-    else if (op == "/")
-        return AIFStream::div(a,b);
-    else {
+    if (auto str = AIFStream::fromBinOp(a, m_op, b)) {
+        return str;
+    } else {
         delete a;
         delete b;
-        throw EvalError("operator " + op + " is not supported");
+        throw EvalError("operator " + m_op + " is not supported");
     }
 
 }

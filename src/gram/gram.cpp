@@ -22,6 +22,10 @@ std::vector<const gram::AssertExpr*> gram::Expression::getAssertions() const {
     return std::vector<const gram::AssertExpr*>{};
 }
 
+gram::Expression* gram::Expression::negate() {
+    return new UnaryOp("-", this);
+}
+
 gram::Int::Int(int val) : m_val(val) {}
 
 void gram::Int::printL(int level) const {
@@ -32,6 +36,11 @@ std::string gram::Int::toString() const {
     return std::to_string(m_val);
 }
 
+gram::Expression* gram::Int::negate() {
+    m_val = -m_val;
+    return this;
+}
+
 gram::Float::Float(double val) : m_val(val) {}
 
 void gram::Float::printL(int level) const {
@@ -40,6 +49,11 @@ void gram::Float::printL(int level) const {
 
 std::string gram::Float::toString() const {
     return std::to_string(m_val);
+}
+
+gram::Expression* gram::Float::negate() {
+    m_val = -m_val;
+    return this;
 }
 
 gram::String::String(const std::string& val) : m_val(val) {}

@@ -34,12 +34,15 @@ std::unique_ptr<Value> gram::Int::eval(rec_set_t* rec_set) const {
 }
 
 std::unique_ptr<Value> gram::Float::eval(rec_set_t* rec_set) const {
-    // lookout for accurace
-    return std::make_unique<ReplyValue>(rec_set, std::to_string(m_val));
+    // lookout for accuracy
+    return std::make_unique<AIFValue>(rec_set, std::to_string(m_val),
+                                      AIFStream::fromDouble(m_val));
 
 }
 
 std::unique_ptr<Value> gram::String::eval(rec_set_t* rec_set) const {
+    // we could make this an AIFValue but with "" used for a gdb escape
+    // there isn't really a way to access it.
     return std::make_unique<ReplyValue>(rec_set, '"' + m_val + '"');
 }
 
@@ -217,7 +220,7 @@ std::unique_ptr<Value> gram::SubExpr::eval(rec_set_t* rec_set) const {
     if (ReplyValue* ra = dynamic_cast<ReplyValue*>(A.get())) {
         return std::make_unique<ReplyValue>(ra->getRecSet(), "(" + ra->getExpr() + ")");
     } else {
-        throw EvalError("cannot apply () to a value");
+        return A;
     }
 }
 

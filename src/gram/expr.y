@@ -179,7 +179,7 @@ expr : "&" expr %prec UNARY { $$ = new gram::UnaryOp("&", $2); }
 
 expr : "*" expr %prec UNARY { $$ = new gram::UnaryOp("*", $2); }
 
-expr : "-" expr %prec UNARY { $$ = new gram::UnaryOp("-", $2); }
+expr : "-" expr %prec UNARY { $$ = $2->negate(); }
 
 expr: "--" expr %prec UNARY { $$ = new gram::UnaryOp("--", $2); }
 
@@ -219,7 +219,7 @@ expr_lex(YYSTYPE *lv)
     while (*s && isspace(*s)) ++s;
     if (!*s) return YYEOF;
 
-    if (isdigit(*s) || *s == '-') {
+    if (isdigit(*s)) {
         char* endi, *endf;
         int ival = strtol(s, &endi, 10);
         double dval = strtod(s, &endf);

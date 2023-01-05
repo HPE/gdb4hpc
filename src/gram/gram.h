@@ -24,6 +24,7 @@ namespace gram {
         virtual std::string toString() const = 0;
         virtual void setProcSet();
         virtual std::vector<const gram::AssertExpr*> getAssertions() const;
+        virtual Expression* negate();
 
     protected:
         void indent(int level) const;
@@ -38,6 +39,7 @@ namespace gram {
         void printL(int level) const override;
         std::string toString() const override;
         std::unique_ptr<Value> eval(rec_set_t* rec_set) const override;
+        Expression* negate() override;
         int m_val;
     };
 
@@ -48,6 +50,7 @@ namespace gram {
         void printL(int level) const override;
         std::string toString() const override;
         std::unique_ptr<Value> eval(rec_set_t* rec_set) const override;
+        Expression* negate() override;
         double  m_val;
     };
 

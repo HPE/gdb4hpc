@@ -516,7 +516,7 @@ else
     %{__sed} -i "/^prepend-path[[:space:]]*LD_LIBRARY_PATH.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
     %{__sed} -i "/^setenv[[:space:]]*GDB4HPC_INSTALL_DIR.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 fi
-%{__gzip} -c -d -f ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz > ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline
+%{__gzip} -d -k -f ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
 
 %preun
 default_link="${RPM_INSTALL_PREFIX}/%{cray_product}/default"

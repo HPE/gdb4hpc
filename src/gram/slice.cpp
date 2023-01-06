@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -178,7 +178,7 @@ void slice_t::parseIdcs() {
     m_rank = 0;
     if (!m_args || !strlen(m_args)) return;
 
-    // the gdb4hpc syntax has some ambiguity as process lists can look fortran array
+    // the gdb4hpc syntax has some ambiguity as process lists can look like fortran array
     // references.   So here we examine a parsed argument list and create the array
     // of min/max indices if it fits that interpretation
     auto arg = std::string{m_args};

@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Hewlett Packard Enterprise Development LP.
+// Copyright 2020-2023 Hewlett Packard Enterprise Development LP.
 
 // Classes for defining a sequential stream of data accessed via the AIF interface.
 #include "AIFStream.h"
@@ -410,12 +410,6 @@ AIFStream* AIFStream::fromString(const std::string& val) {
 
 AIFStream* AIFStream::fromLiteral(const std::string& val) {
     return new AIFStream{ais::SingleValueStream<ais::Literal,std::string>::make(val)};
-}
-
-
-AIFStream* AIFStream::fromMultiThreadResult(const char* val) {
-    return new AIFStream{
-        ais::SingleValueStream<ais::MultiThreadResult,std::string>::make(val)};
 }
 
 void AIFStream::print(std::ostream& os) {

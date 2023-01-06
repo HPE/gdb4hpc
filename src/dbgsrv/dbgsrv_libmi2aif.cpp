@@ -1,7 +1,7 @@
 /******************************************************************************
  * libmi to aif conversion routines
  *
- * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -75,7 +75,7 @@ private:
     std::string arrayToFnCall(const std::string& expr);
 };
 
-class WriteBuffer; struct TypeName; class ArraySlicer;
+class MIWriteBuffer; class WriteBuffer; struct TypeName; class ArraySlicer;
 
 // Class to handle templated types.   For templated classes, gdb will report some
 // types in terms of template arguments, e.g. std::shared_ptr<T> where it
@@ -123,7 +123,7 @@ private:
     std::vector<std::shared_ptr<LazyMIVar>> m_refs;
     std::unordered_map<void*,size_t> m_refMap;
 
-    std::shared_ptr<WriteBuffer> m_writeBuffer;
+    std::shared_ptr<MIWriteBuffer> m_writeBuffer;
     ais::Writer m_writer;
 
     std::map<std::string, std::shared_ptr<ais::Type>> m_types;
@@ -169,7 +169,7 @@ private:
 // future.
 class WriteBuffer : public ais::WriteBuffer {
 public:
-    WriteBuffer(Mi2Aif& mi) : m_mi(mi) {}
+    WriteBuffer() {}
     void writeInt(int val) override;
     void writeLong(long val) override;
     void writeLongLong(long long val) override;
@@ -181,11 +181,18 @@ public:
     void writePointer(const std::string& type, void* val) override;
 
     std::string exportResult();
-private:
-    Mi2Aif& m_mi;
+protected:
     std::ostringstream m_out;
 };
 
+class MIWriteBuffer : public WriteBuffer {
+public:
+    MIWriteBuffer(Mi2Aif& mi) : m_mi(mi) {}
+    void writePointer(const std::string& type, void* val) override;
+private:
+    Mi2Aif& m_mi;
+};
+    
 // Utility class for passing type string around.  type is the portion that has been
 // processed, and decoration is the part left to process.
 struct TypeName {
@@ -1498,8 +1505,8 @@ namespace {
     }
 
     void WriteBuffer::writePointer(const std::string& type, void* val) {
-        int idx = m_mi.swizzlePointer(type, val);
-        m_out << " " << std::quoted(type) << " " << idx;
+        // base does not support pointers
+        m_out << " " << std::quoted(type) << " 0";
     }
 
     std::string WriteBuffer::exportResult() {
@@ -1507,11 +1514,17 @@ namespace {
         m_out.str("");
         return res;
     }
+
+    void MIWriteBuffer::writePointer(const std::string& type, void* val) {
+        int idx = m_mi.swizzlePointer(type, val);
+        m_out << " " << std::quoted(type) << " " << idx;
+    }
+
 }
     
 
 Mi2Aif::Mi2Aif(MISession* session) : m_session(session), m_depth(0),
-                                     m_writeBuffer(std::make_shared<WriteBuffer>(*this)),
+                                     m_writeBuffer(std::make_shared<MIWriteBuffer>(*this)),
                                      m_writer(m_writeBuffer) {}
 
 std::string TypeParser::sanitizeType(const std::string& type) {
@@ -2399,6 +2412,22 @@ std::string EvalSlices::getNextSlice(bool& isFinal) {
 void EvalSlices::initSlicer() {
     if (!m_slicer) m_slicer = m_mi2aif.makeSlicer(m_var);
 }
+
+AIFStream* AIFStream::fromMultiThreadResult(const char* val) {
+    auto mtr = std::make_shared<ais::MultiThreadResult>();
+    auto any = ais::Any(mtr, 0);
+    auto buff = std::make_shared<WriteBuffer>();
+    auto out = ais::Writer{buff};
+
+    // instead of faking MultiThreadResult::parse, unroll ais::Any::parse
+    // to get the right ais data.   It's not ideal, but makes sense
+    // as long as this is the only weirdo.
+    out.writeType(any);
+    out.writeInt(0);   // index id
+    out.writeString(val);
+
+    return new AIFStream(buff->exportResult(), false);
+}    
 
 namespace unittest {
 

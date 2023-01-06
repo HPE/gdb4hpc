@@ -1,7 +1,7 @@
 /*
 ** Expression parser.
 **
-** Copyright 2012-2022 Hewlett Packard Enterprise Development LP.
+** Copyright 2012-2023 Hewlett Packard Enterprise Development LP.
 **
 */
 
@@ -192,6 +192,12 @@ expr : SYM "(" expr ")" { $$ = new gram::FuncCall(*$1, $3); delete $1; }
 expr : SYM "(" ")" { $$ = new gram::FuncCall(*$1, nullptr); delete $1; }
 
 expr : "$" SYM "{" expr "}" { $$ = new gram::DSymArray(*$2, $4); delete $2; }
+
+expr : "$" SYM "{" "*" ":" expr "}" { auto pe = new gram::ThreadedProcsetExpr(nullptr, $6);
+                                      $$ = new gram::DSymArray(*$2, pe); delete $2; }
+
+expr : "$" SYM "{" expr ":" expr "}" { auto pe = new gram::ThreadedProcsetExpr($4, $6);
+                                       $$ = new gram::DSymArray(*$2, pe); delete $2; }
 
 expr : expr "," expr { $$ = new gram::List($1, $3); }
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #include <iostream>
@@ -62,8 +62,11 @@ std::unique_ptr<Value> gram::DSym::eval(rec_set_t* rec_set) const {
     auto name = toString();
     if (FindBlockMap(name)) {
         return std::make_unique<BlockmapValue>(rec_set,name);
-    } else if (auto [locRecSet, tmpProcset] = IdMap::getRecSetForProcs(name); locRecSet) {
-        return std::make_unique<ProcsetValue>(locRecSet, tmpProcset);
+    } else if (auto [procSet, isTmp] = IdMap::getProcset(name); procSet) {
+        auto locRecSet = CreateRecSetForProcset(procSet);
+        auto threads = std::string{procSet->s_threads ? procSet->s_threads : ""};
+        return std::make_unique<ProcsetValue>(locRecSet, isTmp ? procSet : nullptr,
+                                              threads);
     } else {
         throw EvalError("not debug variable: $" + m_sym);
     }
@@ -232,4 +235,10 @@ std::unique_ptr<Value> gram::CastExpr::eval(rec_set_t* rec_set) const {
         throw EvalError("cannot cast a procset value");
     }
 }
+
+std::unique_ptr<Value> gram::ThreadedProcsetExpr::eval(rec_set_t* rec_set) const {
+    // This one just used toString() since the procset does all the processing.
+    throw EvalError("Procset expression does have a value type");
+}
+
 

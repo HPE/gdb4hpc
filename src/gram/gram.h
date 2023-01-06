@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #pragma once
@@ -266,6 +266,19 @@ namespace gram {
         Expression* m_expr;
         std::string m_file;
         int m_lineno;
+    };
+
+    class ThreadedProcsetExpr : public Expression {
+    public:
+        ThreadedProcsetExpr(Expression* procs, Expression* threads);
+        ~ThreadedProcsetExpr() override;
+
+        void printL(int level) const override;
+        std::string toString() const override;
+        std::unique_ptr<Value> eval(rec_set_t* rec_set) const override;
+    private:
+        Expression* m_procs;
+        Expression* m_threads;
     };
 }
 

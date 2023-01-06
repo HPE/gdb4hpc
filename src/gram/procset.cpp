@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -196,7 +196,7 @@ dbgprocset_t* CreateProcSet(const std::string& name, const gram::Expression& set
         eset.push_back(&set);
     }
 
-    // LOOKAT: thread focus
+    auto threads = std::string{};
 
     for (auto&& e : eset) {
         if (auto ds = dynamic_cast<const gram::DSym*>(e)) {
@@ -205,6 +205,7 @@ dbgprocset_t* CreateProcSet(const std::string& name, const gram::Expression& set
                 auto val = ds->eval(nullptr);
                 if (auto psv = dynamic_cast<ProcsetValue*>(val.get())) {
                     psSet.push_back(psv->getProcSet());
+                    threads = psv->getThreads();
                     ok = true;
                 }
             } catch (EvalError& err) {}
@@ -216,7 +217,8 @@ dbgprocset_t* CreateProcSet(const std::string& name, const gram::Expression& set
     }
         
     // create the new procset
-    auto new_procset = NewProcSet(name.c_str(), DBGSET_DEFSET, nullptr);
+    auto new_procset = NewProcSet(name.c_str(), DBGSET_DEFSET,
+                                  threads.empty() ? nullptr : threads.c_str());
 
     int offset = 0;
     for (auto& [ di, grp ] : psSet) {

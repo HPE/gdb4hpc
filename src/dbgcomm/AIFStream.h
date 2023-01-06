@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Hewlett Packard Enterprise Development LP.
+// Copyright 2020-2023 Hewlett Packard Enterprise Development LP.
 
 #ifndef _AIF_STREAM_H
 #define _AIF_STREAM_H
@@ -143,7 +143,6 @@ private:
     std::shared_ptr<Slices> getSlices() { return m_slices; }
 
     std::shared_ptr<Slices> m_slices;
-
     std::unique_ptr<ais::Reader> m_reader;
     std::shared_ptr<ais::VStream> m_vstream;
 };

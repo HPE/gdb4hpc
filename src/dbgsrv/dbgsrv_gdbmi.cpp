@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -1182,7 +1182,7 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up, const char* threads) {
 ** outermost frames.
 */
 dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    DVPRINT("*** Dbg %s, %s %d %s\n", __FILE__, __func__, count, threads ? threads : "");
     dbgevent_t *e;
 
     MICommand *cmd;
@@ -3467,7 +3467,7 @@ static dbgevent_t *CheckBreak(int feId, MICommand *cmd, const dbgcomm_info *comm
     }
 
     if (bpt->threadId != NULL) {
-        bp->bp_threadId = strdup(bpt->threadId);
+        bp->bp_threadId.assign(bpt->threadId);
     }
 
     if (commInfo) {
@@ -3812,8 +3812,8 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
                 DVPRINT("frame %d IN %s AT FILE %s LINE %d\n", level, func.c_str(), file.c_str(),
                         frameLine);
 
-                auto loc = dbgloc_t{ const_cast<char*>(file.c_str()),
-                                     const_cast<char*>(func.c_str()), nullptr, frameLine };
+                auto loc = dbgloc_t{ strdup(file.c_str()),
+                                     strdup(func.c_str()), nullptr, frameLine };
                 frame = new dbgframe_t{level, loc, nullptr, threadStr, nullptr};
             } else if (std::regex_match(line, match, fromRE)) {
                 auto level = std::stoi(match[1]);
@@ -3821,12 +3821,12 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
                 auto file = match[4].str();
                 DVPRINT("frame %d IN %s FROM %s\n", level, func.c_str(), file.c_str());
 
-                auto loc = dbgloc_t{ const_cast<char*>(file.c_str()),
-                                     const_cast<char*>(func.c_str()), nullptr, 0 };
+                auto loc = dbgloc_t{ strdup(file.c_str()),
+                                     strdup(func.c_str()), nullptr, 0 };
 
                 frame = new dbgframe_t{ level, loc, nullptr, threadStr, nullptr};
             } else if (std::regex_match(line, match, runningRE)) {
-                auto loc = dbgloc_t{ const_cast<char*>(""), const_cast<char*>("<running>"), nullptr, 0 };
+                auto loc = dbgloc_t{ strdup(""), strdup("<running>"), nullptr, 0 };
                 frame = new dbgframe_t{ 0, loc, nullptr, threadStr, nullptr};
             } else {
                 DVPRINT("could not parse line %s\n", line.c_str());

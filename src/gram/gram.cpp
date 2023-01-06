@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #include "gram.h"
@@ -329,3 +329,33 @@ std::unique_ptr<Value> gram::AssertExpr::eval(rec_set_t* rec_set) const {
 std::vector<const gram::AssertExpr*> gram::AssertExpr::getAssertions() const {
     return std::vector<const gram::AssertExpr*>{this};
 }
+
+gram::ThreadedProcsetExpr::ThreadedProcsetExpr(Expression* procs, Expression* threads) :
+    m_procs(procs), m_threads(threads) {
+    if (procs) procs->setProcSet();
+    threads->setProcSet();
+}
+
+gram::ThreadedProcsetExpr::~ThreadedProcsetExpr() {
+    delete m_procs;
+    delete m_threads;
+}
+
+void gram::ThreadedProcsetExpr::printL(int level) const {
+    std::cout << "Procset\n";
+    if (m_procs) {
+        m_procs->print(level+1);
+    } else {
+        indent(level+1);
+        std::cout << "*\n";
+    }
+    m_threads->print(level+1);
+}
+
+std::string gram::ThreadedProcsetExpr::toString() const {
+    auto ps = m_procs ? m_procs->toString() : "*";
+    ps += ":";
+    ps += m_threads->toString();
+    return ps;
+}
+        

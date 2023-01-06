@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #include "eval.h"
@@ -33,19 +33,6 @@ extern g_block_map_t *FindBlockMap(const std::string& blockmap);
 
 std::map<std::string, rec_set_t*> IdMap::m_psetMap;
 
-std::pair<rec_set_t*,dbgprocset_t*>
-IdMap::getRecSetForProcs(const std::string& procs) {
-
-    auto [procSet, isTmp] = getProcset(procs);
-
-    if (!procSet) {
-        throw EvalError("no procset for " + procs);
-    }
-
-    auto rec_set = CreateRecSetForProcset(procSet);
-    return std::make_pair(rec_set, isTmp ? procSet : nullptr);
-}
-
 std::pair<dbgprocset_t*,bool> IdMap::getProcset(const std::string& procs) {
     auto brace = procs.find('{',1);
     auto name = std::string{};
@@ -57,6 +44,14 @@ std::pair<dbgprocset_t*,bool> IdMap::getProcset(const std::string& procs) {
         name = procs.substr(1,brace-1);
         auto endBrace = procs.find('}', brace+1);
         auto sliceArg = procs.substr(brace+1, endBrace-brace-1);
+        auto threads = std::string{};
+
+
+        // pull out the the thread info
+        if (auto colon=sliceArg.find(':'); colon != std::string::npos) {
+            threads = sliceArg.substr(colon+1);
+            sliceArg = sliceArg.substr(0,colon);
+        }
 
         // translate to slice format
         for (size_t i=0; (i=sliceArg.find("..")) != std::string::npos; ++i) {
@@ -64,6 +59,7 @@ std::pair<dbgprocset_t*,bool> IdMap::getProcset(const std::string& procs) {
         }
         slice.reset(new slice_t);
         slice->setArgs(sliceArg.c_str());
+        if (!threads.empty()) slice->setThreads(threads.c_str());
     }
 
     auto isTmp = false;
@@ -71,9 +67,8 @@ std::pair<dbgprocset_t*,bool> IdMap::getProcset(const std::string& procs) {
 
     if (procSet && slice) {
         // check the result
-        int n = procSet->s_nproc;
         for (int i=0, r=slice->getRank(); i<r; ++i) {
-            if (slice->getLow(i) < 0 || slice->getHigh(i) >= n ||
+            if (slice->getLow(i) < 0 ||
                 slice->getLow(i) > slice->getHigh(i)) {
                 throw EvalError("ranks are out of range in " + procs);
             }
@@ -187,9 +182,10 @@ void ReplyValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& 
     auto rep_set = retrieve();
 
     for ( auto reply : rep_set) {
-        // AIFPrint doesn't play nice with editline...
-        auto aif = EVENT_DATA(reply->rep_event);
+        // retrieve shouldn't return anything that isn't data, but lets be safe..
+        if (reply->rep_event->ev_event != DBGEV_DATA) continue;
         auto label = getLabel(rec_set, reply, format);
+        auto aif = EVENT_DATA(reply->rep_event);
         aif->print(os, label, format);
         os << "\n";
     }
@@ -448,8 +444,8 @@ void SingleValue::getCommonSet(ResultPair& result) {
 }
 
 
-ProcsetValue::ProcsetValue(rec_set_t* rec_set, dbgprocset_t* tmpPs)
-    : Value(rec_set), m_tmpProcset(tmpPs)
+ProcsetValue::ProcsetValue(rec_set_t* rec_set, dbgprocset_t* tmpPs, const std::string& threads)
+    : Value(rec_set), m_tmpProcset(tmpPs), m_threads(threads)
 {
     if (!rec_set) {
         throw std::runtime_error("null rec_set");
@@ -473,6 +469,10 @@ ProcsetValue::getProcSet() {
     }
     auto rcv = rcvs[0];
     return std::make_pair(rcv->rec_di.handle(), rcv->rec_group->clone());
+}
+
+std::string ProcsetValue::getThreads() const {
+    return m_threads;
 }
 
 BlockmapValue::BlockmapValue(rec_set_t* rec_set, const std::string& name)

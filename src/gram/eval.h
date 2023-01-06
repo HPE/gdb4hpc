@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #pragma once
@@ -53,8 +53,6 @@ class IdMap {
 public:
     static std::pair<dbgprocset_t*,bool> getProcset(const std::string& procs);
     
-    static std::pair<rec_set_t*,dbgprocset_t*> getRecSetForProcs(
-        const std::string& procs);
     static g_block_map_t* getBlockmapForName(std::string name);
 
     static bool idIsAvailable(const std::string& name, bool printMsg);
@@ -246,16 +244,17 @@ protected:
 // A procset like $a or $a{1,4..6}.  The value refers to the procset itself
 class ProcsetValue : public Value {
 public:
-    ProcsetValue(rec_set_t* rec_set, dbgprocset_t* tmpProcset);
+    ProcsetValue(rec_set_t* rec_set, dbgprocset_t* tmpProcset, const std::string& threads);
     ~ProcsetValue() override;
 
     std::pair<DbgInvoke::Handle,std::unique_ptr<Bitset>> getProcSet();
     dbgprocset_t* getProcset();
-    const std::string getThreads() const;
+    std::string getThreads() const;
     
     virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
 private:
     dbgprocset_t* m_tmpProcset;
+    std::string m_threads;
 };
 
 // A blockmap (decomposition) variable, i.e it refers to the blockmap

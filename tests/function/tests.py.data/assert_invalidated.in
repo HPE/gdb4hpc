@@ -27,7 +27,7 @@ Passes: 1, Passes with warnings: 0, Failures: 0.
 22: kill $a
 Shutting down debugger and killing application for 'a'.
 22: start $invalidated
-Failed to set up script $invalidated: (Script contains an invalid procset: no procset for $a in "$a::c@"c_type_test.c":235 == $a::c@"c_type_test.c":235")
+Failed to set up script $invalidated: (Script contains an invalid procset: not debug variable: $a in "$a::c@"c_type_test.c":235 == $a::c@"c_type_test.c":235")
 Cancelling execution.
 Command resulted in an error: 10: start $invalidated
 24: q

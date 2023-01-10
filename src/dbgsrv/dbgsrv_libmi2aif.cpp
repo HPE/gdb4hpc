@@ -2434,8 +2434,6 @@ AIFStream* AIFStream::fromMultiThreadResult(const char* val) {
 
 namespace unittest {
 
-#ifndef DOCTEST_CONFIG_DISABLE
-
 template <typename T>
 std::shared_ptr<ais::Type> basicTypeTest(TypeParser::Lang lang, const char *input) {
     // parse the `input` string with the TypeParser function according to `lang`
@@ -2487,8 +2485,6 @@ std::shared_ptr<Inner> containerMatch(std::shared_ptr<ais::Type> outerptr, size_
 
     return inner;
 }
-
-#endif
 
 TEST_CASE("TypeParser::sanitizeType") {
     auto &st = TypeParser::sanitizeType;

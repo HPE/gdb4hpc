@@ -630,11 +630,11 @@ const char* const cmd_pipe_help[] = {
 
 const char* const cmd_print_help[] = {
     "Summary: Print the value of an expression.",
-    "Usage: print <expr>",
+    "Usage: print [/format] <expr>",
     "Example command: print prog_variable",
+    "               : p/x val",
+    "               : p/csv array",
     "Shortcut: p",
-    "",
-    "Arguments: expr (expression to print)",
     "",
     "Description:",
     "Print the value of expr for each application rank in the current process",
@@ -646,6 +646,11 @@ const char* const cmd_print_help[] = {
     "Application ranks can be targeted using the process set notation for the",
     "desired app_handle. For example, to print variable myVar in ranks 1,3,4,5,10",
     "of application $a, issue: print $a{1,3..5,10}::myVar.",
+    "",
+    "Format strings change the style of printing: /x for hexadecimal, /o for octal,",
+    "/t for binary (\"two\") and /z for zero padded binary.  gdb4hpc extends the",
+    "gdb formats with /1 to print one element per line, and /csv to print arrays",
+    "as comma separated values.",
     0};
 
 const char* const cmd_ptype_help[] = {

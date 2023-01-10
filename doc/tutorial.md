@@ -212,31 +212,33 @@ For this document, we're trying to show the idea of a decomposition, and we'll b
 - The decomposition can be defined fully distributed.  That is, the `distribute` line is all `*`'s.  There is a potentially different result for each rank; the decomposition is just reshaping the array.
 - A decomposition can let you interpret a scalar as array of length num_ranks.    (This used to actually be required to compare scalars in assertion scripts).
 
-# Lesser gdb4hpc features
+# Other debugging features
 
-These are some gdb4hpc features that you aren't obvious, but that can simplify your life.
+## Breakpoint hit counts and conditions
+As of version 4.14.6, gdb4hpc prints the number(s) of times a breakpoint has been hit in `info breakpoints` and supports the `ignore` and `condition` commands to let you trigger a breakpoint only when there's something worth looking at.
 
-## History
-At the gdb4hpc prompt, the up and down arrows cycle through the command history and the '!' escapes are available.
+There may be different hit counts on each rank because the ranks are running independently.   
 
-## Quote escape
-Gdb4hpc understands most, but not all possible expressions you might want to print.   Enclosing an expression in double quotes sends it directly to the gdb interpreter:
-```
-dbg all> p distributedArray1[0]@4
-a{0..2}: {0,4,8,12}
-dbg all> p distributedArray1[0]@size
-syntax error, unexpected SYM, expecting STRING or INT
-dbg all> p "distributedArray1[0]@size"
-a{0..2}: {0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156}
-dbg all> p $a{1}::"distributedArray1[0]@size"
-a{1}: {0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156}
-dbg all> p "$a{1}::distributedArray1[0]@size"
-a{0..2}: No symbol "$a{1}::distributedArray1(0)@size" in current context
-dbg all>
-```
-*Note in the last line that the gdb doesn't know anything about procsets.   The quoted should start after the procset.*
+## Using gdbmode to access some functionality that gdb4hpc doesn't *currently* support directly
+You can use gdbmode to:
 
-Gdb4hpc won't fully understand these results, so the any comparisons would be done strictly by comparing the results as a string.
+- Set a hardware watchpoint
+- Examine registers
+- Examine memory
+
+The command `gdbmode` puts gdb4hpc in a mode where all commands are sent directly to gdb until you enter the command `end`
+
+Or, it can be used with arguments to execute a single gdb command: `gdb info registers`.    We can use "gdb" insead of "gdbmode" because gdb4hpc lets you shorten any command as long as it's unambiguous.
+
+## shell, shell -r, and pipe
+The `shell` command lets you invoke shell commands without leaving gdb4hpc.   By default, this is on the local host, but with the `-r` argument it runs the command on every rank and prints the results.   For example, you can use `shell -r hostname` to determine where your job is running.
+
+Like `gdb`/`gdbmode`, if called with no arguments the command will drop you into a sub-shell and all commands will be sent to the shell until you exit the mode with either `end` or `suspend`.
+
+The `pipe` command sends the output of any gdb command into a shell pipeline, some examples:
+
+- send a large array result to a file: `pipe p big_array | cat > ~/log/big_array.txt`
+- search a long result for something: `pipe thread apply all bt | grep error_hook`
 
 ## Array slicing
 You can use `..` to print out a portion of an array
@@ -249,37 +251,55 @@ a{0..2}: {3,4,5,6,7,8,9,10}
 dbg all>
 ```
 
+## print/format
+
+The `print` command accepts the format strings `/x`, `/o`, `/t`, and `/z` to print integral values in hex, octal, binary, and zero padded binary respectively.   For example: `p/x val`
+
+gdb4hpc supports two additional formats
+
+- /1 prints one value per one line, which is particularly useful when `pipe`-ing the result to `grep` or `wc`.
+- /csv print array values as comma separated values, which can be useful to connect to other data tools.
+
+## modifying program variables
+
+You can change the value of a variable, via something like `assign $a::enable_debug 1` or `p i=10` or even (as of 4.14.8): `p --i`.
+
+In the first case, this could be used to turn on extra debugging code in the middle of a run.   In the other cases, to rerun some iteration of a (reentrant) loop.
+
+# Lesser gdb4hpc features
+
+These are some gdb4hpc features that aren't obvious, but that can simplify your life.
+
+## History
+At the gdb4hpc prompt, the up and down arrows cycle through the command history and the common '!' escapes are available.  For example: `!launch` re-executes the last launch command, which could be from a previous session.
+
 ## The source command and running in batch
-The `source` commands reads any text files and treats it as if it was entered at the prompt.   This can be particularly handy for executing launch commands, setting up breakpoint lists, or defining decomposition and assertion scripts.    This is similar to the *batch mode* command line option, but it leaves you in the normal interactive mode when it finishes.
+The `source` command reads a text file and treats it as if each line was entered at the prompt.   This can be handy for executing launch commands, setting up breakpoint lists, or defining decomposition and assertion scripts.    This is similar to the *batch mode* command line option, but it leaves you in the normal interactive mode when it finishes.
 
 Both batch and the source command are not synchronized with the debugger.   Thus, if a script continues to a breakpoint and prints a value, the print statement will execute before the breakpoint is hit.   The command `maint set sync on` can be used to change that behavior, but should be used with some care.
 
-## ~/.gdb4hpc/gdb4hpc_init
-This file `source`'d whenever gdb4hpc starts.  Typically, this would be used for setting preferences. 
+## Output logging
+The output from gdb4hpc can be sent to a log file either in addition to or instead of being printed to the screen.   See `help set logging` for details.
 
-## Using gdbmode to access some functionality that gdb4hpc doesn't *currently* support directly
-You can use gdbmode to:
+## Quote escape
+Gdb4hpc understands most, but not all possible expressions you might want to print.   Enclosing an expression in double quotes sends it directly to the gdb interpreter:
+```
+dbg all> p distributedArray1[0]@4
+a{0..2}: {0,4,8,12}
+dbg all> p distributedArray1[0]@size
+syntax error, unexpected SYM, expecting STRING or INT
+dbg all> p "distributedArray1[0]@size"
+a{0..2}: {0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156}
+```
+Gdb4hpc won't fully understand these results, so the any comparisons would be done strictly by comparing the results as a string.
 
-- define conditional breakpoints or set an ignore count on a breakpoint.   Note that gdb and gdb4hpc will use different values for the breakpoint index.
-- Set a hardware watchpoints
-- Modify the value of a variable with `=`
-
-Some operations unfortunately don't work like one might hope:
-
-- The `shell` command in gdb mode doesn't print any results
-- Adding a `command` to a breakpoint also won't print any result.
-
-## Thread handling
-Except when using cuda-gdb which doesn't support it, gdb4hpc defaults to running in non-stop mode.   That is, when a thread hits a breakpoint, the other threads continue to run.   This scales better and mimics how processes act in gdb4hpc.   The main change as a user can be that you need to use `c -a` and `halt -a` when you want these to apply to *all* threads.
-
-Gdb4hpc, by default, aggressively aggregates threads.    Especially in gpu circumstances this will be eliminating the lane information in `info thread` to give a more compact result.  The `-v` option is available for the full verbose result.
-
-Gdb4hpc supports a extended form thread sets for most contexts that take a thread id that can include sequences, ranges, or regular expressions to select a set of theads.   See `help thread` for more details.
-
-There is also a lesser used extension for procset that incorporates threads.    So `$a{1..3:1}`  references thread 1 in three processes.   You can use this to focus on a set of threads to apply a series of operations.   Though `thread apply` is typically easier to use.
+> note that as of 4.14.7 the expression parser has gotten significantly smarter, so these examples work without quotes.   This feature has been getting less important, but you may still encounter an expression gdb4hpc doesn't understand.
 
 ## Procset aliases
 The defset command lets you define an alias for a set of processes.  This can help when the application divides set of ranks into separate roles: e.g. "earth" and "sea" nodes for a weather simulation.
+
+## ~/.gdb4hpc/gdb4hpc_init
+If this file exists, `source ~/.gdb4hpc/gdb4hpc_init` is applied whenever gdb4hpc starts.  Typically, this would be used for setting preferences. 
 
 ## --debug
 Launch and attach drop gdb4hpc logging files into the directory defined by the environment variable CRAY_DBG_LOG_DIR.   If there are launch problems these files can give some insight.   It will it at least show the work load manager commands that it is trying to call.   

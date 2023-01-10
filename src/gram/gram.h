@@ -198,13 +198,13 @@ namespace gram {
 
     class FuncCall : public Expression {
     public:
-        FuncCall(const std::string& func, Expression* args);
+        FuncCall(Expression* func, Expression* args);
         ~FuncCall() override;
     private:
         void printL(int level) const override;
         std::string toString() const override;
         std::unique_ptr<Value> eval(rec_set_t* rec_set) const override;
-        std::string  m_func;
+        Expression* m_func;
         Expression* m_args;
     };
 

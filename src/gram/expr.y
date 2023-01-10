@@ -187,9 +187,9 @@ expr: "++" expr %prec UNARY { $$ = new gram::UnaryOp("++", $2); }
 
 expr : "(" expr ")" %prec UNARY { $$ = new gram::SubExpr($2); }
 
-expr : SYM "(" expr ")" { $$ = new gram::FuncCall(*$1, $3); delete $1; }
+expr : expr "(" expr ")" { $$ = new gram::FuncCall($1, $3); }
 
-expr : SYM "(" ")" { $$ = new gram::FuncCall(*$1, nullptr); delete $1; }
+expr : expr "(" ")" { $$ = new gram::FuncCall($1, nullptr); }
 
 expr : "$" SYM "{" expr "}" { $$ = new gram::DSymArray(*$2, $4); delete $2; }
 

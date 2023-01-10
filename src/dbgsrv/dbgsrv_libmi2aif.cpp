@@ -1167,7 +1167,10 @@ static bool typeIsReference(const char* str) {
 
 static char *GetArrayDataString(MISession* session, MIVar *var) {
 
-    if (var->expr) {
+    if (var->numchild == 0 && var->value) {
+        DVPRINT("In GetArrayDataString  var value is %s\n", var->value);
+        return strdup(var->value);
+    } else if (var->expr) {
         DVPRINT("In GetArrayDataString %s\n", var->expr);
         DBEPERFLOG(SetTimerStart("GetArrayAIF: -data-evaluate-expression"));
 

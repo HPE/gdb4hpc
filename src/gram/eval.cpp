@@ -196,9 +196,9 @@ std::unique_ptr<Value> gram::FuncCall::eval(rec_set_t* rec_set) const {
             throw EvalError("procset arguments of a function is not supported");
         }
         
-        return std::make_unique<ReplyValue>(rec_set, m_func + "(" + A->getExpr() + ")");
+        return std::make_unique<ReplyValue>(rec_set, m_func->toString() + "(" + A->getExpr() + ")");
     } else {
-        return std::make_unique<ReplyValue>(rec_set, m_func + "()");
+        return std::make_unique<ReplyValue>(rec_set, m_func->toString() + "()");
     }
 }
 

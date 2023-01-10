@@ -67,9 +67,10 @@ std::pair<dbgprocset_t*,bool> IdMap::getProcset(const std::string& procs) {
 
     if (procSet && slice) {
         // check the result
+        int n = procSet->s_nproc;
         for (int i=0, r=slice->getRank(); i<r; ++i) {
-            if (slice->getLow(i) < 0 ||
-                slice->getLow(i) > slice->getHigh(i)) {
+            auto low = slice->getLow(i), high = slice->getHigh(i);
+            if (low < 0 || low > high || (high != INT_MAX && high >= n)) { // INT_MAX is "*"
                 throw EvalError("ranks are out of range in " + procs);
             }
         }

@@ -221,18 +221,17 @@ std::string gram::ArrayRef::toString() const {
     }
 }
 
-gram::FuncCall::FuncCall(const std::string& func, Expression* args) : m_func(func), m_args(args) {}
-gram::FuncCall::~FuncCall() { delete m_args; }
+gram::FuncCall::FuncCall(Expression* func, Expression* args) : m_func(func), m_args(args) {}
+gram::FuncCall::~FuncCall() { delete m_func; delete m_args; }
 void gram::FuncCall::printL(int level) const {
     std::cout << "func-call\n";
-    indent(level+1);
-    std::cout << "name: " << m_func << "\n";
+    if (m_func) m_func->print(level+1);
     if (m_args) m_args->print(level+1);
 }
 
 std::string gram::FuncCall::toString() const {
-    if (m_args) return m_func + "(" + m_args->toString() + ")";
-    else return m_func + "()";
+    if (m_args) return m_func->toString() + "(" + m_args->toString() + ")";
+    else return m_func->toString() + "()";
 }
 
 gram::List::List(Expression* a, Expression* b) {

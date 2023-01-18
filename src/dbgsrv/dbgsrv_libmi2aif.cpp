@@ -38,7 +38,6 @@
 
 // Used to fix infinite loop issue for recursive calls to whatis
 extern int clientPrintElements;
-static char *GetArrayDataString(MISession* session, MIVar *var);
 static char* EvalExpression(MISession* session, const char* expression);
 static std::string FixRightShift(std::string type);
 static const char* FindTemplateEnd(const char* type);
@@ -52,7 +51,7 @@ extern void SendMICommand(MISession *, MICommand *);
 */
 namespace {
 
-class Mi2Aif;
+class Mi2Aif; class SubArray;
 
 class LazyMIVar {
     // handle for an MIVar which defers var, type, and expression calculations
@@ -62,6 +61,7 @@ private:
     std::shared_ptr<MIVar> m_var;
     std::shared_ptr<ais::Type> m_type;
     std::string m_expr;
+    std::shared_ptr<SubArray> m_subArray;
 
 public:
     LazyMIVar(Mi2Aif& mi, std::string expr);
@@ -71,8 +71,30 @@ public:
     std::shared_ptr<ais::Type> getType();
     std::string getExpr();
 
+    char *getArrayDataString();
+
 private:
     std::string arrayToFnCall(const std::string& expr);
+    std::string getGdbType(const std::string& expr);
+    std::string sendWhatIs(const std::string& expr);
+};
+
+class SubArray {
+public:
+    static std::unique_ptr<SubArray> get(Mi2Aif& mi, const std::string& type);
+    std::shared_ptr<ais::Type> getType() const { return m_type; }
+    char* getArrayDataString();
+    
+private:
+    SubArray(Mi2Aif& mi, const std::string& expr);
+    std::vector<std::string> parse(const std::string& type);
+    void parseFtn(const std::string& type);
+    void getRngs(const std::vector<std::string>& idcs);
+    int getIdx(const std::string& s) const;
+    Mi2Aif& m_mi;
+    std::string m_baseExpr;
+    std::vector<std::pair<int,int>> m_rngs;
+    std::shared_ptr<ais::Type> m_type;
 };
 
 class MIWriteBuffer; class WriteBuffer; struct TypeName; class ArraySlicer;
@@ -554,100 +576,103 @@ std::shared_ptr<MIVar> LazyMIVar::getVar() {
     return m_var;
 }
 
+std::string LazyMIVar::getGdbType(const std::string& exp) {
+    try {
+        return sendWhatIs(exp);
+    } catch (...) {
+        // the frontend can't tell if "(12)" is a C function call or a
+        // fortran array index and thus sends function calls to us
+        // as "myFunc[12]" instead of "myFunc(12)"
+        if (auto fnCallExpr = arrayToFnCall(exp); !fnCallExpr.empty()) {
+            return sendWhatIs(fnCallExpr);
+        } else {
+            throw;
+        }
+    }
+}
+
+// Use whatis commands to determine the gdb type of `exp`. Accounts
+// for the frontend's confusion with ftn array indices and c function calls.
+// If no type is found, returns an empty string.
+std::string LazyMIVar::sendWhatIs(const std::string& exp) {
+    auto cmd = CLIWhatis(exp.c_str());
+    SendMICommand(m_mi.getSession(), cmd);
+
+    if (MICommandResultOK(cmd)) {
+        auto typeStr = CLIGetWhatisInfo(cmd);
+        MICommandFree(cmd);
+        if (!typeStr) return std::string{""};
+        std::string r = typeStr;
+        free(typeStr);
+        return r;
+    } else {
+        auto msg = MICommandResultErrorMessage(cmd);
+        auto err = std::string{msg};
+        MICommandFree(cmd);
+        free(msg);
+        throw err;
+    }
+}
+    
+
 std::shared_ptr<ais::Type> LazyMIVar::getType() {
     static std::regex anonymousRE(R"((const)? *class)");
 
     if (m_type) return m_type;
 
     if (m_var) {
-        m_type = TypeParser::getType(m_mi, m_var.get(), nullptr);
-    } else {
-        if (m_expr.empty()) {
-            throwDbgError("No expression to create variable with.");
-        }
+        return m_type = TypeParser::getType(m_mi, m_var.get(), nullptr);
+    } 
 
-        // Use whatis commands to determine the gdb type of `exp`. Accounts
-        // for the frontend's confusion with ftn array indices and c function calls.
-        // If no type is found, returns an empty string.
-        auto getGDBType = [this](const std::string& exp) {
-            // Send a "whatis `exp`" command to gdb, returns "" on failure
-            auto SendWhatIs = [this](const std::string& exp) {
-                auto cmd = CLIWhatis(exp.c_str());
-                SendMICommand(m_mi.getSession(), cmd);
-
-                if (MICommandResultOK(cmd)) {
-                    auto typeStr = CLIGetWhatisInfo(cmd);
-                    MICommandFree(cmd);
-                    if (!typeStr) return std::string{""};
-                    std::string r = typeStr;
-                    free(typeStr);
-                    return r;
-                } else {
-                    auto msg = MICommandResultErrorMessage(cmd);
-                    auto err = std::string{msg};
-                    MICommandFree(cmd);
-                    free(msg);
-                    throw err;
-                }
-            };
-
-            try {
-                return SendWhatIs(exp);
-            } catch (...) {
-                // the frontend can't tell if "(12)" is a C function call or a
-                // fortran array index and thus sends function calls to us
-                // as "myFunc[12]" instead of "myFunc(12)"
-                if (auto fnCallExpr = arrayToFnCall(exp); !fnCallExpr.empty()) {
-                    return SendWhatIs(fnCallExpr);
-                } else {
-                    throw;
-                }
-            }
-        };
-
-        // strip meta info if present
-        auto [strippedExpr, metaInfo] = m_mi.extractMetaInfo(m_expr.c_str());
-
-        auto strippedExprType = std::string{};
-        try {
-            strippedExprType = getGDBType(strippedExpr);
-        } catch (std::string err) {
-            if (!dbg_error) {
-                if (err.find("No symbol") != std::string::npos) {
-                    DVPRINT("Whatis %s failed; no symbol.\n", strippedExpr.c_str());
-                    dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, "%s", strippedExpr.c_str()));
-                } else {
-                    DVPRINT("Whatis %s failed: %s.\n", strippedExpr.c_str(), err.c_str());
-                    dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, "%s: %s",
-                                                  strippedExpr.c_str(), err.c_str()));
-                }
-            }
-            throw dbg_error.release();
-        }
-
-        if (std::regex_match(strippedExprType, anonymousRE) && getVar()) {
-            // unnamed C++ class type, I'll have to work from the expression
-            return getType();
-        }
-
-        m_type = TypeParser::getType(m_mi, nullptr, strippedExprType.c_str());
-        DVPRINT("Got type for %s: %s\n", m_expr.c_str(), m_type->getTypeName().c_str());
-
-        // if we have a pointer with length meta info, we can apply it now
-        if (auto ptrType = std::dynamic_pointer_cast<ais::Pointer>(m_type);
-            ptrType && !metaInfo.empty() && metaInfo[0] == '@')
-        {
-            DVPRINT("Found metainfo to apply: %s\n", metaInfo.c_str());
-            auto lengthened = std::string{"("} + strippedExpr + ")[0]" + metaInfo;
-            try {
-                auto appliedType = getGDBType(lengthened);
-                if (!appliedType.empty()) {
-                    m_type = TypeParser::getType(m_mi, nullptr, appliedType.c_str());
-                }
-            } catch (...) {}
-        }
+    if (m_expr.empty()) {
+        throwDbgError("No expression to create variable with.");
     }
 
+    // strip meta info if present
+    auto [strippedExpr, metaInfo] = m_mi.extractMetaInfo(m_expr.c_str());
+
+    if (m_subArray = SubArray::get(m_mi, strippedExpr)) {
+        DVPRINT("expression is a SubArray\n");
+        return m_type = m_subArray->getType();
+    }
+
+    auto strippedExprType = std::string{};
+    try {
+        strippedExprType = getGdbType(strippedExpr);
+    } catch (std::string err) {
+        if (!dbg_error) {
+            if (err.find("No symbol") != std::string::npos) {
+                DVPRINT("Whatis %s failed; no symbol.\n", strippedExpr.c_str());
+                dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, "%s", strippedExpr.c_str()));
+            } else {
+                DVPRINT("Whatis %s failed: %s.\n", strippedExpr.c_str(), err.c_str());
+                dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, "%s: %s",
+                                              strippedExpr.c_str(), err.c_str()));
+            }
+        }
+        throw dbg_error.release();
+    }
+
+    if (std::regex_match(strippedExprType, anonymousRE) && getVar()) {
+        // unnamed C++ class type, I'll have to work from the expression
+        return getType();
+    }
+
+    m_type = TypeParser::getType(m_mi, nullptr, strippedExprType.c_str());
+    DVPRINT("Got type for %s: %s\n", m_expr.c_str(), m_type->getTypeName().c_str());
+
+    // if we have a pointer with length meta info, we can apply it now
+    if (auto ptrType = std::dynamic_pointer_cast<ais::Pointer>(m_type);
+        ptrType && !metaInfo.empty() && metaInfo[0] == '@') {
+        DVPRINT("Found metainfo to apply: %s\n", metaInfo.c_str());
+        auto lengthened = std::string{"("} + strippedExpr + ")[0]" + metaInfo;
+        try {
+            if (auto appliedType = getGdbType(lengthened); !appliedType.empty()) {
+                m_type = TypeParser::getType(m_mi, nullptr, appliedType.c_str());
+            }
+        } catch (...) {}
+    }
+    
     return m_type;
 }
 
@@ -662,6 +687,170 @@ std::string LazyMIVar::getExpr() {
     return m_expr;
 }
 
+std::unique_ptr<SubArray> SubArray::get(Mi2Aif& mi, const std::string& expr) {
+    auto retVal = std::unique_ptr<SubArray>{};
+    if (expr.find("..") == std::string::npos) return retVal;
+    try {
+        retVal.reset(new SubArray(mi, expr));
+    } catch (const std::exception& err) {
+        DVPRINT("Caught exception parsing the SubArray: %s\n", err.what());
+    } catch (...) {
+        DVPRINT("Caught unknown exception parsing a SubArray\n");
+    }
+    return retVal;
+}
+
+SubArray::SubArray(Mi2Aif& mi, const std::string& expr) : m_mi(mi) {
+
+    auto idcs = parse(expr);
+
+    // get the element type
+    auto baseTypeStr = m_baseExpr;
+
+    for (size_t i=0, n=idcs.size(); i<n; ++i) baseTypeStr += "[0]";
+    auto baseVar = LazyMIVar(mi, baseTypeStr);
+
+    auto baseType = baseVar.getType();
+
+    // get the lower and upper bound for each dimension
+    getRngs(idcs);
+
+    m_type = baseType;
+
+    // m_rngs are listed from slowest varying to fasted varying
+    for (auto rit = m_rngs.rbegin(); rit != m_rngs.rend(); ++rit) {
+        auto [lower, upper] = *rit;
+        if (upper > lower) {
+            if (dynamic_cast<ais::Char*>(m_type.get())) {
+                m_type = std::make_shared<ais::CharArray>();
+            } else {
+                m_type = std::make_shared<ais::Array>(m_type, upper-lower+1);
+            }
+        }
+    }
+
+    DVPRINT("Got SubAray type: %s\n", m_type->getTypeName().c_str());
+}
+
+std::vector<std::string> SubArray::parse(const std::string& expr) {
+    auto idcs = std::vector<std::string>{};
+    auto level = 0;
+    auto end = size_t{};
+    auto i = expr.size();
+    for ( ; i--; ) {
+        auto c = expr[i];
+        if (c == ']') {
+            if (++level == 1) end = i;
+        } else if (c == '[') {
+            if (!--level) idcs.push_back(expr.substr(i+1, end-i-1));
+        } else if (!level && !isspace(c)) {
+            break;
+        }
+    }
+
+    if (idcs.empty()) {
+        // fortran array?
+        parseFtn(expr);
+        return idcs;
+    }
+
+    m_baseExpr = expr.substr(0,i+1);
+    std::reverse(idcs.begin(), idcs.end());
+    return idcs;
+}
+
+void SubArray::parseFtn(const std::string& expr) {
+    if (expr.empty() || expr.back() != ')') throw std::runtime_error("not an array");
+    m_baseExpr = expr;
+    for (size_t loc; (loc=m_baseExpr.find("..")) != std::string::npos; ) {
+        m_baseExpr.replace(loc,2,":");
+    }
+}
+
+void SubArray::getRngs(const std::vector<std::string>& idcs) {
+    for (const auto& idx : idcs) {
+        auto rng = std::pair<int,int>{};
+        if (auto dot = idx.find(".."); dot == std::string::npos) {
+            rng.first = rng.second = getIdx(idx);
+        } else {
+            rng.first = getIdx(idx.substr(0,dot));
+            rng.second = getIdx(idx.substr(dot+2));
+            rng.second = std::max(rng.second,rng.first);
+        }
+        DVPRINT("Got range %d %d\n", rng.first, rng.second);
+        m_rngs.push_back(rng);
+    }
+}
+
+int SubArray::getIdx(const std::string& expr) const {
+    if (std::all_of(expr.begin(), expr.end(), [](char c) {return std::isdigit(c);})) {
+        return std::stoi(expr);
+    } else if (auto res = EvalExpression(m_mi.getSession(), expr.c_str())) {
+        auto resStr = std::string{res};
+        free(res);
+        return std::stoi(resStr);
+    } else {
+        throw std::runtime_error("evaluation failed");
+    }
+}
+
+char* SubArray::getArrayDataString() {
+    if (m_rngs.empty()) {
+        LazyMIVar evar(m_mi, m_baseExpr);
+        return evar.getArrayDataString();
+    }
+    
+    auto os = std::ostringstream{};
+    auto idx = std::vector<int>{};
+    auto idcs = m_rngs;
+    auto inDim = idcs.size();
+
+    auto repeat = idcs.back().second-idcs.back().first+1;
+    std::vector<std::string> nests(inDim);
+    size_t brck0 = 0;
+    for (size_t i=0; i+1 < inDim; ++i) {
+        if (idcs[i].first < idcs[i].second) ++brck0;
+    }
+    for (size_t i=0; i < inDim; ++i) {
+        nests.emplace_back(brck0,'{');
+        if (brck0 && idcs[i].first < idcs[i].second) --brck0;
+    }
+
+    os << nests[0];
+    
+    while (true) {
+        std::ostringstream expr;
+        expr << m_baseExpr;
+        for (auto [lo,hi] : idcs) expr << '[' << lo << ']';
+        if (repeat > 1) expr << '@' << repeat;
+
+        LazyMIVar evar(m_mi, expr.str());
+
+        if (auto res1 = evar.getArrayDataString()) {
+            os << res1;
+            free(res1);
+        }
+
+        int i = inDim-1;
+        for ( ; i--; ) {
+            auto& idx = idcs[i];
+            if (idx.first < idx.second) {
+                ++idx.first;
+                os << ',' << nests[i+1];
+                break;
+            } else {
+                auto rng = m_rngs[i];
+                idx.first = rng.first;
+                if (rng.first != rng.second) os << '}';
+            }
+        }
+
+        if (i < 0) break;
+    }
+
+    return strdup(os.str().c_str());
+}
+ 
 // Build up the mapping from the ptype result.  Oobs is the
 // full line by line output captured by ptype
 TypeMapper::TypeMapper(MIList* oobs) {
@@ -1165,8 +1354,13 @@ static bool typeIsReference(const char* str) {
     return false;
 }
 
-static char *GetArrayDataString(MISession* session, MIVar *var) {
+char *LazyMIVar::getArrayDataString() {
 
+    if (m_subArray) return m_subArray->getArrayDataString();
+
+    auto var = getVar();
+    auto session = m_mi.getSession();
+    
     if (var->numchild == 0 && var->value) {
         DVPRINT("In GetArrayDataString  var value is %s\n", var->value);
         return strdup(var->value);
@@ -1230,7 +1424,7 @@ static char *GetArrayDataString(MISession* session, MIVar *var) {
                 var->children);
 
         Mi2Aif mi2(session);
-        mi2.getChildren(var);
+        mi2.getChildren(var.get());
 
         std::ostringstream os;
         os << "{";
@@ -1427,7 +1621,7 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
         // splitting is not enabled, the array is not big enough to split,
         // or it's a form the splitter doesn't recognize, just return it
         // all
-        array = m_buf = GetArrayDataString(m_mi.getSession(), m_var->getVar().get());
+        array = m_buf = m_var->getArrayDataString();
         ++m_subIdx;
     } else {
         DVPRINT("In ArraySlicer::getNext get next chunk\n");
@@ -1467,7 +1661,7 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
 
         } else {
             // failure!  - fall back to just evaluating the whole kielbasa
-            array = GetArrayDataString(m_mi.getSession(), m_var->getVar().get());
+            array = m_var->getArrayDataString();
             m_subIdx = m_maxSubIdx + 1;
 
             DVPRINT("Failed getting sub-array value, full result: %s\n", array);

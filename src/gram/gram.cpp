@@ -171,6 +171,8 @@ void gram::Range::setProcSet() { m_procSet = true; }
 
 std::string gram::Range::toString() const {
     std::ostringstream os;
+    os << m_a->toString() << ".." << m_b->toString();
+    /*
     auto ia = dynamic_cast<Int*>(m_a), ib = dynamic_cast<Int*>(m_b);
     if (m_procSet) {
         os << m_a->toString() << ".." << m_b->toString();
@@ -183,6 +185,7 @@ std::string gram::Range::toString() const {
         auto b = m_b->toString();
         os <<  "[" << a << "]@(" << b <<  "- " << a << "+1)";
     }
+    */
     return os.str();
 }
 
@@ -214,11 +217,7 @@ void gram::ArrayRef::printL(int level) const {
 }
 
 std::string gram::ArrayRef::toString() const {
-    if (auto rng = dynamic_cast<Range*>(m_idx)) {
-        return m_arr->toString() + rng->toString();
-    } else {
-        return m_arr->toString() + '[' + m_idx->toString() + ']';
-    }
+    return m_arr->toString() + '[' + m_idx->toString() + ']';
 }
 
 gram::FuncCall::FuncCall(Expression* func, Expression* args) : m_func(func), m_args(args) {}

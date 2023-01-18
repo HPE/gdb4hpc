@@ -158,7 +158,13 @@ std::unique_ptr<ComparisonValue> gram::Binop::evalCompare(rec_set_t* rec_set) co
 
 
 std::unique_ptr<Value> gram::Range::eval(rec_set_t* rec_set) const {
-    throw EvalError(".. outside of a array index");
+    auto A = m_a->eval(rec_set);
+    auto B = m_b->eval(rec_set);
+    if (A->getRecSet() != rec_set || B->getRecSet() != rec_set) {
+        throw EvalError("evaluating an range with procset indices");
+    }
+
+    return std::make_unique<ReplyValue>(rec_set, A->getExpr() + ".." + B->getExpr());
 }
 
 std::unique_ptr<Value> gram::Conditional::eval(rec_set_t* rec_set) const {
@@ -176,16 +182,11 @@ std::unique_ptr<Value> gram::Conditional::eval(rec_set_t* rec_set) const {
 
 std::unique_ptr<Value> gram::ArrayRef::eval(rec_set_t* rec_set) const {
     auto A = m_arr->eval(rec_set);
-
-    if (dynamic_cast<Range*>(m_idx)) {
-        return std::make_unique<ReplyValue>(A->getRecSet(), A->getExpr() + m_idx->toString());
-    } else {
-        auto B = m_idx->eval(rec_set);
-        if (B->getRecSet() != rec_set) {
-            throw EvalError("evaluating an array with procset indices");
-        }
-        return std::make_unique<ReplyValue>(rec_set, A->getExpr() + "[" + B->getExpr() + "]");
+    auto B = m_idx->eval(rec_set);
+    if (B->getRecSet() != rec_set) {
+        throw EvalError("evaluating an array with procset indices");
     }
+    return std::make_unique<ReplyValue>(rec_set, A->getExpr() + "[" + B->getExpr() + "]");
 }
 
 std::unique_ptr<Value> gram::FuncCall::eval(rec_set_t* rec_set) const {

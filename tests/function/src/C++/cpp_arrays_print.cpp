@@ -28,6 +28,15 @@ int main(int argc, char* argv[]) {
     int *intp2 = &inte2;
     int *intparray[] = {intp, intp2};
 
+    double array3d[10][12][20];
+    for (int i=0; i<10; ++i) {
+        for (int j=0; j<12; ++j) {
+            for (int k = 0; k<20; ++k) {
+                array3d[i][j][k] = i + 0.1 * j + 0.01 * k;
+            }
+        }
+    }
+    
     MPI_Finalize();
     return 0;
 }

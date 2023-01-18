@@ -11,13 +11,15 @@ Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
 a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_arrays_print.cpp:4
-4: break cpp_arrays_print.cpp:31
-a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_arrays_print.cpp, line 31.
+4: break cpp_arrays_print.cpp:40
+a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_arrays_print.cpp, line 40.
 5: continue
-a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_arrays_print.cpp:31
+a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_arrays_print.cpp:40
 6: # full char arrays
 7: p one_d
 a{0..2}: "Hello world!\n"
+7: p one_d[2..6]
+a{0..2}: "llo w"
 8: p one_d_u
 a{0..2}: "Numbers"
 9: p one_d_s
@@ -147,6 +149,12 @@ a{0..2}: 0x1
 0x2
 0x10f
 0xffffffff
-68: kill $a
+68: p array3d[1..2][10..11][4]
+a{0..2}: {{2.04,2.14},{3.04,3.14}}
+69: p array3d[1][2][3..11]
+a{0..2}: {1.23,1.24,1.25,1.26,1.27,1.28,1.29,1.3,1.31}
+70: p array3d[4..7][6][0..1]
+a{0..2}: {{4.6,4.61},{5.6,5.61},{6.6,6.61},{7.6,7.61}}
+71: kill $a
 Shutting down debugger and killing application for 'a'.
-69: q
+72: q

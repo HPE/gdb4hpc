@@ -133,6 +133,8 @@ b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 41: finish???
 42: p strings
 b{0..1}: {"and","then","there","were","none"}
+42: p strings[1..3]
+b{0..1}: {"then","there","were"}
 43: p vecOfVecs
 b{0..1}: {{27,24,21,18,15,12,9,6,3,0},{24,21,18,15,12,9,6,3,0},{21,18,15,12,9,6,3,0},{18,15,12,9,6,3,0},{15,12,9,6,3,0},{12,9,6,3,0},{9,6,3,0},{6,3,0},{3,0},{0}}
 44: p vecOfStrings
@@ -143,8 +145,14 @@ b{0..1}: "were"
 b{0..1}: {21,18,15,12,9,6,3,0}
 47: p vecOfVecs[2][0]
 b{0..1}: 21
+47: p vecOfVecs[0][1..3]
+b{0..1}: {24,21,18}
+47: p vecOfVecs[1..2][1..3]
+b{0..1}: {{21,18,15},{18,15,12}}
 48: p vecOfStrings[1]
 b{0..1}: {"and"}
+48: p vecOfStrings[1..2]
+b{0..1}: {{"and"},{"then","there"}}
 49: p vecOfStrings[5][2]
 b{0..1}: "there"
 50: p vecOfStrings[5][2][2]

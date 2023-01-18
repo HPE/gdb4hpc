@@ -50,7 +50,7 @@ launch:
 meta:
   keep: # don't delete these files upon -r option
     - Makefile
-  avocado-version: latest
+  avocado-version: "100.0"
 
 # system specific overides
 horizon-aarch:

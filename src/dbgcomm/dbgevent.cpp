@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020,2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -167,7 +167,7 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
             break;
 
         case DBGEV_DATA:
-        case DBGEV_DATA_SLICE:
+        case DBGEV_DATA_CHUNK:
             e->ev_data = (event->ev_data ? event->ev_data->clone() : nullptr);
             break;
 
@@ -444,7 +444,7 @@ void FreeEvent(dbgevent_t *event) {
             break;
 
         case DBGEV_DATA:
-        case DBGEV_DATA_SLICE:
+        case DBGEV_DATA_CHUNK:
             delete event->ev_data;
             break;
 
@@ -854,8 +854,8 @@ void PrintDbgEvent(dbgevent_t *event) {
         case DBGEV_DATA:
             PrintOutMsg("DBGEV_DATA");
             break;
-        case DBGEV_DATA_SLICE:
-            PrintOutMsg("DBGEV_SLICE");
+        case DBGEV_DATA_CHUNK:
+            PrintOutMsg("DBGEV_CHUNK");
             break;
         case DBGEV_STAT:
             PrintOutMsg("DBGEV_STAT");
@@ -918,8 +918,8 @@ const char *EventToStr(const dbgevent_t *event) {
             return "DBGEV_SOURCEPATH";
         case DBGEV_DATA:
             return "DBGEV_DATA";
-        case DBGEV_DATA_SLICE:
-            return "DBGEV_DATA_SLICE";
+        case DBGEV_DATA_CHUNK:
+            return "DBGEV_DATA_CHUNK";
         case DBGEV_STAT:
             return "DBGEV_STAT";
         case DBGEV_VERS:
@@ -977,8 +977,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_SOURCEPATH";
         case DBGEV_DATA:
             return "DBGEV_DATA";
-        case DBGEV_DATA_SLICE:
-            return "DBGEV_DATA_SLICE";
+        case DBGEV_DATA_CHUNK:
+            return "DBGEV_DATA_CHUNK";
         case DBGEV_STAT:
             return "DBGEV_STAT";
         case DBGEV_VERS:

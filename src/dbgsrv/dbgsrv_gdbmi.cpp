@@ -3605,8 +3605,8 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
         // Return the next slice of data
         try {
             bool isFinal;
-            dbgev ev = DBGEV_DATA_SLICE;
-            AIFStream* returnStream = remainderLoc->second->createStreamFromNextSlice(isFinal);
+            dbgev ev = DBGEV_DATA_CHUNK;
+            AIFStream* returnStream = remainderLoc->second->createStreamFromNextChunk(isFinal);
             if (returnStream) {
                 if (isFinal) {
                     DVPRINT("returning the last slice of %ld\n", expIdx);
@@ -3641,7 +3641,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     bool isFinal;
     AIFStream* returnStream = nullptr;
     try {
-        returnStream = aifStream->createStreamFromNextSlice(isFinal);
+        returnStream = aifStream->createStreamFromNextChunk(isFinal);
     } catch (dbgevent_t* err) {
         DVPRINT("Get value failed\n");
         delete aifStream;
@@ -3649,7 +3649,7 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     }
 
     if (!returnStream) {
-        DVPRINT("getNextSlice failed\n");
+        DVPRINT("getNextChunk failed\n");
         delete aifStream;
         return NewErrorEvent(DBGERR_DEBUGGER, "array evaluation failed");
     }
@@ -3657,10 +3657,10 @@ dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads
     if (isFinal) {
         delete aifStream;
     } else {
-        // We are only returning the first slice of the result.   Save the
+        // We are only returning the first chunk of the result.   Save the
         // rest for the continuation call.
         DVPRINT("saving remainder of expression %ld\n", expIdx);
-        ev = DBGEV_DATA_SLICE;
+        ev = DBGEV_DATA_CHUNK;
         remainders.insert(std::make_pair(expIdx,aifStream));
     }
 

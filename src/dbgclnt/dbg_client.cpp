@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -356,14 +356,14 @@ rep_set_t *NewRepSet(void) {
 }
 
 rep_set_t::rep_set_t()
-    : m_set(nullptr), m_dataId(0), m_isSliced(false), m_returnedSlice0(false),
-      m_moreSlices(false)
+    : m_set(nullptr), m_dataId(0), m_isChunked(false), m_returnedChunk0(false),
+      m_moreChunks(false)
 {}
 
-rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const Bitset* group)
+rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& chunks, const Bitset* group)
     : rep_set_t()
 {
-    mergeReplySliceSet(slices, group);
+    mergeReplyChunkSet(chunks, group);
 }
 
 void FreeRepSet(rep_set_t *set) {
@@ -402,7 +402,7 @@ rep_set_t* rep_set_t::clone() const
     }
 
     newset->m_dataId = m_dataId;
-    newset->m_moreSlices = m_moreSlices;
+    newset->m_moreChunks = m_moreChunks;
     newset->m_repsIsSorted = m_repsIsSorted;
     newset->m_errsIsSorted = m_errsIsSorted;
 
@@ -427,9 +427,9 @@ rep_set_t* rep_set_t::merge(rep_set_t* tmp) {
     r.swap(tmp->m_errs);
     m_errs.insert(m_errs.end(), r.begin(), r.end());
 
-    m_isSliced |= tmp->m_isSliced;
-    m_moreSlices |= tmp->m_moreSlices;
-    m_returnedSlice0 = false;
+    m_isChunked |= tmp->m_isChunked;
+    m_moreChunks |= tmp->m_moreChunks;
+    m_returnedChunk0 = false;
 
     if (m_dataId != tmp->m_dataId) {
         fprintf(stderr, "data ids do not match\n");
@@ -598,10 +598,10 @@ group_reply_t* rep_set_t::getFirstReply() const
 
 const std::vector<group_reply_t*>& rep_set_t::getReplies() const
 {
-    if (m_moreSlices) {
+    if (m_moreChunks) {
         // make the single reply on demand if the processing doesn't handle
-        // packetized.  -- delete the slices and clears the m_slices vector.
-        const_cast<rep_set_t*>(this)->mergeReplySlices();
+        // packetized.  -- delete the chunks and clears the m_chunks vector.
+        const_cast<rep_set_t*>(this)->mergeReplyChunks();
     }
 
     const_cast<rep_set_t*>(this)->sortReplies();
@@ -611,10 +611,10 @@ const std::vector<group_reply_t*>& rep_set_t::getReplies() const
 
 const std::vector<group_reply_t*>& rep_set_t::getErrs() const
 {
-    if (!m_moreSlices) {
+    if (!m_moreChunks) {
         // make the single reply on demand if the processing doesn't handle
-        // packetized.  -- delete the slices and clears the m_slices vector.
-        const_cast<rep_set_t*>(this)->mergeReplySlices();
+        // packetized.  -- delete the chunks and clears the m_chunks vector.
+        const_cast<rep_set_t*>(this)->mergeReplyChunks();
     }
 
     const_cast<rep_set_t*>(this)->sortErrors();
@@ -622,19 +622,19 @@ const std::vector<group_reply_t*>& rep_set_t::getErrs() const
     return m_errs;
 }
 
-// get the next reply slice if we haven't already processed the last one
-std::unique_ptr<rep_set_t> rep_set_t::getNextSlice() {
-    if (!m_returnedSlice0) {
-        rep_set_t* slice0 = new rep_set_t;
-        m_reps.swap(slice0->m_reps);
-        m_errs.swap(slice0->m_errs);
-        slice0->m_repsIsSorted = m_repsIsSorted;
-        slice0->m_errsIsSorted = m_errsIsSorted;
-        m_returnedSlice0 = true;
+// get the next reply chunk if we haven't already processed the last one
+std::unique_ptr<rep_set_t> rep_set_t::getNextChunk() {
+    if (!m_returnedChunk0) {
+        rep_set_t* chunk0 = new rep_set_t;
+        m_reps.swap(chunk0->m_reps);
+        m_errs.swap(chunk0->m_errs);
+        chunk0->m_repsIsSorted = m_repsIsSorted;
+        chunk0->m_errsIsSorted = m_errsIsSorted;
+        m_returnedChunk0 = true;
         m_repsIsSorted = m_errsIsSorted = true; // reps and errs now empty
-        return std::unique_ptr<rep_set_t>(slice0);
-    } else if (m_isSliced && m_moreSlices) {
-        return recvSlice();
+        return std::unique_ptr<rep_set_t>(chunk0);
+    } else if (m_isChunked && m_moreChunks) {
+        return recvChunk();
     } else {
         return nullptr;
     }
@@ -651,27 +651,27 @@ void rep_set_t::setContinuation(group_recv_t* set) {
     if (m_set) {
         AddReceiverToSet(m_set, CopyGroupReceiver(set));
     }
-    m_returnedSlice0 = false;
-    m_isSliced = m_moreSlices = true;
+    m_returnedChunk0 = false;
+    m_isChunked = m_moreChunks = true;
 }
 
 void rep_set_t::setDataId(size_t id) { m_dataId = id; }
 
-std::unique_ptr<rep_set_t> rep_set_t::recvSlice()
+std::unique_ptr<rep_set_t> rep_set_t::recvChunk()
 {
     if (!m_set) {
-        fprintf(stderr, "no receptor for receiving the next slice\n");
+        fprintf(stderr, "no receptor for receiving the next chunk\n");
         return nullptr;
     }
 
     auto req = CommandToSocProto(DBGCMD_CONTINUEEVALEXPR, m_dataId);
 
-    if (rep_set_t* slice = DbgSendCmdAndRecvReply(m_set, req, DBGEV_DATA)) {
-        m_moreSlices = slice->m_moreSlices;
-        slice->m_isSliced = slice->m_returnedSlice0 = slice->m_moreSlices = false;
-        return std::unique_ptr<rep_set_t>(slice);
+    if (rep_set_t* chunk = DbgSendCmdAndRecvReply(m_set, req, DBGEV_DATA)) {
+        m_moreChunks = chunk->m_moreChunks;
+        chunk->m_isChunked = chunk->m_returnedChunk0 = chunk->m_moreChunks = false;
+        return std::unique_ptr<rep_set_t>(chunk);
     } else {
-        m_moreSlices = false;
+        m_moreChunks = false;
         return nullptr;
     }
 }
@@ -1620,7 +1620,7 @@ static int DbgSendCmd(group_recv_t *set, const std::string& request) {
 // Receive a reply from the debug server
 // \param set the the process set we expect a response from.
 // \param req_type the event type we expect to be returned.   Any other event will
-//      generate an error response.   (except for DBGEV_DATA_SLICE is accepted in lieu of
+//      generate an error response.   (except for DBGEV_DATA_CHUNK is accepted in lieu of
 //      DBG_DATA).
 // \return the reply as a rep_set_t*, note errors are returned with an error response.
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type) {
@@ -1676,7 +1676,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                 // Do nothing.
                 break;
 
-            case DBGEV_DATA_SLICE:
+            case DBGEV_DATA_CHUNK:
                 ev = DBGEV_DATA;
                 isFinal = false;
                 // intentionally falling through
@@ -1720,34 +1720,34 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
 
 // merge together a packetized reply into a monolithic rep_set
 // Note that this is a short term function, the goal it to process the
-// result slices as they arrive; storing the full set of slices
+// result chunks as they arrive; storing the full set of chunks
 // in memory does not help (actually hinders) the memory usage on the client
 // side
-void rep_set_t::mergeReplySlices()
+void rep_set_t::mergeReplyChunks()
 {
-    if (!m_isSliced)
+    if (!m_isChunked)
         return;
 
     // Each generation of packets was reduced separately, so we'll need to build
     // up new equivalence classes to get a combined result that was returned by
     // every process.
 
-    std::vector<std::unique_ptr<rep_set_t>> slices;
-    while (auto slice = getNextSlice()) {
-        slices.push_back(move(slice));
+    std::vector<std::unique_ptr<rep_set_t>> chunks;
+    while (auto chunk = getNextChunk()) {
+        chunks.push_back(move(chunk));
     }
 
-    mergeReplySliceSet(slices, nullptr);
+    mergeReplyChunkSet(chunks, nullptr);
 
-    m_isSliced = m_returnedSlice0 = m_moreSlices =  false;
+    m_isChunked = m_returnedChunk0 = m_moreChunks =  false;
 }
 
 // merge together a packetized reply into a monolithic rep_set
 // Note that this is a short term function, the goal it to process the
-// result slices as they arrive; storing the full set of slices
+// result chunks as they arrive; storing the full set of chunks
 // in memory does not help (actually hinders) the memory usage on the client
 // side
-void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
+void rep_set_t::mergeReplyChunkSet(const std::vector<std::unique_ptr<rep_set_t>>& chunks,
                                    const Bitset* group)
 {
     // Each generation of packets was reduced separately, so we'll need to build
@@ -1755,24 +1755,24 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
     // every process.   FIXME: this bit of code is temporary since it allows the
     // memory consumption in the client to grow unbounded.   So I won't try to make
     // this code super optimal.
-    if (slices.empty()) {
+    if (chunks.empty()) {
         return;
-    } else if (slices.size() == 1) {
-        m_reps.swap(slices[0]->m_reps);
-        std::swap(m_repsIsSorted, slices[0]->m_repsIsSorted);
-        m_errs.swap(slices[0]->m_errs);
-        std::swap(m_errsIsSorted, slices[0]->m_errsIsSorted);
+    } else if (chunks.size() == 1) {
+        m_reps.swap(chunks[0]->m_reps);
+        std::swap(m_repsIsSorted, chunks[0]->m_repsIsSorted);
+        m_errs.swap(chunks[0]->m_errs);
+        std::swap(m_errsIsSorted, chunks[0]->m_errsIsSorted);
         m_dataId = 0;
-        m_isSliced = m_returnedSlice0 = m_moreSlices = false;
+        m_isChunked = m_returnedChunk0 = m_moreChunks = false;
         return;
     }
 
-    // find the set of dbg_invokes.   The slice set for the delta output from
-    // compare is sparse, so we can't just look at the first slice.
+    // find the set of dbg_invokes.   The chunk set for the delta output from
+    // compare is sparse, so we can't just look at the first chunk.
     std::set<DbgInvoke::Handle> disSet;
     std::vector<DbgInvoke::Handle> dis;
-    for (auto&& slice : slices) {
-        for (auto&& reply : slice.get()) {
+    for (auto&& chunk : chunks) {
+        for (auto&& reply : chunk.get()) {
             auto di = reply->rep_di;
             if (disSet.insert(di).second)
                 dis.push_back(di);
@@ -1782,10 +1782,10 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
     for (auto&& di : dis) {
         // merge the non-error and error replies into a single vector for easier
         // processing
-        size_t numTiers = slices.size();
+        size_t numTiers = chunks.size();
         std::vector<std::vector<group_reply*>> tiers(numTiers);
         for (size_t i=0; i<numTiers; ++i) {
-            rep_set_t& rs = *slices[i];
+            rep_set_t& rs = *chunks[i];
             auto& gs = tiers[i];
             for (int w=0; w<2; ++w) {
                 const auto& l = (!w ? rs.getReplies() : rs.getErrs());
@@ -1814,17 +1814,17 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
         // one group_reply from each tier which share at least one process.
         // Merge that set into a single group reply, removed the shared process nodes
         // from \a toproc and keep doing so until every process has been accounted for.
-        std::vector<group_reply*> newSlice;
+        std::vector<group_reply*> newChunk;
         auto setset = toproc->clone();
         while (!toproc->isEmpty()) {
             // find a common reply set
-            newSlice.clear();
+            newChunk.clear();
             *setset = *toproc;
             for (auto&& tier : tiers) {
                 for (auto&& gp : tier) {
                     if (setset->hasCommonBits(*gp->rep_group)) {
                         *setset &= *gp->rep_group;
-                        newSlice.push_back(gp);
+                        newChunk.push_back(gp);
                         break;
                     }
                 }
@@ -1833,15 +1833,15 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
             // remove this set from the process set to process
             *toproc -= *setset;
 
-            if (!group && newSlice.size() != numTiers) {
-                DPRINT("reply mismatch in MergeReplySlices\n");
+            if (!group && newChunk.size() != numTiers) {
+                DPRINT("reply mismatch in MergeReplyChunks\n");
                 break;
             }
 
             // update the set of replies left to process
-            if (newSlice.size() == numTiers) {
+            if (newChunk.size() == numTiers) {
                 for (size_t i=0; i<numTiers; ++i) {
-                    auto reply = newSlice[i];
+                    auto reply = newChunk[i];
                     auto& tier = tiers[i];
                     if (!reply->rep_group->hasCommonBits(*toproc)) {
                         // no processes left unprocessed - remove it from the
@@ -1854,7 +1854,7 @@ void rep_set_t::mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>
             // we have our set of overlapping replies, join the events together
             // and add to the monolithic return set.
             bool isError;
-            if (group_reply_t* newReply = JoinReplies(setset.get(), newSlice, isError)) {
+            if (group_reply_t* newReply = JoinReplies(setset.get(), newChunk, isError)) {
                 if (isError) {
                     m_errs.push_back(newReply);
                     m_errsIsSorted = false;
@@ -1892,24 +1892,24 @@ void rep_set_t::sortErrors() {
     m_errsIsSorted = true;
 }
 
-// Create a single unsliced group_reply from a set of slices
+// Create a single unchunked group_reply from a set of chunks
 // \a group the process set for the new result
-// \a replies the slices for the result
+// \a replies the chunks for the result
 // \a shape if given is the array shape for the returned result.   This is necessary
 //     if \a replies are a sparse representation, otherwise the function can
 //     compute the shape by combining the array sizes in \a replies
-// \a isError will contain true on return if any slice in \a replies was an error
+// \a isError will contain true on return if any chunk in \a replies was an error
 static group_reply_t* JoinReplies(const Bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   bool& isError)
 {
-    // JoinReplies should be called on DATA replies - no other type is sliced
+    // JoinReplies should be called on DATA replies - no other type is chunked
     auto di = DbgInvoke::Handle(nullptr);
     isError = false;
     for (auto&& reply : replies) {
         di = reply->rep_di;
         if (reply->rep_event->ev_event != DBGEV_DATA &&
-            reply->rep_event->ev_event != DBGEV_DATA_SLICE) {
+            reply->rep_event->ev_event != DBGEV_DATA_CHUNK) {
             DPRINT("reply event is not data\n");
             isError = true;
         }
@@ -1919,12 +1919,12 @@ static group_reply_t* JoinReplies(const Bitset* group,
     AIFStream* data = nullptr;
         
     if (!isError) {
-        std::vector<AIFStream*> slices;
+        std::vector<AIFStream*> chunks;
         for (auto&& reply : replies) {
-            slices.push_back(EVENT_DATA(reply->rep_event));
+            chunks.push_back(EVENT_DATA(reply->rep_event));
         }
 
-        data = new AIFStream(slices);
+        data = new AIFStream(chunks);
     }
 
 

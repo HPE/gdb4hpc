@@ -18,22 +18,22 @@ struct g_block_map_def_t;
 // of discrete styled slices - at least for arrays.
 class AIFStream {
 public:
-    // The Slices class for implementing the piecewise data access.
-    class Slices {
+    // The Chunks class for implementing the piecewise data access.
+    class Chunks {
     public:
-        Slices() = default;
-        Slices(const Slices&) = delete;
-        Slices& operator=(const Slices&) = delete;
+        Chunks() = default;
+        Chunks(const Chunks&) = delete;
+        Chunks& operator=(const Chunks&) = delete;
 
-        virtual ~Slices() = default;
+        virtual ~Chunks() = default;
 
         // return the next partition of data, the result must be freed by
         // the caller.
-        // - isFinal will contain true if there are no more slices after this one.
-        virtual std::string getNextSlice(bool& isFinal) = 0;
+        // - isFinal will contain true if there are no more chunks after this one.
+        virtual std::string getNextChunk(bool& isFinal) = 0;
 
         // defaults to throwing an error
-        virtual std::shared_ptr<Slices> clone() const;
+        virtual std::shared_ptr<Chunks> clone() const;
     };
 
     class Difference {
@@ -52,13 +52,13 @@ public:
         
     };
 
-    // construct a data array that can be accessed via sequential slices
-    AIFStream(std::shared_ptr<Slices> slices);
+    // construct a data array that can be accessed via sequential chunks
+    AIFStream(std::shared_ptr<Chunks> chunks);
 
     // constructor for a single block of data
     AIFStream(std::string&& data, bool isPartial);
 
-    // build from a set of cached slices
+    // build from a set of cached chunks
     AIFStream(std::vector<std::string>&& data);
 
     // build from a blockmap connecting multiple streams, blockMap defines the
@@ -76,18 +76,18 @@ public:
     // make rhs empty
     AIFStream(AIFStream&& rhs) = default;
 
-    // Get the next slice of AIF data.   Set isFinal to true if this is the last
-    // slice of the data object.  
-    std::string getNextSlice(bool& isFinal);
+    // Get the next chunk of AIF data.   Set isFinal to true if this is the last
+    // chunk of the data object.  
+    std::string getNextChunk(bool& isFinal);
 
     // create an encapsulated version of this stream
     AIFStream* join();
 
-    // creates a new AIF stream from the AIF that comes from a call to getNextSlice(STEAL).
-    // the new stream will have the truncation information related to the slice.
-    // this transfes ownership of the AIF returned from getNextSlice(STEAL) to
+    // creates a new AIF stream from the AIF that comes from a call to getNextChunk()
+    // the new stream will have the truncation information related to the chunk.
+    // this transfes ownership of the AIF returned from getNextChunk() to
     // the new stream.
-    AIFStream* createStreamFromNextSlice(bool &isFinal);
+    AIFStream* createStreamFromNextChunk(bool &isFinal);
 
     ~AIFStream();
 
@@ -140,9 +140,9 @@ public:
     static bool compareEqual(AIFStream& a, AIFStream& b);
 
 private:
-    std::shared_ptr<Slices> getSlices() { return m_slices; }
+    std::shared_ptr<Chunks> getChunks() { return m_chunks; }
 
-    std::shared_ptr<Slices> m_slices;
+    std::shared_ptr<Chunks> m_chunks;
     std::unique_ptr<ais::Reader> m_reader;
     std::shared_ptr<ais::VStream> m_vstream;
 };

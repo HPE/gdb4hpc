@@ -97,7 +97,7 @@ private:
     std::shared_ptr<ais::Type> m_type;
 };
 
-class MIWriteBuffer; class WriteBuffer; struct TypeName; class ArraySlicer;
+class MIWriteBuffer; class WriteBuffer; struct TypeName; class Chunker;
 
 // Class to handle templated types.   For templated classes, gdb will report some
 // types in terms of template arguments, e.g. std::shared_ptr<T> where it
@@ -161,9 +161,9 @@ public:
     std::string getPTypeAlias(const std::string& type, bool strict);
     PTypeFields getPTypeFields(const std::string& type, bool isFortran);
 
-    std::string nextSlice(ArraySlicer& slicer, bool& isFinal);
-    std::unique_ptr<ArraySlicer> makeSlicer(const std::string& var);
-    std::unique_ptr<ArraySlicer> makeSlicer(std::shared_ptr<MIVar> var);
+    std::string nextChunk(Chunker& chunker, bool& isFinal);
+    std::unique_ptr<Chunker> makeChunker(const std::string& var);
+    std::unique_ptr<Chunker> makeChunker(std::shared_ptr<MIVar> var);
     void initTopRef(std::shared_ptr<LazyMIVar> var);
     std::shared_ptr<ais::Type> getKnownType(const std::string& name);
     std::shared_ptr<ais::Type> addKnownType(const std::string& name,
@@ -443,12 +443,12 @@ std::vector<TypeParser::Prim> TypeParser::m_fortranPrims =
 
 std::vector<std::string> TypeParser::m_ignore = { "const", "volatile", "shared",
                                                   "SHARED", "pointer,", "POINTER," };
-class ArraySlicer;
+class Chunker;
 
 // Data result reported by gdb.
 // In the basic form, this is just the string reported on gdb on the
 // "print expression", but large arrays be broken into multiple
-// "bite-sized" pieces via the ArraySlicer object.
+// "bite-sized" pieces via the Chunker object.
 class GdbResult : public ais::InterpretStream {
 public:
     GdbResult(const char* buf) : m_buffer{buf}, m_pos{buf} {}
@@ -469,17 +469,17 @@ bool GdbResult::mayBeTruncated() {
     return (clientPrintElements > 0);
 }
 
-// Slices implementation where the data is created on demand by
+// Chunks implementation where the data is created on demand by
 // using gdb/mi to evaluate an expression.
-class EvalSlices : public AIFStream::Slices {
+class EvalChunks : public AIFStream::Chunks {
 public:
-    EvalSlices(MISession* session, const std::string& var);
-    std::string getNextSlice(bool& isFinal) override;
+    EvalChunks(MISession* session, const std::string& var);
+    std::string getNextChunk(bool& isFinal) override;
 private:
-    void initSlicer();
+    void initChunker();
     Mi2Aif m_mi2aif;
     std::string m_var;
-    std::unique_ptr<ArraySlicer> m_slicer;
+    std::unique_ptr<Chunker> m_chunker;
 };
 
 } //namespace
@@ -498,10 +498,10 @@ void throwDbgError(const std::string& what) {
 // when the data is accessed.
 AIFStream *GetAIFVar(MISession *session, const char *var) {
     // The actual evaluation is deferred until the AIFStream request
-    // the next (i.e. first) slice.
+    // the next (i.e. first) chunk.
     if (!var) throw NewErrorEvent(DBGERR_INTERNAL, "null expression");
-    auto slices = std::make_shared<EvalSlices>(session, var);
-    return new AIFStream(slices);
+    auto chunks = std::make_shared<EvalChunks>(session, var);
+    return new AIFStream(chunks);
 }
 
 // quote typename with spaces to pass to MI
@@ -1068,7 +1068,7 @@ std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *taggedExpr) {
 std::tuple<std::string, std::string> Mi2Aif::extractMetaInfo(const char* expr) {
     // Taking a cue from C++ annotations to use [[...]] to pass meta-data
     // to the back-end.   So far, this is just being used to pass length
-    // information for raw C/C++ arrays.   I'd expect to add slicing info
+    // information for raw C/C++ arrays.   I'd expect to add chunking info
     // via this channel in the future.
     if (expr && expr[0] == '[' && expr[1] == '[') {
         if (auto close = strstr(expr,"]]")) {
@@ -1458,32 +1458,32 @@ char *LazyMIVar::getArrayDataString() {
 namespace {
 // Class to manage breaking the MI query for an array into smaller pieces.
 // The calling sequence is simple:
-// ArraySlice slicer(session, val, shape);
-// while (char* buf = slicer.getNext()) {
+// ArrayChunk chunker(session, val, shape);
+// while (char* buf = chunker.getNext()) {
 //    ... process buf ...
 // }
-// The class is not omniscient, we currently only slice on the slowest changing
+// The class is not omniscient, we currently only chunk on the slowest changing
 // dimension, so the actual block size could be larger than the nominal limit.
 // Also, since we are plugging into the front end of gdb/mi (paging is disabled in this
 // mode), we are limited to the set of types that can be split using a gdb expression.
-class ArraySlicer {
+class Chunker {
 public:
-    ArraySlicer(Mi2Aif& mi, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type> varType);
-    ArraySlicer(Mi2Aif& mi, std::string fullExpr);
-    ~ArraySlicer();
+    Chunker(Mi2Aif& mi, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type> varType);
+    Chunker(Mi2Aif& mi, std::string fullExpr);
+    ~Chunker();
 
-    // evaluate the next slice of the variable result.
+    // evaluate the next chunk of the variable result.
     std::tuple<std::shared_ptr<ais::Type>, char*, bool> getNext();
     std::shared_ptr<LazyMIVar> getVar() { return m_var; }
 
     const static size_t DEFAULT_BLOCK_SIZE = 1000000; // one million
 
 private:
-    void determineSlicing();
+    void determineChunking();
     size_t determineBlockSize();
 
-    ArraySlicer(const ArraySlicer&) = delete;
-    ArraySlicer& operator=(const ArraySlicer&) = delete;
+    Chunker(const Chunker&) = delete;
+    Chunker& operator=(const Chunker&) = delete;
 
     Mi2Aif& m_mi;               // Parent Mi2Aif
 
@@ -1495,31 +1495,31 @@ private:
     std::string m_subExpr;      // encode expression to use for querying a chunk
     long m_subIdx;              // index for the current chunk
     long m_maxSubIdx;           // index for the highest chunk to return
-    long m_slice;               // stride for the chunking index.
+    long m_chunk;               // stride for the chunking index.
 };
 
-ArraySlicer::ArraySlicer(Mi2Aif& mi, std::shared_ptr<MIVar> var,
+Chunker::Chunker(Mi2Aif& mi, std::shared_ptr<MIVar> var,
                          std::shared_ptr<ais::Type> varType)
     : m_mi{mi}, m_var(std::make_shared<LazyMIVar>(mi, var))
     , m_buf(nullptr), m_blockSize(determineBlockSize())
-    , m_subIdx(0), m_maxSubIdx(0), m_slice(0)
+    , m_subIdx(0), m_maxSubIdx(0), m_chunk(0)
 {
     if (m_blockSize) {
-        determineSlicing();
+        determineChunking();
     }
 }
 
-ArraySlicer::ArraySlicer(Mi2Aif& mi, std::string fullExpr)
+Chunker::Chunker(Mi2Aif& mi, std::string fullExpr)
     : m_mi{mi}, m_var(std::make_shared<LazyMIVar>(mi, std::move(fullExpr)))
     , m_buf(nullptr), m_blockSize(determineBlockSize())
-    , m_subIdx(0), m_maxSubIdx(0), m_slice(0)
+    , m_subIdx(0), m_maxSubIdx(0), m_chunk(0)
 {
     if (m_blockSize) {
-        determineSlicing();
+        determineChunking();
     }
 }
 
-ArraySlicer::~ArraySlicer()
+Chunker::~Chunker()
 {
     free(m_buf);
 }
@@ -1527,9 +1527,9 @@ ArraySlicer::~ArraySlicer()
 // Paging and the like is unavailable in MI mode.   Instead, this class and this function
 // specifically examines the data type and determines how it can be extracted in multiple
 // data print calls that each pull out a portion of the data structure
-void ArraySlicer::determineSlicing()
+void Chunker::determineChunking()
 {
-    DVPRINT("in ArraySlicer::determineSlicing blocksize if %zu\n", m_blockSize);
+    DVPRINT("in Chunker::determineChunking blocksize if %zu\n", m_blockSize);
     
     if (!m_blockSize)
         return;
@@ -1546,7 +1546,7 @@ void ArraySlicer::determineSlicing()
             }
 
             len = std::max(atoi(sizeRes), 0);
-            DVPRINT("Slicing vector got a size %d\n", len);
+            DVPRINT("Chunking vector got a size %d\n", len);
             free(sizeRes);
         }
 
@@ -1566,7 +1566,7 @@ void ArraySlicer::determineSlicing()
         subArrayLen *= arrayLens[i];
     size_t numElems = subArrayLen * arrayLens[0];
 
-    DVPRINT("In ArraySlicer:: numElems is %zu\n", numElems);
+    DVPRINT("In Chunker:: numElems is %zu\n", numElems);
     
     if (numElems <= m_blockSize)
         return;             // no need to divide
@@ -1582,13 +1582,13 @@ void ArraySlicer::determineSlicing()
     m_subExpr += "[$$from$$]@$$len$$";
     m_subIdx = 0;
     m_maxSubIdx = arrayLens[0]-1;
-    m_slice = std::max(1, int(m_blockSize / subArrayLen));
+    m_chunk = std::max(1, int(m_blockSize / subArrayLen));
     
-    DVPRINT("Slicing: C array %s %ld to %ld by %ld\n",
-            m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_slice);
+    DVPRINT("Chunking: C array %s %ld to %ld by %ld\n",
+            m_subExpr.c_str(), m_subIdx, m_maxSubIdx, m_chunk);
 }
 
-size_t ArraySlicer::determineBlockSize() {
+size_t Chunker::determineBlockSize() {
     static const char* blockSizeStr = ::getenv("GDB4HPC_BLOCK_ELEMENTS");
     if (blockSizeStr) {
         long lval = atol(blockSizeStr);
@@ -1601,11 +1601,11 @@ size_t ArraySlicer::determineBlockSize() {
 
 // Return either the next chunk of data, or nullptr if there is no more data to be
 // had.
-// The returned array is controlled by ArraySlicer and should not be freed by the
+// The returned array is controlled by Chunker and should not be freed by the
 // caller.
-std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
+std::tuple<std::shared_ptr<ais::Type>, char*, bool> Chunker::getNext()
 {
-    DVPRINT("In ArraySlicer::getNext\n");
+    DVPRINT("In Chunker::getNext\n");
 
     bool isFinal = true;
     char* array = nullptr;
@@ -1616,15 +1616,15 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
 
     auto retType = m_var->getType();
 
-    if (m_slice == 0 && !m_buf) {
-        DVPRINT("In ArraySlicer::getNext not big enough to split\n");
+    if (m_chunk == 0 && !m_buf) {
+        DVPRINT("In Chunker::getNext not big enough to split\n");
         // splitting is not enabled, the array is not big enough to split,
         // or it's a form the splitter doesn't recognize, just return it
         // all
         array = m_buf = m_var->getArrayDataString();
         ++m_subIdx;
     } else {
-        DVPRINT("In ArraySlicer::getNext get next chunk\n");
+        DVPRINT("In Chunker::getNext get next chunk\n");
         // get the next chunk of data
         std::swap(m_buf, array);
         if (array) {
@@ -1632,7 +1632,7 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
             array = nullptr;
         }
 
-        long maxIdx = std::min(m_maxSubIdx, m_subIdx+m_slice-1);
+        long maxIdx = std::min(m_maxSubIdx, m_subIdx+m_chunk-1);
         long len = maxIdx - m_subIdx + 1;
 
         std::string subExpr = m_subExpr;
@@ -1651,7 +1651,7 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> ArraySlicer::getNext()
             // success!
             DVPRINT("Succeeded getting sub-array value: %.400s\n", array);
 
-            // update the array type to contain just the length of the slice
+            // update the array type to contain just the length of the chunk
             auto subArrayType = std::static_pointer_cast<ais::Array>(m_var->getType());
             subArrayType = subArrayType->makeTyped(subArrayType->getElemTypePtr());
             subArrayType->setBounds(len, m_subIdx);
@@ -2520,18 +2520,18 @@ std::shared_ptr<ais::Type> TypeParser::unimplemented(Mi2Aif& mi, TypeName t) {
     return std::make_unique<ais::Unimplemented>(t.type + t.decoration);
 }
 
-// Create the top level ArraySlicer for an expression.   The ArraySlicer
+// Create the top level Chunker for an expression.   The Chunker
 // will potentially break the expression into multiple evaluations if
 // var is a large container
-std::unique_ptr<ArraySlicer> Mi2Aif::makeSlicer(const std::string& var) {
-    return std::make_unique<ArraySlicer>(*this, var);
+std::unique_ptr<Chunker> Mi2Aif::makeChunker(const std::string& var) {
+    return std::make_unique<Chunker>(*this, var);
 }
 
-// Create an ArraySlicer for a secondary reference.
-// Note: slicing of chain of values hasn't really been tested..
-std::unique_ptr<ArraySlicer> Mi2Aif::makeSlicer(std::shared_ptr<MIVar> mivar) {
+// Create an Chunker for a secondary reference.
+// Note: chunking of chain of values hasn't really been tested..
+std::unique_ptr<Chunker> Mi2Aif::makeChunker(std::shared_ptr<MIVar> mivar) {
     auto origType = TypeParser::getType(*this, mivar.get(), nullptr);
-    return std::make_unique<ArraySlicer>(*this, mivar, origType);
+    return std::make_unique<Chunker>(*this, mivar, origType);
 }
 
 // Special handling for the original expression passed by the user.
@@ -2549,20 +2549,20 @@ void Mi2Aif::initTopRef(std::shared_ptr<LazyMIVar> lvar) {
     }
 }
 
-// Get the next slice of data from in socket protocol form.
+// Get the next chunk of data from in socket protocol form.
 // Node: currently, we are transmitting simple ascii text, if we switch to
 // something more specialized and (hopefully) performant the return type
 // would not be a string.
-std::string Mi2Aif::nextSlice(ArraySlicer& slicer, bool& isFinal) {
-    DVPRINT("nextSlice\n");
+std::string Mi2Aif::nextChunk(Chunker& chunker, bool& isFinal) {
+    DVPRINT("nextChunk\n");
 
     if (m_refs.size() == 0) {
-        initTopRef(slicer.getVar());
+        initTopRef(chunker.getVar());
     }
     auto initNumRefs = m_refs.size();
 
-    auto [ type, gdbArr, sliceIsFinal ] = slicer.getNext();
-    isFinal = sliceIsFinal;
+    auto [ type, gdbArr, chunkIsFinal ] = chunker.getNext();
+    isFinal = chunkIsFinal;
 
     if (!gdbArr) {
         if (!dbg_error) dbg_error.reset(NewErrorEvent(DBGERR_INTERNAL, "Getting array data failed."));
@@ -2589,25 +2589,25 @@ std::string Mi2Aif::nextSlice(ArraySlicer& slicer, bool& isFinal) {
 // translate a variable into socket form - the date is pumped
 // through via m_writer
 void Mi2Aif::writeVal(std::shared_ptr<MIVar> var, int refIdx) {
-    auto slicer = makeSlicer(var);
-    auto [ type, arr, isFinal ] = slicer->getNext();
+    auto chunker = makeChunker(var);
+    auto [ type, arr, isFinal ] = chunker->getNext();
     parse(type, arr, refIdx);
 }
 
 // AIFStream adapter to evaluate and parse a value on demand.
-EvalSlices::EvalSlices(MISession* session, const std::string& var)
+EvalChunks::EvalChunks(MISession* session, const std::string& var)
     : m_mi2aif(session), m_var(var) {}
 
-std::string EvalSlices::getNextSlice(bool& isFinal) {
-    if (!m_slicer) initSlicer();
+std::string EvalChunks::getNextChunk(bool& isFinal) {
+    if (!m_chunker) initChunker();
 
     // Mi2Aif does the work and returns a chunk of socket protocol
     // data
-    return m_mi2aif.nextSlice(*m_slicer, isFinal);
+    return m_mi2aif.nextChunk(*m_chunker, isFinal);
 }
 
-void EvalSlices::initSlicer() {
-    if (!m_slicer) m_slicer = m_mi2aif.makeSlicer(m_var);
+void EvalChunks::initChunker() {
+    if (!m_chunker) m_chunker = m_mi2aif.makeChunker(m_var);
 }
 
 AIFStream* AIFStream::fromMultiThreadResult(const char* val) {
@@ -3136,11 +3136,11 @@ TEST_CASE("TypeParser::getType: ftn decorated types") {
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 5);
                 containerMatch<ais::FtnArray, ais::Int>(t, 2);
             }
-            SUBCASE("slice") {
+            SUBCASE("chunk") {
                 auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "INTEGER*4, (0:9)");
                 t = containerMatch<ais::FtnArray, ais::Int>(t, 10);
             }
-            SUBCASE("2d slice") {
+            SUBCASE("2d chunk") {
                 auto t = basicTypeTest<ais::FtnArray>(TypeParser::Lang::Ftn, "INTEGER*4, (-10:10,-5:13)");
                 t = containerMatch<ais::FtnArray, ais::FtnArray>(t, 19);
                 containerMatch<ais::FtnArray, ais::Int>(t, 21);

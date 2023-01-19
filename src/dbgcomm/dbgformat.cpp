@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2012-2020,2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2012-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -984,7 +984,7 @@ char* EventToSocProto(dbgevent_t *e)
         break;
 
     case DBGEV_DATA:
-    case DBGEV_DATA_SLICE:
+    case DBGEV_DATA_CHUNK:
         res = EventDataToSocProto(ev, e->ev_data);
         break;
 
@@ -1027,8 +1027,8 @@ static char *EventDataToSocProto(dbgev ev, AIFStream *stream) {
     if (stream == nullptr) return MakeSocStr(ev, "");
 
     bool isFinal = false;
-    auto slice = stream->getNextSlice(isFinal);
-    return MakeSocStr(ev, "%s", slice.c_str());
+    auto chunk = stream->getNextChunk(isFinal);
+    return MakeSocStr(ev, "%s", chunk.c_str());
 }
 
 /*********************************
@@ -1534,7 +1534,7 @@ dbgevent_t *SocProtoToEvent(const char *s) {
             break;
 
         case DBGEV_DATA:
-        case DBGEV_DATA_SLICE:
+        case DBGEV_DATA_CHUNK:
             // Get the string and convert to AIF * and set directly
             evdata = getstring(s);
             e->ev_data = SocProtoToAIFStream(evdata);

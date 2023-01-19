@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -126,15 +126,15 @@ typedef struct group_reply group_reply_t;
 ** Each group may be an error message (maintained by m_errs)
 ** or a normal message (maintained by group_reply_t).
 
-For very large arrays, rep_set_t supports the ability to hold just slice of the array
-result at one time.   Code using the rep_set can iterate over the slices by using the
-\a getNextSlice function.   Using this approach a client side operation could potentially
+For very large arrays, rep_set_t supports the ability to hold just chunk of the array
+result at one time.   Code using the rep_set can iterate over the chunks by using the
+\a getNextChunk function.   Using this approach a client side operation could potentially
 process a terabyte sized array while never needing to allocate more than a fixed number of
 of megabytes.
 
 Most debugger replies do not have the potential to generate gigantic replies, so these
 operations can and should just use getReplies or the iterator forms.    These original
-forms will also accumulate the result slices into a single reply, though operations that
+forms will also accumulate the result chunks into a single reply, though operations that
 potentially access large data should avoid that usage.
 */
 class rep_set_t {
@@ -145,8 +145,8 @@ public:
     ~rep_set_t();
     rep_set_t(const rep_set_t&) = delete;
 
-    // create from slices
-    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& slices, const Bitset* group);
+    // create from chunks
+    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& chunks, const Bitset* group);
     rep_set_t& operator=(const rep_set_t&) = delete;
 
     // create a copy of the contents of the rep_set
@@ -202,22 +202,22 @@ public:
     // acccess the set of error replies
     const std::vector<group_reply_t*>& getErrs() const;
 
-    // get the next reply slice - return nullptr when none remain.
-    std::unique_ptr<rep_set_t> getNextSlice();
+    // get the next reply chunk - return nullptr when none remain.
+    std::unique_ptr<rep_set_t> getNextChunk();
 
-    // install information to get the next slice
+    // install information to get the next chunk
     void setContinuation(group_recv_t* set);
 
-    // each expression result keeps and sequential id for requesting additional slices.
+    // each expression result keeps and sequential id for requesting additional chunks.
     void setDataId(size_t id);
 
     static const std::vector<group_reply_t*>& getNullReply();
 
 private:
-    void mergeReplySlices();
-    void mergeReplySliceSet(const std::vector<std::unique_ptr<rep_set_t>>& slices,
+    void mergeReplyChunks();
+    void mergeReplyChunkSet(const std::vector<std::unique_ptr<rep_set_t>>& chunks,
                             const Bitset* group);
-    std::unique_ptr<rep_set_t> recvSlice();
+    std::unique_ptr<rep_set_t> recvChunk();
 
     // these lists should always be sorted by their groups (bitset::operator<) 
     // when accessed externally
@@ -226,9 +226,9 @@ private:
 
     rec_set_t* m_set;                    // for continuation of large arrays
     size_t m_dataId;                     // for continuation of large arrays
-    bool m_isSliced;                     // the data can be accessed in sequential pieces
-    bool m_returnedSlice0;               // the first result has been returned by getNextSlice
-    bool m_moreSlices;                   // more slices remain to be retrieved
+    bool m_isChunked;                     // the data can be accessed in sequential pieces
+    bool m_returnedChunk0;               // the first result has been returned by getNextChunk
+    bool m_moreChunks;                   // more chunks remain to be retrieved
 
     void sortReplies();
     void sortErrors();

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020,2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -140,7 +140,7 @@ enum dbgev {
     DBGEV_CMD,
     DBGEV_NONE,
     DBGEV_ERROR,
-    DBGEV_DATA_SLICE,
+    DBGEV_DATA_CHUNK,
     DBGEV_THREADINFO,
     DBGEV_STRING
 };

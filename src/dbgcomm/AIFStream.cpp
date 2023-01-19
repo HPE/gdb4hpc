@@ -14,26 +14,26 @@ void rd_unimplemented(const char* func) {
 }
 
 namespace {
-// CachedSlices keep the values when a join operation forces all the
+// CachedChunks keep the values when a join operation forces all the
 // data to be pulled to down to the front end.   The stream
 // can then be processed as usual, or copied for reuse
-class CachedSlices : public AIFStream::Slices {
+class CachedChunks : public AIFStream::Chunks {
 public:
-    CachedSlices(std::string&& data, bool isPartial);
-    CachedSlices(std::vector<std::string>&& data);
-    std::string getNextSlice(bool& isFinal) override;
-    std::shared_ptr<AIFStream::Slices> clone() const;
+    CachedChunks(std::string&& data, bool isPartial);
+    CachedChunks(std::vector<std::string>&& data);
+    std::string getNextChunk(bool& isFinal) override;
+    std::shared_ptr<AIFStream::Chunks> clone() const;
 private:
     std::vector<std::string> m_data;
     bool m_isPartial = false;
     size_t m_idx = 0;
 };
-CachedSlices::CachedSlices(std::string&& data, bool isPartial) : m_isPartial(isPartial) {
+CachedChunks::CachedChunks(std::string&& data, bool isPartial) : m_isPartial(isPartial) {
     m_data.push_back(std::move(data));
 }
-CachedSlices::CachedSlices(std::vector<std::string>&& data) : m_data{std::move(data)} {}
+CachedChunks::CachedChunks(std::vector<std::string>&& data) : m_data{std::move(data)} {}
 
-std::string CachedSlices::getNextSlice(bool& isFinal) {
+std::string CachedChunks::getNextChunk(bool& isFinal) {
     if (m_idx < m_data.size()) {
         isFinal = (!m_isPartial && m_idx+1 == m_data.size());
         return std::move(m_data[m_idx++]);
@@ -41,80 +41,80 @@ std::string CachedSlices::getNextSlice(bool& isFinal) {
         throw std::runtime_error("result data is truncated");
     }
 }
-std::shared_ptr<AIFStream::Slices> CachedSlices::clone() const {
-    std::vector cpData = m_data; // copy the data slices
-    return std::make_shared<CachedSlices>(std::move(cpData));
+std::shared_ptr<AIFStream::Chunks> CachedChunks::clone() const {
+    std::vector cpData = m_data; // copy the data chunks
+    return std::make_shared<CachedChunks>(std::move(cpData));
 }
 
-// SharesSlice is a way to reuse stream data by having
+// SharesChunk is a way to reuse stream data by having
 // multiple stream objects connect to one master copy.
 // This class is the shared single representation.
 // Currently, this is used with decompositions when 
 // multiple ranks aggregated the same result, though this
 // structure could be more widely applied
-class SharedSlices : public AIFStream::Slices {
+class SharedChunks : public AIFStream::Chunks {
 public:
-    static std::shared_ptr<SharedSlices> make(std::shared_ptr<Slices> original);
-    // clone generates a CloneSlice referencing the
+    static std::shared_ptr<SharedChunks> make(std::shared_ptr<Chunks> original);
+    // clone generates a CloneChunk referencing the
     // shared state.
-    std::shared_ptr<AIFStream::Slices> clone() const;
+    std::shared_ptr<AIFStream::Chunks> clone() const;
 
-    std::string getNextSlice(bool& isFinal) override;
-    std::string getSlice(int idx, bool& isFinal);
+    std::string getNextChunk(bool& isFinal) override;
+    std::string getChunk(int idx, bool& isFinal);
 private:
-    SharedSlices(std::shared_ptr<AIFStream::Slices> original);
-    std::string getNextSliceOrig(bool& isFinal);
+    SharedChunks(std::shared_ptr<AIFStream::Chunks> original);
+    std::string getNextChunkOrig(bool& isFinal);
 
-    std::shared_ptr<AIFStream::Slices> m_orig;
+    std::shared_ptr<AIFStream::Chunks> m_orig;
     std::vector<std::string> m_data;
     bool m_readFinal = false;
     std::vector<size_t> m_idcs;
-    std::weak_ptr<SharedSlices> m_self;
+    std::weak_ptr<SharedChunks> m_self;
 };
 
-// CloneSlices is a single "view" into a SharedSlices object.
+// CloneChunks is a single "view" into a SharedChunks object.
 // It will act like it has a unique copy of the shared data.    
-class CloneSlices : public AIFStream::Slices {
+class CloneChunks : public AIFStream::Chunks {
 public:
-    CloneSlices(std::shared_ptr<SharedSlices> parent, int idx);
-    std::string getNextSlice(bool& isFinal) override;
-    std::shared_ptr<AIFStream::Slices> clone() const;
+    CloneChunks(std::shared_ptr<SharedChunks> parent, int idx);
+    std::string getNextChunk(bool& isFinal) override;
+    std::shared_ptr<AIFStream::Chunks> clone() const;
 
 private:
-    std::shared_ptr<SharedSlices> m_parent;
+    std::shared_ptr<SharedChunks> m_parent;
     int m_idx;
 };
 
-std::shared_ptr<SharedSlices> SharedSlices::make(std::shared_ptr<Slices> original) {
-    auto x = std::shared_ptr<SharedSlices>{new SharedSlices{original}};
+std::shared_ptr<SharedChunks> SharedChunks::make(std::shared_ptr<Chunks> original) {
+    auto x = std::shared_ptr<SharedChunks>{new SharedChunks{original}};
     x->m_self = x;  // I need to create shared_ptrs to self 
     return x;
 }
-SharedSlices::SharedSlices(std::shared_ptr<AIFStream::Slices> original)
+SharedChunks::SharedChunks(std::shared_ptr<AIFStream::Chunks> original)
     : m_orig(original)
 {
-    // reserve an index slot for the SharedSlices object itself
+    // reserve an index slot for the SharedChunks object itself
     m_idcs.push_back(0);
 }
 
-std::string SharedSlices::getNextSliceOrig(bool& isFinal) {
-    return m_orig->getNextSlice(isFinal);
+std::string SharedChunks::getNextChunkOrig(bool& isFinal) {
+    return m_orig->getNextChunk(isFinal);
 }
 
-std::string SharedSlices::getNextSlice(bool& isFinal) {
-    // index 0 is reserved for use by the ShareSlices object itself
-    return getSlice(0, isFinal);
+std::string SharedChunks::getNextChunk(bool& isFinal) {
+    // index 0 is reserved for use by the ShareChunks object itself
+    return getChunk(0, isFinal);
 }
 
-std::shared_ptr<AIFStream::Slices> SharedSlices::clone() const {
-    const_cast<SharedSlices*>(this)->m_idcs.push_back(0);
-    return std::make_shared<CloneSlices>(m_self.lock(), m_idcs.size()-1);
+std::shared_ptr<AIFStream::Chunks> SharedChunks::clone() const {
+    const_cast<SharedChunks*>(this)->m_idcs.push_back(0);
+    return std::make_shared<CloneChunks>(m_self.lock(), m_idcs.size()-1);
 }
-// Retrieve the next slice of data for one of the CloneSlices children
+// Retrieve the next chunk of data for one of the CloneChunks children
 // using this object.
-std::string SharedSlices::getSlice(int idx, bool& isFinal) {
+std::string SharedChunks::getChunk(int idx, bool& isFinal) {
     if (auto si=m_idcs[idx]++; si < m_data.size()) {
-        // The slice has already been retrived from the back end
+        // The chunk has already been retrived from the back end
         isFinal = (m_readFinal && si+1 == m_data.size());
         if (std::none_of(m_idcs.begin(), m_idcs.end(), [si](auto x) { return x<=si; })) {
             return std::move(m_data[si]); // last use for this one
@@ -122,8 +122,8 @@ std::string SharedSlices::getSlice(int idx, bool& isFinal) {
             return m_data[si]; // there is another...
         }
     } else if (!m_readFinal) {
-        // we need to fetch the next slice
-        m_data.push_back(getNextSliceOrig(m_readFinal));
+        // we need to fetch the next chunk
+        m_data.push_back(getNextChunkOrig(m_readFinal));
         isFinal = m_readFinal;
         return m_data.back();
     } else {
@@ -131,12 +131,12 @@ std::string SharedSlices::getSlice(int idx, bool& isFinal) {
     }
 }
 
-CloneSlices::CloneSlices(std::shared_ptr<SharedSlices> parent, int idx) :
+CloneChunks::CloneChunks(std::shared_ptr<SharedChunks> parent, int idx) :
     m_parent(parent), m_idx(idx) {}
-std::string CloneSlices::getNextSlice(bool& isFinal) {
-    return m_parent->getSlice(m_idx, isFinal);
+std::string CloneChunks::getNextChunk(bool& isFinal) {
+    return m_parent->getChunk(m_idx, isFinal);
 }
-std::shared_ptr<AIFStream::Slices> CloneSlices::clone() const {
+std::shared_ptr<AIFStream::Chunks> CloneChunks::clone() const {
     return m_parent->clone();
 }
 
@@ -170,20 +170,20 @@ void ConcatVStream::apply(ais::Visitor& v) {
     
 } // namespace
 
-std::shared_ptr<AIFStream::Slices> AIFStream::Slices::clone() const {
+std::shared_ptr<AIFStream::Chunks> AIFStream::Chunks::clone() const {
     throw std::runtime_error("clone is not supported on stream data");
 }
  
 
 AIFStream::AIFStream(std::string&& data, bool isPartial) :
-    m_slices{new CachedSlices{std::move(data), isPartial}} {
+    m_chunks{new CachedChunks{std::move(data), isPartial}} {
 }
 
 
 AIFStream::AIFStream(std::vector<std::string>&& data) :
-    m_slices{new CachedSlices{std::move(data)}} {}
+    m_chunks{new CachedChunks{std::move(data)}} {}
 
-AIFStream::AIFStream(std::shared_ptr<Slices> slices) : m_slices(slices) {}
+AIFStream::AIFStream(std::shared_ptr<Chunks> chunks) : m_chunks(chunks) {}
 
 AIFStream::AIFStream(std::shared_ptr<ais::VStream> vstream) :
     m_vstream(vstream) {}
@@ -192,33 +192,33 @@ AIFStream::AIFStream(std::shared_ptr<ais::VStream> vstream) :
 // concatenate a set of streams
 AIFStream::AIFStream(const std::vector<AIFStream*>& subStrs) {
     auto streams = std::vector<std::shared_ptr<ais::VStream>>{};
-    auto slices = std::vector<std::string>{};
+    auto chunks = std::vector<std::string>{};
 
     for (auto subStr : subStrs ) {
         if (auto vs = subStr->getVStreamPtr()) {
             streams.push_back(vs);
-        } else if (subStr->m_slices) {
+        } else if (subStr->m_chunks) {
             bool isFinal;
-            slices.emplace_back(subStr->getNextSlice(isFinal));
+            chunks.emplace_back(subStr->getNextChunk(isFinal));
         }
     }
 
-    if (!slices.empty()) {
-        m_slices.reset(new CachedSlices{std::move(slices)});
+    if (!chunks.empty()) {
+        m_chunks.reset(new CachedChunks{std::move(chunks)});
     } else {
         m_vstream.reset(new ConcatVStream(streams));
     }
 }
 AIFStream::~AIFStream() {}
 
-// Get the next slice of AIF data.   Set isFinal to true if this is the last
-// slice of the data object.   The returned AIF is owned by this object and
-// is guaranteed to exist until the next call to getNextSlice.
+// Get the next chunk of AIF data.   Set isFinal to true if this is the last
+// chunk of the data object.   The returned AIF is owned by this object and
+// is guaranteed to exist until the next call to getNextChunk.
 // FIXME - oh just make this a shared pointer for god's sake.
-std::string AIFStream::getNextSlice(bool& isFinal)
+std::string AIFStream::getNextChunk(bool& isFinal)
 {
-    if (m_slices) {
-        return m_slices->getNextSlice(isFinal);
+    if (m_chunks) {
+        return m_chunks->getNextChunk(isFinal);
     } else {
         throw std::runtime_error("trying to read an uninitialized data stream");
     }
@@ -228,23 +228,23 @@ std::string AIFStream::getNextSlice(bool& isFinal)
 // Force the full stream state to be pulled from the back end, potentially
 // for re-use.
 AIFStream* AIFStream::join() {
-    if (m_slices && !dynamic_cast<CachedSlices*>(m_slices.get())) {
+    if (m_chunks && !dynamic_cast<CachedChunks*>(m_chunks.get())) {
         std::vector<std::string> data;
         for (bool isFinal = false; !isFinal; ) {
-            data.push_back(m_slices->getNextSlice(isFinal));
+            data.push_back(m_chunks->getNextChunk(isFinal));
         }
-        m_slices.reset(new CachedSlices{std::move(data)});
+        m_chunks.reset(new CachedChunks{std::move(data)});
     }
     return this;
 }
 
 AIFStream* AIFStream::clone()
 {
-    if (m_slices) {
-        if (m_slices && !std::dynamic_pointer_cast<SharedSlices>(m_slices)) {
-            m_slices = SharedSlices::make(m_slices);
+    if (m_chunks) {
+        if (m_chunks && !std::dynamic_pointer_cast<SharedChunks>(m_chunks)) {
+            m_chunks = SharedChunks::make(m_chunks);
         }
-        return new AIFStream(m_slices->clone());
+        return new AIFStream(m_chunks->clone());
     } else if (m_vstream) {
         return new AIFStream(m_vstream);
     } else {
@@ -261,8 +261,8 @@ namespace {
 // or later.
 class AIFStreamReadBuffer : public ais::ReadBuffer {
 public:
-    AIFStreamReadBuffer(std::shared_ptr<AIFStream::Slices> slices) :
-        m_slices(slices), m_final(false) {}
+    AIFStreamReadBuffer(std::shared_ptr<AIFStream::Chunks> chunks) :
+        m_chunks(chunks), m_final(false) {}
     int readInt() override;
     long readLong() override;
     long long readLongLong() override;
@@ -288,7 +288,7 @@ private:
         return val;
     }
     
-    std::shared_ptr<AIFStream::Slices> m_slices;
+    std::shared_ptr<AIFStream::Chunks> m_chunks;
     bool m_final;
     std::istringstream m_in;
 };
@@ -297,7 +297,7 @@ private:
 
 void AIFStreamReadBuffer::getMore() {
     if (!m_final) {
-        m_in.str(m_slices->getNextSlice(m_final));
+        m_in.str(m_chunks->getNextChunk(m_final));
         m_in.clear();
     } else {
         throw std::runtime_error("result data is truncated");
@@ -340,13 +340,13 @@ bool AIFStreamReadBuffer::hasMoreData() {
 } // anonymous namespace
 
 // creates a new aifstream and transfers ownership of the AIF retrieved from
-// getNextSlice(STEAL). 
+// getNextChunk. 
 // preserves truncation info in the new stream.
-AIFStream* AIFStream::createStreamFromNextSlice(bool &isFinal) {
-    // getNextSlice will set internal truncation data
+AIFStream* AIFStream::createStreamFromNextChunk(bool &isFinal) {
+    // getNextChunk will set internal truncation data
     try {
-        auto slice = getNextSlice(isFinal);
-        return new AIFStream(std::move(slice), !isFinal);
+        auto chunk = getNextChunk(isFinal);
+        return new AIFStream(std::move(chunk), !isFinal);
     } catch (dbgevent_t* e) {
         throw e;
     } catch (...) {
@@ -625,29 +625,29 @@ AIFStream::AIFStream(std::shared_ptr<ais::DecompIterator> blockIter,
     // If different parts of the decomposition have the same result, then
     // data will contain duplicates.  We arrange to have multiple
     // readers access them
-    using SlicesPtr = std::shared_ptr<AIFStream::Slices>;
-    auto smap = std::map<AIFStream*,SlicesPtr>{};
+    using ChunksPtr = std::shared_ptr<AIFStream::Chunks>;
+    auto smap = std::map<AIFStream*,ChunksPtr>{};
 
-    // gather the set of data objects, create the SharedSlices the
+    // gather the set of data objects, create the SharedChunks the
     // second time we see a data set.
     for (auto it = data.begin(); it != data.end(); ++it) {
-        auto slices = (*it)->m_slices;        
-        if ( auto [loc,added] = smap.insert(std::pair{*it,slices}); !added) {
-            if (!dynamic_cast<SharedSlices*>(loc->second.get())) {
-                loc->second = SharedSlices::make(slices);
+        auto chunks = (*it)->m_chunks;        
+        if ( auto [loc,added] = smap.insert(std::pair{*it,chunks}); !added) {
+            if (!dynamic_cast<SharedChunks*>(loc->second.get())) {
+                loc->second = SharedChunks::make(chunks);
             }
         }
     }
 
-    // Replace any duplicated results with CloneSlices
+    // Replace any duplicated results with CloneChunks
     auto subReaders = std::vector<std::unique_ptr<ais::Reader>>{};
     for (auto it = data.begin(); it != data.end(); ++it) {
-        auto slices = smap[*it];
-        if (dynamic_cast<SharedSlices*>(slices.get())) {
-            slices = slices->clone();
+        auto chunks = smap[*it];
+        if (dynamic_cast<SharedChunks*>(chunks.get())) {
+            chunks = chunks->clone();
         }
 
-        auto buffer = std::make_shared<AIFStreamReadBuffer>(slices);
+        auto buffer = std::make_shared<AIFStreamReadBuffer>(chunks);
         subReaders.push_back(std::make_unique<ais::BufferReader>(buffer));
     }
 
@@ -658,7 +658,7 @@ std::shared_ptr<ais::VStream> AIFStream::getVStreamPtr() {
     if (m_vstream) return m_vstream;
     
     if (!m_reader) {
-        auto buffer = std::make_shared<AIFStreamReadBuffer>(m_slices);
+        auto buffer = std::make_shared<AIFStreamReadBuffer>(m_chunks);
         m_reader = std::make_unique<ais::BufferReader>(buffer);
     }
 

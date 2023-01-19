@@ -38,11 +38,6 @@ typedef struct blockmap_info {
 extern char *PerformSlicingErr;
 
 void ParseDBGExpr(const char *, char *, char *, char *);
-void ParseHashArgs(char *, int *, int *, int *, char *);
-void ParseCountelemArgs(char *, double *, double *);
-void ParseHistogramArgs(char *, int *, double *, double *);
-void ParseBlockMapArgs(char *, blockmap_info *);
-void ParseP2PArgs(char *, char *, int *, blockmap_info *, blockmap_info *);
 
 // Get the size of the virtual data segment of the current process
 // in megabytes.

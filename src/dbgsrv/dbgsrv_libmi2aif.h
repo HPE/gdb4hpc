@@ -1,7 +1,7 @@
 /******************************************************************************\
  * Header file for libmi to aif conversion routines
  *
- * Copyright 2011-2013,2020-2022 Hewlett Packard Enterprise Development LP.	All Rights Reserved.
+ * Copyright 2011-2013,2020-2023 Hewlett Packard Enterprise Development LP.	All Rights Reserved.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -81,7 +81,7 @@ public:
                                             std::shared_ptr<ais::Type> type);
 
     size_t swizzlePointer(const std::string& type, void* val);
-    std::tuple<std::string, std::string> extractMetaInfo(const char* expr);
+    std::pair<std::string, std::string> extractMetaInfo(const char* expr);
 
 private:
     void writeVal(std::shared_ptr<MIVar> var, int refIdx);

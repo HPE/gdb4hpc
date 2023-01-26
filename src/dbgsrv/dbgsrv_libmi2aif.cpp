@@ -23,6 +23,7 @@
 #include "dbgsrv_libmi2aif.h"
 #include "defs.h"
 #include "MIOOBRecord.h"
+#include "dbgblockmap.h"
 
 // external prototypes
 extern void SendMICommand(MISession *, MICommand *);
@@ -56,6 +57,7 @@ private:
     std::string arrayToFnCall(const std::string& expr);
     std::string getGdbType(const std::string& expr);
     std::string sendWhatIs(const std::string& expr);
+    void getSliceType(const std::string& expr, const std::string& metaInfo);
 };
 
 namespace {
@@ -281,7 +283,6 @@ std::string LazyMIVar::sendWhatIs(const std::string& exp) {
         throw err;
     }
 }
-    
 
 std::shared_ptr<ais::Type> LazyMIVar::getType() {
     static std::regex anonymousRE(R"((const)? *class)");
@@ -329,16 +330,22 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
     m_type = TypeParser::getType(m_mi, nullptr, strippedExprType.c_str());
     DVPRINT("Got type for %s: %s\n", m_expr.c_str(), m_type->getTypeName().c_str());
 
+    if (metaInfo.empty())
+        return m_type;
+
     // if we have a pointer with length meta info, we can apply it now
-    if (auto ptrType = std::dynamic_pointer_cast<ais::Pointer>(m_type);
-        ptrType && !metaInfo.empty() && metaInfo[0] == '@') {
-        DVPRINT("Found metainfo to apply: %s\n", metaInfo.c_str());
-        auto lengthened = std::string{"("} + strippedExpr + ")[0]" + metaInfo;
-        try {
-            if (auto appliedType = getGdbType(lengthened); !appliedType.empty()) {
-                m_type = TypeParser::getType(m_mi, nullptr, appliedType.c_str());
-            }
-        } catch (...) {}
+    if (metaInfo[0] == '@') {
+        if (auto ptrType = std::dynamic_pointer_cast<ais::Pointer>(m_type)) {
+            DVPRINT("Found metainfo to apply: %s\n", metaInfo.c_str());
+            auto lengthened = std::string{"("} + strippedExpr + ")[0]" + metaInfo;
+            try {
+                if (auto appliedType = getGdbType(lengthened); !appliedType.empty()) {
+                    m_type = TypeParser::getType(m_mi, nullptr, appliedType.c_str());
+                }
+            } catch (...) {}
+        }
+    } else if (metaInfo[0] == '|') {
+        getSliceType(strippedExpr, metaInfo);
     }
     
     return m_type;
@@ -353,6 +360,131 @@ std::string LazyMIVar::getExpr() {
 
     m_expr = m_var->expr;
     return m_expr;
+}
+
+namespace {
+// class for returning only a portion of a an array.  This version
+// is used to return only the sliced version of a decomposed array
+// Note: the underlying type isn't necessarily an array, or an
+// array of the right dimension so it would be too hard to filter
+// at the gdb extraction level
+class SubArrayFilter : public ais::ArrayFilter {
+public:
+    SubArrayFilter(std::shared_ptr<ais::Type> elemType,
+                   std::unique_ptr<g_block_map_t>&& blockMap,
+                   const std::string& rngStr);
+    std::shared_ptr<ais::Type> getElemType() const override;
+    int getLen() override;
+    bool doWrite() override;
+
+private:
+    std::shared_ptr<ais::Type> m_elemType;
+    std::unique_ptr<g_block_map_t> m_blockMap;
+    int m_len;
+    int m_repeat;
+    std::vector<std::pair<int,int>> m_subRngs;
+    std::vector<int> m_idcs;
+    blockmap::BlockMapIterator m_it;
+
+};
+
+SubArrayFilter::SubArrayFilter(std::shared_ptr<ais::Type> elemType,
+                               std::unique_ptr<g_block_map_t>&& blockMap,
+                               const std::string& rngStr) 
+    : m_elemType(elemType), m_blockMap(std::move(blockMap)), m_len(0),
+      m_repeat(0), m_it(m_blockMap.get())
+{
+    auto bm = m_blockMap.get();
+    m_subRngs = BlockMapGetIndexRng(bm, rngStr);
+    m_len = 0;
+    m_it.begin(false);
+    auto dim = m_it.getDim();
+    m_idcs.resize(dim);
+    
+    for (; m_it.next(); ) {
+        if (m_it.streamIdx != my_rank) continue;
+        m_it.getIdcs(m_idcs);
+
+        int i=0;
+        for ( ; i < dim; ++i) {
+            auto idx = m_idcs[i];
+            auto [lo,hi] = m_subRngs[i];
+            if (i+1 < dim) {
+                if (idx < lo || idx > hi) break;
+            } else if (auto ihi=idx+m_it.len-1; idx <= hi && ihi >= lo) {
+                m_len += std::min(hi,ihi) - std::max(lo,idx) + 1;
+            }
+        }
+    }
+
+    DVPRINT("SubArrayFilter got for %s got len %d\n", rngStr.c_str(), int(m_len));
+    m_it.reset();
+}
+
+std::shared_ptr<ais::Type> SubArrayFilter::getElemType() const { return m_elemType; }
+int SubArrayFilter::getLen() { return m_len; }
+bool SubArrayFilter::doWrite() {
+
+    if (m_repeat--) {
+        ++m_idcs.back();
+    } else {
+        for (; m_it.next(); ) {
+            if (m_it.streamIdx != my_rank) continue;
+            m_it.getIdcs(m_idcs);
+            m_repeat = m_it.len - 1;
+            break;
+        }
+    }
+
+    int dim = m_idcs.size();
+    for (int i=0; i<dim; ++i) {
+        auto idx = m_idcs[i];
+        auto [lo,hi] = m_subRngs[i];
+        if (idx < lo || idx > hi) return false;
+    }
+    return true;
+}
+}
+
+void LazyMIVar::getSliceType(const std::string& expr,
+                             const std::string& metaInfo)
+{
+    // break meta info info blockmap and index parts
+    int depth = 1;
+    size_t i=2;
+    for ( ; depth && i < metaInfo.size(); ++i) {
+        auto c = metaInfo[i];
+        if (c == '(') ++depth;
+        else if (c == ')') --depth;
+    }
+    auto bmDef = metaInfo.substr(1,i-1);
+
+    // and the indices
+    auto idxBeg = i;
+    i = metaInfo.find(',',i);
+    auto idx = metaInfo.substr(idxBeg,
+                               (i==std::string::npos) ? std::string::npos : i-idxBeg);
+
+    DVPRINT("Blockmap %s, Indices are %s\n", bmDef.c_str(), idx.c_str());
+
+    auto bm = std::unique_ptr<g_block_map_t>(MakeBlockMapFromDefinition(bmDef));
+
+    auto blockDims = BlockMapGetDimPerRank(bm.get());
+    auto idxRngs = BlockMapGetIndexRng(bm.get(), idx);
+
+    auto elemType = m_type;
+    for (ais::Array* arr; (arr=dynamic_cast<ais::Array*>(elemType.get())); ) {
+        elemType = arr->getElemTypePtr();
+    }
+
+    auto filter = std::make_shared<SubArrayFilter>(elemType, std::move(bm), idx);
+
+    for (auto arr = dynamic_cast<ais::Array*>(m_type.get()); arr;
+         arr = dynamic_cast<ais::Array*>(arr->getElemTypePtr().get())) {
+        arr->setFilter(filter);
+    }
+
+    m_expr = expr;
 }
 
 std::unique_ptr<SubArray> SubArray::get(Mi2Aif& mi, const std::string& expr) {
@@ -801,21 +933,27 @@ std::shared_ptr<MIVar> Mi2Aif::createMIVar(const char *taggedExpr) {
 // parse `expr` for meta info ("[[...]]") and return the separated meta info
 // with the rest of the original string, in that order. If no meta info is
 // present, the meta info portion of the returned tuple will be an empty string.
-std::tuple<std::string, std::string> Mi2Aif::extractMetaInfo(const char* expr) {
+std::pair<std::string, std::string> Mi2Aif::extractMetaInfo(const char* expr) {
     // Taking a cue from C++ annotations to use [[...]] to pass meta-data
     // to the back-end.   So far, this is just being used to pass length
     // information for raw C/C++ arrays.   I'd expect to add chunking info
     // via this channel in the future.
-    if (expr && expr[0] == '[' && expr[1] == '[') {
-        if (auto close = strstr(expr,"]]")) {
-            auto metaInfo = std::string{expr+2, size_t(close-expr-2)};
-            DVPRINT("got metaInfo \"%s\"\n", metaInfo.c_str());
-            return {std::string(close + 2), metaInfo};
+    auto e = std::string{expr};
+    auto meta = std::string{};
+    
+    while (e.size() >= 4 && e[0] == '[' && e[1] == '[') {
+        size_t i = 2;
+        for (int depth = 2; depth && i < e.size(); ++i) {
+            if (e[i] == '[') ++depth;
+            else if (e[i] == ']') --depth;
         }
+
+        if (!meta.empty()) meta += ',';
+        meta += e.substr(2,i-4);
+        e = e.substr(i);
     }
 
-    // XXX copying the unchanged input for no reason? a little wasteful...
-    return {std::string{expr}, ""};
+    return std::make_pair(std::move(e), std::move(meta));
 }
 
 // Create an expression to evaluate based on additional meta-data for context
@@ -827,7 +965,7 @@ Mi2Aif::createMIVarWithMetaInfo(const char* expr, const std::string& metaInfo)
 
     if (rawVal && rawVal->type && rawVal->type[strlen(rawVal->type)-1] == '*'
         && !metaInfo.empty() && metaInfo[0] == '@') {
-        // we have C pointerwith additional length info
+        // we have C pointer with additional length info
         std::ostringstream os;
         os << "(" << expr << ")[0]" << metaInfo;
         return createMIVar(os.str().c_str());

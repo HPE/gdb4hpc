@@ -756,6 +756,22 @@ public:
     std::string getTypeName() const override;
 };
 
+// define a filter to allow writing a sub-set of an array elements
+class ArrayFilter {
+public:
+    ArrayFilter();
+    virtual ~ArrayFilter();
+
+    ArrayFilter(const ArrayFilter&) = delete;
+    ArrayFilter& operator=(const ArrayFilter&) = delete;
+
+    // Type the array will emulate
+    virtual std::shared_ptr<Type> getElemType() const = 0;
+    virtual int getLen() = 0;
+    virtual bool doWrite() = 0;
+};
+      
+
 // C array class.
 // This is also the base class for all homogeneous data objects.
 // The array can wrap any element type, including another array which is
@@ -791,11 +807,16 @@ public:
     const Type* getElemType() const { return m_elemType.get(); }
     int getLen() const { return m_numElems; }
     void setBounds(int len, int idx0) { m_numElems = len; m_idx0 = idx0; }
+
+    void setFilter(std::shared_ptr<ArrayFilter> filter);
         
 protected:
+    int getElemTypeId(ais::Writer& writer) const;
+
     std::shared_ptr<Type> m_elemType;
     int m_numElems;
     int m_idx0 = 0;
+    std::shared_ptr<ArrayFilter> m_filter;
 };
 
 // Fortran array - multi dimension arrays are handled by nesting FntArray types
@@ -913,7 +934,7 @@ public:
 
 protected:
     std::shared_ptr<ais::Array> m_array;
-    std::shared_ptr<ais::Array> m_arrayOfArray;
+    std::shared_ptr<ais::Type> m_arrayOfArray;
     std::shared_ptr<ais::DecompIterator> m_decompIter;
     char m_openChar;
     char m_closeChar;

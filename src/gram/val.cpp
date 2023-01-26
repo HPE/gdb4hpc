@@ -346,6 +346,10 @@ DecompValue::DecompValue(rec_set_t* rec_set, g_block_map_t*  blockMap,
     : SingleValue(rec_set), m_blockMap(blockMap), m_val(std::move(val))
 {}
 
+void DecompValue::addIndex(const std::string& idx) {
+    m_idx += idx;
+}
+
 void DecompValue::print(std::ostream& os, rec_set_t* rec_set,
                         const std::string& format) {
 
@@ -363,9 +367,15 @@ AIFStream* DecompValue::getAIF() {
         throw EvalError("Decomposition must refer to a progam value");
     }
 
+    if (!m_idx.empty()) {
+        auto os = std::ostringstream{};
+        os << "[[|" << GetBlockMapDefinition(m_blockMap) << m_idx << "]]";
+        val->addMetaInfo(os.str());
+    }
+
     auto rep_set = val->retrieve();
 
-    auto aif = construct_blockmap_data(m_blockMap, val->getRecSet(), rep_set);
+    auto aif = construct_blockmap_data(m_blockMap, m_idx, val->getRecSet(), rep_set);
     return m_aif = aif;
 }
 

@@ -96,12 +96,8 @@ static dbgevent_t *NewMIErrorEvent(MICommand* cmd, free_cmd_type = NO_FREE_CMD, 
 
 static const char* unknownBPErrorMsg = "Hit unknown breakpoint!";
 
-/* hashing and slicing functions */
-static dbgevent_t *PerformExtEvalExpr(const char *);
-
 /* debugger definition */
 static DbgGdbMI DbgBackendGDBMI;
-
 
 // number of threads still running that were set off by background commands in thread apply
 static size_t numBackgroundThreads = 0;
@@ -3520,82 +3516,9 @@ void SendMICommand(MISession *sess, MICommand *cmd) {
     } while (!MICommandCompleted(cmd));
 }
 
-// Handle expressions with slice info.   This is an old path that used 
-// to have a bunch of hashing and reduction options.  They never really
-// worked - or at least they never had any tests, so much the same.
-// The idea is sound, but the whole notion needs to be rethought and
-// re-engineered.   So this functions hangs around for the vestigial
-// "slicing" operator; in the older sense of slicing.
-static dbgevent_t *PerformExtEvalExpr(const char *exp) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    dbgevent_t *e;
-
-    char var[BUFSIZ] = "";
-    char args[BUFSIZ] = "";
-    char sliceinfo[BUFSIZ] = "";
-
-    DVPRINT("*** PerformExtEvalExpr(%s-%d)\n", exp, my_rank);
-
-    ParseDBGExpr(exp, sliceinfo, var, args);
-
-    DVPRINT("*** PerformExtEvalExpr(%s-%s-%s)\n", var, args, sliceinfo);
-
-    // GetAIFVar only returns a value if it fails
-    AIFStream* aifStream = GetAIFVar(GDBMISession, var);
-
-    e = NewEvent(DBGEV_DATA);
-    e->ev_data = nullptr;
-
-    // if slice info found, perform slicing first
-    if (!sliceinfo[0]) {
-        e->ev_data = aifStream;
-    } else {
-        // the expression is a function call with integer arguments.   We couldn't be
-        // sure until now because fortran array references look like function calls.
-
-        // the slice info is the doubled up as min-max values, so f(1,7) has sliceinfo="1,1,7,7"
-        auto is = std::istringstream{sliceinfo};
-        auto os = std::ostringstream{};
-        os << var << "(";
-        auto arg = std::string{};
-        for (int i=0; arg="", std::getline(is,arg,','); ++i) {
-            if (!(i%2)) os << (i ? "," : "") << arg;
-        }
-        os << ")";
-
-        // so run the evaluation again as a function call
-        delete aifStream;
-        aifStream = GetAIFVar(GDBMISession, os.str().c_str());
-        e->ev_data = aifStream;
-    }
-
-    return e;
-}
-
 // Top level call for evaluating a program expression and returning the data
 dbgevent_t *DbgGdbMI::evalExpr(const char *exp, long expIdx, const char* threads) {
     DVPRINT("*** Dbg %s, %s(exp %s, rank %d, idx %ld)\n", __FILE__, __func__, exp, my_rank, expIdx);
-
-    // Check whether it has hashing/slicing
-    if (strpbrk(exp, "`") || strpbrk(exp, "|")) {
-        // TODO: we don't want to parse this if the user escaped the input
-        DVPRINT("DbgEvalExpr: Found reduction/slicing info.\n");
-        dbgevent_t* e = PerformExtEvalExpr(exp);
-        if (e == NULL) {
-            e = NewEvent(DBGEV_ERROR);
-            e->ev_errno = DBGERR_DEBUGGER;
-            EventErrStr(e, "bad data format");
-            return e;
-        } else if (e->ev_data == nullptr) {
-            e = NewEvent(DBGEV_ERROR);
-            e->ev_errno = DBGERR_DEBUGGER;
-            EventErrStr(e, "NULL data found");
-            return e;
-        } else {
-            DVPRINT("*** out DbgEvalExpr(%s-%d)\n", exp, my_rank);
-            return e;
-        }
-    }
 
     // track the evaluations that have only returned a portion of result
     static std::map<long,std::unique_ptr<AIFStream>> remainders;

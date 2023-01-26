@@ -178,12 +178,15 @@ public:
     
     virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
 
+    void addIndex(const std::string& idx);
+
 protected:
     virtual AIFStream* getAIF() override;
 
 private:
     g_block_map_t* m_blockMap;
     std::unique_ptr<Value> m_val;
+    std::string m_idx;
 };
 
 // A value based on a fully distribued block map.   It acts like a reply, but the

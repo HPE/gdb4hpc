@@ -153,28 +153,6 @@ bool VerifyBlockMap(g_block_map_t* m) {
     return true;
 }
 
-/*
-** Create a new map and add to the table
-*/
-g_block_map_t::g_block_map_t(const std::string& name, bool debug)
-    : m_name(name),
-      m_rank(0),
-      m_distribute(nullptr),
-      m_data(nullptr),
-      m_procs(nullptr),
-      m_blockcyclic_val(nullptr),
-      m_dim_order(nullptr),
-      m_debug(debug) {
-    if (name.size() && name[0] != '$') m_name = '$' + m_name;
-}
-
-g_block_map_t::~g_block_map_t() {
-    delete[] m_distribute;
-    delete[] m_data;
-    delete[] m_procs;
-    delete[] m_blockcyclic_val;
-    delete[] m_dim_order;
-}
 
 /*
 ** Free a map.
@@ -185,115 +163,7 @@ void RegisterBlockMap(std::shared_ptr<g_block_map_t> bm) {
     _block_map_list.push_back(bm);
 }
 
-namespace {
-// handle the data distribution in a single dimension
-class indexer1D {
-public:
-    indexer1D(const g_block_map_t* m, int dimIdx);
-    indexer1D() : m_dimIdx(0), m_len(0) {}
-    void map(size_t& dataIdx, size_t& procIdx, size_t& repeat, bool& atEnd) const;
-    
-    size_t getTotalProcSize() const { return m_totalProcSize; }
-    size_t getTotalDataSize() const { return m_dataScale * m_len; }
-    int getDimIdx() const { return m_dimIdx; }
 
-    void setDataSize(indexer1D* prev);
-    void setProcSize(const indexer1D& oproc);
-
-private:
-    int m_dimIdx;               // dimension represented
-    Distribution m_distribute;  // distribute scheme
-    size_t m_len;               // number of elements in this dimension
-    size_t m_numProcs;          // number of process for distibuting 
-    size_t m_blockCyclic;       // cycle count for the Distriubution::BlockCyclic
-    size_t m_dimOrder;
-
-    size_t m_blockLen;          // number of elements in each block
-    size_t m_totalProcSize;     // total processes from this and faster varying dims
-    size_t m_dataScale;         // step in the data array for each subsequent element
-    size_t m_procScale;         // step in the rank for each subsequent element
-};
-}
-
-// define the distribution in single dimension
-// \param m is the block map definition
-// \param d is the index for this dimension, starting at 0
-// \param prev if given is the distribution for the next faster dimension
-indexer1D::indexer1D(const g_block_map_t* m, int d) :
-    m_dimIdx(d),
-    m_distribute(m->m_distribute[d]),
-    m_len(m->m_data[d]),
-    m_numProcs(std::max(m->m_procs[d],1)),
-    m_blockCyclic(m->m_blockcyclic_val[d]),
-    m_dimOrder(m->m_dim_order[d]),
-    m_blockLen(std::max(m_len / m_numProcs,size_t{1})),
-    m_totalProcSize(m_numProcs),
-    m_dataScale(1),
-    m_procScale(1)
-{
-}
-
-// map an index int the global array into the offsets into the
-// array of process ranks and the data array from that rank
-// \param idx is the index of the global array in this dimension,
-//      it always has origin 0
-// \param procIdx i/o is updated with the offset into the array of ranks
-//      it is unchanged if this dimension is not decomposed
-// \param repeat will contain on exit the number of elements in to row.
-//      note that the result will only be used for the fastest varying
-//      dimension because \a repeat elements will be contiguously stored
-//      in the data result for that rank so they can be copied in one shot
-void indexer1D::map(size_t& dataIdx, size_t& procIdx, size_t& repeat,
-                    bool& atEnd) const {
-    repeat = 1;
-    size_t dproc = 0;
-
-    auto idx = dataIdx / m_dataScale;
-    
-    switch (m_distribute) {
-    case Distribution::Block:
-        dproc = idx / m_blockLen;
-        repeat = m_blockLen;
-        break;
-    case Distribution::Cyclic:
-        dproc = idx % m_numProcs;
-        break;
-    case Distribution::Star:
-        dproc = 0;
-        repeat = m_len;
-        break;
-    case Distribution::BlockCyclic:
-        dproc = (idx / m_blockCyclic) % m_numProcs;
-        repeat = m_blockCyclic;
-        break;
-    default:  // checked at construction time
-        break;
-    }
-
-    if (m_dataScale > 1) {
-        repeat = 1;
-    }
-
-    procIdx += dproc * m_procScale;
-
-    atEnd = (idx+repeat == m_len);
-    dataIdx = dataIdx % m_dataScale;
-
-}
-
-void indexer1D::setDataSize(indexer1D* prev) {
-    if (prev) {
-        m_dataScale *= prev->getTotalDataSize();
-    }
-}
-
-void indexer1D::setProcSize(const indexer1D& oproc) {
-    if (m_distribute != Distribution::Star &&
-        oproc.m_distribute != Distribution::Star &&
-        m_dimOrder > oproc.m_dimOrder) {
-        m_procScale *= oproc.m_numProcs;
-    }
-}
 
 // for now remove EvalMapFunc, when need, copy from map.c
 std::string GetBlockMapMsg(g_block_map_t *m) {
@@ -423,7 +293,9 @@ size_t BlockMapGetElementsPerRank(g_block_map_t* m) {
     return len;
 }
 
+
 AIFStream *construct_blockmap_data(g_block_map_t *bm,
+                                   const std::string& idx,
                                    rec_set_t* rec_set,
                                    rep_set_t *rep_set) {
     if (!rep_set) return nullptr;
@@ -477,7 +349,7 @@ AIFStream *construct_blockmap_data(g_block_map_t *bm,
         }
     }
 
-    auto blockIter = MakeBlockMapIterator(bm);
+    auto blockIter = MakeBlockMapIterator(bm, idx);
     auto a = new AIFStream{blockIter, da};
     if (!a) {
         PrintOutError("Cannot construct decomposition data: %s\n", GetError());
@@ -493,7 +365,7 @@ void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, std::ostream& out) {
         PrintOutError("Expected a fully distributed decomposition\n");
         return;
     }
-    auto blockIter = MakeBlockMapIterator(bm);
+    auto blockIter = MakeBlockMapIterator(bm, "");
     auto aifv = std::vector<AIFStream*>{aif};
     if (auto da = new AIFStream{blockIter, aifv}) {
         da->print(out);
@@ -504,89 +376,108 @@ void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, std::ostream& out) {
 }
 
 namespace {
-    class BlockMapIterator : public ais::DecompIterator {
+    class RangeBlockMapIterator : public ais::DecompIterator {
     public:
-        BlockMapIterator(g_block_map_t* bm);
+        RangeBlockMapIterator(g_block_map_t* bm, const std::string& subRng);
         void begin(bool isFortran) override;
         bool next() override;
         int getDim() override;
     private:
-        size_t m_idx;
-        size_t m_totElems;
-        std::vector<indexer1D> m_idcs;
+        std::vector<blockmap::indexer1D> m_idcs;
+        std::vector<std::pair<int,int>> m_subRng;
+        std::vector<int> m_curIdx;
+        int m_resDim = 0;
     };
 }
 
-BlockMapIterator::BlockMapIterator(g_block_map_t* bm)
+
+RangeBlockMapIterator::RangeBlockMapIterator(g_block_map_t* bm,
+                                             const std::string& subRng)
 {
     for (int i=0; i<bm->m_rank; ++i) {
-        m_idcs.push_back(indexer1D(bm, i));
+        m_idcs.push_back(blockmap::indexer1D(bm, i));
     }
+    m_subRng = BlockMapGetIndexRng(bm, subRng);
+    m_resDim = 0;
+    for (auto& [lo,hi] : m_subRng) {
+        if (hi > lo) ++m_resDim;
+    }
+
 }
 
-void BlockMapIterator::begin(bool isFortran) {
-    // we want the indexers ordered from slowest changing
-    // to fastest varying
+void RangeBlockMapIterator::begin(bool isFortran) {
+    blockmap::indexer1D::init(m_idcs, isFortran);
+
+    // slowest to fastest
     if (isFortran) {
-        std::reverse(m_idcs.begin(), m_idcs.end());
+        std::reverse(m_subRng.begin(), m_subRng.end());
     }
 
-    // initialize the indexers
-    indexer1D* prev = nullptr;
-    for (auto it=m_idcs.rbegin(); it!=m_idcs.rend(); ++it) {
-        it->setDataSize(prev);
-        prev = &*it;
+    for (auto& [lo,hi] : m_subRng) {
+        m_curIdx.push_back(lo);
     }
-
-    for (auto&& a : m_idcs) {
-        for (auto&& b : m_idcs) {
-            a.setProcSize(b);
-        }
-    }
-
-    m_idx = 0;
-    m_totElems = m_idcs[0].getTotalDataSize();
 }
 
-int BlockMapIterator::getDim() {
-    return m_idcs.size();
-}
-
-// Determine which rank the next chunk of elements will be coming from.
-// The computed values include which rank to read, how may consecutive
-// elements are from there, and the nesting location for multi-
-// dimension arrays
-bool BlockMapIterator::next() {
-    if (m_idx >= m_totElems)
+bool RangeBlockMapIterator::next() {
+    size_t dataIdx = 0;
+    for (size_t i=0; i<m_curIdx.size(); ++i) {
+        dataIdx = dataIdx * m_idcs[i].getLen() + m_curIdx[i];
+    }
+    
+    if (m_curIdx[0] > m_subRng[0].second)
         return false;
 
     endLevel = 0;
-    startLevel = int(m_idcs.size());
+    startLevel = m_resDim;
 
-    // the mapping is independent in each direction so the
-    // Indexers can do be applied one at a time.
     size_t procIdx = 0;
-    size_t dataIdx = m_idx;
     size_t repeat = 1;
+    size_t level = 0;
+
     for (int i=0, rank=int(m_idcs.size()); i<rank; ++i) {
         const auto& idx = m_idcs[i];
         auto atEnd{false};
         idx.map(dataIdx, procIdx, repeat, atEnd);
 
-        if (!atEnd) {
-            endLevel = i+1;
+        if (auto [lo,hi] = m_subRng[i]; hi > lo) {
+            ++level;
+            if (m_curIdx[i] + int(repeat) > hi) {
+                repeat = hi - m_curIdx[i] + 1;
+            } else {
+                endLevel = level;
+            }
+        } else {
+            repeat = 1;
         }
     }
-    
+
+    // set the output values
     len = int(repeat);
     streamIdx = static_cast<decltype(streamIdx)>(procIdx);
 
-    m_idx += repeat;
+    // update the index
+    m_curIdx.back() += repeat;
+    for (size_t i = m_curIdx.size(); --i > 0; ) { // intentionally avoiding i==0
+        auto [lo, hi] = m_subRng[i];
+        if (m_curIdx[i] > hi) {
+            m_curIdx[i] = lo;
+            ++m_curIdx[i-1];
+        } else {
+            break;
+        }
+    }
 
     return true;
 }
 
+int RangeBlockMapIterator::getDim() { return m_resDim; }
 
-std::shared_ptr<ais::DecompIterator> MakeBlockMapIterator(g_block_map_t *bm) {
-    return std::make_shared<BlockMapIterator>(bm);
+
+std::shared_ptr<ais::DecompIterator> MakeBlockMapIterator(g_block_map_t *bm,
+                                                          const std::string& idx) {
+    if (idx.empty()) {
+        return std::make_shared<blockmap::BlockMapIterator>(bm);
+    } else {
+        return std::make_shared<RangeBlockMapIterator>(bm,idx);
+    }
 }

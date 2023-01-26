@@ -9,6 +9,7 @@
 #include "eval.h"
 #include "dbg_client.h"
 #include "blockmap.h"
+#include "procset.h"
 
 std::unique_ptr<Value>
 gram::Expression::eval(rec_set_t* rec_set) const {
@@ -183,7 +184,12 @@ std::unique_ptr<Value> gram::Conditional::eval(rec_set_t* rec_set) const {
 std::unique_ptr<Value> gram::ArrayRef::eval(rec_set_t* rec_set) const {
     auto A = m_arr->eval(rec_set);
     auto B = m_idx->eval(rec_set);
-    if (B->getRecSet() != rec_set) {
+
+    if (auto decomp = dynamic_cast<DecompValue*>(A.get())) {
+        auto idx = '[' + B->getExpr() + ']';
+        decomp->addIndex(idx);
+        return A;
+    } else if (B->getRecSet() != rec_set) {
         throw EvalError("evaluating an array with procset indices");
     }
     return std::make_unique<ReplyValue>(rec_set, A->getExpr() + "[" + B->getExpr() + "]");

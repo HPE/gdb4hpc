@@ -786,6 +786,23 @@ std::string ais::Unimplemented::getTypeName() const {
     return "^unimplemented::" + m_typeName;
 }
 
+//===========================================================================
+
+namespace {
+class NullBuffer : public ais::WriteBuffer {
+public:
+    void writeInt(int val) override {}
+    void writeLong(long val) override {}
+    void writeLongLong(long long val) override {}
+    void writeFloat(float val) override {}
+    void writeDouble(double val) override {}
+    void writeLongDouble(long double val) override {}
+    void writeString(const std::string& str) override {}
+    void writePointer(const std::string& type, void* val) override {}
+    void writeError(const std::string& str) override {}
+
+};
+}
 
 //===========================================================================
 
@@ -797,10 +814,16 @@ ais::Array::Array(std::shared_ptr<Type> elemType, int len, int idx0)
 void ais::Array::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
     auto mayBeTruncated = in.mayBeTruncated();
-    
-    out.writeInt(m_numElems);
+
+    out.writeInt(m_filter ? m_filter->getLen() : m_numElems);
     out.writeInt(m_idx0);
     out.writeInt(mayBeTruncated);
+
+    std::unique_ptr<Writer> nullWriter;
+    if (m_filter) {
+        auto nullBuffer = std::make_shared<NullBuffer>();
+        nullWriter = std::make_unique<ais::Writer>(nullBuffer);
+    }
 
     // assuming something like {val,val,val}
     for (int i=0; i<m_numElems; ++i) {
@@ -822,8 +845,13 @@ void ais::Array::parseL(InterpretStream& in, Writer& out) const {
         }
 
         in.setPos(s);
-        if (mayBeTruncated) out.writeInt(true); // there is another element
-        m_elemType->parse(in, out);
+        if (!m_filter || m_filter->doWrite()) {
+            if (mayBeTruncated) out.writeInt(true); // there is another element
+            m_elemType->parse(in, out);
+        } else {
+            m_elemType->parse(in, *nullWriter);
+        }
+            
     }
     s = in.get();
     for ( ;*s && isspace(*s); ++s) {}
@@ -904,9 +932,14 @@ std::string ais::Array::getTypeName() const {
 }
 
 int ais::Array::getTypeId(ais::Writer& writer) const {
-    auto elemIdx = m_elemType->getTypeId(writer);
+    auto elemIdx = getElemTypeId(writer);
     auto name = "[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
+}
+
+int ais::Array::getElemTypeId(ais::Writer& writer) const {
+    if (m_filter) return m_filter->getElemType()->getTypeId(writer);
+    else return m_elemType->getTypeId(writer);
 }
 
 std::shared_ptr<ais::Array> ais::Array::makeTyped(std::shared_ptr<ais::Type> elemType) const {
@@ -952,6 +985,13 @@ void ais::Array::applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, in
 
 bool ais::Array::isFortran() const { return false; }
 
+void ais::Array::setFilter(std::shared_ptr<ArrayFilter> filter) {
+    m_filter = filter;
+}
+
+ais::ArrayFilter::ArrayFilter() {}
+ais::ArrayFilter::~ArrayFilter() {}
+
 ais::FtnArray::FtnArray() {}
 
 ais::FtnArray::FtnArray(std::shared_ptr<Type> elemType, int len) :
@@ -966,7 +1006,7 @@ std::string ais::FtnArray::getTypeName() const {
 }
 
 int ais::FtnArray::getTypeId(ais::Writer& writer) const {
-    auto elemIdx = m_elemType->getTypeId(writer);
+    auto elemIdx = getElemTypeId(writer);
     auto name = "^fortran[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
 }
@@ -1113,7 +1153,7 @@ std::unique_ptr<ais::Printer> ais::CharArray::makePrinter(Printer& parent) const
 }
 
 //===========================================================================
-// Spcial type for dealing with an arrary decomposed across multiple ranks.
+// Special type for dealing with an array decomposed across multiple ranks.
 ais::DecompArray::DecompArray(std::shared_ptr<ais::Array> array,
                               std::shared_ptr<ais::DecompIterator> decompIter)
     : m_array(array), m_decompIter(decompIter), m_openChar('{'), m_closeChar('}') {
@@ -1121,10 +1161,13 @@ ais::DecompArray::DecompArray(std::shared_ptr<ais::Array> array,
     // for 2d and higher we *synthesize* the out types.   The main property we
     // need to preserve is the 'fortran-ness' though here we distinguish the
     // array-of-arrays because the can matter for printing.
-    if (decompIter->getDim() > 1) {
+    auto dim = decompIter->getDim();
+    if (dim > 1) {
         m_arrayOfArray = m_array->makeTyped(m_array);
-    } else {
+    } else if (dim == 1) {
         m_arrayOfArray = m_array;
+    } else {
+        m_arrayOfArray = m_array->getElemTypePtr();
     }
 }
 
@@ -1297,7 +1340,7 @@ std::string ais::Vector::getTypeName() const {
 }
 
 int ais::Vector::getTypeId(Writer& writer) const {
-    auto elemIdx = m_elemType->getTypeId(writer);
+    auto elemIdx = getElemTypeId(writer);
     auto name = "std::vector[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
 }
@@ -1350,7 +1393,7 @@ std::string ais::Deque::getTypeName() const {
 }
 
 int ais::Deque::getTypeId(Writer& writer) const {
-    auto elemIdx = m_elemType->getTypeId(writer);
+    auto elemIdx = getElemTypeId(writer);
     auto name = "std::deque[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
 }
@@ -1386,7 +1429,7 @@ std::string ais::Queue::getTypeName() const {
 }
 
 int ais::Queue::getTypeId(Writer& writer) const {
-    auto elemIdx = m_elemType->getTypeId(writer);
+    auto elemIdx = getElemTypeId(writer);
     auto name = "std::queue[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
 }
@@ -1437,7 +1480,7 @@ std::string ais::Stack::getTypeName() const {
 }
 
 int ais::Stack::getTypeId(Writer& writer) const {
-    auto elemIdx = m_elemType->getTypeId(writer);
+    auto elemIdx = getElemTypeId(writer);
     auto name = "std::stack[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
 }
@@ -1471,7 +1514,7 @@ std::string ais::StdArray::getTypeName() const {
 }
 
 int ais::StdArray::getTypeId(Writer& writer) const {
-    auto elemIdx = m_elemType->getTypeId(writer);
+    auto elemIdx = getElemTypeId(writer);
     auto name = "std::array[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
 }
@@ -1509,7 +1552,7 @@ std::string ais::PriorityQueue::getTypeName() const {
 }
 
 int ais::PriorityQueue::getTypeId(Writer& writer) const {
-    auto elemIdx = m_elemType->getTypeId(writer);
+    auto elemIdx = getElemTypeId(writer);
     auto name = "std::priority_queue[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
 }
@@ -2079,8 +2122,12 @@ std::shared_ptr<ais::Type> ais::DecompReader::getType(int idx) {
 }
 
 bool ais::DecompReader::hasMoreData() {
-    return std::any_of(m_subReaders.begin(), m_subReaders.end(),
-                       [](auto& s) { return s->hasMoreData(); });
+    // Currently when doing a slicing, the read process isn't reading data from
+    // ranks that had no data.   It really should be ammended to match, but
+    // for now we can assume that there is not more data.
+    return m_prologue;
+    //return std::any_of(m_subReaders.begin(), m_subReaders.end(),
+    //                 [](auto& s) { return s->hasMoreData(); });
 }
 
 void ais::DecompReader::setSubIdx(int idx) {

@@ -52,7 +52,7 @@ static int cmd_info_decomposition_cmd(rec_set_t *rec_set, int argc,
             auto val = expr->eval(rec_set);
             if (auto bmv = dynamic_cast<BlockmapValue*>(val.get())) {
                 auto m = bmv->getBlockMap();
-                PrintOutMsg("%s", GetBlockMapMsg(m).c_str());
+                PrintOutMsg("%s", m->msg().c_str());
                 return 1;
             } else {
                 PrintOutError("No such decomposition \"%s\"\n", argv[1]);
@@ -72,7 +72,7 @@ static int cmd_info_decomposition_cmd(rec_set_t *rec_set, int argc,
     auto ss = std::ostringstream{};
     
     for (auto m : GetBlockMapList()) {
-        std::string printed_blockmap = GetBlockMapMsg(m.get());
+        std::string printed_blockmap = m->msg();
         if (printed_blockmap.empty()){
             continue;
         }
@@ -193,7 +193,7 @@ static int cmd_blockmap_dimension_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    if (CurrentBlockMap->m_data) {
+    if (CurrentBlockMap->getDims()) {
         PrintOutError("Dimension already defined.\n");
         if (!cli_query("Re-define dimension?")) return 1;
     }
@@ -217,9 +217,7 @@ static int cmd_blockmap_dimension_cmd(rec_set_t *rec_set, int argc,
         if (*e == ',') ++e;
     }
 
-    if (CurrentBlockMap->m_rank == 0) {
-        CurrentBlockMap->m_rank = dims.size();
-    } else if (CurrentBlockMap->m_rank != int(dims.size())) {
+    if (CurrentBlockMap->isRerank(dims.size())) {
         PrintOutError("Rank mismatch between previous "
                       "dimension/distribute/proc_grid/dim_order definition!\n");
         if (!cli_query("Override warning?")) {
@@ -228,8 +226,7 @@ static int cmd_blockmap_dimension_cmd(rec_set_t *rec_set, int argc,
     }
 
     // Allocate the data array inside the blockmap definition
-    CurrentBlockMap->m_data = new int[dims.size()];
-    std::copy(dims.begin(), dims.end(), CurrentBlockMap->m_data);
+    CurrentBlockMap->setDims(dims);
     return 1;
 }
 
@@ -241,7 +238,7 @@ static int cmd_blockmap_distribute_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    if (CurrentBlockMap->m_distribute != nullptr) {
+    if (CurrentBlockMap->getDistribution()) {
         PrintOutError("Distribute already defined.\n");
         if (!cli_query("Re-define distribute?")) return 1;
     }
@@ -281,29 +278,18 @@ static int cmd_blockmap_distribute_cmd(rec_set_t *rec_set, int argc,
 
     // Set the rank value inside the blockmap definition if is has not been set
     // yet
-    if (CurrentBlockMap->m_rank == 0) {
-        CurrentBlockMap->m_rank = rank;
-    } else {
+    if (CurrentBlockMap->isRerank(rank)) {
         // rank has already been set, ensure that what the user provided us
         // matches
-        if (CurrentBlockMap->m_rank != rank) {
-            PrintOutError(
-                "Rank mismatch between previous "
-                "dimension/distribute/proc_grid/dim_order definition!\n");
-            if (!cli_query("Override warning?")) {
-                return 0;
-            }
+        PrintOutError(
+            "Rank mismatch between previous "
+            "dimension/distribute/proc_grid/dim_order definition!\n");
+        if (!cli_query("Override warning?")) {
+            return 0;
         }
     }
 
-    // Allocate the distribute and blockcyclic_val array inside the blockmap
-    // definition
-    CurrentBlockMap->m_distribute = new Distribution[rank];
-    CurrentBlockMap->m_blockcyclic_val = new int[rank];
-
-    copy(distribute.begin(), distribute.end(), CurrentBlockMap->m_distribute);
-    copy(blockCyclic.begin(), blockCyclic.end(), CurrentBlockMap->m_blockcyclic_val);
-
+    CurrentBlockMap->setDistribution(distribute, blockCyclic);
     return 1;
 }
 
@@ -315,7 +301,7 @@ static int cmd_blockmap_proc_grid_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    if (CurrentBlockMap->m_procs != (int *)NULL) {
+    if (CurrentBlockMap->getProcGrid()) {
         PrintOutError("proc_grid already defined.\n");
         if (!cli_query("Re-define proc_grid?")) return 1;
     }
@@ -346,9 +332,7 @@ static int cmd_blockmap_proc_grid_cmd(rec_set_t *rec_set, int argc,
     auto rank = int(procs.size());
 
     // Set the rank value inside the blockmap definition if is has not been set yet
-    if (CurrentBlockMap->m_rank == 0) {
-        CurrentBlockMap->m_rank = rank;
-    } else if (CurrentBlockMap->m_rank != rank) {
+    if (CurrentBlockMap->isRerank(rank)) {
         // rank has already been set, ensure that what the user provided us
         // matches
         PrintOutError(
@@ -357,8 +341,7 @@ static int cmd_blockmap_proc_grid_cmd(rec_set_t *rec_set, int argc,
         if (!cli_query("Override warning?")) return 0;
     }
 
-    CurrentBlockMap->m_procs = new int[rank];
-    copy(procs.begin(), procs.end(), CurrentBlockMap->m_procs);
+    CurrentBlockMap->setProcGrid(procs);
     return 1;
 }
 
@@ -370,7 +353,7 @@ static int cmd_blockmap_dim_order_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    if (CurrentBlockMap->m_dim_order != (int *)NULL) {
+    if (CurrentBlockMap->getDimOrder()) {
         PrintOutError("dim_order already defined.\n");
         if (!cli_query("Re-define dim_order?")) return 1;
     }
@@ -403,9 +386,7 @@ static int cmd_blockmap_dim_order_cmd(rec_set_t *rec_set, int argc,
 
     // Set the rank value inside the blockmap definition if is has not been set
     // yet
-    if (CurrentBlockMap->m_rank == 0) {
-        CurrentBlockMap->m_rank = rank;
-    } else if (CurrentBlockMap->m_rank != rank) {
+    if (CurrentBlockMap->isRerank(rank)) {
         // rank has already been set, ensure that what the user provided us
         // matches
         PrintOutError(
@@ -415,13 +396,12 @@ static int cmd_blockmap_dim_order_cmd(rec_set_t *rec_set, int argc,
     }
 
     // Allocate the m_dim_order array inside the blockmap definition
-    CurrentBlockMap->m_dim_order = new int[rank];
-    copy(order.begin(), order.end(), CurrentBlockMap->m_dim_order);
+    CurrentBlockMap->setDimOrder(order);
     return 1;
 }
 
 static int cmd_blockmap_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    if (VerifyBlockMap(CurrentBlockMap.get())) {
+    if (CurrentBlockMap->verify()) {
         // add to the block map table
         RegisterBlockMap(CurrentBlockMap);
     } else {

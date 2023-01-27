@@ -50,9 +50,9 @@ const std::vector<std::shared_ptr<BlockMap>> GetBlockMapList() {
 
 // TODO: When I wrote this (andrewg) I am still not 100% confident on how
 // blockmap works. So this function should be made more versatile at some point.
-bool VerifyBlockMap(BlockMap* m) {
+bool BlockMap::verify() {
     // Check data definition
-    if (m->m_data == (int *)NULL) {
+    if (m_data == (int *)NULL) {
         SetError(
             "Must provide a dimension definition before ending a "
             "decomposition.");
@@ -60,7 +60,7 @@ bool VerifyBlockMap(BlockMap* m) {
     }
 
     // Check distribute definition
-    if (m->m_distribute == nullptr) {
+    if (m_distribute == nullptr) {
         SetError(
             "Must provide a distribute definition before ending a "
             "decomposition.");
@@ -68,7 +68,7 @@ bool VerifyBlockMap(BlockMap* m) {
     }
 
     // Check grid definition
-    if (m->m_procs == (int *)NULL) {
+    if (m_procs == (int *)NULL) {
         SetError(
             "Must provide a proc_grid definition before ending a "
             "decomposition.");
@@ -78,15 +78,15 @@ bool VerifyBlockMap(BlockMap* m) {
     // We need to count the number of non-distributed dimensions to ensure they
     // match between each definition.
     int count = 0;
-    for (auto i = 0; i < m->m_rank; ++i) {
-        if (m->m_distribute[i] == Distribution::Star) ++count;
+    for (auto i = 0; i < m_rank; ++i) {
+        if (m_distribute[i] == Distribution::Star) ++count;
     }
 
     int star_dims = count;
 
     // Check to make sure the grid definition matches
-    for (int i = 0, count = 0; i < m->m_rank; ++i) {
-        if (m->m_procs[i] == 1) ++count;
+    for (int i = 0, count = 0; i < m_rank; ++i) {
+        if (m_procs[i] == 1) ++count;
     }
 
     if (star_dims != count) {
@@ -97,18 +97,18 @@ bool VerifyBlockMap(BlockMap* m) {
     }
 
     // check order definition
-    if (!m->m_dim_order) {
+    if (!m_dim_order) {
         // If this is a 1-D distribution we can assume the dimension ordering
-        if (m->m_rank - star_dims == 1) {
+        if (m_rank - star_dims == 1) {
             // note here that count now refers to the number of "numbers"
             // written to make sure there isn't an issue in the logic
             count = 0;
-            m->m_dim_order = new int[m->m_rank];
-            for (int i = 0; i < m->m_rank; ++i) {
-                if (m->m_distribute[i] == Distribution::Star) {
-                    m->m_dim_order[i] = int(Distribution::Star);
+            m_dim_order = new int[m_rank];
+            for (int i = 0; i < m_rank; ++i) {
+                if (m_distribute[i] == Distribution::Star) {
+                    m_dim_order[i] = int(Distribution::Star);
                 } else {
-                    m->m_dim_order[i] = 1;
+                    m_dim_order[i] = 1;
                     ++count;
                 }
             }
@@ -127,8 +127,8 @@ bool VerifyBlockMap(BlockMap* m) {
         }
     } else {
         // Check to make sure the order definition matches
-        for (int i = 0, count = 0; i < m->m_rank; ++i) {
-            if (m->m_dim_order[i] == int(Distribution::Star)) ++count;
+        for (int i = 0, count = 0; i < m_rank; ++i) {
+            if (m_dim_order[i] == int(Distribution::Star)) ++count;
         }
 
         if (star_dims != count) {
@@ -140,11 +140,11 @@ bool VerifyBlockMap(BlockMap* m) {
     }
 
     // check that the dimension in each direction is a multiple of the number of ranks
-    for (int i=0; i<m->m_rank; ++i) {
-        if (m->m_distribute[i] != Distribution::Star &&
-            m->m_data[i] % m->m_procs[i] != 0) {
+    for (int i=0; i<m_rank; ++i) {
+        if (m_distribute[i] != Distribution::Star &&
+            m_data[i] % m_procs[i] != 0) {
             SetError("dimension size %d is not a multiple of proc_grid %d.",
-                     m->m_data[i], m->m_procs[i]);
+                     m_data[i], m_procs[i]);
             return false;
         }
     }
@@ -158,61 +158,58 @@ bool VerifyBlockMap(BlockMap* m) {
 */
 
 void RegisterBlockMap(std::shared_ptr<BlockMap> bm) {
-    block_map_table[bm->m_name] = bm;
+    block_map_table[bm->getName()] = bm;
     block_map_list.push_back(bm);
 }
 
-
-
-// for now remove EvalMapFunc, when need, copy from map.c
-std::string GetBlockMapMsg(BlockMap *m) {
+std::string BlockMap::msg() const {
     int i;
     std::stringstream sc; //stringstream for cli messages
     std::stringstream sm; //stringstream for mi messages
 
-    sc<<"$"<<m->m_name<<":\n";
-    sm<<"{decomp_name=\""<<m->m_name;
+    sc<<"$"<<m_name<<":\n";
+    sm<<"{decomp_name=\""<<m_name;
 
-    if (m->m_rank == 0) {
+    if (m_rank == 0) {
         SetError("Invalid decomposition.");
         return "";
     }
 
     sc<<"\tdimension ";
     sm<<"\",dimension=\"";
-    if (m->m_data == (int *)NULL) {
+    if (m_data == (int *)NULL) {
         SetError("Invalid dimension definition for decomposition.");
         return "";
     } else {
-        for (i = 0; i < m->m_rank; i++) {
-            sc << m->m_data[i] << (i+1==m->m_rank ? "\n" : ",");
-            sm << m->m_data[i] << (i+1==m->m_rank ? "" : ",");
+        for (i = 0; i < m_rank; i++) {
+            sc << m_data[i] << (i+1==m_rank ? "\n" : ",");
+            sm << m_data[i] << (i+1==m_rank ? "" : ",");
         }
     }
 
     sc<<"\tdistribute ";
     sm<<"\",distribute=\"";
-    if (m->m_distribute == nullptr) {
+    if (m_distribute == nullptr) {
         SetError("Invalid distribute definition for decomposition.");
         return "";
     } else {
-        for (i = 0; i < m->m_rank; i++) {
-            switch (m->m_distribute[i]) {
+        for (i = 0; i < m_rank; i++) {
+            switch (m_distribute[i]) {
                 case Distribution::Block:
-                    sc<<"block"<<(i+1==m->m_rank ? "\n" : ",");
-                    sm<<"block"<<(i+1==m->m_rank ? "" : ",");
+                    sc<<"block"<<(i+1==m_rank ? "\n" : ",");
+                    sm<<"block"<<(i+1==m_rank ? "" : ",");
                     break;
                 case Distribution::Cyclic:
-                    sc<<"cyclic"<<(i+1==m->m_rank ? "\n" : ",");
-                    sm<<"cyclic"<<(i+1==m->m_rank ? "" : ",");
+                    sc<<"cyclic"<<(i+1==m_rank ? "\n" : ",");
+                    sm<<"cyclic"<<(i+1==m_rank ? "" : ",");
                     break;
                 case Distribution::Star:
-                    sc<<"*"<<(i+1==m->m_rank ? "\n" : ",");
-                    sm<<"*"<<(i+1==m->m_rank ? "" : ",");
+                    sc<<"*"<<(i+1==m_rank ? "\n" : ",");
+                    sm<<"*"<<(i+1==m_rank ? "" : ",");
                     break;
                 case Distribution::BlockCyclic:
-                    sc<<m->m_blockcyclic_val[i]<<(i+1==m->m_rank ? "\n" : ",");
-                    sm<<m->m_blockcyclic_val[i]<<(i+1==m->m_rank ? "" : ",");
+                    sc<<m_blockcyclic_val[i]<<(i+1==m_rank ? "\n" : ",");
+                    sm<<m_blockcyclic_val[i]<<(i+1==m_rank ? "" : ",");
                     break;
                 default:
                     SetError(
@@ -224,34 +221,34 @@ std::string GetBlockMapMsg(BlockMap *m) {
 
     sc<<"\tproc_grid ";
     sm<<"\",proc_grid=\"";
-    if (m->m_procs == (int *)NULL) {
+    if (m_procs == (int *)NULL) {
         SetError("Invalid process grid definition for decomposition.");
         return "";
     } else {
-        for (i = 0; i < m->m_rank; i++) {
-            if (m->m_procs[i] == 1){
-                sc<<"*"<<(i+1==m->m_rank ? "\n" : ",");
-                sm<<"*"<<(i+1==m->m_rank ? "" : ",");
+        for (i = 0; i < m_rank; i++) {
+            if (m_procs[i] == 1){
+                sc<<"*"<<(i+1==m_rank ? "\n" : ",");
+                sm<<"*"<<(i+1==m_rank ? "" : ",");
             }else{
-                sc<<m->m_procs[i]<<(i+1==m->m_rank ? "\n" : ",");
-                sm<<m->m_procs[i]<<(i+1==m->m_rank ? "" : ",");
+                sc<<m_procs[i]<<(i+1==m_rank ? "\n" : ",");
+                sm<<m_procs[i]<<(i+1==m_rank ? "" : ",");
             }
         }
     }
 
     sc<<"\tdim_order ";
     sm<<"\",dim_order=\"";
-    if (m->m_dim_order == (int *)NULL) {
+    if (m_dim_order == (int *)NULL) {
         SetError("Invalid dimension order definition for decomposition.");
         return "";
     } else {
-        for (i = 0; i < m->m_rank; i++) {
-            if (m->m_dim_order[i] == int(Distribution::Star)){
-                sc<<"*"<<(i+1==m->m_rank ? "\n" : ",");
-                sm<<"*"<<(i+1==m->m_rank ? "" : ",");
+        for (i = 0; i < m_rank; i++) {
+            if (m_dim_order[i] == int(Distribution::Star)){
+                sc<<"*"<<(i+1==m_rank ? "\n" : ",");
+                sm<<"*"<<(i+1==m_rank ? "" : ",");
             }else{
-                sc<<m->m_dim_order[i]<<(i+1==m->m_rank ? "\n" : ",");
-                sm<<m->m_dim_order[i]<<(i+1==m->m_rank ? "" : ",");
+                sc<<m_dim_order[i]<<(i+1==m_rank ? "\n" : ",");
+                sm<<m_dim_order[i]<<(i+1==m_rank ? "" : ",");
             }
         }
     }
@@ -272,21 +269,21 @@ void FinishBlockMap(void) {
     block_map_list.clear();
 }
 
-bool BlockMapIsDegen(BlockMap* m) {
-    for (int i=0; i<m->m_rank; ++i) {
-        if (m->m_distribute[i] != Distribution::Star) return false;
+bool BlockMap::isDegen() const {
+    for (int i=0; i<m_rank; ++i) {
+        if (m_distribute[i] != Distribution::Star) return false;
     }
     return true;
 }
-size_t BlockMapGetElementsPerRank(BlockMap* m) {
+size_t BlockMap::getElementsPerRank() const {
     size_t len = 1;
-    for (int i=0; i<m->m_rank; ++i) {
-        if (m->m_distribute[i] == Distribution::Star) {
-            len *= m->m_data[i];
-        } else if (m->m_procs[i] > 0) {
+    for (int i=0; i<m_rank; ++i) {
+        if (m_distribute[i] == Distribution::Star) {
+            len *= m_data[i];
+        } else if (m_procs[i] > 0) {
             // there's no reason m_procs[i] would be zero,
             // just being careful
-            len *= (m->m_data[i] / m->m_procs[i]);
+            len *= (m_data[i] / m_procs[i]);
         }
     }
     return len;
@@ -360,7 +357,7 @@ AIFStream *construct_blockmap_data(BlockMap *bm,
 
 // Print out an AIF (presumably stream) value reformated by a block map
 void PrintWithBlockMap(AIFStream* aif, BlockMap* bm, std::ostream& out) {
-    if (!bm || !BlockMapIsDegen(bm)) {
+    if (!bm || !bm->isDegen()) {
         PrintOutError("Expected a fully distributed decomposition\n");
         return;
     }
@@ -382,7 +379,7 @@ namespace {
         bool next() override;
         int getDim() override;
     private:
-        std::vector<blockmap::indexer1D> m_idcs;
+        std::vector<BlockMap::Indexer1D> m_idcs;
         std::vector<std::pair<int,int>> m_subRng;
         std::vector<int> m_curIdx;
         int m_resDim = 0;
@@ -393,10 +390,10 @@ namespace {
 RangeBlockMapIterator::RangeBlockMapIterator(BlockMap* bm,
                                              const std::string& subRng)
 {
-    for (int i=0; i<bm->m_rank; ++i) {
-        m_idcs.push_back(blockmap::indexer1D(bm, i));
+    for (int i=0; i<bm->getRank(); ++i) {
+        m_idcs.push_back(BlockMap::Indexer1D(bm, i));
     }
-    m_subRng = BlockMapGetIndexRng(bm, subRng);
+    m_subRng = bm->getIndexRng(subRng);
     m_resDim = 0;
     for (auto& [lo,hi] : m_subRng) {
         if (hi > lo) ++m_resDim;
@@ -404,7 +401,7 @@ RangeBlockMapIterator::RangeBlockMapIterator(BlockMap* bm,
 }
 
 void RangeBlockMapIterator::begin(bool isFortran) {
-    blockmap::indexer1D::init(m_idcs, isFortran);
+    BlockMap::Indexer1D::init(m_idcs, isFortran);
 
     if (isFortran) {
         // arrange slowest to fastest changing
@@ -475,7 +472,7 @@ int RangeBlockMapIterator::getDim() { return m_resDim; }
 std::shared_ptr<ais::DecompIterator> MakeBlockMapIterator(BlockMap *bm,
                                                           const std::string& idx) {
     if (idx.empty()) {
-        return std::make_shared<blockmap::BlockMapIterator>(bm);
+        return std::make_shared<BlockMap::Iterator>(bm);
     } else {
         return std::make_shared<RangeBlockMapIterator>(bm,idx);
     }

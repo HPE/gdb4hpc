@@ -382,7 +382,7 @@ private:
     int m_repeat;
     std::vector<std::pair<int,int>> m_subRngs;
     std::vector<int> m_idcs;
-    blockmap::BlockMapIterator m_it;
+    BlockMap::Iterator m_it;
 };
 
 SubArrayFilter::SubArrayFilter(std::unique_ptr<BlockMap>&& blockMap,
@@ -395,7 +395,7 @@ SubArrayFilter::SubArrayFilter(std::unique_ptr<BlockMap>&& blockMap,
     m_len = 0;
     m_it.begin(isFortran);
 
-    m_subRngs = BlockMapGetIndexRng(bm, rngStr);
+    m_subRngs = bm->getIndexRng(rngStr);
     if (isFortran) {
         // m_subRngs and m_it are ordered from slowest to fastest
         std::reverse(m_subRngs.begin(), m_subRngs.end());
@@ -473,7 +473,7 @@ void LazyMIVar::getSliceType(const std::string& expr,
 
 
     if (auto array = std::dynamic_pointer_cast<ais::Array>(m_type)) {
-        auto bm = std::unique_ptr<BlockMap>(MakeBlockMapFromDefinition(bmDef));
+        auto bm = BlockMap::fromDefinition(bmDef);
         auto isFortran = (dynamic_cast<ais::FtnArray*>(m_type.get()) != nullptr);
         auto filter = std::make_shared<SubArrayFilter>(std::move(bm), idx,
                                                        isFortran);

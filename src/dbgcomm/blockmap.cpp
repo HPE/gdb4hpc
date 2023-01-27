@@ -77,27 +77,27 @@ static int* readInts(std::istream& is, int dim) {
     return v;
 }
 
-std::string GetBlockMapDefinition(BlockMap* bm) {
-    auto rank = bm->m_rank;
+std::string BlockMap::getDefinition() const {
+    auto rank = m_rank;
     std::ostringstream os;
-    os << "(" << std::quoted(bm->m_name) << ',' << rank;
-    writeDists(os, bm->m_distribute, rank);
-    writeInts(os, bm->m_data, rank);
-    writeInts(os, bm->m_procs, rank);
-    writeInts(os, bm->m_blockcyclic_val, rank);
-    writeInts(os, bm->m_dim_order, rank);
+    os << "(" << std::quoted(m_name) << ',' << rank;
+    writeDists(os, m_distribute, rank);
+    writeInts(os, m_data, rank);
+    writeInts(os, m_procs, rank);
+    writeInts(os, m_blockcyclic_val, rank);
+    writeInts(os, m_dim_order, rank);
     os << ')';
     return os.str();
 }
 
-BlockMap* MakeBlockMapFromDefinition(const std::string& definition)
+std::unique_ptr<BlockMap> BlockMap::fromDefinition(const std::string& definition)
 {
     auto is = std::istringstream{definition};
     auto name = std::string{}; int rank = 0;
     char comma;
 
     is >> comma >> std::quoted(name) >> comma >> rank;
-    auto bm = new BlockMap(name,false);
+    auto bm = std::make_unique<BlockMap>(name,false);
 
     bm->m_rank = rank;
     bm->m_distribute = readDists(is,rank);
@@ -109,23 +109,7 @@ BlockMap* MakeBlockMapFromDefinition(const std::string& definition)
     return bm;
 }
 
-std::vector<int> BlockMapGetDimPerRank(BlockMap* m) {
-    auto dims = std::vector<int>{};
-    for (int i=0; i<m->m_rank; ++i) {
-        auto dim = m->m_data[i];
-        if (m->m_distribute[i] != Distribution::Star &&
-            m->m_procs[i] > 0) {
-            // there's no reason m_procs[i] would be zero,
-            // just being careful
-            dim = (m->m_data[i] / m->m_procs[i]);
-        }
-        dims.push_back(dim);
-    }
-    return dims;
-}
-
-std::vector<std::pair<int,int>> BlockMapGetIndexRng(BlockMap* m,
-                                                    const std::string& rng) {
+std::vector<std::pair<int,int>> BlockMap::getIndexRng(const std::string& rng) const {
     static std::regex rngRE{R"(^\[(\d+)\.\.(\d+)\])"};
     static std::regex elemRE{R"(^\[(\d+)\])"};
     static std::regex ftnRngRE{R"(^[,(](\d+)\.\.(\d+)[)]?)"};
@@ -151,8 +135,8 @@ std::vector<std::pair<int,int>> BlockMapGetIndexRng(BlockMap* m,
         remIdx = match.suffix().str();
     }
 
-    for (int i=0; i<m->m_rank; ++i) {
-        auto up = m->m_data[i]-1;
+    for (int i=0; i<m_rank; ++i) {
+        auto up = m_data[i]-1;
         if (size_t(i) >= idxRngs.size()) {
             // the range doesn't have all dimensions, but with a 2d array
             // in C/C++  array[0] naturally refers to the full sub-array.
@@ -172,7 +156,7 @@ std::vector<std::pair<int,int>> BlockMapGetIndexRng(BlockMap* m,
 // \param m is the block map definition
 // \param d is the index for this dimension, starting at 0
 // \param prev if given is the distribution for the next faster dimension
-blockmap::indexer1D::indexer1D(const BlockMap* m, int d) :
+BlockMap::Indexer1D::Indexer1D(const BlockMap* m, int d) :
     m_dimIdx(d),
     m_distribute(m->m_distribute[d]),
     m_len(m->m_data[d]),
@@ -196,7 +180,7 @@ blockmap::indexer1D::indexer1D(const BlockMap* m, int d) :
 //      note that the result will only be used for the fastest varying
 //      dimension because \a repeat elements will be contiguously stored
 //      in the data result for that rank so they can be copied in one shot
-void blockmap::indexer1D::map(size_t& dataIdx, size_t& procIdx, size_t& repeat,
+void BlockMap::Indexer1D::map(size_t& dataIdx, size_t& procIdx, size_t& repeat,
                     bool& atEnd) const {
     repeat = 1;
     size_t dproc = 0;
@@ -234,13 +218,13 @@ void blockmap::indexer1D::map(size_t& dataIdx, size_t& procIdx, size_t& repeat,
 
 }
 
-void blockmap::indexer1D::setDataSize(indexer1D* prev) {
+void BlockMap::Indexer1D::setDataSize(Indexer1D* prev) {
     if (prev) {
         m_dataScale *= prev->getTotalDataSize();
     }
 }
 
-void blockmap::indexer1D::setProcSize(const indexer1D& oproc) {
+void BlockMap::Indexer1D::setProcSize(const Indexer1D& oproc) {
     if (m_distribute != Distribution::Star &&
         oproc.m_distribute != Distribution::Star &&
         m_dimOrder > oproc.m_dimOrder) {
@@ -248,7 +232,7 @@ void blockmap::indexer1D::setProcSize(const indexer1D& oproc) {
     }
 }
 
-std::pair<int,int> blockmap::indexer1D::getGlobalRng(int rank) {
+std::pair<int,int> BlockMap::Indexer1D::getGlobalRng(int rank) {
     int procIdx = rank / m_procScale;
     procIdx = rank % m_numProcs;
 
@@ -256,7 +240,7 @@ std::pair<int,int> blockmap::indexer1D::getGlobalRng(int rank) {
     return std::make_pair(idx0, idx0+m_blockLen-1);
 }
 
-void blockmap::indexer1D::init(std::vector<indexer1D>& idcs, bool isFortran) {
+void BlockMap::Indexer1D::init(std::vector<Indexer1D>& idcs, bool isFortran) {
     // we want the indexers ordered from slowest changing
     // to fastest varying
     if (isFortran) {
@@ -264,7 +248,7 @@ void blockmap::indexer1D::init(std::vector<indexer1D>& idcs, bool isFortran) {
     }
 
     // initialize the indexers
-    indexer1D* prev = nullptr;
+    Indexer1D* prev = nullptr;
     for (auto it=idcs.rbegin(); it!=idcs.rend(); ++it) {
         it->setDataSize(prev);
         prev = &*it;
@@ -277,20 +261,20 @@ void blockmap::indexer1D::init(std::vector<indexer1D>& idcs, bool isFortran) {
     }
 }
     
-blockmap::BlockMapIterator::BlockMapIterator(BlockMap* bm)
+BlockMap::Iterator::Iterator(BlockMap* bm)
 {
-    for (int i=0; i<bm->m_rank; ++i) {
-        m_idcs.push_back(blockmap::indexer1D(bm, i));
+    for (int i=0; i<bm->getRank(); ++i) {
+        m_idcs.push_back(BlockMap::Indexer1D(bm, i));
     }
 }
 
-void blockmap::BlockMapIterator::begin(bool isFortran) {
-    blockmap::indexer1D::init(m_idcs, isFortran);
+void BlockMap::Iterator::begin(bool isFortran) {
+    BlockMap::Indexer1D::init(m_idcs, isFortran);
     m_idx = 0;
     m_totElems = m_idcs[0].getTotalDataSize();
 }
 
-int blockmap::BlockMapIterator::getDim() {
+int BlockMap::Iterator::getDim() {
     return m_idcs.size();
 }
 
@@ -298,7 +282,7 @@ int blockmap::BlockMapIterator::getDim() {
 // The computed values include which rank to read, how may consecutive
 // elements are from there, and the nesting location for multi-
 // dimension arrays
-bool blockmap::BlockMapIterator::next() {
+bool BlockMap::Iterator::next() {
     if (m_idx >= m_totElems)
         return false;
 
@@ -328,9 +312,9 @@ bool blockmap::BlockMapIterator::next() {
     return true;
 }
 
-void blockmap::BlockMapIterator::reset() { m_idx = 0; }
+void BlockMap::Iterator::reset() { m_idx = 0; }
 
-void blockmap::BlockMapIterator::getIdcs(std::vector<int>& idcs) const {
+void BlockMap::Iterator::getIdcs(std::vector<int>& idcs) const {
     idcs.resize(m_idcs.size());
 
     // this is meant to be called after "next" to refer back to the
@@ -342,3 +326,37 @@ void blockmap::BlockMapIterator::getIdcs(std::vector<int>& idcs) const {
         val /= len;
     }
 }
+
+bool BlockMap::isRerank(int rank) const { return m_rank && m_rank != rank; }
+
+void BlockMap::setDimOrder(const std::vector<int>& order) {
+    m_rank = order.size();
+    m_dim_order = new int[m_rank];
+    copy(order.begin(), order.end(), m_dim_order);
+}
+
+void BlockMap::setDims(const std::vector<int>& dims) {
+    m_rank = dims.size();
+    m_data = new int[m_rank];
+    std::copy(dims.begin(), dims.end(), m_data);
+}
+
+void BlockMap::setDistribution(const std::vector<Distribution>& distribute,
+                               const std::vector<int>& blockCyclic) {
+    // Allocate the distribute and blockcyclic_val array inside the blockmap
+    // definition
+    auto rank = distribute.size();
+    m_rank = rank;
+    m_distribute = new Distribution[rank];
+    m_blockcyclic_val = new int[rank];
+
+    copy(distribute.begin(), distribute.end(), m_distribute);
+    copy(blockCyclic.begin(), blockCyclic.end(), m_blockcyclic_val);
+}
+
+void BlockMap::setProcGrid(const std::vector<int>& procs) {
+    m_rank = procs.size();
+    m_procs = new int[m_rank];
+    std::copy(procs.begin(), procs.end(), m_procs);
+}
+

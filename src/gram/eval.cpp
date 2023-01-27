@@ -78,10 +78,10 @@ std::unique_ptr<Value> gram::DSymArray::eval(rec_set_t* rec_set) const {
         auto val = m_idcs->eval(rec_set);
 
         auto os = std::ostringstream{};
-        os << "[[@" << BlockMapGetElementsPerRank(bm) << "]]";
+        os << "[[@" << bm->getElementsPerRank() << "]]";
         val->addMetaInfo(os.str());
         
-        if (BlockMapIsDegen(bm)) {
+        if (bm->isDegen()) {
             return std::make_unique<DistributedBlockMapValue>(rec_set, bm, std::move(val));
         } else {
             return std::make_unique<DecompValue>(rec_set, bm, std::move(val));

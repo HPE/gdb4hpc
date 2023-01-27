@@ -31,14 +31,11 @@ extern bool VerifyBlockMap(BlockMap*);
 extern BlockMap *NewBlockMap(const std::string& name);
 void RegisterBlockMap(std::shared_ptr<BlockMap> blockmap);
 
-extern std::string GetBlockMapMsg(BlockMap *);
 extern void FinishBlockMap(void);
-extern bool BlockMapIsDegen(BlockMap *);
 extern AIFStream* construct_blockmap_data(BlockMap *bm, const std::string& idx,
                                           rec_set_t* rec_set,
                                           rep_set_t* rep_set);
 void PrintWithBlockMap(AIFStream* aif, BlockMap* bm, std::ostream& out);
-extern size_t BlockMapGetElementsPerRank(BlockMap*);
     
 extern std::shared_ptr<ais::DecompIterator> MakeBlockMapIterator(BlockMap *bm,
                                                                  const std::string& idx);

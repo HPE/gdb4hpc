@@ -27,7 +27,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "blockmap_util.h"
 #include "dbg.h"
 #include "dbgsrv_defs.h"
 #include "dbgsrv_libmi2aif.h"

@@ -1,14 +1,14 @@
 // Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
 // Copyright 2010-2013,2020-2023 Hewlett Packard Enterprise Development LP.
 
-#include "dbgblockmap.h"
+#include "blockmap.h"
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
 #include <regex>
 
 // Create a new map
-g_block_map_t::g_block_map_t(const std::string& name, bool debug)
+BlockMap::BlockMap(const std::string& name, bool debug)
     : m_name(name),
       m_rank(0),
       m_distribute(nullptr),
@@ -20,7 +20,7 @@ g_block_map_t::g_block_map_t(const std::string& name, bool debug)
     if (name.size() && name[0] != '$') m_name = '$' + m_name;
 }
 
-g_block_map_t::~g_block_map_t() {
+BlockMap::~BlockMap() {
     delete[] m_distribute;
     delete[] m_data;
     delete[] m_procs;
@@ -77,7 +77,7 @@ static int* readInts(std::istream& is, int dim) {
     return v;
 }
 
-std::string GetBlockMapDefinition(g_block_map_t* bm) {
+std::string GetBlockMapDefinition(BlockMap* bm) {
     auto rank = bm->m_rank;
     std::ostringstream os;
     os << "(" << std::quoted(bm->m_name) << ',' << rank;
@@ -90,14 +90,14 @@ std::string GetBlockMapDefinition(g_block_map_t* bm) {
     return os.str();
 }
 
-g_block_map_t* MakeBlockMapFromDefinition(const std::string& definition)
+BlockMap* MakeBlockMapFromDefinition(const std::string& definition)
 {
     auto is = std::istringstream{definition};
     auto name = std::string{}; int rank = 0;
     char comma;
 
     is >> comma >> std::quoted(name) >> comma >> rank;
-    auto bm = new g_block_map_t(name,false);
+    auto bm = new BlockMap(name,false);
 
     bm->m_rank = rank;
     bm->m_distribute = readDists(is,rank);
@@ -109,7 +109,7 @@ g_block_map_t* MakeBlockMapFromDefinition(const std::string& definition)
     return bm;
 }
 
-std::vector<int> BlockMapGetDimPerRank(g_block_map_t* m) {
+std::vector<int> BlockMapGetDimPerRank(BlockMap* m) {
     auto dims = std::vector<int>{};
     for (int i=0; i<m->m_rank; ++i) {
         auto dim = m->m_data[i];
@@ -124,7 +124,7 @@ std::vector<int> BlockMapGetDimPerRank(g_block_map_t* m) {
     return dims;
 }
 
-std::vector<std::pair<int,int>> BlockMapGetIndexRng(g_block_map_t* m,
+std::vector<std::pair<int,int>> BlockMapGetIndexRng(BlockMap* m,
                                                     const std::string& rng) {
     static std::regex rngRE{R"(^\[(\d+)\.\.(\d+)\])"};
     static std::regex elemRE{R"(^\[(\d+)\])"};
@@ -172,7 +172,7 @@ std::vector<std::pair<int,int>> BlockMapGetIndexRng(g_block_map_t* m,
 // \param m is the block map definition
 // \param d is the index for this dimension, starting at 0
 // \param prev if given is the distribution for the next faster dimension
-blockmap::indexer1D::indexer1D(const g_block_map_t* m, int d) :
+blockmap::indexer1D::indexer1D(const BlockMap* m, int d) :
     m_dimIdx(d),
     m_distribute(m->m_distribute[d]),
     m_len(m->m_data[d]),
@@ -277,7 +277,7 @@ void blockmap::indexer1D::init(std::vector<indexer1D>& idcs, bool isFortran) {
     }
 }
     
-blockmap::BlockMapIterator::BlockMapIterator(g_block_map_t* bm)
+blockmap::BlockMapIterator::BlockMapIterator(BlockMap* bm)
 {
     for (int i=0; i<bm->m_rank; ++i) {
         m_idcs.push_back(blockmap::indexer1D(bm, i));

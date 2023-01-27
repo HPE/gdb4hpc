@@ -13,9 +13,9 @@
 #include "cli_funcs.h"
 #include "client_settings.h"
 #include "dbg_client.h"
-#include "../gram/procset.h"
-#include "../gram/slice.h"
-#include "../gram/blockmap.h"
+#include "procset.h"
+#include "slice.h"
+#include "blockmap_client.h"
 
 // clean these up
 struct dbgprocset_t;
@@ -27,9 +27,9 @@ extern rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps);
 extern rep_set_t *DbgEvalExpr(rec_set_t *set, const char *exp);
 extern void SetOverlaySetForProcSet(dbgprocset_t *s);
 extern dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *s);
-struct g_block_map_t;
-typedef struct g_block_map_t g_block_map_t;
-extern g_block_map_t *FindBlockMap(const std::string& blockmap);
+struct BlockMap;
+typedef struct BlockMap BlockMap;
+extern BlockMap *FindBlockMap(const std::string& blockmap);
 
 std::map<std::string, rec_set_t*> IdMap::m_psetMap;
 
@@ -83,7 +83,7 @@ std::pair<dbgprocset_t*,bool> IdMap::getProcset(const std::string& procs) {
 
 }
 
-g_block_map_t* IdMap::getBlockmapForName(std::string name) {
+BlockMap* IdMap::getBlockmapForName(std::string name) {
     return FindBlockMap(name);
 }
 
@@ -341,7 +341,7 @@ void ReplyValue::getCommonSet(ResultPair& result) {
     }
 }
 
-DecompValue::DecompValue(rec_set_t* rec_set, g_block_map_t*  blockMap,
+DecompValue::DecompValue(rec_set_t* rec_set, BlockMap*  blockMap,
                          std::unique_ptr<Value>&& val)
     : SingleValue(rec_set), m_blockMap(blockMap), m_val(std::move(val))
 {}
@@ -379,7 +379,7 @@ AIFStream* DecompValue::getAIF() {
     return m_aif = aif;
 }
 
-DistributedBlockMapValue::DistributedBlockMapValue(rec_set_t* rec_set, g_block_map_t*  blockMap,
+DistributedBlockMapValue::DistributedBlockMapValue(rec_set_t* rec_set, BlockMap*  blockMap,
                                                    std::unique_ptr<Value>&& val)
     : ReplyValue(rec_set, val->getExpr()), m_blockMap(blockMap), m_val(std::move(val))
 {}
@@ -492,7 +492,7 @@ BlockmapValue::BlockmapValue(rec_set_t* rec_set, const std::string& name)
 void BlockmapValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
 }
 
-g_block_map_t* BlockmapValue::getBlockMap() const { return FindBlockMap(m_name); }
+BlockMap* BlockmapValue::getBlockMap() const { return FindBlockMap(m_name); }
 
 BinaryFuncValue::BinaryFuncValue(std::unique_ptr<Value>&& a,
                                  const std::string& op,

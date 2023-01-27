@@ -3,7 +3,6 @@
  ******************************************************************************/
 
 #include "script_data.h"
-#include "blockmap.h"
 
 #include <unordered_map>
 #include <iomanip>

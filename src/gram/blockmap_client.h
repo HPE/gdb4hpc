@@ -21,25 +21,25 @@
 #pragma once
 
 #include "dbg_client.h"
-#include "dbgblockmap.h"
+#include "blockmap.h"
 
-// see dbgcomm/dbgblockmap.h for the struct
+// see dbgcomm/blockmap.h for the struct
 
-const std::vector<std::shared_ptr<g_block_map_t>> GetBlockMapList();
-extern g_block_map_t *FindBlockMap(const std::string& blockmap);
-extern bool VerifyBlockMap(g_block_map_t*);
-extern g_block_map_t *NewBlockMap(const std::string& name);
-void RegisterBlockMap(std::shared_ptr<g_block_map_t> blockmap);
+const std::vector<std::shared_ptr<BlockMap>> GetBlockMapList();
+extern BlockMap *FindBlockMap(const std::string& blockmap);
+extern bool VerifyBlockMap(BlockMap*);
+extern BlockMap *NewBlockMap(const std::string& name);
+void RegisterBlockMap(std::shared_ptr<BlockMap> blockmap);
 
-extern std::string GetBlockMapMsg(g_block_map_t *);
+extern std::string GetBlockMapMsg(BlockMap *);
 extern void FinishBlockMap(void);
-extern bool BlockMapIsDegen(g_block_map_t *);
-extern AIFStream* construct_blockmap_data(g_block_map_t *bm, const std::string& idx,
+extern bool BlockMapIsDegen(BlockMap *);
+extern AIFStream* construct_blockmap_data(BlockMap *bm, const std::string& idx,
                                           rec_set_t* rec_set,
                                           rep_set_t* rep_set);
-void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, std::ostream& out);
-extern size_t BlockMapGetElementsPerRank(g_block_map_t*);
+void PrintWithBlockMap(AIFStream* aif, BlockMap* bm, std::ostream& out);
+extern size_t BlockMapGetElementsPerRank(BlockMap*);
     
-extern std::shared_ptr<ais::DecompIterator> MakeBlockMapIterator(g_block_map_t *bm,
+extern std::shared_ptr<ais::DecompIterator> MakeBlockMapIterator(BlockMap *bm,
                                                                  const std::string& idx);
 

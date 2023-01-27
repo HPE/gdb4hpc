@@ -26,32 +26,31 @@
 
 #include "ais.h"
 #include "bitset.h"
-#include "blockmap_util.h"
 #include "client_settings.h"
 #include "defs.h"
 #include "useful.h"
-#include "blockmap.h"
+#include "blockmap_client.h"
 
-static std::map<std::string, std::shared_ptr<g_block_map_t>> _block_map_table;
-static std::vector<std::shared_ptr<g_block_map_t>> _block_map_list;
+static std::map<std::string, std::shared_ptr<BlockMap>> block_map_table;
+static std::vector<std::shared_ptr<BlockMap>> block_map_list;
 
 /*
 ** Find a map.
 */
-g_block_map_t *FindBlockMap(const std::string& blockmap) {
-    if (auto loc = _block_map_table.find(blockmap); loc != _block_map_table.end()) {
+BlockMap *FindBlockMap(const std::string& blockmap) {
+    if (auto loc = block_map_table.find(blockmap); loc != block_map_table.end()) {
         return loc->second.get();
     }
     return nullptr;
 }
 
-const std::vector<std::shared_ptr<g_block_map_t>> GetBlockMapList() {
-    return _block_map_list;
+const std::vector<std::shared_ptr<BlockMap>> GetBlockMapList() {
+    return block_map_list;
 }
 
 // TODO: When I wrote this (andrewg) I am still not 100% confident on how
 // blockmap works. So this function should be made more versatile at some point.
-bool VerifyBlockMap(g_block_map_t* m) {
+bool VerifyBlockMap(BlockMap* m) {
     // Check data definition
     if (m->m_data == (int *)NULL) {
         SetError(
@@ -158,15 +157,15 @@ bool VerifyBlockMap(g_block_map_t* m) {
 ** Free a map.
 */
 
-void RegisterBlockMap(std::shared_ptr<g_block_map_t> bm) {
-    _block_map_table[bm->m_name] = bm;
-    _block_map_list.push_back(bm);
+void RegisterBlockMap(std::shared_ptr<BlockMap> bm) {
+    block_map_table[bm->m_name] = bm;
+    block_map_list.push_back(bm);
 }
 
 
 
 // for now remove EvalMapFunc, when need, copy from map.c
-std::string GetBlockMapMsg(g_block_map_t *m) {
+std::string GetBlockMapMsg(BlockMap *m) {
     int i;
     std::stringstream sc; //stringstream for cli messages
     std::stringstream sm; //stringstream for mi messages
@@ -269,17 +268,17 @@ std::string GetBlockMapMsg(g_block_map_t *m) {
 }
 
 void FinishBlockMap(void) {
-    _block_map_table.clear();
-    _block_map_list.clear();
+    block_map_table.clear();
+    block_map_list.clear();
 }
 
-bool BlockMapIsDegen(g_block_map_t* m) {
+bool BlockMapIsDegen(BlockMap* m) {
     for (int i=0; i<m->m_rank; ++i) {
         if (m->m_distribute[i] != Distribution::Star) return false;
     }
     return true;
 }
-size_t BlockMapGetElementsPerRank(g_block_map_t* m) {
+size_t BlockMapGetElementsPerRank(BlockMap* m) {
     size_t len = 1;
     for (int i=0; i<m->m_rank; ++i) {
         if (m->m_distribute[i] == Distribution::Star) {
@@ -294,7 +293,7 @@ size_t BlockMapGetElementsPerRank(g_block_map_t* m) {
 }
 
 
-AIFStream *construct_blockmap_data(g_block_map_t *bm,
+AIFStream *construct_blockmap_data(BlockMap *bm,
                                    const std::string& idx,
                                    rec_set_t* rec_set,
                                    rep_set_t *rep_set) {
@@ -360,7 +359,7 @@ AIFStream *construct_blockmap_data(g_block_map_t *bm,
 
 
 // Print out an AIF (presumably stream) value reformated by a block map
-void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, std::ostream& out) {
+void PrintWithBlockMap(AIFStream* aif, BlockMap* bm, std::ostream& out) {
     if (!bm || !BlockMapIsDegen(bm)) {
         PrintOutError("Expected a fully distributed decomposition\n");
         return;
@@ -378,7 +377,7 @@ void PrintWithBlockMap(AIFStream* aif, g_block_map_t* bm, std::ostream& out) {
 namespace {
     class RangeBlockMapIterator : public ais::DecompIterator {
     public:
-        RangeBlockMapIterator(g_block_map_t* bm, const std::string& subRng);
+        RangeBlockMapIterator(BlockMap* bm, const std::string& subRng);
         void begin(bool isFortran) override;
         bool next() override;
         int getDim() override;
@@ -391,7 +390,7 @@ namespace {
 }
 
 
-RangeBlockMapIterator::RangeBlockMapIterator(g_block_map_t* bm,
+RangeBlockMapIterator::RangeBlockMapIterator(BlockMap* bm,
                                              const std::string& subRng)
 {
     for (int i=0; i<bm->m_rank; ++i) {
@@ -473,7 +472,7 @@ bool RangeBlockMapIterator::next() {
 int RangeBlockMapIterator::getDim() { return m_resDim; }
 
 
-std::shared_ptr<ais::DecompIterator> MakeBlockMapIterator(g_block_map_t *bm,
+std::shared_ptr<ais::DecompIterator> MakeBlockMapIterator(BlockMap *bm,
                                                           const std::string& idx) {
     if (idx.empty()) {
         return std::make_shared<blockmap::BlockMapIterator>(bm);

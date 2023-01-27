@@ -23,7 +23,7 @@
 #include "dbgsrv_libmi2aif.h"
 #include "defs.h"
 #include "MIOOBRecord.h"
-#include "dbgblockmap.h"
+#include "blockmap.h"
 
 // external prototypes
 extern void SendMICommand(MISession *, MICommand *);
@@ -370,14 +370,14 @@ namespace {
 // at the gdb extraction level
 class SubArrayFilter : public ais::FilteredArray::Filter {
 public:
-    SubArrayFilter(std::unique_ptr<g_block_map_t>&& blockMap,
+    SubArrayFilter(std::unique_ptr<BlockMap>&& blockMap,
                    const std::string& rngStr,
                    bool isFortran);
     int getLen() override;
     bool doWrite() override;
 
 private:
-    std::unique_ptr<g_block_map_t> m_blockMap;
+    std::unique_ptr<BlockMap> m_blockMap;
     int m_len;
     int m_repeat;
     std::vector<std::pair<int,int>> m_subRngs;
@@ -385,7 +385,7 @@ private:
     blockmap::BlockMapIterator m_it;
 };
 
-SubArrayFilter::SubArrayFilter(std::unique_ptr<g_block_map_t>&& blockMap,
+SubArrayFilter::SubArrayFilter(std::unique_ptr<BlockMap>&& blockMap,
                                const std::string& rngStr,
                                bool isFortran) 
     : m_blockMap(std::move(blockMap)), m_len(0),
@@ -473,7 +473,7 @@ void LazyMIVar::getSliceType(const std::string& expr,
 
 
     if (auto array = std::dynamic_pointer_cast<ais::Array>(m_type)) {
-        auto bm = std::unique_ptr<g_block_map_t>(MakeBlockMapFromDefinition(bmDef));
+        auto bm = std::unique_ptr<BlockMap>(MakeBlockMapFromDefinition(bmDef));
         auto isFortran = (dynamic_cast<ais::FtnArray*>(m_type.get()) != nullptr);
         auto filter = std::make_shared<SubArrayFilter>(std::move(bm), idx,
                                                        isFortran);

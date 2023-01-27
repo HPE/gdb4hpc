@@ -18,5 +18,5 @@ expr.tab.cpp expr.tab.h: expr.y
 
 noinst_LIBRARIES	= libgram.a
 libgram_a_SOURCES	= gram.cpp val.cpp eval.cpp expr.tab.cpp \
-                          blockmap.cpp blockmap_util.cpp \
+                          blockmap_client.cpp  \
 			  procset.cpp slice.cpp var.cpp 

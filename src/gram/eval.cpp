@@ -8,7 +8,7 @@
 #include "gram.h"
 #include "eval.h"
 #include "dbg_client.h"
-#include "blockmap.h"
+#include "blockmap_client.h"
 #include "procset.h"
 
 std::unique_ptr<Value>

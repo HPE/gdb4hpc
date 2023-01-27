@@ -40,8 +40,8 @@ class rec_set_t;
 struct dbgprocset_t;
 typedef struct dbgprocset_t dbgprocset_t;
 
-struct g_block_map_t;
-typedef struct g_block_map_t g_block_map_t;
+struct BlockMap;
+typedef struct BlockMap BlockMap;
 
 struct group_reply;
 typedef struct group_reply group_reply_t;
@@ -53,7 +53,7 @@ class IdMap {
 public:
     static std::pair<dbgprocset_t*,bool> getProcset(const std::string& procs);
     
-    static g_block_map_t* getBlockmapForName(std::string name);
+    static BlockMap* getBlockmapForName(std::string name);
 
     static bool idIsAvailable(const std::string& name, bool printMsg);
     
@@ -173,7 +173,7 @@ protected:
 // A single array decomposed across multiple ranks
 class DecompValue : public SingleValue {
 public:
-    DecompValue(rec_set_t* rec_set, g_block_map_t*  blockMap,
+    DecompValue(rec_set_t* rec_set, BlockMap*  blockMap,
                 std::unique_ptr<Value>&& val);
     
     virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
@@ -184,7 +184,7 @@ protected:
     virtual AIFStream* getAIF() override;
 
 private:
-    g_block_map_t* m_blockMap;
+    BlockMap* m_blockMap;
     std::unique_ptr<Value> m_val;
     std::string m_idx;
 };
@@ -193,7 +193,7 @@ private:
 // blockMap detemines the layout and size
 class DistributedBlockMapValue : public ReplyValue {
 public:
-    DistributedBlockMapValue(rec_set_t* rec_set, g_block_map_t*  blockMap,
+    DistributedBlockMapValue(rec_set_t* rec_set, BlockMap*  blockMap,
                              std::unique_ptr<Value>&& val);
     
     virtual void print(std::ostream& os, rec_set_t* rec_set,
@@ -202,7 +202,7 @@ public:
     rep_set_t* retrieve() const override;
 
 private:
-    g_block_map_t* m_blockMap;
+    BlockMap* m_blockMap;
     std::unique_ptr<Value> m_val;
 };
 
@@ -266,7 +266,7 @@ class BlockmapValue : public Value {
 public:
     BlockmapValue(rec_set_t* rec_set, const std::string& name);
     virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
-    g_block_map_t* getBlockMap() const;
+    BlockMap* getBlockMap() const;
 private:
     std::string m_name;
 };

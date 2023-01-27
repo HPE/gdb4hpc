@@ -11,7 +11,6 @@
 
 #include "script_settings.h"
 
-#include "blockmap.h"
 #include "procset.h"
 #include "gram.h"
 

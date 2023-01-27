@@ -37,4 +37,4 @@ endif
 
 noinst_LIBRARIES = libdbg.a
 libdbg_a_SOURCES = dbgbp.cpp dbgevent.cpp dbgformat.cpp AIFStream.cpp ais.cpp \
-				   dbgblockmap.cpp $(ZMQNET_FILES) socstream.cpp
+				   blockmap.cpp $(ZMQNET_FILES) socstream.cpp

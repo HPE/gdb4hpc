@@ -19,7 +19,7 @@
 
 #include "client.h"
 #include "useful.h"
-#include "blockmap.h"
+#include "blockmap_client.h"
 #include "gram.h"
 
 /*
@@ -27,7 +27,7 @@
 */
 static cmdlist_t *BlockMapCmds;
 static cmdlist_t *OldBlockCmds;
-static std::shared_ptr<g_block_map_t> CurrentBlockMap;
+static std::shared_ptr<BlockMap> CurrentBlockMap;
 
 /********************************
  * Info class commands
@@ -172,7 +172,7 @@ static int cmd_decomposition_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    CurrentBlockMap = std::make_shared<g_block_map_t>(argv[1], debug);
+    CurrentBlockMap = std::make_shared<BlockMap>(argv[1], debug);
 
     OldBlockCmds = SetCommands(BlockMapCmds);
 

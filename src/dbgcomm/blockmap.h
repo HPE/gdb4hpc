@@ -14,10 +14,10 @@
 
 enum class Distribution { Star=1000, Block, Cyclic, BlockCyclic };
 
-struct g_block_map_t {
-    g_block_map_t(const std::string& name, bool debug);
-    ~g_block_map_t();
-    
+struct BlockMap {
+    BlockMap(const std::string& name, bool debug);
+    ~BlockMap();
+
     std::string m_name;
     int  m_rank;              // store the rank of the blockmap function
     Distribution *m_distribute;  // store the mode of the block, cyclic
@@ -28,20 +28,20 @@ struct g_block_map_t {
     bool m_debug;
 };
 
-g_block_map_t* MakeBlockMapFromDefinition(const std::string& definition);
-extern std::string GetBlockMapDefinition(g_block_map_t* bm);
+BlockMap* MakeBlockMapFromDefinition(const std::string& definition);
+extern std::string GetBlockMapDefinition(BlockMap* bm);
 
-std::vector<int> BlockMapGetDimPerRank(g_block_map_t* m);
+std::vector<int> BlockMapGetDimPerRank(BlockMap* m);
 
 // parse a range defined as [min..max][val] into ranges
-std::vector<std::pair<int,int>> BlockMapGetIndexRng(g_block_map_t* m,
+std::vector<std::pair<int,int>> BlockMapGetIndexRng(BlockMap* m,
                                                     const std::string& rng);
 
 namespace blockmap {
 // handle the data distribution in a single dimension
 class indexer1D {
 public:
-    indexer1D(const g_block_map_t* m, int dimIdx);
+    indexer1D(const BlockMap* m, int dimIdx);
     indexer1D() : m_dimIdx(0), m_len(0) {}
     void map(size_t& dataIdx, size_t& procIdx, size_t& repeat, bool& atEnd) const;
     
@@ -73,7 +73,7 @@ private:
 
 class BlockMapIterator : public ais::DecompIterator {
 public:
-    BlockMapIterator(g_block_map_t* bm);
+    BlockMapIterator(BlockMap* bm);
     void begin(bool isFortran) override;
     bool next() override;
     int getDim() override;

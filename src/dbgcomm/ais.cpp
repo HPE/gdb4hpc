@@ -788,24 +788,6 @@ std::string ais::Unimplemented::getTypeName() const {
 
 //===========================================================================
 
-namespace {
-class NullBuffer : public ais::WriteBuffer {
-public:
-    void writeInt(int val) override {}
-    void writeLong(long val) override {}
-    void writeLongLong(long long val) override {}
-    void writeFloat(float val) override {}
-    void writeDouble(double val) override {}
-    void writeLongDouble(long double val) override {}
-    void writeString(const std::string& str) override {}
-    void writePointer(const std::string& type, void* val) override {}
-    void writeError(const std::string& str) override {}
-
-};
-}
-
-//===========================================================================
-
 ais::Array::Array() : m_numElems(0) {}
 
 ais::Array::Array(std::shared_ptr<Type> elemType, int len, int idx0)
@@ -815,15 +797,9 @@ void ais::Array::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
     auto mayBeTruncated = in.mayBeTruncated();
 
-    out.writeInt(m_filter ? m_filter->getLen() : m_numElems);
+    out.writeInt(m_numElems);
     out.writeInt(m_idx0);
     out.writeInt(mayBeTruncated);
-
-    std::unique_ptr<Writer> nullWriter;
-    if (m_filter) {
-        auto nullBuffer = std::make_shared<NullBuffer>();
-        nullWriter = std::make_unique<ais::Writer>(nullBuffer);
-    }
 
     // assuming something like {val,val,val}
     for (int i=0; i<m_numElems; ++i) {
@@ -845,12 +821,10 @@ void ais::Array::parseL(InterpretStream& in, Writer& out) const {
         }
 
         in.setPos(s);
-        if (!m_filter || m_filter->doWrite()) {
-            if (mayBeTruncated) out.writeInt(true); // there is another element
-            m_elemType->parse(in, out);
-        } else {
-            m_elemType->parse(in, *nullWriter);
-        }
+
+        auto eout = getOut(out); // give filtered array a chance to toggle 
+        if (mayBeTruncated) eout.writeInt(true); // there is another element
+        m_elemType->parse(in, eout);
             
     }
     s = in.get();
@@ -938,8 +912,7 @@ int ais::Array::getTypeId(ais::Writer& writer) const {
 }
 
 int ais::Array::getElemTypeId(ais::Writer& writer) const {
-    if (m_filter) return m_filter->getElemType()->getTypeId(writer);
-    else return m_elemType->getTypeId(writer);
+    return m_elemType->getTypeId(writer);
 }
 
 std::shared_ptr<ais::Array> ais::Array::makeTyped(std::shared_ptr<ais::Type> elemType) const {
@@ -985,12 +958,15 @@ void ais::Array::applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, in
 
 bool ais::Array::isFortran() const { return false; }
 
-void ais::Array::setFilter(std::shared_ptr<ArrayFilter> filter) {
-    m_filter = filter;
+std::shared_ptr<ais::Type> ais::Array::getAtomicType() const {
+    auto arr = this;
+    for (auto next=this; (next=dynamic_cast<const Array*>(arr->getElemType()));
+         arr=next) {}
+    return arr->getElemTypePtr();
 }
-
-ais::ArrayFilter::ArrayFilter() {}
-ais::ArrayFilter::~ArrayFilter() {}
+ 
+ais::FilteredArray::Filter::Filter() {}
+ais::FilteredArray::Filter::~Filter() {}
 
 ais::FtnArray::FtnArray() {}
 
@@ -1284,6 +1260,73 @@ void ais::Array1::applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, i
     location.push_back(ApplyOneIdx{0, 1, false});
     f(*m_elemType, reader);
     location.pop_back();
+}
+
+//===========================================================================
+
+namespace {
+// dummy writer to drop output into the aether
+class NullBuffer : public ais::WriteBuffer {
+public:
+    void writeInt(int val) override {}
+    void writeLong(long val) override {}
+    void writeLongLong(long long val) override {}
+    void writeFloat(float val) override {}
+    void writeDouble(double val) override {}
+    void writeLongDouble(long double val) override {}
+    void writeString(const std::string& str) override {}
+    void writePointer(const std::string& type, void* val) override {}
+    void writeError(const std::string& str) override {}
+
+};
+}
+
+// toggle between the real and null output streams for filtering
+class ais::FilteredArray::Output : public ais::Array::Output {
+public:
+    Output(std::shared_ptr<Filter> filter, ais::Writer& liveOut)
+        : m_filter(filter), m_liveOut(liveOut) {}
+    Writer& getOut(ais::Writer& out) {
+        return m_filter->doWrite() ? m_liveOut : out; // out is null-writer
+    }
+private:
+    std::shared_ptr<Filter> m_filter;
+    ais::Writer& m_liveOut;
+};
+
+ais::FilteredArray::FilteredArray(std::shared_ptr<Array> baseType,
+                                  std::shared_ptr<Filter> filter)
+    : Array(baseType->getAtomicType()), m_baseType(baseType), m_filter(filter) {
+    if (dynamic_cast<FtnArray*>(baseType.get())) {
+        m_ftn = std::make_unique<FtnArray>(baseType->getAtomicType());
+    }
+}
+
+void ais::FilteredArray::parseL(InterpretStream& in, Writer& out) const {
+    auto nullBuffer = std::make_shared<NullBuffer>();
+    auto nullWriter = ais::Writer{nullBuffer};
+
+    Array* innermost = m_baseType.get();
+    for (Array* next; (next=dynamic_cast<Array*>(innermost->getElemTypePtr().get()));
+         innermost = next) {};
+
+    innermost->setOutput(std::make_unique<Output>(m_filter, out));
+
+    // write the array header info 
+    out.writeInt(m_filter->getLen());
+    out.writeInt(0); // idx0
+    out.writeInt(false); // mayBeTruncated
+
+    // and write the array, note that all the control overhead is sent to
+    // the nullWriter, we switch back to the real output for writing the
+    // single elements
+    m_baseType->parseL(in, nullWriter);
+}
+std::string ais::FilteredArray::getTypeName() const {
+    return m_ftn ? m_ftn->getTypeName() : Array::getTypeName();
+}
+int ais::FilteredArray::getTypeId(Writer& writer) const {
+    return m_ftn ? m_ftn->getTypeId(writer) : Array::getTypeId(writer);
 }
 
 //===========================================================================

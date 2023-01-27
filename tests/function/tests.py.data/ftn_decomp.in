@@ -142,6 +142,17 @@ Comparison is true.
 Comparison is true.
 106: compare $block3_3{$a::block3} == $block3_4{$b::block3}
 Comparison is true.
+107: # try out some slicing
+108: p $block2_3{$a::block2}(3..8,7..12)
+((602, 603, 604, 605, 606, 607), (702, 703, 704, 705, 706, 707), (802, 803, 804, 805, 806, 807), (902, 903, 904, 905, 906, 907), (1002, 1003, 1004, 1005, 1006, 1007), (1102, 1103, 1104, 1105, 1106, 1107))
+109: p $block2_3{$a::block2}(1,2..5)
+(100, 200, 300, 400)
+110: p $block2_3{$a::block2}(6..7,4)
+(305, 306)
+107: p $block2_3{$a::block2}(10,12)
+1109
+111: p $block3_4{$b::block3}(1..2,3,11..12)
+((1131, 1132), (1231, 1232))
 107: # continue to a point where the same comparisons should fail
 108: b 124
 a{0..2}: Breakpoint 2: file /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90, line 124.

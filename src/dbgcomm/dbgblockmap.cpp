@@ -126,19 +126,25 @@ std::vector<int> BlockMapGetDimPerRank(g_block_map_t* m) {
 
 std::vector<std::pair<int,int>> BlockMapGetIndexRng(g_block_map_t* m,
                                                     const std::string& rng) {
-    static std::regex rngRE(R"(^\[(\d+)\.\.(\d+)\])");
-    static std::regex elemRE(R"(^\[(\d+)\])");
+    static std::regex rngRE{R"(^\[(\d+)\.\.(\d+)\])"};
+    static std::regex elemRE{R"(^\[(\d+)\])"};
+    static std::regex ftnRngRE{R"(^[,(](\d+)\.\.(\d+)[)]?)"};
+    static std::regex ftnElemRE{R"(^[,(](\d+)[)]?)"};
 
     auto idxRngs = std::vector<std::pair<int,int>>{};
 
     for (auto remIdx = rng; !remIdx.empty(); ) {
         auto match = std::smatch{};
         if (regex_search(remIdx, match, rngRE)) {
-            idxRngs.push_back(std::make_pair(std::stoi(match[1]),
-                                             std::stoi(match[2])));
+            idxRngs.emplace_back(std::stoi(match[1]), std::stoi(match[2]));
         } else if (regex_search(remIdx, match, elemRE)) {
             auto i = std::stoi(match[1]);
-            idxRngs.push_back(std::make_pair(i,i));
+            idxRngs.emplace_back(i,i);
+        } else if (regex_search(remIdx, match, ftnRngRE)) {
+            idxRngs.emplace_back(std::stoi(match[1])-1, std::stoi(match[2])-1);
+        } else if (regex_search(remIdx, match, ftnElemRE)) {
+            auto i = std::stoi(match[1])-1;
+            idxRngs.emplace_back(i,i);
         } else {
             break;
         }

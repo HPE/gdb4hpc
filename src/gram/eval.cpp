@@ -196,16 +196,23 @@ std::unique_ptr<Value> gram::ArrayRef::eval(rec_set_t* rec_set) const {
 }
 
 std::unique_ptr<Value> gram::FuncCall::eval(rec_set_t* rec_set) const {
-    if (m_args) {
-        auto A = m_args->eval(rec_set);
-
-        if (A->getRecSet() != rec_set) {
-            throw EvalError("procset arguments of a function is not supported");
-        }
-        
-        return std::make_unique<ReplyValue>(rec_set, m_func->toString() + "(" + A->getExpr() + ")");
-    } else {
+    if (!m_args) {
         return std::make_unique<ReplyValue>(rec_set, m_func->toString() + "()");
+    }
+
+    auto A = m_args->eval(rec_set);
+
+    if (A->getRecSet() != rec_set) {
+        throw EvalError("procset arguments of a function is not supported");
+    }
+
+    auto F = m_func->eval(rec_set);
+    if (auto decomp = dynamic_cast<DecompValue*>(F.get())) {
+        auto idx = '(' + A->getExpr() + ')';
+        decomp->addIndex(idx);
+        return F;
+    } else {
+        return std::make_unique<ReplyValue>(rec_set, F->getExpr() + "(" + A->getExpr() + ")");
     }
 }
 

@@ -368,36 +368,38 @@ namespace {
 // Note: the underlying type isn't necessarily an array, or an
 // array of the right dimension so it would be too hard to filter
 // at the gdb extraction level
-class SubArrayFilter : public ais::ArrayFilter {
+class SubArrayFilter : public ais::FilteredArray::Filter {
 public:
-    SubArrayFilter(std::shared_ptr<ais::Type> elemType,
-                   std::unique_ptr<g_block_map_t>&& blockMap,
-                   const std::string& rngStr);
-    std::shared_ptr<ais::Type> getElemType() const override;
+    SubArrayFilter(std::unique_ptr<g_block_map_t>&& blockMap,
+                   const std::string& rngStr,
+                   bool isFortran);
     int getLen() override;
     bool doWrite() override;
 
 private:
-    std::shared_ptr<ais::Type> m_elemType;
     std::unique_ptr<g_block_map_t> m_blockMap;
     int m_len;
     int m_repeat;
     std::vector<std::pair<int,int>> m_subRngs;
     std::vector<int> m_idcs;
     blockmap::BlockMapIterator m_it;
-
 };
 
-SubArrayFilter::SubArrayFilter(std::shared_ptr<ais::Type> elemType,
-                               std::unique_ptr<g_block_map_t>&& blockMap,
-                               const std::string& rngStr) 
-    : m_elemType(elemType), m_blockMap(std::move(blockMap)), m_len(0),
+SubArrayFilter::SubArrayFilter(std::unique_ptr<g_block_map_t>&& blockMap,
+                               const std::string& rngStr,
+                               bool isFortran) 
+    : m_blockMap(std::move(blockMap)), m_len(0),
       m_repeat(0), m_it(m_blockMap.get())
 {
     auto bm = m_blockMap.get();
-    m_subRngs = BlockMapGetIndexRng(bm, rngStr);
     m_len = 0;
-    m_it.begin(false);
+    m_it.begin(isFortran);
+
+    m_subRngs = BlockMapGetIndexRng(bm, rngStr);
+    if (isFortran) {
+        // m_subRngs and m_it are ordered from slowest to fastest
+        std::reverse(m_subRngs.begin(), m_subRngs.end());
+    }
     auto dim = m_it.getDim();
     m_idcs.resize(dim);
     
@@ -417,14 +419,11 @@ SubArrayFilter::SubArrayFilter(std::shared_ptr<ais::Type> elemType,
         }
     }
 
-    DVPRINT("SubArrayFilter got for %s got len %d\n", rngStr.c_str(), int(m_len));
     m_it.reset();
 }
 
-std::shared_ptr<ais::Type> SubArrayFilter::getElemType() const { return m_elemType; }
 int SubArrayFilter::getLen() { return m_len; }
 bool SubArrayFilter::doWrite() {
-
     if (m_repeat--) {
         ++m_idcs.back();
     } else {
@@ -440,7 +439,7 @@ bool SubArrayFilter::doWrite() {
     for (int i=0; i<dim; ++i) {
         auto idx = m_idcs[i];
         auto [lo,hi] = m_subRngs[i];
-        if (idx < lo || idx > hi) return false;
+        if (idx < lo || idx > hi)  return false;
     }
     return true;
 }
@@ -461,29 +460,25 @@ void LazyMIVar::getSliceType(const std::string& expr,
 
     // and the indices
     auto idxBeg = i;
-    i = metaInfo.find(',',i);
+    if (metaInfo[i] == '(') {
+        if ((i = metaInfo.find(')')) != std::string::npos)
+            ++i;
+    } else {
+        i = metaInfo.find(',',i);
+    }
     auto idx = metaInfo.substr(idxBeg,
                                (i==std::string::npos) ? std::string::npos : i-idxBeg);
 
     DVPRINT("Blockmap %s, Indices are %s\n", bmDef.c_str(), idx.c_str());
 
-    auto bm = std::unique_ptr<g_block_map_t>(MakeBlockMapFromDefinition(bmDef));
 
-    auto blockDims = BlockMapGetDimPerRank(bm.get());
-    auto idxRngs = BlockMapGetIndexRng(bm.get(), idx);
-
-    auto elemType = m_type;
-    for (ais::Array* arr; (arr=dynamic_cast<ais::Array*>(elemType.get())); ) {
-        elemType = arr->getElemTypePtr();
+    if (auto array = std::dynamic_pointer_cast<ais::Array>(m_type)) {
+        auto bm = std::unique_ptr<g_block_map_t>(MakeBlockMapFromDefinition(bmDef));
+        auto isFortran = (dynamic_cast<ais::FtnArray*>(m_type.get()) != nullptr);
+        auto filter = std::make_shared<SubArrayFilter>(std::move(bm), idx,
+                                                       isFortran);
+        m_type = std::make_shared<ais::FilteredArray>(array, filter);
     }
-
-    auto filter = std::make_shared<SubArrayFilter>(elemType, std::move(bm), idx);
-
-    for (auto arr = dynamic_cast<ais::Array*>(m_type.get()); arr;
-         arr = dynamic_cast<ais::Array*>(arr->getElemTypePtr().get())) {
-        arr->setFilter(filter);
-    }
-
     m_expr = expr;
 }
 
@@ -529,7 +524,7 @@ SubArray::SubArray(Mi2Aif& mi, const std::string& expr) : m_mi(mi) {
         }
     }
 
-    DVPRINT("Got SubAray type: %s\n", m_type->getTypeName().c_str());
+    DVPRINT("Got SubArray type: %s\n", m_type->getTypeName().c_str());
 }
 
 std::vector<std::string> SubArray::parse(const std::string& expr) {

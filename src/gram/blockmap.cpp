@@ -402,14 +402,14 @@ RangeBlockMapIterator::RangeBlockMapIterator(g_block_map_t* bm,
     for (auto& [lo,hi] : m_subRng) {
         if (hi > lo) ++m_resDim;
     }
-
 }
 
 void RangeBlockMapIterator::begin(bool isFortran) {
     blockmap::indexer1D::init(m_idcs, isFortran);
 
-    // slowest to fastest
     if (isFortran) {
+        // arrange slowest to fastest changing
+        // - BlockMapGetIndexRng already indexes to 0
         std::reverse(m_subRng.begin(), m_subRng.end());
     }
 

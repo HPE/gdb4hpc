@@ -756,22 +756,6 @@ public:
     std::string getTypeName() const override;
 };
 
-// define a filter to allow writing a sub-set of an array elements
-class ArrayFilter {
-public:
-    ArrayFilter();
-    virtual ~ArrayFilter();
-
-    ArrayFilter(const ArrayFilter&) = delete;
-    ArrayFilter& operator=(const ArrayFilter&) = delete;
-
-    // Type the array will emulate
-    virtual std::shared_ptr<Type> getElemType() const = 0;
-    virtual int getLen() = 0;
-    virtual bool doWrite() = 0;
-};
-      
-
 // C array class.
 // This is also the base class for all homogeneous data objects.
 // The array can wrap any element type, including another array which is
@@ -803,20 +787,22 @@ public:
     virtual bool isFortran() const;
 
     // element type
-    std::shared_ptr<Type> getElemTypePtr() { return m_elemType; }
+    std::shared_ptr<Type> getElemTypePtr() const { return m_elemType; }
     const Type* getElemType() const { return m_elemType.get(); }
+    std::shared_ptr<Type> getAtomicType() const;
     int getLen() const { return m_numElems; }
     void setBounds(int len, int idx0) { m_numElems = len; m_idx0 = idx0; }
 
-    void setFilter(std::shared_ptr<ArrayFilter> filter);
-        
+    class Output { public: virtual Writer& getOut(ais::Writer& out) { return out; } };
+    void setOutput(std::unique_ptr<Output>&& out) { m_output = std::move(out); }
 protected:
+    Writer& getOut(ais::Writer& out) const { return m_output->getOut(out); };
     int getElemTypeId(ais::Writer& writer) const;
 
     std::shared_ptr<Type> m_elemType;
     int m_numElems;
     int m_idx0 = 0;
-    std::shared_ptr<ArrayFilter> m_filter;
+    std::unique_ptr<Output> m_output = std::make_unique<Output>();
 };
 
 // Fortran array - multi dimension arrays are handled by nesting FntArray types
@@ -948,6 +934,33 @@ public:
     void applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, int level,
                   const std::function<void(const Type&,Reader&)>& func);
 };
+
+// Translate a back-end array into a 1d array with element filtering
+class FilteredArray : public Array {
+public:
+
+    // interface for determine whether an atomic element is written
+    class Filter {
+    public:
+        Filter();
+        virtual ~Filter();
+        Filter(const Filter&) = delete;
+        Filter& operator=(const Filter&) = delete;
+        virtual int getLen() = 0;
+        virtual bool doWrite() = 0;
+    };
+
+    FilteredArray(std::shared_ptr<Array> baseType, std::shared_ptr<Filter> filter);
+    void parseL(InterpretStream& in, Writer& out) const override;
+    std::string getTypeName() const override;
+    int getTypeId(Writer& writer) const override;
+private:
+    class Output;
+    std::shared_ptr<Array> m_baseType;
+    std::shared_ptr<Filter> m_filter;
+    std::unique_ptr<Array> m_ftn;
+};
+    
  
 // Structure container    
 class Struct : public Type {

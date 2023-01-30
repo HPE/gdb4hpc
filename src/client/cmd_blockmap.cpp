@@ -147,13 +147,21 @@ static int cmd_decomposition_cmd(rec_set_t *rec_set, int argc, char **argv) {
             auto val = expr->eval(rec_set);
             if (dynamic_cast<ProcsetValue*>(val.get())) {
                 PrintOutError("A process set has already been defined using this name.\n");
-            } else if (dynamic_cast<BlockmapValue*>(val.get())) {
-                PrintOutError("A decomposition has already been defined using this name.\n");
+                return 0;
+            } else if (auto bm = dynamic_cast<BlockmapValue*>(val.get())) {
+                if (!Client.confirm ||
+                    cli_query("A decomposition has already been defined using "
+                              "this name, redefine?",
+                              cli_query_default::NO, cli_query_default::YES)) {
+                    UnregisterBlockMap(bm->getBlockMap()->getName());
+                } else {
+                    return 0;
+                }
             } else {
                 PrintOutError("A debugger variable has already been defined using this "
                 "name.\n");
-            }
-            return 0;
+                return 0;
+            } 
         } catch (EvalError& err) {
             // I wanted this evaluation to fail
         }

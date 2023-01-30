@@ -162,6 +162,14 @@ void RegisterBlockMap(std::shared_ptr<BlockMap> bm) {
     block_map_list.push_back(bm);
 }
 
+void UnregisterBlockMap(const std::string& name) {
+    if (auto loc = block_map_table.find(name); loc != block_map_table.end()) {
+        block_map_table.erase(loc);
+        block_map_list.erase( std::remove(block_map_list.begin(), block_map_list.end(),
+                                          loc->second), block_map_list.end());
+    }
+}
+
 std::string BlockMap::msg() const {
     int i;
     std::stringstream sc; //stringstream for cli messages

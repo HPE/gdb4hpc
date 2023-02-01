@@ -170,6 +170,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     try {
         // throws if arguments are malformed
         auto args = DbgInvoke::LaunchOpts(argc, argv, Client);
+        args.enforceValid();
         return DoLaunch(std::move(args)) ? 1 : 0;
     } catch (const std::runtime_error& e) {
         PrintOutError("Error: %s\n", e.what());
@@ -455,6 +456,13 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
     newArgs.procset_name += "{" + std::to_string(oldProcset->s_nproc) + "}";
 
     newArgs.app_argv = oldDi->launchOptions().run_argv;
+
+    try {
+        newArgs.enforceValid();
+    } catch (const std::runtime_error &e) {
+        PrintOutError("Launch failed: %s\n", e.what());
+        return nullptr;
+    }
 
     dbgprocset_t* newProcset = nullptr;
 

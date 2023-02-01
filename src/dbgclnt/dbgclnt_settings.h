@@ -16,3 +16,15 @@ struct ClientSettingsInterface {
     virtual bool isNonStop() = 0;
 };
 
+struct MockClientSettings : public ClientSettingsInterface {
+    // Used in unit tests
+
+    std::string getProto() override { return "mock_zmqnet"; }
+    std::string getArch() override { return "mock_alps"; }
+    std::string getBackend() override { return "mock_gdbmi"; }
+    // these should be opposite to the defaults of DbgInvoke::LaunchOpts for testing
+    bool isUnsafe() override { return false; }
+    bool isEarlyEntry() override { return true; }
+    bool isNonStop() override { return true; }
+};
+

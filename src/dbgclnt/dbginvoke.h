@@ -100,6 +100,12 @@ public:
     public:
         // throws std::runtime_error upon parse error
         LaunchOpts(int argc, const char* const argv[], ClientSettingsInterface& csi);
+        // throws std::runtime_error if a held argument is invalid. examples of invalid
+        // arguments are a path to a nonexistent binary set as the binary name, a gdb set
+        // by --gdb that can't be found in PATH, etc.
+        //
+        // after calling enforceValid, any stored relative paths will be replaced with full paths.
+        void enforceValid();
 
         ArgvStream launcher_argv;          // --launcher="custom_launcher"
                                            // --launcher-args="launcher argv"
@@ -116,7 +122,7 @@ public:
                                            // holds app_argv, but args can be changed with "set args" 
                                            // command. argv[0] should never change.
                                            //
-        std::string gdb_path = "";         // --gdb /path/to/custom/gdb
+        std::string gdb_path = "";         // "--gdb /path/to/custom/gdb" or "--gdb my_gdb" to be found in PATH
         std::string input_file_path = "";  // --launcher-input /path/to/input/file
         std::string cwd = "";              // --workdir /path/to/workdir
         bool set_default_cwd = false;      // true if --workdir is passed with no argument. if true,

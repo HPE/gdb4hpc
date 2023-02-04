@@ -67,6 +67,7 @@ public:
     dbgevent_t *launch(const char *host, int cp, const char *proto, const char *prog,
                                const char *args, char **env, int arch);
     dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, int arch);
+    dbgevent_t *targetRemote(const char* target_remote, int arch);
     void finalize();
     bool isReadyForCmd();
     bool isOk();
@@ -134,6 +135,7 @@ public:
     dbgevent_t* startup();
     dbgevent_t* initDbg(const char *prog, const char *args);
     dbgevent_t* initDbgAttach(int pid, const char *prog);
+    dbgevent_t* initDbgTargetRemote(const char *target_remote);
     dbgevent_t* setArgs(const char* args);
     dbgevent_t* quit(bool detach);
     dbgevent_t* interrupt(bool all);

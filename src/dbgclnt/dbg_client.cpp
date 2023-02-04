@@ -1456,10 +1456,9 @@ void DbgFinalize(void) {
 ** Attach to running program.
 ** Returns name of newly created di or "" on failure.
 */
-DbgInvoke::Handle DbgAttach(const char *proto,
-                       const char *name, const char *app_ident,
-                       const char *arch, const char *backend, const char* gdb,
-                       int gpu_flag, int debug_flag) {
+DbgInvoke::Handle DbgAttach(const char *proto, const char *name,
+    const char *app_ident, const char *arch, const char *backend,
+    const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag) {
     DebugClientProtocol * const ptab = findClientProtoByName(proto);
 
     if (ptab == nullptr) {
@@ -1475,7 +1474,7 @@ DbgInvoke::Handle DbgAttach(const char *proto,
     // is the attach case
     auto di = std::make_unique<DbgInvoke>(DbgInvoke::ProcessType::Attached, 0, *ptab);
 
-    if (ptab->attach(di.get(), app_ident, arch, backend, gdb, gpu_flag, debug_flag)) {
+    if (ptab->attach(di.get(), app_ident, arch, backend, gdb, vgdb_file, gpu_flag, debug_flag)) {
         return nullptr;
     }
 

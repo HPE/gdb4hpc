@@ -40,8 +40,9 @@ extern dbgprocset_t *CreateProcSetForInvoke(const std::string& name);
 static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& opts);
 static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* procset, const char* cloneName);
 static int DoRelaunch(dbgprocset_t* procset, const char* cloneName);
-static int DoAttach(const char *, dbgprocset_t *, const char *,
-                    const char *, const char *, const char* gdb, bool gpu_flag, bool debug_flag);
+static int DoAttach(const char *proto, dbgprocset_t *ps,
+                    const char *app_ident, const char *arch, const char *backend,
+                    const char* gdb, const char *vgdb_file, bool gpu_flag, bool debug_flag);
 static void ReleaseProc(dbgprocset_t *, dbgquit_type);
 
 static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *group);
@@ -254,6 +255,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
             if (newHandle = DbgAttach(Client.proto, ps->s_name.c_str(), pbs_job_id,
                      Client.arch, Client.backend,
                      args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
+                     /* no VGDB command */ nullptr,
                      args.gpu_flag, args.debug_flag); !newHandle.lock()) {
                 PrintOutError("Failed to attach to PBS job ID %s\n", pbs_job_id);
                 free(pbs_job_id);
@@ -304,7 +306,7 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
 
             // Attach to submitted job
             if (newHandle = DbgAttach(Client.proto, ps->s_name.c_str(), slurmJobStepStr.c_str(),
-                  Client.arch, Client.backend,
+                  Client.arch, Client.backend, /* no VGDB command */ nullptr,
                   args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
                   args.gpu_flag, args.debug_flag); !newHandle.lock()) {
                 PrintOutError("Failed to attach to Slurm job ID %s\n", slurmJobStepStr.c_str());
@@ -638,7 +640,7 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
 }
 
 /*
-** attach $proc apid [--gpu] [--debug]
+** attach $proc apid [--gpu] [--debug] [--vgdb]
 */
 static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     dbgprocset_t *ps;
@@ -669,10 +671,12 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         {"gpu", no_argument, &gpu_flag, 1},
         {"debug", no_argument, &debug_flag, 1},
         {"gdb", required_argument, 0, 'b'},
+        {"vgdb", required_argument, 0, 'v'},
         {0, 0, 0, 0}
     };
 
     char* custom_gdb = nullptr;
+    char* vgdb_file = nullptr;
     while ((opt = getopt_long(argc, argv, "", attach_long_opts, &opt_ind)) !=
            -1) {
         switch (opt) {
@@ -686,7 +690,11 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
                     return 0;
                 }
                 break;
-                    
+
+            case 'v':
+                vgdb_file = strdup(optarg);
+                break;
+
             default:
                 PrintOutError(
                     "Invalid attach argument provided. See \"help attach\" for "
@@ -734,18 +742,21 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    if (!DoAttach(proto, ps, app_ident, arch, backend, custom_gdb, gpu_flag, debug_flag)) {
+    if (!DoAttach(proto, ps, app_ident, arch, backend,
+        custom_gdb, vgdb_file, gpu_flag, debug_flag)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
             XMLPrintRemovedMsg(ps->s_name.c_str());
         }
         Free(app_ident);
         free(custom_gdb);
+        free(vgdb_file);
         return 0;
     }
 
     Free(app_ident);
     free(custom_gdb);
+    free(vgdb_file);
 
     return 1;
 }
@@ -755,8 +766,8 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 ** Note that the attach process always operates synchronously.
 */
 static int DoAttach(const char *proto, dbgprocset_t *ps,
-                    const char *app_ident, const char *arch,
-                    const char *backend, const char* gdb, bool gpu_flag, bool debug_flag) {
+                    const char *app_ident, const char *arch, const char *backend,
+                    const char* gdb, const char *vgdb_file, bool gpu_flag, bool debug_flag) {
     dbgframe_t *fp;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
@@ -764,7 +775,7 @@ static int DoAttach(const char *proto, dbgprocset_t *ps,
 
     // Note that we are reusing the invoke callback.
     auto newHandle = DbgAttach(proto, ps->s_name.c_str(), app_ident, arch, backend,
-                               gdb, gpu_flag, debug_flag);
+        gdb, vgdb_file, gpu_flag, debug_flag);
 
     if (!newHandle.lock()) {
         PrintOutError("Could not attach to application: %s\n",

@@ -1050,6 +1050,89 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
     return NewEvent(DBGEV_OK);
 }
 
+/*
+** Connect to other GDB server.
+*/
+dbgevent_t *DbgGdbMI::Initializer::initDbgTargetRemote(const char *target_remote) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    dbgevent_t *e;
+    MICommand *cmd;
+    CLIInfoProcInfo *procInfo;
+
+    // Split remote command into arguments for MI command bypass
+    auto targetRemoteArgv = std::vector<std::string>{};
+    { auto targetRemoteStream = std::stringstream{target_remote};
+        auto arg = std::string{};
+        while (std::getline(targetRemoteStream, arg, ' ')) {
+            targetRemoteArgv.emplace_back(std::move(arg));
+        }
+    }
+
+    // Check parsed arguments
+    if (targetRemoteArgv.size() < 3) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Failed to parse target remote command: '%s'",
+            target_remote);
+        return e;
+    }
+
+    // Remove leading and trailing quotation marks
+    if (targetRemoteArgv[0][0] == '"') {
+        targetRemoteArgv[0] = targetRemoteArgv[0].substr(1);
+    }
+    if (targetRemoteArgv.back().back() == '"') {
+        targetRemoteArgv.back().pop_back();
+    }
+
+    // Create command bypass argv array
+    char const* raw_argv[targetRemoteArgv.size() + 1];
+    for (size_t i = 0; i < targetRemoteArgv.size(); i++) {
+        raw_argv[i] = targetRemoteArgv[i].c_str();
+    }
+    raw_argv[targetRemoteArgv.size()] = nullptr;
+
+    // Send target remote command
+    DBEPERFLOG(SetTimerStart("initDbgTargetRemote: target remote"));
+    cmd = CLIBypassc(targetRemoteArgv.size(), raw_argv);
+    SendMICommand(m_session, cmd);
+    DBEPERFLOG(SetTimerStopAndLog("initDbgTargetRemote: target remote"));
+
+    // Check for success/failure
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(e, DBGERR_DEBUGGER, "Target remote failed: %s",
+                    MICommandResultErrorMessage(cmd));
+        MICommandFree(cmd);
+        return e;
+    }
+
+    MICommandFree(cmd);
+
+    // Wait for the asynch command to complete
+    DVPRINT("initDbgTargetRemote: command sent.\n");
+    e = m_dbg.waitAndProcessAsyncEvent();
+
+    DVPRINT("initDbgTargetRemote: Event ready!\n");
+    FreeEvent(e);
+
+    /*
+    ** Find out pid.
+    */
+    if (gdb_vers != GdbVersion::CUDA_101) {
+        // The info proc call here breaks cuda-gdb.   It will start reporting
+        // "Not supported on this target." errors.   I'm not sure about the
+        // real need for it on other debuggers, but I'll leave it in.
+        cmd = CLIInfoProc();
+        SendMICommand(m_session, cmd);
+        if (MICommandResultOK(cmd) && (procInfo = CLIGetInfoProcInfo(cmd))) {
+            m_pid = procInfo->pid;
+            CLIInfoProcInfoFree(procInfo);
+        }
+        MICommandFree(cmd);
+    }
+
+    DVPRINT("initDbgTargetRemote(): Obtained pid: %d.\n", m_pid);
+    return NewEvent(DBGEV_OK);
+}
+
 dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;

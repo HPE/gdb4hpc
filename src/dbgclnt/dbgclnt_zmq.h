@@ -18,7 +18,7 @@ public:
     const char* name() const override { return "zmqnet"; };
 
     int attach(DbgInvoke *di,
-        const char *app_ident, const char *arch, const char *backend, 
+        const char *app_ident, const char *arch, const char *backend, const char* vgdb_file,
         const char* gdb, int gpu_flag, int debug_flag) override;
 
     int launch(DbgInvoke *di,
@@ -47,7 +47,7 @@ private:
     int internalAttach(DbgInvoke *di, const char *prog,
                 const char *app_ident, uint64_t appid,
                 ZMQNetNetwork::OutputPtr &&output, const char *arch,
-                const char *backend, const char *gdb, int gpu_flag,
+                const char *backend, const char* vgdb_file, const char *gdb, int gpu_flag,
                 int debug_flag, int early_entry_flag, bool isNonStop,
                 bool isNonMpi);
 };

@@ -2855,6 +2855,29 @@ dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *args,
 }
 
 /*
+** Attach debugger to GDB server using provided command.
+*/
+dbgevent_t *DbgGdbMI::targetRemote(const char* target_remote, int arch) {
+    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+    dbgevent_t *e;
+
+    MPArch = arch;
+
+    switch (arch) {
+        default:
+            e = m_initializer->initDbgTargetRemote(target_remote);
+            break;
+    }
+
+    // Check for live VGDB connection
+    // Exited instances will update State to Running to block commands
+    (void)getStatus(false);
+    DVPRINT("DbgGdbMI::targetRemote: inferior status %d\n", Status);
+
+    return e;
+}
+
+/*
 ** Called if Shutdown > 0 to finalise debugger.
 */
 void DbgGdbMI::finalize() {

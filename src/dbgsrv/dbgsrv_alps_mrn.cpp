@@ -49,6 +49,7 @@
 #define DBGSRV_OPT_EARLY_ENTRY "--early-entry"
 #define DBGSRV_OPT_NON_STOP "--non-stop"
 #define DBGSRV_OPT_GDB "--gdb"
+#define DBGSRV_OPT_VGDB_COMMAND_FILE "--vgdb-command-file"
 
 /* #define UDASRV "udaserver"
 #define UDASRV_ARGC 2
@@ -82,6 +83,7 @@ const struct option long_opts[] = {
     {"non-stop", no_argument, &non_stop_flag, 1},
     {"gdb", required_argument, 0, 'b'},
     {"program", required_argument, 0, 'f'},
+    {"vgdb-command-file", required_argument, 0, 'v'},
     {0, 0, 0, 0}};
 
 void DVPRINT(const char *format, ...) {
@@ -126,6 +128,7 @@ int main(int argc, char **argv) {
     char *dbgBackend = NULL;
     char *prog = NULL;
     char* gdb = nullptr;
+    char* vgdb_file = nullptr;
     char pidbuff[PID_BUFSIZ];
     // node specific info
     cti_pidList_t *myPids;
@@ -168,7 +171,7 @@ int main(int argc, char **argv) {
 
     DVPRINT("Parsing longopts...\n");
 
-    while ((c = getopt_long(argc, argv, "h:c:a:p:e:f:x", long_opts, &opt_ind)) !=
+    while ((c = getopt_long(argc, argv, "h:c:a:p:e:f:v:x", long_opts, &opt_ind)) !=
            -1) {
         switch (c) {
             case 0:
@@ -235,6 +238,14 @@ int main(int argc, char **argv) {
                 }
                 prog = strdup(optarg);
                 DVPRINT("program name: %s\n", prog);
+                break;
+
+            case 'v':
+                if (optarg == nullptr || *optarg == '\0') {
+                    fprintf(stderr, "--vgdb-command-file passed without an argument.\n");
+                    return 1;
+                }
+                vgdb_file = strdup(optarg);
                 break;
 
             default:
@@ -389,6 +400,7 @@ int main(int argc, char **argv) {
     if (non_stop_flag)    dbgsrv_argv << DBGSRV_OPT_NON_STOP;
     if (gdb)              dbgsrv_argv << DBGSRV_OPT_GDB << gdb;
     if (prog)             dbgsrv_argv << DBGSRV_OPT_PROG << prog;
+    if (vgdb_file)        dbgsrv_argv << DBGSRV_OPT_VGDB_COMMAND_FILE << vgdb_file;
 
     // forward any non-processed positional arguments to dbgsrv.
     // optind is set by getopt and points to the first unprocessed non-option
@@ -515,6 +527,9 @@ int main(int argc, char **argv) {
     Free(dbgBackend);
     if (prog != NULL) {
         Free(prog);
+    }
+    if (vgdb_file != NULL) {
+        Free(vgdb_file);
     }
     free(gdb);
 

@@ -329,8 +329,8 @@ extern void DbgResetStatusChange(void);
 extern int DbgCheckForAsyncPending(void);
 
 extern DbgInvoke::Handle DbgAttach(const char *proto, const char *handle,
-                              const char *app_ident, const char *arch, const char *backend,
-                              const char *gdb, int gpu_flag, int debug_flag);
+    const char *app_ident, const char *arch, const char *backend,
+    const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag);
 extern DbgInvoke::Handle DbgLaunch(const char* handle, int nproc, DbgInvoke::LaunchOpts&& args);
 
 extern rep_set_t *DbgStartup(rec_set_t *);

@@ -64,8 +64,8 @@ public:
     virtual const char* name() const = 0;
 
     virtual int attach(DbgInvoke *di,
-        const char *app_ident, const char *arch, const char *backend, 
-        const char* gdb, int gpu_flag, int debug_flag) = 0;
+        const char *app_ident, const char *arch, const char *backend,
+        const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag) = 0;
 
     virtual int launch(DbgInvoke *di,
         const char *prog, const char * const *argv,

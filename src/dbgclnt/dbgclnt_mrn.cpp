@@ -229,9 +229,8 @@ void MRNClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
 }
 
 int MRNClientProtocol::attach(DbgInvoke *di,
-                        const char *app_ident, const char *arch,
-                        const char *backend, const char* gdb,
-                        int gpu_flag, int debug_flag) {
+    const char *app_ident, const char *arch, const char *backend,
+    const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag) {
     char *root = nullptr;
     char *cfg_dir;
     char topology_name[MAXPATHLEN];
@@ -506,6 +505,7 @@ OMPD support will not be available.\n");
     }
 
     if (gdb && serverGdb) argv << "--gdb" << *serverGdb;
+    if (vgdb_file) argv << "--vgdb-command-file" << vgdb_file;
 
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n\t%s\n", argv.asString().c_str());

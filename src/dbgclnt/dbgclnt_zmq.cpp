@@ -200,22 +200,21 @@ void ZMQNetClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
 }
 
 int ZMQNetClientProtocol::attach(DbgInvoke *di,
-                                 const char *app_ident, const char *arch,
-                                 const char *backend, const char* gdb,
-                                 int gpu_flag, int debug_flag) {
+    const char *app_ident, const char *arch, const char *backend,
+    const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag) {
     LOG("%s\n", __PRETTY_FUNCTION__);
     // ZMQNetNetwork::OutputPtr is too many aliases deep to be implicitly
     // convertable from a nullptr, so we'll just make a dummy one to pass.
     auto dummyOutput = ZMQNetNetwork::OutputPtr(nullptr, DbgFreeGenericProgOutp);
 
     return internalAttach(di, nullptr, app_ident, 0, std::move(dummyOutput),
-                   arch, backend, gdb, gpu_flag, debug_flag, 0, false, false);
+                   arch, backend, gdb, vgdb_file, gpu_flag, debug_flag, 0, false, false);
 }
 
 int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     const char *prog, const char *app_ident, uint64_t appid, ZMQNetNetwork::OutputPtr &&output,
-    const char *arch, const char *backend, const char* gdb, int gpu_flag, int debug_flag,
-    int early_entry_flag, bool isNonStop, bool isNonMpi)
+    const char *arch, const char *backend, const char *gdb, const char *vgdb_file,
+    int gpu_flag, int debug_flag, int early_entry_flag, bool isNonStop, bool isNonMpi)
 {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
@@ -306,6 +305,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     if (isNonStop)        dbgsrvArgs << "--non-stop";
     if (isNonMpi)         dbgsrvArgs << "--non-mpi";
     if (gdb && serverGdb) dbgsrvArgs << "--gdb" << *serverGdb;
+    if (vgdb_file)        dbgsrvArgs << "--vgdb-command-file" << vgdb_file;
 
 #if DEBUG
     LOG("zmqnet argv:\n");
@@ -385,8 +385,8 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
 
     // attach to launched application
     if (internalAttach(di, prog, nullptr, di->appId(), std::move(output), arch, backend,
-                       gdb, gpu_flag, debug_flag, early_entry_flag, isNonStop,
-                       non_mpi_flag)) {
+                       /* no VGDB file */ nullptr, gdb,
+                       gpu_flag, debug_flag, early_entry_flag, isNonStop, non_mpi_flag)) {
         PrintOutError("Failed to attach to application. Cleaning up...\n");
 
         if (di->appId() != 0) {

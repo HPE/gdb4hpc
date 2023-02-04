@@ -87,6 +87,10 @@ dbgevent_t *DbgLaunch(const char *host, int cb, const char *proto,
     return DbgBackendSW->launch(host, cb, proto, prog, args, env, arch);
 }
 
+dbgevent_t *DbgTargetRemote(const char* target_remote, int arch) {
+    return DbgBackendSW->targetRemote(target_remote, arch);
+}
+
 void DbgFinalize(void) {
     return DbgBackendSW->finalize();
 }

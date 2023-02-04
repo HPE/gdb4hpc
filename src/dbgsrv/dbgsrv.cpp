@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <vector>
+#include <fstream>
 
 #include "dbgevent.h"
 #include "dbgfn.h"
@@ -74,6 +75,7 @@ const struct option long_opts[] = {
     {"non-stop", no_argument, &non_stop_flag, 1},
     {"gdb", required_argument, 0, 'b'},
     {"program", required_argument, 0, 'f'},
+    {"vgdb-command-file", required_argument, 0, 'v'},
     {0, 0, 0, 0}};
 
 struct mp_arch MPArchs[] = {
@@ -135,6 +137,7 @@ int main(int argc, char *argv[], char *env[]) {
     const char *prog = NULL;
     const char *jobKey = NULL;
     dbgevent_t *e = nullptr;
+    char *vgdb_command_file = nullptr;
 
     if (argc >= 2 && strcmp(argv[1], "--has-tests") == 0) {
         return hasUnitTests();
@@ -165,7 +168,7 @@ int main(int argc, char *argv[], char *env[]) {
 
     Argv0 = argv[0];
 
-    while ((c = getopt_long(argc, argv, "p:h:c:a:n:i:e:k:f:", long_opts,
+    while ((c = getopt_long(argc, argv, "p:h:c:a:n:i:e:k:f:v:", long_opts,
                             &opt_ind)) != -1) {
         switch (c) {
             case 0:
@@ -233,6 +236,15 @@ int main(int argc, char *argv[], char *env[]) {
                 }
                 prog = strdup(optarg);
                 DVPRINT("program name: %s\n", prog);
+                break;
+
+            case 'v':
+                if (optarg == nullptr || *optarg == '\0') {
+                    fprintf(stderr, "--vgdb-command-file passed without an argument.\n");
+                    return 1;
+                }
+                vgdb_command_file = strdup(optarg);
+                DVPRINT("vgdb-command-file: %s\n", optarg);
                 break;
 
             default:
@@ -446,11 +458,57 @@ int main(int argc, char *argv[], char *env[]) {
         // initializing gdb failed; we are continuing into the
         // server loop so we can send a real failure message.
     } else if (arch == MPARCH_P4SLAVE || arch == MPARCH_ALPS) {
-        // attach to application
-        DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s\n", pid, prog);
-        DBEPERFLOG(SetTimerStart("DbgAttach"));
-        e = DbgAttach(pid, prog, nullptr, env, arch);
-        DBEPERFLOG(SetTimerStopAndLog("DbgAttach"));
+
+        // attach to application directly
+        if (vgdb_command_file == nullptr) {
+            DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s\n", pid, prog);
+            DBEPERFLOG(SetTimerStart("DbgAttach"));
+            e = DbgAttach(pid, prog, nullptr, env, arch);
+            DBEPERFLOG(SetTimerStopAndLog("DbgAttach"));
+
+        // attach to remote GDB server
+        } else {
+
+            // Read connection instructions from VGDB command file
+            DVPRINT("dbgsrv: reading VGDB command file at %s\n", vgdb_command_file);
+
+            auto vgdbCommand = std::string{};
+            { auto commandStream = std::ifstream{vgdb_command_file};
+                auto line = std::string{};
+                while (std::getline(commandStream, line)) {
+                    try {
+
+                        // Parse line <rank> <command>
+                        auto first_space = line.find(" ");
+                        if (first_space == std::string::npos) {
+                            throw std::exception();
+                        }
+                        auto rank = std::stoi(line.substr(0, first_space));
+
+                        // Check for this rank
+                        if (rank == my_rank) {
+                            vgdbCommand = line.substr(first_space + 1);
+                            break;
+                        }
+                    } catch (...) {
+                        fprintf(stderr, "Failed to parse VGDB line: '%s'\n", line.c_str());
+                        return 1;
+                    }
+                }
+            }
+
+            // Check command line
+            if (vgdbCommand.empty()) {
+                fprintf(stderr, "Failed to find rank %d in VGDB command file\n", my_rank);
+                return 1;
+            }
+
+            // Run remote attach
+            DVPRINT("dbgsrv: rank %d '%s'\n", my_rank, vgdbCommand.c_str());
+            DBEPERFLOG(SetTimerStart("DbgTargetRemote"));
+            e = DbgTargetRemote(vgdbCommand.c_str(), arch);
+            DBEPERFLOG(SetTimerStopAndLog("DbgTargetRemote"));
+        }
     } else {
         if (procnum < 0 && strncmp(proto, "socket", strlen("socket")) == 0) {
             fprintf(stderr, "Invalid process number\n");

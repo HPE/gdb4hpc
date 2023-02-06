@@ -497,8 +497,10 @@ fi
 # Process relocations
 if [ "${RPM_INSTALL_PREFIX}" != "%{prefix}" ]
 then
-    # Modulefile
+    # tcl modulefile
     %{__sed} -i "s|^\([[:space:]]*set GDB4HPC_BASEDIR[[:space:]]*\)\(.*\)|\1${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}|" ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/%{pkgversion}
+    # lua modulefile
+    %{__sed} -i "s|^\([[:space:]]*local INSTALL_ROOT[[:space:]]=*\)\(.*\)|\1= \"${RPM_INSTALL_PREFIX}\"|" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{modulefile_name}/%{pkgversion}.lua
     # set default command
     %{__sed} -i "s|^\(export CRAY_inst_dir=\).*|\1${RPM_INSTALL_PREFIX}|" ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_name}_%{pkgversion}
 else

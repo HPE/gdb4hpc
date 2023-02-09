@@ -45,6 +45,7 @@ launch:
     ssh: ""
     aprun: ""
     mpiexec: ""
+    localhost: ""
 
 # having to do with the test tool itself
 meta:

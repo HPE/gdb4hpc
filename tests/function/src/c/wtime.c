@@ -16,13 +16,23 @@
  *      added #include "mpitest.h"
  */
 #include "mpi.h"
+
+#ifdef IS_LOCAL_MPI
+int main(int argc, char *argv[])
+{
+    MPI_Init( &argc, &argv);
+    MPI_Finalize();
+    return 0;
+}
+#else
+
 #include "mpitest.h"
 #include <stdio.h>
 
 int main(int argc, char *argv[])
 {
 	int i;
-        int errs = 0;
+    int errs = 0;
 	double dStart, dFinish, dDuration;
 
 	MTest_Init( &argc, &argv );
@@ -35,15 +45,16 @@ int main(int argc, char *argv[])
 
 	printf(" start:%20.16e\nfinish:%20.16e\nduration:%g\n", dStart, dFinish, dDuration);
 #ifdef __x86_64__
-        if (( dDuration < .99 || dDuration > 1.01 )) {
+    if (( dDuration < .99 || dDuration > 1.01 )) {
 #else
-        if (( dDuration < .97 || dDuration > 1.03 )) {
+    if (( dDuration < .97 || dDuration > 1.03 )) {
 #endif
-            printf("Fail - dDuration = %g\n",dDuration);
-            errs++;
-        }
+        printf("Fail - dDuration = %g\n",dDuration);
+        errs++;
+    }
 
-        MTest_Finalize( errs );
+    MTest_Finalize( errs );
 	MPI_Finalize();
 	return 0;
 }
+#endif

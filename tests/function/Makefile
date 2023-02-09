@@ -44,12 +44,26 @@ GPU_TESTS = \
 CTI_INC      = -I${CTI_INSTALL_DIR}/include
 CTI_LD       = -L${CTI_INSTALL_DIR}/lib -lcommontools_fe
 
+
 ifneq (${CTI_INSTALL_DIR}no,no)
 	TESTS += $(CTI_TESTS)
 endif
 
 ifeq ($(PE_ENV),CRAY)
 	TESTS += $(GPU_TESTS)
+endif
+
+ifdef LOCALHOST
+MPI_INC = -I./localMPI
+MPI_COBJ = ./localMPI/cmpi.o
+MPI_FOBJ = ./localMPI/mpi.o
+CC = gcc
+CXX = g++
+FC     = gfortran
+else
+CC = cc
+CXX = CC
+FC = ftn
 endif
 
 # ANSI escape codes
@@ -63,6 +77,10 @@ ifeq (${CTI_INSTALL_DIR}no,no)
 	@echo -e "$(IN_YELLOW)Verify with 'pkg-config --cflags common_tools_fe'."
 	@echo -ne "$(NO_COLOR)"
 endif
+
+CFLAGS = -g -O0 -I./include $(MPI_INC)
+CXXFLAGS = -g -O0 -I./include $(MPI_INC)
+FFLAGS = -g -O0 $(MPI_INC)
 
 gnu: all
 amd: all
@@ -78,73 +96,73 @@ clean:
 	rm -rf ./bin
 
 ./bin/${PE_ENV}/c/%.o : ./src/c/%.c
-	cc -g -O0 -c -I./include $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 ./bin/${PE_ENV}/C++/%.o : ./src/C++/%.cpp
-	CC -g -O0 -c -I./include $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 ./bin/${PE_ENV}/fortran/%.o : ./src/fortran/%.f90
-	ftn -g -O0 -c $< -o $@
+	$(FC) $(FFLAGS) -c $< -o $@
 
 ./bin/${PE_ENV}/c/c_time.x : ./bin/${PE_ENV}/c/wtime.o ./bin/${PE_ENV}/c/mtest.o
-	cc -g -O0 $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/c_type_test.x : ./bin/${PE_ENV}/c/c_type_test.o
-	cc -g -O0 $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/c_cmp_diff.x : ./bin/${PE_ENV}/c/c_cmp_diff.o
-	cc -g -O0 $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/libdlopen_test.so : ./src/c/libdlopen_test.c
-	cc -g -O0 -shared $^ -o $@
+	$(CC) $(CFLAGS) -shared $^ -o $@
 
 ./bin/${PE_ENV}/c/c_dlopen.x :  ./src/c/c_dlopen_test.c ./bin/${PE_ENV}/c/libdlopen_test.so
-	cc -g -O0 ./src/c/c_dlopen_test.c -DBIN_PATH=\"${PWD}/bin/${PE_ENV}/c\" -ldl -o $@
+	$(CC) $(CFLAGS) ./src/c/c_dlopen_test.c -DBIN_PATH=\"${PWD}/bin/${PE_ENV}/c\" -ldl -o $@
 
 ./bin/${PE_ENV}/c/c_segv.x : ./bin/${PE_ENV}/c/c_segv.o
-	cc -g -O0 $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/c_list.x : ./bin/${PE_ENV}/c/c_list.o
-	cc -g -O0 $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/c_inc.x : ./bin/${PE_ENV}/c/c_inc.o
-	cc -g -O0 $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/c_half_exit.x : ./bin/${PE_ENV}/c/c_half_exit.o
-	cc -g -O0 $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_bd_test.x : ./bin/${PE_ENV}/C++/cpp_bd_test.o
-	CC -g -O0 $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_cmp_diff.x : ./bin/${PE_ENV}/C++/cpp_cmp_diff.o
-	CC -g -O0 $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_ds_test1.x : ./bin/${PE_ENV}/C++/cpp_ds_test1.o
-	CC -g -O0 $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_arrays.x : ./bin/${PE_ENV}/C++/cpp_arrays.o
-	CC -g -O0 $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_decomp.x : ./bin/${PE_ENV}/C++/cpp_decomp.o
-	CC -g -O0 $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_decomp2.x : ./bin/${PE_ENV}/C++/cpp_decomp2.o
-	CC -g -O0 $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_threads.x : ./bin/${PE_ENV}/C++/cpp_threads.o
-	CC -g -O0 $^ -o $@ -pthread
+	$(CXX) $(CXXFLAGS) $^ -o $@ -pthread
 
 ./bin/${PE_ENV}/C++/cpp_parallel_threads.x : ./bin/${PE_ENV}/C++/cpp_parallel_threads.o
-	CC -g -O0 $^ -o $@ -pthread
+	$(CXX) $(CXXFLAGS) $^ -o $@ -pthread
 
 ./bin/${PE_ENV}/C++/cpp_bt.x : ./bin/${PE_ENV}/C++/cpp_bt.o
-	CC -g -O0 $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_bt_stress.x : ./bin/${PE_ENV}/C++/cpp_bt_stress.o
-	CC -g -O0 $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_arrays_print.x : ./bin/${PE_ENV}/C++/cpp_arrays_print.o
-	CC -g -O0 $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/libfoo.so : ./src/c/libfoo.c
 	gcc -g -O0 -fPIC -shared $^ -o $@
@@ -153,28 +171,28 @@ clean:
 	gcc -g -O0 -fPIC -shared $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_catch.x : ./src/C++/cpp_catch.cpp ./bin/${PE_ENV}/c/libfoo.so ./bin/${PE_ENV}/c/libbar.so
-	CC -g -O0 -DBD_DT=\"./bin/${PE_ENV}\"s ./src/C++/cpp_catch.cpp -o $@ -ldl
+	$(CXX) $(CXXFLAGS) -DBD_DT=\"./bin/${PE_ENV}\"s ./src/C++/cpp_catch.cpp -o $@ -ldl
 
 ./bin/${PE_ENV}/C++/cpp_attach.x : ./bin/${PE_ENV}/C++/cpp_attach.o ./bin/${PE_ENV}/cti_launch.x
-	CC -g -O0 ./bin/${PE_ENV}/C++/cpp_attach.o -o $@
+	$(CXX) $(CXXFLAGS) ./bin/${PE_ENV}/C++/cpp_attach.o -o $@
 
-./bin/${PE_ENV}/fortran/ftn_cmp_diff.x : ./bin/${PE_ENV}/fortran/ftn_cmp_diff.o
-	ftn -g -O0 $^ -o $@
+./bin/${PE_ENV}/fortran/ftn_cmp_diff.x : ./bin/${PE_ENV}/fortran/ftn_cmp_diff.o $(MPI_COBJ)
+	$(FC) $(FFLAGS) $^ -o $@
 
-./bin/${PE_ENV}/fortran/ftn_arrays.x : ./bin/${PE_ENV}/fortran/ftn_arrays.o
-	ftn -g -O0 $^ -o $@
+./bin/${PE_ENV}/fortran/ftn_arrays.x : ./bin/${PE_ENV}/fortran/ftn_arrays.o $(MPI_FOBJ)
+	$(FC) $(FFLAGS) $^ -o $@
 
-./bin/${PE_ENV}/fortran/ftn_decomp.x : ./bin/${PE_ENV}/fortran/ftn_decomp.o
-	ftn -g -O0 $^ -o $@
+./bin/${PE_ENV}/fortran/ftn_decomp.x : ./bin/${PE_ENV}/fortran/ftn_decomp.o $(MPI_FOBJ)
+	$(FC) $(FFLAGS) $^ -o $@
 
-./bin/${PE_ENV}/fortran/ftn_bd_dt.x : ./bin/${PE_ENV}/fortran/ftn_bd_dt.o
-	ftn -g -O0 $^ -o $@
+./bin/${PE_ENV}/fortran/ftn_bd_dt.x : ./bin/${PE_ENV}/fortran/ftn_bd_dt.o $(MPI_COBJ)
+	$(FC) $(FFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/cti_launch.o: ./src/cti_launch.cpp
-	CC -g -O0 -c -I./include $(CTI_INC) $< -o $@
+	$(CXX) $(CXXFLAGS) -c -I./include $(CTI_INC) $< -o $@
 
 ./bin/${PE_ENV}/cti_launch.x : ./bin/${PE_ENV}/cti_launch.o
-	CC -g -O0 $^ -o $@ $(CTI_LD)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(CTI_LD)
 
 ROCM_SCRIPT = ./tests.py.data/rocm/$(HOSTNAME).sh
 CUDA_SCRIPT = ./tests.py.data/cuda/$(HOSTNAME).sh

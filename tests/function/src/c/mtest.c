@@ -11,6 +11,7 @@
  */
 
 #include "mpi.h"
+#ifndef IS_LOCAL_MPI
 #include "mpitestconf.h"
 #include "mpitest.h"
 #if defined(HAVE_STDIO_H) || defined(STDC_HEADERS)
@@ -1717,3 +1718,5 @@ static void MTestRMACleanup( void )
 #else 
 static void MTestRMACleanup( void ) {}
 #endif
+#endif
+

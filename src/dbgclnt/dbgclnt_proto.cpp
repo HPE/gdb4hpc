@@ -17,6 +17,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+
 #include <vector>
 
 #include <errno.h>
@@ -424,6 +425,21 @@ uint64_t DebugClientProtocol::parseAndRegisterAppId(const char *appIdent) {
                 return 0;
             }
         }break;
+
+#ifdef CTI_WLM_TYPE_LOCALHOST_STR            
+        case CTI_WLM_LOCALHOST: {
+            cti_flux_ops_t *ops = nullptr;
+            if (cti_open_ops((void**)& ops) != CTI_WLM_LOCALHOST) {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                return 0;
+            }
+            if ((appId = ops->registerJob(appIdent)) == 0) {
+                PrintOutError("CTI error: %s\n", cti_error_str());
+                PrintOutError("Failed to register pals apid with CTI.\n");
+                return 0;
+            }
+        } break;
+#endif            
         default:
             PrintOutError("Unsupported wlm %s\n", cti_wlm_type_toString(wlm));
             return 0;

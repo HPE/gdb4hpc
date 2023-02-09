@@ -192,5 +192,11 @@ tests/function/bd_dt/fortran/*.x
 tests/function/tmp
 tests/missing
 
+tests/function/avocado
+tests/function/hello_mpi
+tests/function/hello_mpi.c
+tests/function/results
+tests/function/localMPI/mpi.mod
+
 rpmbuild/SOURCES/release_info.template
 rpmbuild/BUILDROOT

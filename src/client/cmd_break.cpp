@@ -706,15 +706,7 @@ std::string BPCnts::get(const std::string &handle, const Bitset *group, int id) 
 static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
     if (Client.MI_mode && !rec_set) {
-        PrintOutMIResult(MIResult::DONE, "%s\n",
-                         "BreakpointTable={nr_rows=\"0\",nr_cols=\"6\","
-                         "hdr=[{width=\"3\",alignment=\"-1\",col_name=\"number\",colhdr=\"Num\"},"
-                         "{width=\"14\",alignment=\"-1\",col_name=\"type\",colhdr=\"Type\"},"
-                         "{width=\"4\",alignment=\"-1\",col_name=\"disp\",colhdr=\"Disp\"},"
-                         "{width=\"3\",alignment=\"-1\",col_name=\"enabled\",colhdr=\"Enb\"},"
-                         "{width=\"10\",alignment=\"-1\",col_name=\"addr\",colhdr=\"Address\"},"
-                         "{width=\"40\",alignment=\"2\",col_name=\"what\",colhdr=\"What\"}],"
-                         "body=[]}");
+        PrintOutMIResult(MIResult::DONE, "BreakpointTable={body=[]}\n%s",GetMIEpilogue());
         return 1;
     }
 
@@ -814,8 +806,6 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
         
         if (!ss.str().empty()){
             ss<<",";
-        }else{
-            ss<<"[";
         }
 
         ss <<"bkpt={number=\""<<id
@@ -882,10 +872,8 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
         } // for (const auto &bpset : recv_ptr->rec_di.breakpoints())
 
         if (Client.MI_mode){
-            if (!ss.tellp()) ss<<"[";
-            ss<<"]}";
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", BreakpointTable={body=%s\n%s",
-                             recv_ptr->rec_di.handle().c_str(),ss.str().c_str(), GetMIEpilogue());
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", BreakpointTable={body=[%s]}\n%s",
++                                recv_ptr->rec_di.handle().c_str(),ss.str().c_str(), GetMIEpilogue());
         }
 
     } // for (auto&& recv_ptr : rec_set) {

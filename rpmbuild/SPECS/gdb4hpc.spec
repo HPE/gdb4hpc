@@ -322,6 +322,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include
 
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test
@@ -471,10 +472,12 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t2.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t2.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t3.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t3.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/rocmGpu.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocmGpu.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cudaGpu.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
 #%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_openacc_t1.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_openacc_t1.in
 #%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_upc_t1.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_upc_t1.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/qsub.template ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/rocm/pinoak-login1.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda/pegasus.sh       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pegasus.sh
 
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
@@ -682,6 +685,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/include
 
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/cdst_test
@@ -831,8 +835,10 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t2.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t3.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocmGpu.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pegasus.sh
 
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h

@@ -541,6 +541,12 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
     }
     MICommandFree(cmd);
 
+    // See PE-46117
+    DVPRINT("Freeing the inferior from attached-stop state by sending SIGCONT\n");
+    if (::kill(m_pid, SIGCONT)) {
+        DVPRINT("WARNING: Failed to send SIGCONT to fix attached-stop state.\n");
+    }
+
     if (finish) {
         // now we want to issue the finish command to get back to main.
         DVPRINT("calling finish on initial frame\n");
@@ -1580,7 +1586,39 @@ dbgevent_t *DbgGdbMI::Initializer::quit(bool detach) {
     // network before the client knows.
     // We let the client kill (or continue in the detach case) the process
     // via CTI once network cleanup is done.
-    if (!sendAndDeliverSigstop()) {
+    auto sucessfully_stopped = [this](){
+        DVPRINT("Attempting to send a SIGSTOP to the inferior before detaching.\n");
+
+        // Update signal handling settings so that gdb will deliver the SIGSTOP instead
+        // of catching it. Also block all other signals to avoid any interference.
+        MICommand* cmd = CLIHandle("all nostop noprint nopass");
+        if (!cmd) {
+            DVPRINT("Failed to create MICommand\n");
+            return false;
+        }
+        SendMICommand(m_session, cmd);
+        MICommandFree(cmd);
+
+        cmd = CLIHandle("SIGSTOP stop print pass");
+        if (!cmd) {
+            DVPRINT("Failed to create MICommand\n");
+            return false;
+        }
+        SendMICommand(m_session, cmd);
+        MICommandFree(cmd);
+
+        // Send the SIGSTOP. Since we still have control of the inferior, the SIGSTOP is
+        // only pending and won't be delivered until gdb detaches. This is fine and works
+        // for our goal of stopping the app to prevent network teardown by the WLM.
+        if (::kill(m_pid, SIGSTOP)) {
+            DVPRINT("Failed to send SIGSTOP\n");
+            return false;
+        }
+
+        return true;
+    }();
+
+    if (!sucessfully_stopped) {
         DVPRINT("WARNING: failed to send a SIGSTOP to the inferior for shutdown.\n");
     }
 
@@ -1771,25 +1809,4 @@ bool DbgGdbMI::Initializer::ignoreSigstop() {
 int DbgGdbMI::Initializer::sendAndCatchSigstop() {
     m_ignoreSigstop = false;
     return ::kill(m_pid, SIGSTOP);
-}
-
-[[nodiscard]] bool DbgGdbMI::Initializer::sendAndDeliverSigstop() {
-    DVPRINT("Sending a SIGSTOP directly to the inferior.\n");
-
-    // "SignalInfo" is a misnomer. This function is the equivalent of the command
-    // "signal SIGSTOP", which just sends a SIGSTOP without gathering any "info"
-    MICommand* cmd = CLISignalInfo("SIGSTOP");
-    if (!cmd) return false;
-
-    // XXX: CLISignalInfo will set the cmd up expecting an MIResultRecordDONE (^done).
-    // The signal command actually generates a MIResultRecordRUNNING (^running),
-    // even after a SIGSTOP.
-    cmd->expected_class = MIResultRecordRUNNING;
-
-    SendMICommand(m_session, cmd);
-    auto ok = static_cast<bool>(MICommandResultOK(cmd));
-
-    MICommandFree(cmd);
-
-    return ok;
 }

@@ -149,17 +149,12 @@ public:
     // If true, the initializer is in a state during startup where SIGSTOPS should be ignored.
     bool ignoreSigstop();
 private:
-    // Two ways to send a SIGSTOP to the inferior and handle the results:
-    //
     // Send a raw SIGSTOP with ::kill. gdbmi will catch this signal,
     // stopping one thread, and generate an async event. The signal will
-    // never actually make it to the inferior.
+    // never actually make it to the inferior because of the signal handling settings
+    // we set at initialization.
     // Returns the result of ::kill(m_pid, SIGSTOP).
     int sendAndCatchSigstop();
-    // Send a SIGSTOP via the gdb "signal SIGSTOP" command. The signal *will* be
-    // delivered to the inferior.
-    // Returns the result of MICommandResultOK on the signal command.
-    [[nodiscard]] bool sendAndDeliverSigstop();
 
     dbgevent_t* setup_gdbmi_environment();
     dbgevent_t* setup_gdbmi_signals();

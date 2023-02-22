@@ -1,4 +1,4 @@
-// Copyright 2022 Hewlett Packard Enterprise Development LP.
+// Copyright 2023 Hewlett Packard Enterprise Development LP.
 
 #include "ais.h"
 #include <string>
@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <variant>
 #include "dbgevent.h"
+#include "parse.h"
 
 //===========================================================================
 
@@ -753,7 +754,8 @@ std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
     std::make_shared<ais::Complex>(std::make_shared<ais::Float>()),
     std::make_shared<ais::Complex>(std::make_shared<ais::Double>()),
     std::make_shared<ais::Complex>(std::make_shared<ais::LongDouble>()),                     
-    std::make_shared<ais::MultiThreadResult>()
+    std::make_shared<ais::MultiThreadResult>(),
+    std::make_shared<ais::KokkosView>()
 };
 
 std::vector<std::shared_ptr<ais::Array>> ais::Reader::m_arrayTypes =
@@ -1612,21 +1614,22 @@ void ais::Struct::addMember(const std::string& memberName, std::shared_ptr<Type>
 
 // skip over a vtable entry in the class/struct value in C++
 static const char* skipVTable(const char* s) {
-    if (strncmp(s, "_vptr$", 6) != 0) return s;
-
-    // virtual function table - ignore
-    // expecting: "_vptr$Class = 0x2013a0 <vtable for Class+16>, 
-    auto t = s;
-    if (!(t=strchr(t,'=')) || !(t=strchr(t,'<'))) return s;
-
-    for (auto n=1; *++t && n; ) {
-        if (*t == '<') ++n;
-        else if (*t == '>') --n;
+    if (strncmp(s, "_vptr$", 6) == 0) {
+        // virtual function table - ignore
+        // expecting: "_vptr$Class = 0x2013a0 <vtable for Class+16>, 
+        auto t = s;
+        if (!(t=strchr(t,'=')) || !(t=strchr(t,'<'))) return s;
+        if (*(t = findExprMatch(t))) ++t;
+        if (*t == ',') t = skipspace(t+1);
+        return t;
+    } else if (strncmp(s, "_vptr.", 6) == 0) {
+        // gcc, expecting _vptr.Class = 0x[\x]+,
+        if (auto t = strchr(s, ',')) {
+            t = skipspace(t+1);
+            return t;
+        }
     }
-    s = t; // one past the '>'
-    if (*t == ',') t = skipspace(t+1);
-    fprintf(stderr, "after skipping:%s\n", t);
-    return t;
+    return s;
 }
 
 void ais::Struct::parseL(InterpretStream& in, ais::Writer& writer) const {
@@ -1937,7 +1940,6 @@ void ais::SmartPointer::applyL(Reader& reader, Visitor& f) const {
     }
 }
 
-
 std::unique_ptr<ais::Printer> ais::SmartPointer::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
@@ -1966,6 +1968,44 @@ std::string ais::SmartPointer::getTypeName() const {
     return "<*>";
 }
 
+ais::KokkosView::KokkosView(std::shared_ptr<ais::Type> elemType, int dim)
+    : m_elemType(elemType), m_dim(dim) {}
+
+ais::KokkosView::KokkosView() {}
+
+void ais::KokkosView::setLens(std::vector<size_t> lens, std::vector<size_t> strides) {
+    m_dim = lens.size();
+    m_lens = std::move(lens);
+    m_strides = std::move(strides);
+}
+
+std::string ais::KokkosView::getTypeName() const {
+    return "Kokkos::View";
+}
+
+void ais::KokkosView::parseL(InterpretStream& in, Writer& out) const {
+    // Currently, the KokkosView type is use to just return the header of
+    // information about the view.   All extaction is done via element or
+    // range (from..to) access.
+    const char* s = in.get();
+    while (*s) ++s;
+    in.setPos(s);
+
+    auto desc = std::ostringstream{};
+    desc << "Kokkos::View use ";
+    for (size_t i=0; i<m_lens.size(); ++i) desc << (!i ? '(' : ',') << "0.." << m_lens[i]-1;
+    desc << ") for full contents";
+
+    out.writeString(desc.str());
+}
+
+void ais::KokkosView::applyL(Reader& reader, Visitor& f) const {
+    Literal::applyL(reader, f);
+}
+
+std::unique_ptr<ais::Printer> ais::KokkosView::makePrinter(Printer& parent) const {
+    return Literal::makePrinter(parent);
+}
 
 //===========================================================================
 

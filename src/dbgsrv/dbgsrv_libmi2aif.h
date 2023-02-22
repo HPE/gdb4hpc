@@ -69,7 +69,7 @@ public:
     int getChildren(MIVar *);
     char* getVarValue(char *);
     MISession* getSession() const { return m_session; }
-    std::string getPTypeAlias(const std::string& type, bool strict);
+    std::string getPTypeAlias(const std::string& type, bool isExpression, bool strict);
     PTypeFields getPTypeFields(const std::string& type, bool isFortran);
 
     std::string nextChunk(Chunker& chunker, bool& isFinal);

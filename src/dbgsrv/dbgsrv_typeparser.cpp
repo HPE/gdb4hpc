@@ -51,6 +51,7 @@ std::tuple<std::string, std::string, std::string> getContainerTypes(TypeName t);
 std::shared_ptr<ais::Type> stlContainer(Mi2Aif& mi, const ais::Array& contType,
                                         TypeName t);
 std::shared_ptr<ais::Type> stdArray(Mi2Aif& mi, TypeName t);
+std::shared_ptr<ais::Type> kokkosView(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdConditional(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdString(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> smartPointer(Mi2Aif& mi, TypeName t);
@@ -155,6 +156,7 @@ std::vector<Prim> m_cppStlPrims =
  {"std::queue", ContainerWrap<ais::Queue>()},
  {"std::shared_ptr", SmartPointerWrap()},
  {"std::unique_ptr", SmartPointerWrap()},
+ {"Kokkos::View", kokkosView}
 };
 
 std::vector<Prim> m_fortranPrims =
@@ -422,7 +424,7 @@ std::shared_ptr<ais::Type> getCppType(Mi2Aif& mi, MIVar* var, const char* inType
     }
 
     // possible typedef for a more fundamental type
-    auto aliasName = mi.getPTypeAlias(type, false);
+    auto aliasName = mi.getPTypeAlias(type, false, false);
     if (aliasName != type) {
         DVPRINT("got an alias \"%s\"\n", aliasName.c_str());
         return getCppType(mi, var, aliasName.c_str());
@@ -953,6 +955,27 @@ std::shared_ptr<ais::Type> wrapUnion(Mi2Aif& mi, TypeName t) {
     return cppWrap(stype, TypeName{t, nameEnd});
 }
 
+std::shared_ptr<ais::Type> kokkosView(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing kokkosView type %s\n", t.decoration.c_str());
+
+    auto [containedType, templateArgs, decoration] = getContainerTypes(t);
+    if (containedType.empty()) {
+        return unimplemented(mi,t);
+    }
+
+    DVPRINT("Got types: \"%s\", \"%s\", \"%s\"\n",
+            containedType.c_str(), templateArgs.c_str(), decoration.c_str());
+
+    int dim = std::count_if(containedType.begin(), containedType.end(),
+                            [](auto c) { return c == '*' || c == '['; });
+
+    auto etypeEnd = containedType.find_first_of("*[");
+    auto etypeStr = containedType.substr(0,etypeEnd);
+
+    auto elemType = getType(mi, nullptr, etypeStr.c_str());
+
+    return std::make_shared<ais::KokkosView>(elemType, dim);
+}
 
 std::shared_ptr<ais::Type> unimplemented(Mi2Aif& mi, TypeName t) {
     return std::make_unique<ais::Unimplemented>(t.type + t.decoration);

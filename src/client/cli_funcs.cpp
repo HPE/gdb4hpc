@@ -843,6 +843,7 @@ static void ProgOutMITarget(DbgInvoke *di, const char* line) {
     fprintf(f, "@\"%s\"\n%s", new_line.c_str(), GetMIEpilogue());
 }
 
+
 // common code between ProgOutLineStream and ProgOutLineStrings
 static void ProgOutLine(DbgInvoke *di, const char* line) {
     auto f = CurrentStream->cs_fpprog;
@@ -850,7 +851,7 @@ static void ProgOutLine(DbgInvoke *di, const char* line) {
         fprintf(f, XML_PROG_OUTPUT_START, di->handle().c_str(), (unsigned int)strlen(line));
         fprintf(f, "%s", line);
         fprintf(f, XML_PROG_OUTPUT_END);
-    } else if (Client.MI_mode) {
+    } else if (Client.MI_mode && !Client.cli_fpprog) {
         ProgOutMITarget(di,line);
     } else {
         if (Client.cli_fpprog) f = Client.cli_fpprog;

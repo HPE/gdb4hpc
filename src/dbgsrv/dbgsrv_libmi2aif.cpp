@@ -22,6 +22,7 @@
 #include "dbgsrv_defs.h"
 #include "dbgsrv_libmi2aif.h"
 #include "defs.h"
+#include "parse.h"
 #include "MIOOBRecord.h"
 #include "blockmap.h"
 
@@ -61,24 +62,50 @@ private:
 };
 
 namespace {
+// Class that handles the special slicing duties related to implementing
+// from..to in for C/C++ containers
 class SubArray {
 public:
-    static std::unique_ptr<SubArray> get(Mi2Aif& mi, const std::string& type);
-    std::shared_ptr<ais::Type> getType() const { return m_type; }
-    char* getArrayDataString();
+    static std::unique_ptr<SubArray> get(Mi2Aif& mi, std::shared_ptr<ais::Type> baseType,
+                                         const std::string& expr);
+    static std::pair<std::string,bool> removeRngs(Mi2Aif& mi, const std::string& expr);
+    std::shared_ptr<ais::Type> getType() { return m_type; }
+    virtual char* getArrayDataString() = 0;
     
-private:
+protected:
     SubArray(Mi2Aif& mi, const std::string& expr);
-    std::vector<std::string> parse(const std::string& type);
-    void parseFtn(const std::string& type);
+
     void getRngs(const std::vector<std::string>& idcs);
+    void makeArrayType(std::shared_ptr<ais::Type> baseType,
+                       const std::vector<std::pair<int,int>>& rngs);
     int getIdx(const std::string& s) const;
+
     Mi2Aif& m_mi;
     std::string m_baseExpr;
     std::vector<std::pair<int,int>> m_rngs;
     std::shared_ptr<ais::Type> m_type;
 };
 
+class CSubArray : public SubArray {
+public:
+    CSubArray(Mi2Aif& mi, const std::string& expr);
+    char* getArrayDataString() override;
+private:
+    std::vector<std::string> parse(const std::string& type);
+};
+
+class KokkosSubArray : public SubArray {
+public:
+    static std::unique_ptr<KokkosSubArray> get(Mi2Aif& mi, const std::string& expr,
+                                               std::shared_ptr<ais::KokkosView> view);
+    static bool getViewLens(Mi2Aif& mi, const std::string& expr, ais::KokkosView& view);
+    char* getArrayDataString() override;
+private:
+    KokkosSubArray(Mi2Aif& mi, std::shared_ptr<ais::KokkosView> type, const std::string& expr, const std::string& baseExpr);
+    void parse(const std::string& type);
+
+    std::shared_ptr<ais::KokkosView> m_kv;
+};
 }
 
 // Implementation for translating primitive data objects into a data to be sent
@@ -248,7 +275,21 @@ std::shared_ptr<MIVar> LazyMIVar::getVar() {
 
 std::string LazyMIVar::getGdbType(const std::string& exp) {
     try {
-        return sendWhatIs(exp);
+        auto what = sendWhatIs(exp);
+        try {
+            sendWhatIs(what);
+        } catch (...) {
+            // typedef's have confused gdb into a "what" that it doesn't understand
+            // try ptype on expression for a second opinion
+            DVPRINT("whatis gave an unknown type %s\n", what.c_str());
+            auto alias = m_mi.getPTypeAlias(exp, true, true);
+            if (!alias.empty() && alias != what) {
+                DVPRINT("using ptype type %s\n", alias.c_str());
+                what = alias;
+            }
+        }
+        return what;
+
     } catch (...) {
         // the frontend can't tell if "(12)" is a C function call or a
         // fortran array index and thus sends function calls to us
@@ -298,37 +339,44 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
     }
 
     // strip meta info if present
-    auto [strippedExpr, metaInfo] = m_mi.extractMetaInfo(m_expr.c_str());
+    auto origExpr = m_expr;
+    auto [expr1, metaInfo] = m_mi.extractMetaInfo(m_expr.c_str());
 
-    if (m_subArray = SubArray::get(m_mi, strippedExpr)) {
-        DVPRINT("expression is a SubArray\n");
-        return m_type = m_subArray->getType();
-    }
+    // strip out .. expressions, for fortran we can just replace
+    // with :, for C we collapse we will insert a SubArray object
+    // to handle the slicing
+    auto [expr,isFtn] = SubArray::removeRngs(m_mi, expr1);
+    if (isFtn) m_expr = expr;  // may now have :'s
 
-    auto strippedExprType = std::string{};
+    auto exprType = std::string{};
     try {
-        strippedExprType = getGdbType(strippedExpr);
+        exprType = getGdbType(expr);
     } catch (std::string err) {
         if (!dbg_error) {
             if (err.find("No symbol") != std::string::npos) {
-                DVPRINT("Whatis %s failed; no symbol.\n", strippedExpr.c_str());
-                dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, "%s", strippedExpr.c_str()));
+                DVPRINT("Whatis %s failed; no symbol.\n", expr.c_str());
+                dbg_error.reset(NewErrorEvent(DBGERR_NOSYM, "%s", expr.c_str()));
             } else {
-                DVPRINT("Whatis %s failed: %s.\n", strippedExpr.c_str(), err.c_str());
+                DVPRINT("Whatis %s failed: %s.\n", expr.c_str(), err.c_str());
                 dbg_error.reset(NewErrorEvent(DBGERR_DEBUGGER, "%s: %s",
-                                              strippedExpr.c_str(), err.c_str()));
+                                              expr.c_str(), err.c_str()));
             }
         }
         throw dbg_error.release();
     }
 
-    if (std::regex_match(strippedExprType, anonymousRE) && getVar()) {
+    if (std::regex_match(exprType, anonymousRE) && getVar()) {
         // unnamed C++ class type, I'll have to work from the expression
         return getType();
     }
 
-    m_type = TypeParser::getType(m_mi, nullptr, strippedExprType.c_str());
-    DVPRINT("Got type for %s: %s\n", m_expr.c_str(), m_type->getTypeName().c_str());
+    m_type = TypeParser::getType(m_mi, nullptr, exprType.c_str());
+    DVPRINT("Got type for %s: %s\n", origExpr.c_str(), m_type->getTypeName().c_str());
+
+    if (!isFtn && (m_subArray = SubArray::get(m_mi, m_type, expr1))) {
+        DVPRINT("expression is a SubArray\n");
+        return m_type = m_subArray->getType();
+    }
 
     if (metaInfo.empty())
         return m_type;
@@ -337,7 +385,7 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
     if (metaInfo[0] == '@') {
         if (auto ptrType = std::dynamic_pointer_cast<ais::Pointer>(m_type)) {
             DVPRINT("Found metainfo to apply: %s\n", metaInfo.c_str());
-            auto lengthened = std::string{"("} + strippedExpr + ")[0]" + metaInfo;
+            auto lengthened = std::string{"("} + expr + ")[0]" + metaInfo;
             try {
                 if (auto appliedType = getGdbType(lengthened); !appliedType.empty()) {
                     m_type = TypeParser::getType(m_mi, nullptr, appliedType.c_str());
@@ -345,7 +393,7 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
             } catch (...) {}
         }
     } else if (metaInfo[0] == '|') {
-        getSliceType(strippedExpr, metaInfo);
+        getSliceType(expr, metaInfo);
     }
     
     return m_type;
@@ -482,11 +530,70 @@ void LazyMIVar::getSliceType(const std::string& expr,
     m_expr = expr;
 }
 
-std::unique_ptr<SubArray> SubArray::get(Mi2Aif& mi, const std::string& expr) {
-    auto retVal = std::unique_ptr<SubArray>{};
+// Handle ".." range expressions.  For fortran we can just replace them with ':' but
+// for C/C++ collapse [from..to] to [from].   Return true in .second if it
+// was a fortran range.
+std::pair<std::string,bool> SubArray::removeRngs(Mi2Aif& mi, const std::string& expr) {
+    auto isFtnArray = false;
+    auto retVal = std::make_pair(expr, false);
+    
+    if (expr.back() == ')') {
+        auto s = expr;
+        if (auto beg = findExprMatchT(s.rbegin(), s.rend()); beg != s.rend()) {
+            s.erase(beg.base()-1, s.end());
+        }
+        try {
+            LazyMIVar var{mi, s};
+            auto type = var.getType();
+            if (dynamic_cast<ais::KokkosView*>(type.get()))
+                return std::make_pair(s,false);
+            else if (dynamic_cast<ais::FtnArray*>(type.get()))
+                isFtnArray = true;
+            else
+                return retVal;
+        } catch (dbgevent_t* evt) {
+            FreeEvent(evt);
+            return retVal;
+        }
+    }
+
     if (expr.find("..") == std::string::npos) return retVal;
+
+    auto s = expr;
+
+    if (isFtnArray) {
+        // fortran understands ranges via ':'
+        for (size_t loc = 0; (loc = s.find("..",loc)) != std::string::npos; ) {
+            s.replace(loc,2,":");
+        }
+        return std::make_pair(s,true);
+    }
+
+    // For C/C++ arrays, reduce the expression to single elements by removing the
+    // "..endIdx" portion
+    auto loc = size_t{0};
+    while ((loc = s.find("..",loc)) != std::string::npos) {
+        auto end = loc;
+        for ( ; end < s.size() && s[end] != ',' && s[end] != ')' && s[end] != ']'; ++end) {
+            if (s[end] == '(' || s[end] == '[') end = findExprMatch(s,end);
+        }
+        s.replace(loc, end-loc, "");
+    }
+
+    return std::make_pair(s,false);
+}
+
+// Create a SubArray object if the expression will need special slicing
+std::unique_ptr<SubArray> SubArray::get(Mi2Aif& mi, std::shared_ptr<ais::Type> baseType,
+                                        const std::string& expr) {
+    auto retVal = std::unique_ptr<SubArray>{};
+
     try {
-        retVal.reset(new SubArray(mi, expr));
+        if (auto kv = std::dynamic_pointer_cast<ais::KokkosView>(baseType)) {
+            retVal = KokkosSubArray::get(mi, expr, kv);
+        } else if (expr.find("..") != std::string::npos) {
+            retVal.reset(new CSubArray(mi, expr));
+        }
     } catch (const std::exception& err) {
         DVPRINT("Caught exception parsing the SubArray: %s\n", err.what());
     } catch (...) {
@@ -495,25 +602,14 @@ std::unique_ptr<SubArray> SubArray::get(Mi2Aif& mi, const std::string& expr) {
     return retVal;
 }
 
-SubArray::SubArray(Mi2Aif& mi, const std::string& expr) : m_mi(mi) {
+SubArray::SubArray(Mi2Aif& mi, const std::string& expr) : m_mi(mi) {}
 
-    auto idcs = parse(expr);
-
-    // get the element type
-    auto baseTypeStr = m_baseExpr;
-
-    for (size_t i=0, n=idcs.size(); i<n; ++i) baseTypeStr += "[0]";
-    auto baseVar = LazyMIVar(mi, baseTypeStr);
-
-    auto baseType = baseVar.getType();
-
-    // get the lower and upper bound for each dimension
-    getRngs(idcs);
-
+void SubArray::makeArrayType(std::shared_ptr<ais::Type> baseType,
+                             const std::vector<std::pair<int,int>>& rngs) {
     m_type = baseType;
 
-    // m_rngs are listed from slowest varying to fasted varying
-    for (auto rit = m_rngs.rbegin(); rit != m_rngs.rend(); ++rit) {
+    // rngs are listed from slowest varying to fastest varying
+    for (auto rit = rngs.rbegin(); rit != rngs.rend(); ++rit) {
         auto [lower, upper] = *rit;
         if (upper > lower) {
             if (dynamic_cast<ais::Char*>(m_type.get())) {
@@ -523,11 +619,20 @@ SubArray::SubArray(Mi2Aif& mi, const std::string& expr) : m_mi(mi) {
             }
         }
     }
+}
 
+CSubArray::CSubArray(Mi2Aif& mi, const std::string& expr) : SubArray(mi, expr) {
+    // get the element type
+    auto idcs = parse(expr);
+    auto baseTypeStr = m_baseExpr;
+    for (size_t i=0, n=idcs.size(); i<n; ++i) baseTypeStr += "[0]";
+    auto baseVar = LazyMIVar(mi, baseTypeStr);
+    getRngs(idcs);
+    makeArrayType(baseVar.getType(), m_rngs);
     DVPRINT("Got SubArray type: %s\n", m_type->getTypeName().c_str());
 }
 
-std::vector<std::string> SubArray::parse(const std::string& expr) {
+std::vector<std::string> CSubArray::parse(const std::string& expr) {
     auto idcs = std::vector<std::string>{};
     auto level = 0;
     auto end = size_t{};
@@ -543,23 +648,9 @@ std::vector<std::string> SubArray::parse(const std::string& expr) {
         }
     }
 
-    if (idcs.empty()) {
-        // fortran array?
-        parseFtn(expr);
-        return idcs;
-    }
-
     m_baseExpr = expr.substr(0,i+1);
     std::reverse(idcs.begin(), idcs.end());
     return idcs;
-}
-
-void SubArray::parseFtn(const std::string& expr) {
-    if (expr.empty() || expr.back() != ')') throw std::runtime_error("not an array");
-    m_baseExpr = expr;
-    for (size_t loc; (loc=m_baseExpr.find("..")) != std::string::npos; ) {
-        m_baseExpr.replace(loc,2,":");
-    }
 }
 
 void SubArray::getRngs(const std::vector<std::string>& idcs) {
@@ -589,7 +680,7 @@ int SubArray::getIdx(const std::string& expr) const {
     }
 }
 
-char* SubArray::getArrayDataString() {
+char* CSubArray::getArrayDataString() {
     if (m_rngs.empty()) {
         LazyMIVar evar(m_mi, m_baseExpr);
         return evar.getArrayDataString();
@@ -645,7 +736,225 @@ char* SubArray::getArrayDataString() {
 
     return strdup(os.str().c_str());
 }
- 
+
+std::unique_ptr<KokkosSubArray>
+KokkosSubArray::get(Mi2Aif& mi, const std::string& expr,
+                    std::shared_ptr<ais::KokkosView> view) {
+
+    auto retVal = std::unique_ptr<KokkosSubArray>{};
+
+    if (expr.back() != ')') {
+        getViewLens(mi, expr, *view);
+    } else {
+        auto loc = findExprMatchT(expr.rbegin(), expr.rend());
+        auto baseExpr = std::string{expr.begin(), loc.base()-1};
+        if (getViewLens(mi, baseExpr, *view)) {
+            retVal.reset(new KokkosSubArray{mi, view, expr, baseExpr});
+        }
+    }
+    return retVal;
+}
+
+// Retrieve - or try to retrieve - the length and stride information
+// of a KokkosView from the debugger.   Most of the interface is
+// inlined, but just enough seems to be available to infer the dimensions
+bool KokkosSubArray::getViewLens(Mi2Aif& mi, const std::string& expr,
+                                 ais::KokkosView& view) {
+    auto dim = view.dim();
+    auto lens = std::vector<size_t>{}, strides = std::vector<size_t>{};
+
+    auto span = size_t{};
+
+    try {
+        auto sess = mi.getSession();
+        auto q = expr + ".span()";
+        if (auto res = EvalExpression(sess, q.c_str())) {
+            span = std::stol(res);
+            free(res);
+        } else {
+            return false;
+        }
+
+        q = expr + ".span_is_contiguous()";
+        if (auto res = EvalExpression(sess, q.c_str())) {
+            if (res[0] != 't' && res[0] != 'T' && res[0] != '1') {
+                free(res);
+                return false;
+            }
+            free(res);
+        } else {
+            return false;
+        }
+
+        for (int i = 0; i < dim; ++i) {
+            q = expr + ".stride_" + std::to_string(i) + "()";
+            if (auto res = EvalExpression(sess, q.c_str())) {
+                auto stride = std::stol(res);
+                free(res);
+                if (stride > 0) strides.push_back(stride);
+                else return false;
+            } else {
+                return false;
+            }
+        }
+    } catch (...) {
+        return false;
+    }
+
+    if (!span) return false;
+
+    // infer the lengths from strides and span
+    for (auto i=0; i<dim; ++i) {
+        auto stride = strides[i];
+        auto nextStride = span;
+        for (auto& s : strides) {
+            if (s > stride && s < nextStride) nextStride = s;
+        }
+        lens.push_back(nextStride / stride);
+    }
+
+    view.setLens(lens, strides);
+    return true;
+}
+
+KokkosSubArray::KokkosSubArray(Mi2Aif& mi, std::shared_ptr<ais::KokkosView> type,
+                               const std::string& expr, const std::string& baseExpr) :
+    SubArray(mi, expr), m_kv(type)
+{
+    m_baseExpr = baseExpr;
+    parse(expr);
+    auto crngs = m_rngs;
+    std::reverse(crngs.begin(), crngs.end());
+    makeArrayType(type->elemType(), crngs);
+}
+
+void KokkosSubArray::parse(const std::string& expr) {
+    auto idcs = std::vector<std::string>{};
+    auto paren = expr.find_last_of('(');
+    m_baseExpr = expr.substr(0,paren);
+    for (auto loc = paren; loc != std::string::npos; ) {
+        auto end = expr.find_first_of(",)", loc+1);
+        if (end != std::string::npos) {
+            idcs.push_back(expr.substr(loc+1,end-loc-1));
+        }
+        loc = end;
+    }
+    getRngs(idcs);
+}
+
+// extract the data values from a kokkos view and form into a single
+// array with the output ordering
+char* KokkosSubArray::getArrayDataString()
+{
+    const auto& strides = m_kv->strides();
+    const auto& lens = m_kv->lens();
+    
+    auto dim = lens.size();
+    if (m_rngs.size() != dim) {
+        throwDbgError("range expression is not of same dimensions as view");
+    }
+
+    // Get the size of the sub-range and the limits of the smallest
+    // rectangle of data I can query that will contain it.
+    auto idx0 = size_t{0}, idx1 = size_t{0}, totalLen = size_t{1};
+    auto rngLens = std::vector<size_t>{};
+    for (auto i=size_t{0}; i<dim; ++i) {
+        m_rngs[i].first = std::max(m_rngs[i].first,0);
+        m_rngs[i].second = std::min(m_rngs[i].second,int(lens[i]-1));
+        auto len = m_rngs[i].second - m_rngs[i].first + 1;
+        rngLens.push_back(len);
+        totalLen *= len;
+        idx0 += m_rngs[i].first * strides[i];
+        idx1 += m_rngs[i].second * strides[i];
+    }
+
+    // Get the data from the process, in some cases this may include a lot
+    // of values we aren't using but we have to sacrifice memory for time
+    // because extracting one at a time if far too slow
+    auto expr = m_baseExpr + ".data()[" + std::to_string(idx0) + "]@"
+        + std::to_string(idx1-idx0+1);
+    
+    LazyMIVar evar(m_mi, expr);
+    auto fullRes = evar.getArrayDataString();
+    if (!fullRes) {
+        DVPRINT("Could not read value\n");
+        return nullptr;
+    }
+
+    auto fullResHolder = std::unique_ptr<char, decltype(&free)>{fullRes, free};
+
+    // build up a table mapping the full results into our sub-range
+    // aside from being a superset of the data we're after, it is also
+    // not necessarily indexed in the same order
+    auto strideMap = std::vector<std::pair<size_t,size_t>>{};
+    for (size_t i=0; i<dim; ++i) strideMap.emplace_back(strides[i],i);
+    std::sort(strideMap.begin(), strideMap.end());
+    std::reverse(strideMap.begin(), strideMap.end());
+
+    std::vector<size_t> rngMap;
+    for (size_t i=0; i<dim; ++i) rngMap.push_back(i ? rngMap[i-1]*rngLens[i-1] : 1);
+
+    auto numFound = size_t{0};
+    auto elems = std::vector<const char*>{totalLen};
+
+    const char* s = fullRes;
+    if (*s == '{') ++s;
+
+    // iterate over the elements in the gdb output, store references
+    // to the ones we are keeping in printout order
+    for (size_t fullIdx=0; s; ++fullIdx) {
+
+        // map into the subrange
+        auto rngIdx = size_t{0};
+        auto remIdx = fullIdx;
+        bool inRng = true;
+        for ( auto [stride, dir] : strideMap) {
+            auto ri = remIdx / stride;
+            if (ri >= rngLens[dir]) { inRng = false; break; }
+            rngIdx += ri * rngMap[dir];
+            remIdx %= stride;
+        }
+
+        if (inRng) {
+            ++numFound;
+            elems[rngIdx] = s;
+        }
+
+        // possible complex values
+        if (*s == '{') s = findExprMatch(s);
+
+        if ((s = strchr(s,','))) ++s;
+    }
+
+    if (numFound != totalLen) {
+        DVPRINT("Did not find all elements\n");
+        return nullptr;
+    }
+
+    // and put the results into a string.   
+    auto open = "{", sep = ",", close = "}";
+    if (totalLen == 1) open = sep = close = "";
+
+    auto os = std::ostringstream{};
+    for (size_t i=0; i<totalLen; ++i) {
+        auto elem = elems[i];
+
+        auto elemEnd = strchr(elem,',');
+        if (!elemEnd) elemEnd = strchr(elem,'}');
+
+        auto elemVal = std::string_view{elem, size_t(elemEnd-elem)};
+        
+        os << open << elemVal;
+        open = sep;
+    }
+
+    os << close;
+
+    // we could potentially avoid copying the data (twice) by
+    // changing this interface to supply a custom ais::InterpretStream instead
+    return strdup(os.str().c_str());
+}
+
 // Build up the mapping from the ptype result.  Oobs is the
 // full line by line output captured by ptype
 PTypeFields::Templates::Templates(MIList* oobs) {
@@ -1000,10 +1309,10 @@ int Mi2Aif::getChildren(MIVar *var) {
 // Find the more fundamental description of a type.   This is for when the
 // application does something like "typedef int MyInt;
 // So this function will map "MyInt" to "int"
-std::string Mi2Aif::getPTypeAlias(const std::string& type, bool strict) {
+std::string Mi2Aif::getPTypeAlias(const std::string& type, bool isExpression, bool strict) {
     // gdb can't properly parse the closure of nested templates (">>")
     // without a space in between ("> >")
-    auto fixedType = FixRightShift(type);
+    auto fixedType = (isExpression ? type : FixRightShift(type));
 
     // '/mt' is a modifier for ptype to not print methods or typedefs
     // prepending to the arguments is minor hack since CLIPtype doesn't care about
@@ -1022,21 +1331,37 @@ std::string Mi2Aif::getPTypeAlias(const std::string& type, bool strict) {
     }
 
     auto retType = type;
-    if (char* info = CLIGetPtypeInfo(cmd)) {
+    if (char* pinfo = CLIGetPtypeInfo(cmd)) {
         // info ends with a \n
+        const char* info = pinfo;
+        if (strncmp(info, "const ", 6) == 0) info += 6;
+
         auto len = strlen(info);
         auto bracket = strchr(info,'{');
         if (len > 1 && !bracket) {
-            retType = std::string{info, len-1};
+            auto end = strchr(info, '\n');
+            retType = std::string{info, end ? end-info : std::string::npos};
             DVPRINT("Get CLIPTypeInfo %s\n", retType.c_str());
         } else if (strncmp(info, "enum ", 5) == 0 && bracket) {
             retType = std::string{info, bracket};
             DVPRINT("Got enum alias %s\n", retType.c_str());
         } else if (strncmp(info, "union ", 6) == 0 && bracket) {
             retType = std::string{info, bracket};
-             DVPRINT("Got union alias %s\n", retType.c_str());
+            DVPRINT("Got union alias %s\n", retType.c_str());
+        } else if (strncmp(info, "class ", 6) == 0 && bracket) {
+            auto isWd = [](char c) { return isalnum(c) || c == '_' ||  c == ':'; };
+            auto s = std::string{info+6, bracket};
+            if (auto end = std::find_if_not(s.begin(), s.end(),isWd); end != s.end()) {
+                if (*end == '<') end += FindTemplateLength(s, end-s.begin());
+                s.erase(end, s.end());
+            }
+            retType = std::move(s);
+            DVPRINT("got class alias %s\n", s.c_str());
+        } else if (strict) {
+            retType = "";
         }
-        free(info);
+                                                                
+        free(pinfo);
     }
         
     MICommandFree(cmd);

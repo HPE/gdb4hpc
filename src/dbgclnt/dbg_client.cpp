@@ -3395,34 +3395,25 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
 
     // Loop over each di in the set
     for (auto&& recv_ptr : set) {
-        auto dbg_fe = recv_ptr->rec_di.frontendGdb();
+        dbgevent_t* e = nullptr;
+        if (auto dbg_fe = recv_ptr->rec_di.frontendGdb()) {
+            e = DbgFEGetSources(dbg_fe);
+        }
 
-        if (dbg_fe != nullptr) {
-            auto e = DbgFEGetSources(dbg_fe);
-
-            // Make sure the event is a DBGEV_SOURCES or DBGEV_ERROR, otherwise
-            // create an error
-            if (e->ev_event != DBGEV_SOURCES && e->ev_event != DBGEV_ERROR) {
-                // Free the event
-                FreeEvent(e);
-                // Create a new error event
-                EVENT_ERROR(
-                    e, DBGERR_DEBUGGER,
-                    "DbgFEGetSources returned unknown event other than error.");
-            }
-
+        if (e && e->ev_event == DBGEV_SOURCES && EVENT_SOURCES(e) != nullptr) {
             // Add the event to the result based on its type
             auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                            recv_ptr->rec_group->clone(), e);
-
-            if (e->ev_event == DBGEV_ERROR) {
-                AddErrToSet(result, group_rep);
-            } else {
-                AddReplyToSet(result, group_rep);
-            }
-
+            AddReplyToSet(result, group_rep);
         } else {
-            // add this recv_ptr to the to_send list
+            // Currently (2023) gdb-guard at version 10.0 does not recognize
+            // the dwarf put out by the rocm compilers and will fail to find
+            // any sources, so we have that case fall through here to give
+            // rocgdb a chance on the back-end.
+            FreeEvent(e);
+            
+            // add this recv_ptr to the to_send list to get the result from the
+            // backend
             AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
         }
     }

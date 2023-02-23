@@ -1013,6 +1013,29 @@ private:
     std::string m_derefType;
 };
 
+class KokkosView : public Literal {
+public:
+    KokkosView(std::shared_ptr<ais::Type> elemType, int dim);
+    KokkosView();
+    void parseL(InterpretStream& in, Writer& out) const override;
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
+    std::string getTypeName() const override;
+
+    int dim() const { return m_dim; }
+    const std::vector<size_t>& lens() const { return m_lens; }
+    const std::vector<size_t>& strides() const { return m_strides; }
+    std::shared_ptr<ais::Type> elemType() const { return m_elemType; }
+
+    void setLens(std::vector<size_t> lens, std::vector<size_t> strides);
+
+private:
+    std::shared_ptr<ais::Type> m_elemType;
+    std::vector<size_t> m_lens;
+    std::vector<size_t> m_strides;
+    int m_dim;
+};
+  
 // Possible results from comparing two primitives
 enum Comparison { LT, WARN_LT, EQ, WARN_GT, GT, NOT_COMPARABLE };
 

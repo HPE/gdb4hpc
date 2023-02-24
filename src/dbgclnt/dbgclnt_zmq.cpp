@@ -385,7 +385,7 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
 
     // attach to launched application
     if (internalAttach(di, prog, nullptr, di->appId(), std::move(output), arch, backend,
-                       /* no VGDB file */ nullptr, gdb,
+                       gdb, /* no VGDB file */ nullptr,
                        gpu_flag, debug_flag, early_entry_flag, isNonStop, non_mpi_flag)) {
         PrintOutError("Failed to attach to application. Cleaning up...\n");
 

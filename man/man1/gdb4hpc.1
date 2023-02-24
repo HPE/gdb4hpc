@@ -198,9 +198,18 @@ enough PEs are allocated to satisfy both \f[B]launch\f[R] commands.
 The application\[aq]s WLM-specific application identifier is needed to
 attach to an application that was previously launched outside of
 \f[B]gdb4hpc\f[R].
-For ALPS, this is the application process ID (\f[B]apid\f[R]); for
-native SLURM, this is a combination of the job ID (\f[B]job_id\f[R]) and
-the job step ID (\f[B]step_id\f[R]).
+.IP \[bu] 2
+For ALPS, this is the application process ID \f[B]apid\f[R].
+.IP \[bu] 2
+For SLURM, this is a combination of the job ID (\f[B]job_id\f[R]) and
+the job step ID (\f[B]step_id\f[R]) formatted as
+\f[B]job_id\f[R].\f[B]step_id\f[R].
+.IP \[bu] 2
+For PBS/PALS, this can be either the PBS job ID, or if launching from
+within the PBS allocation, the PALS application ID.
+.IP \[bu] 2
+If the WLM is Generic SSH, this is the process id of the local mpiexec
+process.
 .PP
 For ALPS, use the \f[B]apstat\f[R] command to determine the
 application\[aq]s \f[B]apid\f[R].
@@ -249,25 +258,55 @@ application\[aq]s \f[B]job_id\f[R] is \f[B]22702\f[R], and the
 \f[R]
 .fi
 .PP
-If the WLM is PALS or GENERIC, the \f[B]job_id\f[R] is simply the
-process id of the mpiexec process.
-There are two ways to find the mpiexec process id:
+For systems configured with the PBS reservation system and PALS
+launcher, PBS job IDs are obtained using the \f[B]qstat\f[R] tool, and
+PALS application IDs are obtained using the \f[B]palstat\f[R] tool.
 .PP
-\f[B]Procedure 1.\f[R] Create an interactive job with \f[B]qsub -I -V
--l<resource list>\f[R] then launch your job directly via
-\f[B]mpiexec\f[R].
-In this case, the interactive job already puts you shell on the
-launching node, so can just run \f[B]gdb4hpc\f[R] (step 5) and attach
-using the mpiexec process id.
+For example, to attach to the first PALS application hosted in the PBS
+job \f[B]10000.sdb\f[R], use the \f[B]gdb4hpc\f[R] command \f[B]attach
+$a 10000.sdb\f[R].
+.IP
+.nf
+\f[C]
+%  qstat
+Job id            Name             User              Time Use S Queue
+----------------  ---------------- ----------------  -------- - -----
+10000.sdb         target-job       user              00:00:00 E workq
+\f[R]
+.fi
 .PP
-\f[B]Procedure 2.\f[R] If the job was launched via a batch script, use
-\f[B]qstat -n\f[R] to find the launching node.
-Then \f[B]ssh\f[R] to that node, find your \f[B]mpiexec\f[R] process,
-run \f[B]gdb4hpc\f[R] (step 5) on that node and attach using the mpiexec
-process id.
+If attaching using a PBS job ID, then the first PALS application running
+inside the PBS job will be used as the target of the attach.
+This attach can be initiated from either a login or a compute node, and
+does not need to be started from inside the job\[cq]s PBS allocation.
 .PP
-\f[B]Note:\f[R] These procedures are temporary work-arounds for the
-preliminary PALS support in \f[B]gdb4hpc\f[R].
+In most cases, PBS jobs will host a single PALS application.
+However, it is possible to host more than one PALS application in a
+single PBS job.
+.PP
+\f[B]gdb4hpc\f[R] accepts a PALS application ID to directly specify the
+attach target.
+This would be useful when your PBS job is hosting more than one PALS
+application.
+.PP
+To use the PALS application ID, you must either start the attach inside
+the PBS job hosting your application, or set the environment variable
+\f[B]CTI_PALS_EXEC_HOST\f[R] to the PBS job host for your job.
+The PBS job host can be determined by running \f[B]qstat\f[R]
+\f[B]-f\f[R] \f[B]pbs_job_id\f[R] and finding the line beginning with
+\f[B]exec_host\f[R].
+.IP
+.nf
+\f[C]
+% qstat -f <pbs_job_id>
+Job Id: <pbs_job_id>
+    ...
+    exec_host = node-hostname
+% CTI_PALS_EXEC_HOST=node-hostname gdb4hpc
+    ...
+dbg all> attach $a <pals_application_id>
+\f[R]
+.fi
 .PP
 \f[I]Step 5\f[R].
 Use the \f[B]gdb4hpc\f[R] command to launch the parallel debugger.

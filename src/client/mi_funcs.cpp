@@ -247,7 +247,7 @@ std::string Vars::create(const std::string& inname, const std::string& frame,
     // get the new current value
     auto value = GetMiValue(expression);
 
-    if (value.empty()) return "error,unable to evalute\n";
+    if (value.empty()) return "error,unable to evaluate\n";
 
     //get procset from value
     std::string proc_set="";

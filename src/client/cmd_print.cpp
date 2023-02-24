@@ -231,7 +231,7 @@ std::string GetMiValue(const std::string& expression)
         val->print(os, rec_set.get(), "");
 
         return FormatMIValue(os.str());
-    } catch (EvalError& err) {}
+    } catch (std::exception& err) {}
 
     return "";
 }

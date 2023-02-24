@@ -1081,7 +1081,7 @@ static void vPrintOutMIError(const char *format, va_list arg_list) {
         case '\n':
             // escape the newline and flush the result
             os << "\\n\"\n";
-            fprintf(CurrentStream->cs_fperr, "%s", os.str().c_str());
+            if (CurrentStream->cs_fperr) fprintf(CurrentStream->cs_fperr, "%s", os.str().c_str());
             mi_log("output mi: %s", os.str().c_str());
             os.str("");
             break;

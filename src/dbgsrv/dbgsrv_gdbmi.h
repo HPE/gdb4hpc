@@ -96,6 +96,7 @@ public:
     dbgevent_t *getNonStop();
     dbgevent_t *ompd(const char* op);
     dbgevent_t *cuda(const char* op);
+    dbgevent_t *sleep(int seconds);
     dbgevent_t *shell(int argc, char **argv);
 
     MIEvent* waitForAsyncEvent();

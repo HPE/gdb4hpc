@@ -197,12 +197,20 @@ static int cmd_maint_echo_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_maint_sleep_cmd(rec_set_t *rec_set, int argc,
-                                        char **argv) {
+static int cmd_maint_sleep_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int time = 5;
 
     if (argc > 1) time = atoi(argv[1]);
-    sleep(time);
+
+    if (argc > 2 && !strcmp(argv[2], "-r") && rec_set) {
+        // remote sleep
+        auto rep_set = DbgSleep(rec_set, time);
+        ProcessErrorInRepSet(rep_set);
+        FreeRepSet(rep_set);
+    } else {
+        // local sleep
+        sleep(time);
+    }
 
     return 1;
 }
@@ -1093,7 +1101,7 @@ void InitCmd_env(void) {
                 cmd_shell_cmd,
                 cmd_shell_help, "Run a shell command.");
 
-    AddMaintCommand("sleep", proc_ignore, 0,
+    AddMaintCommand("sleep", proc_optional, 0,
                     cmd_maint_sleep_cmd,
                     cmd_maint_sleep_help, "Pause the debugger.");
     

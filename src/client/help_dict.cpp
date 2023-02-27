@@ -1376,14 +1376,17 @@ const char* const cmd_maint_echo_help[] = {
 
 const char* const cmd_maint_sleep_help[] = {
     "Summary: Sleep command.",
-    "Usage: maint sleep [<secs>]",
-    "Example command: maint sleep 5",
+    "Usage: maint sleep [<secs> [-r]]",
+    "Example commands: maint sleep 5",
+    "                  maint sleep 5 -r",
     "",
     "Arguments: secs (seconds to sleep)",
+    "           -r (remote sleep)",
     "",
     "Description:",
     "Pause the debugger for secs seconds. If secs is omitted, the debugger",
-    "will sleep for a default of five seconds.",
+    "will sleep for a default of five seconds. If -r is specified, tell the",
+    "remote debugger servers to sleep instead of the client.",
     0};
 
 const char* const cmd_maint_direct_help[] = {

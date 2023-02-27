@@ -71,6 +71,7 @@ enum dbgcmd {
     DBGCMD_GETNONSTOP,
     DBGCMD_OMPD,
     DBGCMD_CUDA,
+    DBGCMD_SLEEP,
     DBGCMD_SHELL,
     DBGCMD_GETARGS
 };

@@ -2774,6 +2774,12 @@ rep_set_t *DbgCuda(rec_set_t* set, const char* op)
     return result;
 }
 
+rep_set_t *DbgSleep(rec_set_t* rec_set, int seconds) {
+    auto request = CommandToSocProto(DBGCMD_SLEEP, seconds);
+    auto result = DbgSendCmdAndRecvReply(rec_set, request, DBGEV_OK);
+    return result;
+}
+
 rep_set_t *DbgShell(rec_set_t* recSet, int argc, char **argv){
     auto request = CommandToSocProto(DBGCMD_SHELL, std::make_pair(argc, argv));
     auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_STRING);

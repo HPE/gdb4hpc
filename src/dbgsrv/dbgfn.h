@@ -86,6 +86,7 @@ extern dbgevent_t *DbgSetNonStop(const char* mode);
 extern dbgevent_t *DbgGetNonStop();
 extern dbgevent_t *DbgOmpd(const char* op);
 extern dbgevent_t *DbgCuda(const char* op);
+extern dbgevent_t *DbgSleep(int seconds);
 extern dbgevent_t *DbgShell(int argc, char **argv);
 extern dbgevent_t *DbgOpenSocket(const char *, int);
 extern dbgevent_t *DbgCloseSocket(void);

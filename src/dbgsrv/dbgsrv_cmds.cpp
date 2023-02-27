@@ -415,6 +415,13 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             break;
         }
 
+        case DBGCMD_SLEEP: {
+            int seconds;
+            is.get(seconds);
+            e = DbgSleep(seconds);
+            break;
+        }
+
         case DBGCMD_SHELL: {
             soc::CmdArgs args;
             is.get(args);

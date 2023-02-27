@@ -2391,6 +2391,13 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
     return e;
 }
 
+dbgevent_t *DbgGdbMI::sleep(int seconds) {
+    DVPRINT("Sleeping for %d seconds...\n", seconds);
+    ::sleep(seconds);
+    DVPRINT("OK!\n");
+    return NewEvent(DBGEV_OK);
+}
+
 dbgevent_t *DbgGdbMI::shell(int argc, char **argv){
     DVPRINT("Shell Invoked\n");
     

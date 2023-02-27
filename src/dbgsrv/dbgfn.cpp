@@ -405,6 +405,11 @@ dbgevent_t *DbgCuda(const char* op)
     return DbgBackendSW->cuda(op);
 }
 
+dbgevent_t *DbgSleep(int seconds) {
+    DBG_READY();
+    return DbgBackendSW->sleep(seconds);
+}
+
 dbgevent_t *DbgShell(int argc, char **argv){
     DBG_READY();
     return DbgBackendSW->shell(argc, argv);

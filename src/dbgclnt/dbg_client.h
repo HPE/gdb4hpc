@@ -406,6 +406,7 @@ extern rep_set_t *DbgInterrupt(rec_set_t *, bool all);
 extern rep_set_t *DbgQuit(rec_set_t *, dbgquit_type);
 extern rep_set_t *DbgOpenSocket(rec_set_t *, char *, int);
 extern rep_set_t *DbgCloseSocket(rec_set_t *);
+extern rep_set_t *DbgSleep(rec_set_t* rec_set, int seconds);
 extern rep_set_t *DbgShell(rec_set_t *, int argc, char **argv);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);

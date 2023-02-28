@@ -107,9 +107,6 @@ static std::string exec_args_cmd(const char * in_args){
         auto arg = args[i];
         if (arg == "-n" && i+1 < argc) {
             num_ranks = args[++i];
-        } else if (arg == "-p" && i+1 < argc) {
-            procset = args[++i];
-            if (procset[0] != '$') procset = "$" + procset;
         } else if (std::regex_match(arg, match, procRE)) {
             procset = match[1];
             num_ranks = match[2];

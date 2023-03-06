@@ -109,7 +109,9 @@ $a         2          y     /bin/CRAY/c/c_inc.x altered "multi word arguments"
 37: # should error
 38: run
 Re-launch $half? Original will be released. ([y] or n) y
-Error: $half contains only a subset ({0}) of $a.
+Error: procset $half contains these subsets:
+  Ranks {0} of $a{0..1}
+Only complete sets can be restarted.
 Relaunch failed!
 Command resulted in an error: 38: run
 39: focus $all

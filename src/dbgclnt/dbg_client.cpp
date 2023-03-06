@@ -27,6 +27,8 @@
 #include "useful.h"
 #include "dbginvoke.h"
 
+#include "common_tools_fe.h"
+
 /*
 ** Internal types
 */
@@ -410,7 +412,8 @@ rep_set_t* rep_set_t::clone() const
 }
 
 static rep_set_t *MergeRepSet(rep_set_t *set, rep_set_t *tmp_set) {
-    if (!set || !tmp_set) return nullptr;
+    if (!set) return nullptr;
+    if (!tmp_set) return set;
 
     // merge the replies
     return set->merge(tmp_set);
@@ -457,6 +460,13 @@ int SetHasError(rep_set_t *set) {
 }
 int rep_set_t::hasError() const {
     return m_errs.size();
+}
+
+bool rep_set_t::hasOperationAbandonedError() const {
+    return std::find_if(m_errs.begin(), m_errs.end(), [](auto&& rep) {
+        // assume these are all DBGEV_ERROR events since we're in m_errs
+        return rep->rep_event->ev_u.ev_u_err.err_errno == DBGERR_OPERATION_ABANDONED;
+    }) != m_errs.end();
 }
 
 void AddReplyToSet(rep_set_t *set, group_reply_t *rep) {
@@ -692,9 +702,12 @@ int GetNumberOfReply(rep_set_t *set) {
 int ProcessErrorInRepSet(rep_set_t *rep_set) {
     if (rep_set && rep_set->hasError()) {
         for (auto&& err : rep_set->getErrs()) {
-            // Print out the error
-            PrintErrorWithSetInfo(err->rep_di.c_str(), err->rep_group.get(), "%s\n",
-                                  DbgEventErrorStr(err->rep_event));
+            if (err->rep_group) {
+                PrintErrorWithSetInfo(err->rep_di.c_str(), err->rep_group.get(), "%s\n",
+                                      DbgEventErrorStr(err->rep_event));
+            } else {
+                PrintOutError("%s\n", DbgEventErrorStr(err->rep_event));
+            }
         }
         return 1;
     }
@@ -1608,14 +1621,6 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, DbgInvoke::LaunchOpts&&
     return handle;
 }
 
-static int DbgSendCmd(group_recv_t *set, const std::string& request) {
-    if (!set) return 1;
-
-    set->_cmd_sent = set->rec_di.proto().sendCommand(&set->rec_di, set->rec_group.get(), request.c_str());
-
-    return (set->_cmd_sent != nullptr ? 0 : 1);
-}
-
 // Receive a reply from the debug server
 // \param set the the process set we expect a response from.
 // \param req_type the event type we expect to be returned.   Any other event will
@@ -1625,8 +1630,6 @@ static int DbgSendCmd(group_recv_t *set, const std::string& request) {
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type) {
     rep_set_t *reply;
     group_reply_t *rep;
-    dbgevent_t *e;
-    dbgev ev;
 
     bool isFinal = true;
     reply = NewRepSet();
@@ -1635,11 +1638,13 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
         set->rec_di.proto().receiveReply(&set->rec_di, set->rec_group.get(), *set->_cmd_sent);
 
     if (!proto_res) {
-        // Create a new error event based on this reply
-        EVENT_ERROR(e, DBGERR_INTERNAL,
-                    "Protocol returned null proto_msg_set.\n");
-        rep = NewGroupReply(set->rec_di.handle(), set->rec_group->clone(), e);
-        // Add the error to the reply set
+        // the only way for proto_res to be null (under zmqnet) is the user cancelling the command.
+        auto e = NewErrorEvent(DBGERR_OPERATION_ABANDONED, "");
+
+        // omit di and group bitset from the error since this error will eventually
+        // snowball into abandoning the command in *all* dis involved, and to the user
+        // it's not important which di we were in when the cancel happened.
+        rep = NewGroupReply(nullptr, nullptr, e);
         AddErrToSet(reply, rep);
         ClearCmdSent(set);
         return reply;
@@ -1648,8 +1653,8 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
     // process the proto_res
     for (const auto &msg : *proto_res) {
         // convert this protocol msg string to an event
-        e = SocProtoToEvent(msg.getMessage());
-        ev = EVENT_EV(e);
+        auto e = SocProtoToEvent(msg.getMessage());
+        auto ev = EVENT_EV(e);
 
         switch (ev) {
             // Errors get added to the special error list
@@ -1947,7 +1952,8 @@ static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& requ
     // Send the command to each di in the receiver set
     for (auto&& recv_ptr : set) {
         // send the command to this di
-        DbgSendCmd(recv_ptr, request);
+        recv_ptr->_cmd_sent =
+            recv_ptr->rec_di.proto().sendCommand(&recv_ptr->rec_di, recv_ptr->rec_group.get(), request.c_str());
     }
 
     // Now recv the reply for each di in the receiver set
@@ -1957,7 +1963,18 @@ static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& requ
         if (recv_ptr->_cmd_sent != nullptr) {
             auto reply_set = DbgRecvReply(recv_ptr, req_type, alt_req_type);
             if (reply_set != nullptr) {
+                // check for an "operation cancelled" error. we are receiving results
+                // serially from each di, but to the user it looks like one action. the
+                // user should only have to cancel the operation once instead of once per di.
+                //
+                // we check for the cancel before MergeRepSet because MergeRepSet deletes reply_set.
+                auto has_cancel = reply_set->hasOperationAbandonedError();
+
+                // merge before potentially bailing out for the cancel so that the result
+                // will include the error event.
                 result = MergeRepSet(result, reply_set);
+
+                if (has_cancel) break;
             }
         }
     }
@@ -3765,79 +3782,96 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
 ** DBG_QUIT: Tell server to quit immediately.
 ** Use the value of det to override the default behavior
 */
-rep_set_t *DbgQuit(rec_set_t *set, dbgquit_type det) {
-    int detach = 0;
-    rep_set_t *result = NewRepSet();
+rep_set_t *DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
+    auto* result = NewRepSet();
 
-    // set the detach value
-    switch (det) {
-        case DBG_KILL:
-            detach = 0;
-            goto uniform_exit;
-
-        case DBG_DETACH:
-            detach = 1;
-
-        uniform_exit:
-            {
-                // The caller hardcoded the quit type, so it is the same for every
-                // di. There is no need to selectively quit based on the di type.
-                auto request = CommandToSocProto(DBGCMD_QUIT, detach);
-
-                auto tmp_result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
-                // merge the results
-                result = MergeRepSet(result, tmp_result);
+    // determine if we should detach or kill. this is based on the value of the
+    // `quit_type` parameter. if it's Default, the choice of whether to detach or
+    // kill is based on whether the job was launched in gdb4hpc or if gdb4hpc
+    // attached to an external job. the caller can override this default with Kill
+    // or Detach.
+    auto detach = [](DbgQuitType passed_quit_type, DbgInvoke::ProcessType launch_type) {
+        // for legacy reasons the value is an int.
+        switch (passed_quit_type) {
+        case (DbgQuitType::Kill): return 0;
+        case (DbgQuitType::Detach): return 1;
+        case (DbgQuitType::Default):
+            switch (launch_type) {
+            case DbgInvoke::ProcessType::Attached: return 1;
+            case DbgInvoke::ProcessType::Launched: return 0;
             }
+        }
 
-            // Call protocol specific communication network exit function and
-            // destroy the di for each di in the rec_set
-            for (auto&& recv_ptr : set) {
-                recv_ptr->rec_di.proto().exit(&recv_ptr->rec_di, detach);
+        // should never get here
+        PrintOutMsg("Warning: invalid quit/launch values %d/%d.\n",
+            static_cast<int>(passed_quit_type), static_cast<int>(launch_type));
+        return 0;
+    }(quit_type, di.processType());
 
-                // cleanup the di object
-                DbgInvoke::deactivate(recv_ptr->rec_di.handle());
-            }
+    // send quit command. this should disconnect gdb on the backend and leave the
+    // job in a stopped state. the communication network is still alive.
+    auto tmp_result = [](DbgInvoke& recipient, int detach) {
+        auto to_send = NewRecSet();
+        to_send->addReceiver(NewGroupReceiver(recipient, recipient.fullBitset()));
 
-            break;
+        auto request = CommandToSocProto(DBGCMD_QUIT, detach);
+        auto* tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_OK);
 
-        case DBG_DEFAULT:
-            // Here the caller used the default quit type which is based on the
-            // attach value in each di. So we need to loop over each di in the
-            // rec_set individually since these can be different.
-            for (auto&& recv_ptr : set) {
-                // create the rec_set
-                auto to_send = NewRecSet();
-                AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
+        FreeRecSet(to_send);
 
-                // use default based on attach value
-                switch (recv_ptr->rec_di.processType()) {
-                    case DbgInvoke::ProcessType::Attached:
-                        detach = 1;
-                        break;
-                    case DbgInvoke::ProcessType::Launched:
-                        detach = 0;
-                        break;
-                }
+        return tmp_result;
+    }(di, detach);
 
-                auto request = CommandToSocProto(DBGCMD_QUIT, detach);
+    // nullptr means sucess and the blocking teardown will probably succeed.
+    auto do_blocking_exit = tmp_result == nullptr;
 
-                auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_OK);
+    // merge the results. this deletes tmp_result
+    result = MergeRepSet(result, tmp_result);
 
-                FreeRecSet(to_send);
-
-                // merge the results
-                result = MergeRepSet(result, tmp_result);
-
-                // Call protocol specific communication network exit function
-                recv_ptr->rec_di.proto().exit(&recv_ptr->rec_di, detach);
-
-                // cleanup the di object
-                DbgInvoke::deactivate(recv_ptr->rec_di.handle());
-            }
-
-            break;
+    if (do_blocking_exit) {
+        di.proto().syncExit(&di);
+    } else {
+        // something went wrong with DBGCMD_QUIT, so sync exit probably won't work.
+        PrintOutMsg("Warning: There was an error shutting down the debugger. Attempting to clean up...\n");
+        di.proto().forceExit(&di);
     }
+
+
+    // Clean up the job.
+    // In some circumstances like attach and --non-mpi launch, no exit breakpoint was set,
+    // and it's possible that it ran until exit by now. We still try to send a signal, but
+    // the job might be gone already. This isn't a critical error and the information
+    // would be useless to the user, so only print an error if we originally launched the
+    // app (not if we attached).
+    if (detach) {
+        auto Launched = DbgInvoke::ProcessType::Launched;
+        if (cti_killApp(di.appId(), SIGCONT) && di.processType() == Launched) {
+            PrintOutMsg("Warning: an error occurred during release of $%s.\n",
+                          di.handle().c_str());
+            PrintOutMsg("The job might be stuck waiting for a SIGCONT.\n");
+        }
+
+        // Now that the app is running again, release it from cti so it won't be
+        // killed when cti is killed
+        if (cti_releaseApp(di.appId())) {
+            PrintOutMsg("Warning: an error occured during release of $%s.\n",
+                          di.handle().c_str());
+            PrintOutMsg("The job might be killed before completing.\n");
+        }
+    } else {
+        auto Launched = DbgInvoke::ProcessType::Launched;
+        if (cti_killApp(di.appId(), SIGKILL) && di.processType() == Launched) {
+            PrintOutMsg("Warning: an error occurred during cleanup of $%s.\n", di.handle().c_str());
+            PrintOutMsg("Your job might still be running.\n");
+        }
+    }
+
+    cti_deregisterApp(di.appId());
+
+    // cleanup the di object
+    di.setAppId(0);
+    di.destroyProtoOutput();
+    DbgInvoke::deactivate(di.handle());
 
     return result;
 }

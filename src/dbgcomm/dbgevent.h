@@ -106,6 +106,7 @@ enum dbgerr {
     DBGERR_ATTACH_FAILED,
     DBGERR_AT_EXIT,
     DBGERR_INTERNAL,
+    DBGERR_OPERATION_ABANDONED,
     DBGERR_UNKNOWN,
     // DBGERR_NULL is used to determine the size of this enum. It should only
     // be used for checks and never to set a dbgerr. This should always be the

@@ -1250,7 +1250,7 @@ invoke_error:
     return 1;
 }
 
-int MRNClientProtocol::exit(DbgInvoke *di, int detach) {
+int MRNClientProtocol::syncExit(DbgInvoke *di) {
     if (!di) {
         PrintOutError("Tried to exit with null di.\n");
         return -1;
@@ -1261,15 +1261,12 @@ int MRNClientProtocol::exit(DbgInvoke *di, int detach) {
         di->setNetwork(nullptr);
     }
 
-    return DebugClientProtocol::exit(di, detach);
+    return 0;
 }
 
-void MRNClientProtocol::destroyClient(DbgInvoke *di) {
-    // Check to see if the network type has been destroyed
-    if (di->network() != nullptr) {
-        // call the exit function to force the application to quit
-        exit(di, 0);
-    }
+int MRNClientProtocol::forceExit(DbgInvoke *di) {
+    // mrnet doesn't support forceExit
+    return syncExit(di);
 }
 
 #ifdef BE_VALGRIND

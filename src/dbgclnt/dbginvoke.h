@@ -324,10 +324,10 @@ public:
     // On failure, the passed DbgInvoke pointer is untouched and is still usable.
     static Handle activate(std::string name, std::unique_ptr<DbgInvoke>&& di);
 
-    // Removes di matching the given Handle from the internal list and returns it, if it exists.
-    // If it doesn't exist, returns nullptr.
+    // Removes di matching the given Handle from the internal list and returns true.
+    // If a di matching the given Handle wasn't found, returns false.
     // Any Handles pointing to the removed di become expired.
-    static std::shared_ptr<DbgInvoke> deactivate(const DbgInvoke::Handle& handle);
+    static bool deactivate(const DbgInvoke::Handle& handle);
 
     // Finds the DbgInvoke matching `handle` in the internal list and changes its
     // name to `newName` and returns the new handle. If renaming fails, returns

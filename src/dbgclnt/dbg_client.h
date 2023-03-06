@@ -40,8 +40,7 @@
 struct event_set;
 
 // Used with the DbgQuit command, can override the default behavior.
-enum dbgquit_type { DBG_KILL, DBG_DETACH, DBG_DEFAULT };
-typedef enum dbgquit_type dbgquit_type;
+enum class DbgQuitType { Default, Kill, Detach };
 
 /*
 ** A group receiver is the actual dbginvoke_t/process mask for each di placed
@@ -155,8 +154,11 @@ public:
     // merge the replies in \a tmp into this object *and delete \a tmp*
     rep_set_t* merge(rep_set_t* tmp);
 
-    // return the number of group_sets in this reply
+    // return the number of errors in this reply
     int hasError() const;
+
+    // return true if the rep set contains at least one DBGERR_OPERATION_ABANDONED
+    bool hasOperationAbandonedError() const;
 
     // add a successful reply
     void addReply(group_reply_t* reply);
@@ -403,7 +405,7 @@ extern rep_set_t *DbgGetScope(rec_set_t *, char *);
 extern rep_set_t *DbgDirectCmd(rec_set_t *, int, char **);
 extern rep_set_t *DbgStatus(rec_set_t *, int);
 extern rep_set_t *DbgInterrupt(rec_set_t *, bool all);
-extern rep_set_t *DbgQuit(rec_set_t *, dbgquit_type);
+extern rep_set_t *DbgQuit(DbgInvoke&, DbgQuitType type);
 extern rep_set_t *DbgOpenSocket(rec_set_t *, char *, int);
 extern rep_set_t *DbgCloseSocket(rec_set_t *);
 extern rep_set_t *DbgSleep(rec_set_t* rec_set, int seconds);

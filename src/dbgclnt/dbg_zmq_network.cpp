@@ -7,10 +7,11 @@
 #include "bitset_convert.h"
 
 #include "dbg_client.h"
+#include "signal_util.h"
 
 #include <poll.h>
 
-#if DEBUG
+#ifdef DEBUG
 #define LOG(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define LOG(...) /**/
@@ -92,9 +93,13 @@ std::optional<ProtoMessageSet> ZMQNetNetwork::receiveReply(const Bitset *target,
 
     auto &stream = m_stream_table.getCommandStream(target);
     auto result = stream.extractResult();
-    for (const auto& res : result) {
-        received |= *res.getBitset();
+
+    if (result) {
+        for (const auto& res : *result) {
+            received |= *res.getBitset();
+        }
     }
+
     return result;
 }
 
@@ -112,7 +117,7 @@ std::vector<std::string> ZMQNetNetwork::releaseOutputLines() {
     return m_output_watcher.releaseOutputLines();
 }
 
-int ZMQNetNetwork::exit() {
+int ZMQNetNetwork::syncExit() {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (m_network) {
@@ -123,9 +128,19 @@ int ZMQNetNetwork::exit() {
     return 0;
 }
 
+int ZMQNetNetwork::forceExit() {
+    LOG("%s\n", __PRETTY_FUNCTION__);
+
+    if (m_network) {
+        m_network->removeCallback<zmqnet::Event::LeafExit>();
+        m_network->forceDisconnect();
+    }
+
+    return 0;
+}
+
 ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator) 
     : m_parentNetwork{parentNetwork}
-    , m_resultReady{false}
 {
     // create "sync" stream
     const auto command_callback = [&](zmqnet::Stream::Id const &streamId, zmqnet::ByteArrayPtr resultPtr) {
@@ -134,14 +149,14 @@ ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &
         auto result =
             zmqnet::make_ByteArray(resultPtr.begin(), resultPtr.size());
         {
-            std::scoped_lock<std::mutex> lock(m_resultLock);
+            std::scoped_lock<std::mutex> lock(m_shared_result.mutex);
             // destroys any data that was in the command result previously
-            m_result = std::move(result);
-            m_resultReady = true;
+            m_shared_result.data = std::move(result);
+            m_shared_result.results_received += 1;
         }
 
         // notify a thread waiting for the result, if present
-        m_resultCV.notify_one();
+        m_shared_result.cv.notify_one();
     };
 
     parentNetwork.registerStreamCallback(streamId, command_callback);
@@ -162,31 +177,80 @@ void ZMQNetNetwork::StreamTable::CommandStream::sendCommand(const char *command,
     LOG("CommandStream %d: sending \"%s\" of length %lu\n", m_stream->id, command, len);
 
     m_parentNetwork.sendCommand(*m_stream, command, len);
+    m_commands_sent += 1;
 }
 
-ProtoMessageSet ZMQNetNetwork::StreamTable::CommandStream::extractResult() {
+std::optional<ProtoMessageSet> ZMQNetNetwork::StreamTable::CommandStream::extractResult() {
     LOG("CommandStream %d: extracting...\n", m_stream->id);
-    auto reply = [this](){
-        std::unique_lock<std::mutex> lock(m_resultLock);
-        m_resultCV.wait(lock, [&]() { return m_resultReady; });
+    return internalExtractResult(/* cancellable */ true);
+}
 
-        auto rep = std::move(m_result);
-        m_resultReady = false;
-        return rep;
+ProtoMessageSet ZMQNetNetwork::StreamTable::CommandStream::extractResultWait() {
+    // XXX: Use extractResult() if possible. This function should be removed. It only
+    // exists now because of its use in new command stream creation. Right now, it's
+    // impossible to recover from an error (cancels are errors) during that process.
+
+    LOG("CommandStream %d: extracting (uncancellable)...\n", m_stream->id);
+    // if cancellable is false, the only way for internalExtractResult to return is with
+    // a non-null result.
+    return *internalExtractResult(/* cancellable */ false);
+}
+
+// for now, having one shared bool for all command streams is okay because the main
+// thread sequentially operates on only one command stream at a time.
+std::atomic<bool> g_extract_result_cancel_flag = false;
+
+void cancelExtractResult(int signal) {
+    if (signal == SIGINT) g_extract_result_cancel_flag = true;
+}
+
+std::optional<ProtoMessageSet> ZMQNetNetwork::StreamTable::CommandStream::internalExtractResult(bool cancellable) {
+    LOG("CommandStream %d: internalExtractResult (cancellable == %d)...\n", m_stream->id, cancellable);
+
+    auto reply = [this, cancellable]() -> std::optional<zmqnet::ByteArray> {
+        std::unique_lock<std::mutex> lock(m_shared_result.mutex);
+
+        g_extract_result_cancel_flag = false;
+        auto signal_handler = cancellable ? std::make_unique<TmpSignalHandler>(SIGINT, cancelExtractResult) : nullptr;
+
+        auto stopWaiting = [&](){
+            return (m_commands_sent == m_shared_result.results_received) // message arrived
+                || g_extract_result_cancel_flag;                         // user cancelled wait
+        };
+
+        using namespace std::chrono_literals;
+        while (!m_shared_result.cv.wait_for(lock, 333ms, stopWaiting)) {
+            LOG("waiting on cv... (sent %lu == recvd %lu)\n", m_commands_sent, m_shared_result.results_received.load());
+        }
+
+        if (m_commands_sent == m_shared_result.results_received) {
+            // the result got here
+            LOG("done waiting. got result\n");
+            return std::move(m_shared_result.data);
+        } else {
+            // the user cancelled the operation
+            LOG("done waiting. user cancelled wait.\n");
+            return {};
+        }
     }();
 
-    // unpack data
-    auto reader = getReaderFromData(reply);
-    auto pack = reader.getRoot<ZmqnetMessagePackage>();
-    auto result = ProtoMessageSet();
+    if (reply) {
+        // unpack data
+        auto reader = getReaderFromData(*reply);
+        auto pack = reader.getRoot<ZmqnetMessagePackage>();
+        auto result = ProtoMessageSet();
 
-    // construct proto message set, update received
-    for (const auto message : pack.getMessages()) {
-        auto unpacked = unpackMessageReader(message);
-        result.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
+        // construct proto message set, update received
+        for (const auto message : pack.getMessages()) {
+            auto unpacked = unpackMessageReader(message);
+            result.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
+        }
+
+        return result;
+    } else {
+        // cancelled. the layers above will turn this into a proper error message
+        return {};
     }
-
-    return result;
 }
 
 ZMQNetNetwork::StreamTable::StreamTable(
@@ -233,7 +297,7 @@ ZMQNetNetwork::StreamTable::CommandStream& ZMQNetNetwork::StreamTable::getComman
     auto words = capnp::messageToFlatArray(builder);
     auto bytes = words.forceReleaseAsBytes();
     m_internalCommandStream.sendCommand(bytes.asChars().begin(), bytes.size());
-    m_internalCommandStream.extractResult(); // ignoring result; just waiting for a ping
+    m_internalCommandStream.extractResultWait(); // ignoring result; just waiting for a ping
 
     // create bitset -> command stream pair
     m_bitset_pool.emplace_back(target->clone());

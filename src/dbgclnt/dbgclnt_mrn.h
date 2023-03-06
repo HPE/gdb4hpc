@@ -40,7 +40,8 @@ public:
         const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
         int early_entry_flag, bool isNonStop) override;
 
-    int exit(DbgInvoke *, int detach) override;
+    int syncExit(DbgInvoke *) override;
+    int forceExit(DbgInvoke *) override;
 
     std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
         const char *request) override;
@@ -51,8 +52,6 @@ public:
     int init() override;
     
     void dispatchEvents(DbgInvoke *di, int ev_fd) override;
-
-    void destroyClient(DbgInvoke *di) override;
 
 private:
 #ifdef BE_VALGRIND

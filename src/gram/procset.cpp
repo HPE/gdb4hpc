@@ -55,6 +55,21 @@ const std::vector<std::shared_ptr<dbgprocset_t>>& GetProcSets() {
     return ProcSets;
 }
 
+std::vector<const dbg_over_set_t*> GetPartialOverlaySets(const dbgprocset_t& proc) {
+    auto result = std::vector<const dbg_over_set_t*>{};
+
+    for (const auto* os : proc.s_over_sets) {
+        auto* di = os->s_di.lock();
+        // assuming di->fullBitset is always bigger and if the two bitsets are different,
+        // s_di_bs is a subset of di->fullBitset()
+        if (di && *os->s_di_bs != *di->fullBitset()) {
+            result.emplace_back(os);
+        }
+    }
+
+    return result;
+}
+
 // Returns a newly allocated bitset which is the passed \c slice applied to 
 // the bitset in \c overlay_set. Only set bits are considered for the slice. 
 // For example, given the bitset 111100001111, the slice {3..5} (zero indexed, 

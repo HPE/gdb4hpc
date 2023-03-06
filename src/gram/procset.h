@@ -114,6 +114,14 @@ extern dbgprocset_t *CurrentProcSet(void);
 extern void PrintProcSet(dbgprocset_t *);
 extern const std::vector<std::shared_ptr<dbgprocset_t>>& GetProcSets();
 
+// for each overlay set in `proc`, check if it is a "partial" overlay set. if it is, add
+// it to the returned list of overlay sets. a partial overlay set is an overlay set that
+// contains a proper subset of the ranks in its di. for example, given two dis $a{4} and $b{4}:
+//   given procset $c = $a{4},$b{0..1}, fn($c) returns [$b{0..1}].
+//   given procset $d = $a{0,3},$b{0..1}, fn($d) returns [$a{0,3}, $b{0..1}].
+//   given procset $e = $b{4}, fn($e) returns [].
+extern std::vector<const dbg_over_set_t*> GetPartialOverlaySets(const dbgprocset_t& proc);
+
 extern void PrintMsgWithSetInfo(const char *setname, const Bitset *group,
                                 const char *f, ...) __attribute__((format (printf,3,4)));
 extern void PrintMsgWithSetAndThreadInfo(const char *setname, const Bitset *group,

@@ -75,7 +75,8 @@ public:
         int early_entry_flag, 
         bool isNonStop) = 0;
 
-    virtual int exit(DbgInvoke *di, int detach);
+    virtual int syncExit(DbgInvoke *di) = 0;
+    virtual int forceExit(DbgInvoke *di) = 0;
 
     virtual std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
         const char *request) = 0;
@@ -89,9 +90,6 @@ public:
     
     virtual int checkEvents(DbgInvoke *di) { return 0; };
     virtual void dispatchEvents(DbgInvoke *di, int ev_fd) {};
-
-    // called from FreeDbgInvoke
-    virtual void destroyClient(DbgInvoke *di) {};
 
     void resetProtocolEventHandler();
 protected:

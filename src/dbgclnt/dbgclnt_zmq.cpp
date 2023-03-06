@@ -11,6 +11,7 @@
 #include "dbgclnt_proto_ctiship.h"
 
 #include "useful.h"
+#include "signal_util.h"
 
 #include "common_tools_fe.h"
 
@@ -59,30 +60,8 @@ static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(
         );
     };
 
-    class TmpSigHandler {
-    public:
-        TmpSigHandler(int signal, SigHandlerFn handler)
-            : m_signal{signal}
-        {
-            memset(&m_tmp_sigaction, 0, sizeof(m_tmp_sigaction));
-            sigemptyset(&m_tmp_sigaction.sa_mask);
-            m_tmp_sigaction.sa_handler = handler;
-            // XXX: Can't use DbgHandleSignal as it offers no way to save the old sigactions
-            sigaction(m_signal, &m_tmp_sigaction, &m_old_sigaction);
-        }
-
-        ~TmpSigHandler() {
-            sigaction(m_signal, &m_old_sigaction, nullptr);
-        }
-
-    private:
-        struct sigaction m_tmp_sigaction;
-        struct sigaction m_old_sigaction;
-        int m_signal;
-    };
-
     launchKS = false;
-    auto tmpSigHandler = TmpSigHandler(SIGINT, launchSigHandler);
+    auto tmpSigHandler = TmpSignalHandler(SIGINT, launchSigHandler);
 
     auto connected = int{0};
     auto hosts = std::unique_ptr<cti_hostsList_t, decltype(&cti_destroyHostsList)>
@@ -341,7 +320,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
 
     if (!received.isFull()) {
         PrintOutError("Error: not all ranks received startup message. Attempting to clean up...\n");
-        exit(di, 0);
+        forceExit(di);
         return 1;
     }
 
@@ -412,15 +391,7 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
     return 0;
 }
 
-void ZMQNetClientProtocol::destroyClient(DbgInvoke *di) {
-    LOG("%s\n", __PRETTY_FUNCTION__);
-
-    if (di->network()) {
-        exit(di, 0);
-    }
-}
-
-int ZMQNetClientProtocol::exit(DbgInvoke *di, int detach) {
+int ZMQNetClientProtocol::syncExit(DbgInvoke *di) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (!di) {
@@ -428,8 +399,22 @@ int ZMQNetClientProtocol::exit(DbgInvoke *di, int detach) {
         return -1;
     }
 
-    getNetwork<ZMQNetNetwork>(di).exit();
+    auto network_exit_result = getNetwork<ZMQNetNetwork>(di).syncExit();
     di->setNetwork(nullptr);
 
-    return DebugClientProtocol::exit(di, detach);
+    return network_exit_result;
+}
+
+int ZMQNetClientProtocol::forceExit(DbgInvoke *di) {
+    LOG("%s\n", __PRETTY_FUNCTION__);
+
+    if (!di) {
+        PrintOutError("Tried to force exit with null di.\n");
+        return -1;
+    }
+
+    auto network_exit_result = getNetwork<ZMQNetNetwork>(di).forceExit();
+    di->setNetwork(nullptr);
+
+    return network_exit_result;
 }

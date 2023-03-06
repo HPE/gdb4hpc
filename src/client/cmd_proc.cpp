@@ -43,7 +43,7 @@ static int DoRelaunch(dbgprocset_t* procset, const char* cloneName);
 static int DoAttach(const char *proto, dbgprocset_t *ps,
                     const char *app_ident, const char *arch, const char *backend,
                     const char* gdb, const char *vgdb_file, bool gpu_flag, bool debug_flag);
-static void ReleaseProc(dbgprocset_t *, dbgquit_type);
+static void ReleaseProc(dbgprocset_t *, DbgQuitType);
 
 static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *group);
 // Main async event handler
@@ -144,7 +144,7 @@ static dbgprocset_t* getNewProcSet(const std::string& procName) {
                       cli_query_default::NO, cli_query_default::YES)) {
 
             // Out with the old
-            ReleaseProc(existingProcSet, DBG_DETACH);
+            ReleaseProc(existingProcSet, DbgQuitType::Detach);
         } else {
             return nullptr;
         }
@@ -340,13 +340,9 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
 
     auto* di = newHandle.lock();
 
-    // Create a rec_set based on the di
-    rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
-
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
-        quit_rep = DbgQuit(rec_set, DBG_KILL);
+        quit_rep = DbgQuit(*di, DbgQuitType::Kill);
         ProcessErrorInRepSet(quit_rep);
         return exitWithFailure();
     }
@@ -358,13 +354,17 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
     }
     PrintOutMsg("Launch complete.\n");
 
+    // Create a rec_set based on the di
+    rec_set = NewRecSet();
+    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
+
     // Issue the startup command
     rep_set = DbgStartup(rec_set);
 
     // process error
     if (ProcessErrorInRepSet(rep_set)) {
         PrintOutError("Could not startup application.\n");
-        quit_rep = DbgQuit(rec_set, DBG_KILL);
+        quit_rep = DbgQuit(*di, DbgQuitType::Kill);
         ProcessErrorInRepSet(quit_rep);
         return exitWithFailure();
     }
@@ -550,7 +550,7 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
 
         // claim old name and release old procset
         auto oldName = oldProcset->s_name;
-        ReleaseProc(oldProcset, DBG_DEFAULT); // frees oldProcset
+        ReleaseProc(oldProcset, DbgQuitType::Default); // frees oldProcset
         oldProcset = nullptr;
 
         // Set names for the newly created procset/di. There are four names we need to update:
@@ -596,20 +596,24 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
         case DBGSET_TEMP:
             // fall through
         case DBGSET_INTERNAL: {
-            bool validProcset = true;
-            for (const auto* os : oldProcset->s_over_sets) {
-                // we can't restart only part of a di, so a procset
-                // is invalid if it only includes a subset of a di.
-                auto* di = os->s_di.lock();
-                if (validProcset && *os->s_di_bs != *di->fullBitset()) {
-                    PrintOutError("Error: $%s contains only a subset (%s) of $%s.\n",
-                                  oldProcset->s_name.c_str(), os->s_di_bs->toSetString().c_str(),
-                                  os->s_di.c_str());
-                    validProcset = false;
+            // we can't restart only part of a di, so a procset
+            // is invalid if it only includes a subset of a di.
+            if (auto partials = GetPartialOverlaySets(*oldProcset); !partials.empty()) {
+                PrintOutError("Error: procset $%s contains these subsets:\n", oldProcset->s_name.c_str());
+                for (const auto* os : partials) {
+                    std::string full_set_text;
+                    if (auto* di = os->s_di.lock()) {
+                        full_set_text = di->fullBitset()->toSetString();
+                    } else {
+                        full_set_text = " (expired)";
+                    }
+                    PrintOutError("  Ranks %s of $%s%s\n",
+                        os->s_di_bs->toSetString().c_str(), os->s_di.c_str(), full_set_text.c_str()
+                    );
                 }
+                PrintOutError("Only complete sets can be restarted.\n");
+                return 0;
             }
-
-            if (!validProcset) return 0;
 
             // create a list of procsets to relaunch.  Do in two passes because
             // DoRelaunchInvoke modifies the s_over_sets!
@@ -785,21 +789,20 @@ static int DoAttach(const char *proto, dbgprocset_t *ps,
 
     auto* di = newHandle.lock();
 
-    // Create the rec_set based on the di
-    rec_set = NewRecSet();
-    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
-
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
-        quit_rep = DbgQuit(rec_set, DBG_KILL);
+        quit_rep = DbgQuit(*di, DbgQuitType::Kill);
         ProcessErrorInRepSet(quit_rep);
-        FreeRecSet(rec_set);
         FreeRepSet(quit_rep);
         return 0;
     }
 
     // Set the client event callback handler
     DbgHandleEvent(di, EventCB);
+
+    // Create the rec_set based on the di
+    rec_set = NewRecSet();
+    AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
 
     // grab all the frames
     rep_set = DbgShowFrame(rec_set, 0);
@@ -822,7 +825,7 @@ static int DoAttach(const char *proto, dbgprocset_t *ps,
         // This is fatal as its an indication that things are broken (i.e. we
         // cannot send commands)
         PrintOutError("Could not communicate with application.\n");
-        quit_rep = DbgQuit(rec_set, DBG_DETACH);
+        quit_rep = DbgQuit(*di, DbgQuitType::Detach);
         ProcessErrorInRepSet(quit_rep);
         FreeRecSet(rec_set);
         FreeRepSet(quit_rep);
@@ -928,18 +931,10 @@ static int cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv) {
         PrintOutError("Invalid process set argument.\n");
         return 0;
     }
-        
-    // Ensure this is a DBGSET_INVOKE type, otherwise fail
-    if (ps->s_type != DBGSET_INVOKE) {
-        PrintOutError(
-            "Cannot kill provided procset. Use the handle provided to "
-            "launch/attach.\n");
-        return 0;
-    }
 
     // We always want to kill, not detach, the application when the user
     // issues the kill command.
-    ReleaseProc(ps, DBG_KILL);
+    ReleaseProc(ps, DbgQuitType::Kill);
 
     return 1;
 }
@@ -957,24 +952,42 @@ static int cmd_release_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    // Ensure this is a DBGSET_INVOKE type, otherwise fail
-    if (ps->s_type != DBGSET_INVOKE) {
-        PrintOutError(
-            "Cannot release provided procset. Use the handle provided to "
-            "launch/attach.\n");
-        return 0;
-    }
-
     // We always want to detach, not kill, the application when the user
     // issues the release command.
-    ReleaseProc(ps, DBG_DETACH);
+    ReleaseProc(ps, DbgQuitType::Detach);
 
     return 1;
 }
 
-static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
-    rec_set_t *rec_set;
+static void ReleaseProc(dbgprocset_t *p, DbgQuitType quit_type) {
     rep_set_t *rep_set;
+
+    if (!p) return;
+
+    // calling DbgQuit below will delete the associated di. if we called DbgQuit on a
+    // procset that only contained half of the ranks in the original di, the di would get
+    // deleted out from underneath the other half. in short, if a procset contains a
+    // partial set of a di, we can't release it.
+    //
+    // if the given procset *only* contains expired procsets, the list of partial sets
+    // will be empty and it will fall though. this is fine, since that will allow it to
+    // get to FreeProcSet after no-oping through the DbgQuit loop.
+    if (auto partials = GetPartialOverlaySets(*p); !partials.empty()) {
+        PrintOutError("Error: procset $%s contains these subsets:\n", p->s_name.c_str());
+        for (const auto* os : partials) {
+            std::string full_set_text;
+            if (auto* di = os->s_di.lock()) {
+                full_set_text = di->fullBitset()->toSetString();
+            } else {
+                full_set_text = " (expired)";
+            }
+            PrintOutError("  Ranks %s of $%s%s\n",
+                os->s_di_bs->toSetString().c_str(), os->s_di.c_str(), full_set_text.c_str()
+            );
+        }
+        PrintOutError("Only complete sets can be released.\n");
+        return;
+    }
 
     for (auto over_set : p->s_over_sets) {
         // point at the dbginvoke for this set
@@ -985,19 +998,19 @@ static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
         }
 
         switch (quit_type) {
-            case DBG_KILL:
+            case DbgQuitType::Kill:
                 PrintOutMsg(
                     "Shutting down debugger and killing application for "
                     "\'%s\'.\n",
                     di->handle().c_str());
                 break;
-            case DBG_DETACH:
+            case DbgQuitType::Detach:
                 PrintOutMsg(
                     "Shutting down debugger and resuming application for "
                     "\'%s\'.\n",
                     di->handle().c_str());
                 break;
-            case DBG_DEFAULT:
+            case DbgQuitType::Default:
                 // use di instead
                 switch (di->processType()) {
                     case DbgInvoke::ProcessType::Attached:
@@ -1021,15 +1034,9 @@ static void ReleaseProc(dbgprocset_t *p, dbgquit_type quit_type) {
             XMLPrintRemovedMsg(di->handle().c_str());
         }
 
-        // Create the rec_set based on the di
-        rec_set = NewRecSet();
-        AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
-
-        rep_set = DbgQuit(rec_set, quit_type);
+        rep_set = DbgQuit(*di, quit_type);
 
         ProcessErrorInRepSet(rep_set);
-
-        FreeRecSet(rec_set);
         FreeRepSet(rep_set);
     }
 
@@ -1070,7 +1077,7 @@ static int cmd_rerun_cmd(rec_set_t* recSet, int argc, char* argv[]) {
     } else if (auto cloneSet = FindProcSet(cloneName)) {
         auto prompt = "Re-use "s + cloneName + "? Original will be released.";
         if (cli_query(prompt.c_str(), cli_query_default::NO, cli_query_default::YES)) {
-            ReleaseProc(cloneSet, DBG_DEFAULT);
+            ReleaseProc(cloneSet, DbgQuitType::Kill);
         } else {
             PrintOutMsg("Cancelled.\n");
             return 1;
@@ -1179,7 +1186,7 @@ void EndAll(void) {
     for (auto ps : GetProcSets()) pss.push_back(ps.get());
 
     for (auto ps : pss) {
-        if (ps->s_type == DBGSET_INVOKE) ReleaseProc(ps, DBG_DEFAULT);
+        if (ps->s_type == DBGSET_INVOKE) ReleaseProc(ps, DbgQuitType::Default);
     }
 }
 

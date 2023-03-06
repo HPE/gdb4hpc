@@ -351,21 +351,21 @@ DbgInvoke::Handle DbgInvoke::activate(std::string name, std::unique_ptr<DbgInvok
     return handle;
 }
 
-std::shared_ptr<DbgInvoke> DbgInvoke::deactivate(const DbgInvoke::Handle& handle) {
+bool DbgInvoke::deactivate(const DbgInvoke::Handle& handle) {
     // find it
     auto it = std::find_if(g_allInvokes.begin(), g_allInvokes.end(), [&handle](const auto& diptr) {
         return handle == diptr->handle();
     });
 
-    if (it == g_allInvokes.end()) return nullptr;
+    if (it == g_allInvokes.end()) return false;
 
     // remove it
-    auto r = std::move(*it);
+    auto expiring = std::move(*it);
     g_allInvokes.erase(it);
 
     rebuildCachedHandles();
 
-    return r;
+    return true;
 }
 
 DbgInvoke::Handle DbgInvoke::rename(DbgInvoke::Handle handle, std::string newName) {
@@ -430,9 +430,6 @@ DbgInvoke::DbgInvoke(DbgInvoke&& o)
 
 DbgInvoke::~DbgInvoke() {
     HoldSignals();
-
-    // XXX has large side effects. does it belong in this dtor?
-    proto().destroyClient(this);
 
     // Quit the debug frontend if there is one
     if (m_frontend_gdb) {

@@ -72,7 +72,8 @@ public:
     int checkEvents();
     ProtoMessageSet releaseEvents();
     std::vector<std::string> releaseOutputLines();
-    int exit();
+    int syncExit();
+    int forceExit();
 private:
     using EventQueue = detail::AsyncQueue<ProtoMessage>;
 
@@ -94,15 +95,35 @@ private:
             CommandStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator);
 
             void sendCommand(const char *command, size_t len);
-            ProtoMessageSet extractResult();
+
+            // Wait for a response to arrive. The wait can be cancelled with a SIGINT.
+            // If the operation is cancelled, the function returns an empty optional.
+            std::optional<ProtoMessageSet> extractResult();
+
+            // Like extractResult, but the operation is not cancellable. Will wait forever
+            // for a result.
+            ProtoMessageSet extractResultWait();
 
         private:
+            std::optional<ProtoMessageSet> internalExtractResult(bool cancellable);
+
             zmqnet::AsyncFrontend &m_parentNetwork;
             std::unique_ptr<zmqnet::Stream> m_stream;
-            std::mutex m_resultLock;
-            zmqnet::ByteArray m_result;
-            std::condition_variable m_resultCV;
-            bool m_resultReady;
+
+            struct SharedResult {
+                // memory shared between the main thread and the zmqnet stream thread
+
+                // shared data should not be read/written without locking this mutex
+                std::mutex mutex;
+                std::condition_variable cv;
+
+                // shared data
+                std::atomic<size_t> results_received = 0;
+                zmqnet::ByteArray data;
+            };
+
+            size_t m_commands_sent = 0;
+            SharedResult m_shared_result;
         };
 
         class EventStream {

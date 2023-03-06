@@ -28,9 +28,9 @@ public:
         const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
         int early_entry_flag, 
         bool isNonStop) override;
-        
-    void destroyClient(DbgInvoke *) override;
-    int exit(DbgInvoke *, int detach) override;
+
+    int syncExit(DbgInvoke *) override;
+    int forceExit(DbgInvoke *) override;
 
     std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
         const char *request) override;

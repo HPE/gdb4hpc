@@ -221,48 +221,6 @@ int DebugClientProtocol::handleProtocolEvent(DbgInvoke *di, const ProtoMessageSe
     return 1;
 };
 
-// common exit actions to all protocols. protocol exit functions should call this
-// function in their own exit function after doing protocol specific exit actions.
-int DebugClientProtocol::exit(DbgInvoke *di, int detach) {
-    if (detach) {
-        // In the launch case, the app was sent a SIGSTOP while the network
-        // cleaned up. By the time we reach this common ::exit function, the
-        // network should be gone, so we can start the app again without worrying
-        // about the wlm killing the network.
-        //
-        // If we attached to the app instead of launched it, no exit breakpoint
-        // was set, and it's possible that it ran until complete exit by now. We
-        // still try to send a signal, but only print an error if we launched the app.
-        auto Launched = DbgInvoke::ProcessType::Launched;
-        if (cti_killApp(di->appId(), SIGCONT) && di->processType() == Launched) {
-            PrintOutError("Warning: an error occurred during release of $%s.\n",
-                          di->handle().c_str());
-            PrintOutError("The job might be stuck waiting for a SIGCONT.\n");
-        }
-        // Now that the app is running again, release it from cti so it won't be
-        // killed when cti is killed
-        if (cti_releaseApp(di->appId())) {
-            PrintOutError("Warning: an error occured during release of $%s.\n",
-                          di->handle().c_str());
-            PrintOutError("The job might be killed before completing.\n");
-        }
-    } else {
-        auto Launched = DbgInvoke::ProcessType::Launched;
-        if (cti_killApp(di->appId(), SIGKILL) && di->processType() == Launched) {
-            PrintOutError("Warning: an error occurred during cleanup of $%s.\n", di->handle().c_str());
-            PrintOutError("Your job might still be running.\n");
-        }
-    }
-
-    cti_deregisterApp(di->appId());
-
-    di->setAppId(0);
-
-    di->destroyProtoOutput();
-
-    return 0;
-}
-
 int DebugClientDefaultProtocolEventHandler::handleEvent(DbgInvoke *di, const ProtoMessageSet &set) {
     // by default, just forward to generic handler
     return DbgDispatchProtoEvents(di, set);

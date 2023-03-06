@@ -31,6 +31,8 @@
 #include "useful.h"
 #include <regex>
 
+#include "unittest_macros.h"
+
 // Static prototypes
 static event_equiv CompareEvExit(int, int);
 static event_equiv CompareEvSig(dbgsig_t, dbgsig_t);
@@ -47,51 +49,64 @@ static dbgstatus_t *DupStatus(dbgstatus_t *);
 static void FreeStatus(dbgstatus_t *);
 
 // Used for error events
-const char *DbgErrTab[] = {
-    "*** command succeded",                       // DBG_OK
-    "Protocol not implemented",                   // DBGERR_NOTIMP
-    "No such protocol \"%s\"",                    // DBGERR_PROTO
-    "Debugger error: %s",                         // DBGERR_DEBUGGER
-    "No server for this process",                 // DBGERR_SERVER
-    "Must register callback first",               // DBGERR_CALLBACK
-    "Callback in progress",                       // DBGERR_INPROGRESS
-    "No server to register callback",             // DBGERR_CBCREATE
-    "Could not create callback",                  // DBGERR_NOSERVER
-    "Server RPC error",                           // DBGERR_RPC
-    "No line %s in file ",                        // DBGERR_NOLINE
-    "Function \"%s\" not defined",                // DBGERR_NOFUNC
-    "No source file named \"%s\"",                // DBGERR_NOFILE
-    "No breakpoint number %s",                    // DBGERR_NOBP
-    "No symbol \"%s\" in current context",        // DBGERR_NOSYM
-    "Value optimized out",                        // DBGERR_OPT
-    "Unsupported symbol type",                    // DBGERR_BADTYPE
-    "*** can't access memory",                    // DBGERR_NOMEM
-    "*** can't run the application",              // DBGERR_CANTRUN
-    "*** could not invoke the application",       // DBGERR_INVOKE
-    "*** The application is running",             // DBGERR_ISRUNNING
-    "*** The application is not running",         // DBGERR_NOTRUN
-    "Initial frame selected; you cannot go up.",  // DBGERR_FIRSTFRAME
-    "Bottom (innermost) frame selected; you cannot go down.",  // DBGERR_LASTFRAME
-    "Argument required (breakpoint number)",       // DBGERR_BADBPARG
-    "*** error in regular expression",             // DBGERR_REGEX
-    "No stack",                                    // DBGERR_NOSTACK
-    "Line number %s is out of range for ",         // DBGERR_OUTOFRANGE
-    "%s: No such file or directory",               // DBGERR_NOFILEDIR
-    "No debugging symbols",                        // DBGERR_NOSYMS
-    "Could not create temporary file",             // DBGERR_TEMP
-    "pipe: %s",                                    // DBGERR_PIPE
-    "fork: %s",                                    // DBGERR_FORK
-    "select: %s",                                  // DBGERR_SELECT
-    "%s: not in executable format",                // DBGERR_NOTEXEC
-    "chdir: %s",                                   // DBGERR_CHDIR
-    "Source file is more recent than executable",  // DBGERR_SOURCE
-    "Can't set variable",                          // DBGERR_SETVAR
-    "Attach failed",  // DBGERR_ATTACH_FAILED FIXME: This is never used yet.
-    "*** The application is at an exit breakpoint.",  // DBGERR_AT_EXIT
-    "Internal error: %s",                             // DBGERR_INTERNAL
-    "Unkown GDB error: \"%s\"",                       // DBGERR_UNKNOWN
-    "Invalid error number"                            // DBGERR_NULL
-};
+constexpr auto DbgErrTab = []() -> std::array<const char*, DBGERR_NULL + 1> {
+    // DBGERR_NULL is the last entry in the dbgerr enum, and has an entry
+    auto table = std::array<const char*, DBGERR_NULL + 1>();
+    for (auto& item : table) item = nullptr;
+
+    table[DBG_OK]                     = "*** command succeeded";
+    table[DBGERR_NOTIMP]              = "Protocol not implemented";
+    table[DBGERR_PROTO]               = "No such protocol \"%s\"";
+    table[DBGERR_DEBUGGER]            = "Debugger error: %s";
+    table[DBGERR_SERVER]              = "No server for this process";
+    table[DBGERR_CALLBACK]            = "Must register callback first";
+    table[DBGERR_INPROGRESS]          = "Callback in progress";
+    table[DBGERR_CBCREATE]            = "No server to register callback";
+    table[DBGERR_NOSERVER]            = "Could not create callback";
+    table[DBGERR_RPC]                 = "Server RPC error";
+    table[DBGERR_NOLINE]              = "No line %s in file ";
+    table[DBGERR_NOFUNC]              = "Function \"%s\" not defined";
+    table[DBGERR_NOFILE]              = "No source file named \"%s\"";
+    table[DBGERR_NOBP]                = "No breakpoint number %s";
+    table[DBGERR_NOSYM]               = "No symbol \"%s\" in current context";
+    table[DBGERR_OPT]                 = "Value optimized out";
+    table[DBGERR_BADTYPE]             = "Unsupported symbol type";
+    table[DBGERR_NOMEM]               = "*** can't access memory";
+    table[DBGERR_CANTRUN]             = "*** can't run the application";
+    table[DBGERR_INVOKE]              = "*** could not invoke the application";
+    table[DBGERR_ISRUNNING]           = "*** The application is running";
+    table[DBGERR_NOTRUN]              = "*** The application is not running";
+    table[DBGERR_FIRSTFRAME]          = "Initial frame selected; you cannot go up.";
+    table[DBGERR_LASTFRAME]           = "Bottom (innermost) frame selected; you cannot go down.";
+    table[DBGERR_BADBPARG]            = "Argument required (breakpoint number)";
+    table[DBGERR_REGEX]               = "*** error in regular expression";
+    table[DBGERR_NOSTACK]             = "No stack";
+    table[DBGERR_OUTOFRANGE]          = "Line number %s is out of range for ";
+    table[DBGERR_NOFILEDIR]           = "%s: No such file or directory";
+    table[DBGERR_NOSYMS]              = "No debugging symbols";
+    table[DBGERR_TEMP]                = "Could not create temporary file";
+    table[DBGERR_PIPE]                = "pipe: %s";
+    table[DBGERR_FORK]                = "fork: %s";
+    table[DBGERR_SELECT]              = "select: %s";
+    table[DBGERR_NOTEXEC]             = "%s: not in executable format";
+    table[DBGERR_CHDIR]               = "chdir: %s";
+    table[DBGERR_SOURCE]              = "Source file is more recent than executable";
+    table[DBGERR_SETVAR]              = "Can't set variable";
+    table[DBGERR_ATTACH_FAILED]       = "Attach failed"; // FIXME: This is never used yet.
+    table[DBGERR_AT_EXIT]             = "*** The application is at an exit breakpoint.";
+    table[DBGERR_INTERNAL]            = "Internal error: %s";
+    table[DBGERR_OPERATION_ABANDONED] = "Operation abandoned, results discarded.";
+    table[DBGERR_UNKNOWN]             = "Unkown GDB error: \"%s\"";
+    table[DBGERR_NULL]                = "Invalid error number";
+
+    return table;
+}();
+
+TEST_CASE("DbgErrTab is fully filled out") {
+    for (size_t i = 0; i < DbgErrTab.size(); i++) {
+        CHECK_MESSAGE(DbgErrTab[i] != nullptr, "Index ", i, " of DbgErrTab is nullptr");
+    }
+}
 
 dbgevent_t *NewEvent(dbgev stat) {
     dbgevent_t *e;
@@ -786,6 +801,9 @@ void PrintDbgError(dbgerr dbg_errno) {
             break;
         case DBGERR_INTERNAL:
             PrintOutMsg("DBGERR_INTERNAL");
+            break;
+        case DBGERR_OPERATION_ABANDONED:
+            PrintOutMsg("DBGERR_OPERATION_ABANDONED");
             break;
         case DBGERR_UNKNOWN:
             PrintOutMsg("DBGERR_UNKNOWN");

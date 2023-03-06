@@ -873,7 +873,9 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
 
         if (Client.MI_mode){
             PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", BreakpointTable={body=[%s]}\n%s",
-+                                recv_ptr->rec_di.handle().c_str(),ss.str().c_str(), GetMIEpilogue());
+                                recv_ptr->rec_di.handle().c_str(),ss.str().c_str(), GetMIEpilogue());
+            // clear ss stream for next recv_ptr 
+            ss.str("");
         }
 
     } // for (auto&& recv_ptr : rec_set) {

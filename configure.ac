@@ -233,7 +233,7 @@ if test "x$GDB" != xno && test "x$mi_mode" != xno; then
 					)
 	else
 		if test -f "$libmi_path/lib/libmi.so"; then
-			LDFLAGS="$LDFLAGS -L$libmi_path/lib"
+			LDFLAGS="$LDFLAGS -L$libmi_path/lib -lstdc++"
 			AC_CHECK_LIB([mi],
 						[MIVarDelete],
 						[AC_SUBST([mi_libs], ["-lmi"])],

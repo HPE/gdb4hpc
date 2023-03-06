@@ -63,12 +63,12 @@
 # We now key off the BUILD_NUMBER environment variable from jenkins
 # to get the revision number.
 #
-# NOTE: If you bump the manor number then reset the minor and revision to 0
+# NOTE: If you bump the major number then reset the minor and revision to 0
 #       If you bump the minor number then reset the revision to 0
 
-revision="8"
-build_number=""
-
 major="4"
-minor="14"
+minor="15"
+revision="0"
+# set by jenkins
+build_number="0"
 

@@ -292,7 +292,8 @@ class Gdb4hpcTest(Test):
         self.proto = "zmqnet"
 
         # set startup timeout env var to speed up failures
-        os.environ["GDB4HPC_STARTUP_TIMEOUT"] = "30" # seconds
+        if not os.getenv("GDB4HPC_STARTUP_TIMEOUT"):
+            os.environ["GDB4HPC_STARTUP_TIMEOUT"] = "30" # seconds
 
     def run_under_mrnet(self):
         os.environ["GDB4HPC_PROTO"] = "mrnet"

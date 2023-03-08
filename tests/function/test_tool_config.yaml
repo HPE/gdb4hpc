@@ -58,6 +58,8 @@ horizon-aarch:
   launch:
     args:
       slurm: "-p aarch --exclusive -t 5:00"
+    environment:
+      GDB4HPC_STARTUP_TIMEOUT: "120"
 
 kay:
   launch:

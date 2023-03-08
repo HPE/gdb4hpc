@@ -11,7 +11,9 @@ a{0..3}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hp
 16: assign argc 999
 17: p argc
 a{0..3}: 999
-18: c
-a{0..3}: Program exited normally.
-18: q
+18: break cpp_attach.cpp:20
+a{0..3}: Breakpoint 2: file /cray/css/users/chandlej/home/chandlej/gdb4hpc/46540/tests/function/src/C++/cpp_attach.cpp, line 20.
+19: c
+a{0..3}: Breakpoint 2, main(int, char**) at /cray/css/users/chandlej/home/chandlej/gdb4hpc/46540/tests/function/src/C++/cpp_attach.cpp:20
+20: q
 Shutting down debugger and resuming application for 'a'.

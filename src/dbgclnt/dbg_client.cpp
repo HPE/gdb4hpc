@@ -1531,7 +1531,9 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, DbgInvoke::LaunchOpts&&
     // checks on the a.out
 
     // The frontend debug presence can fail silently
-    di->instantiateFrontendGdb(args.backend_name.c_str());
+    const auto& gdbPath = args.gdb_path;
+    di->instantiateFrontendGdb(args.backend_name.c_str(),
+                               gdbPath.empty() ? nullptr : gdbPath.c_str());
 
     // Set the debug frontend a.out directly.
     if (di->frontendGdb() != nullptr) {
@@ -1542,7 +1544,7 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, DbgInvoke::LaunchOpts&&
             // We want to tear down the frontend since it has no way of reading
             // symbols since loading the binary failed.
             FreeEvent(e);
-            di->instantiateFrontendGdb(nullptr);
+            di->instantiateFrontendGdb(nullptr, nullptr);
         }
 
         FreeEvent(e);

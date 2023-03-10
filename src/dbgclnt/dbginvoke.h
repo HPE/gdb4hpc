@@ -278,7 +278,8 @@ public:
     // returns nullptr.
     //
     // XXX: The only available implementation right now is "gdbmi".
-    dbgfrontend_sw* instantiateFrontendGdb(const char* frontend_impl_type);
+    dbgfrontend_sw* instantiateFrontendGdb(const char* frontend_impl_type,
+                                           const char* gdb_path);
 
     // Interface to an instance of gdb running on the client machine for use in things
     // like source code listing. Create the interface with instantiateFrontendGdb first.

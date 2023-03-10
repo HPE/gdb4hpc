@@ -41,7 +41,7 @@ struct dbgfrontend_sw {
     int dbg_list_isPending;
     list_t *dbg_list_locs;
 
-    dbgevent_t *(*dbg_init)(struct dbgfrontend_sw *);
+    dbgevent_t *(*dbg_init)(struct dbgfrontend_sw *, const char* gdbPath);
     dbgevent_t *(*dbg_quit)(struct dbgfrontend_sw *);
     dbgevent_t *(*dbg_set_file)(struct dbgfrontend_sw *, const char *);
     dbgevent_t *(*dbg_checkstartupfunc)(struct dbgfrontend_sw *);
@@ -66,7 +66,7 @@ extern void SetListStateLocation(dbgfrontend_sw *);
 extern void ClearListState(dbgfrontend_sw *);
 
 // Interface functions
-extern dbgfrontend_sw *DbgInstantiateFE(const char *);
+extern dbgfrontend_sw *DbgInstantiateFE(const char *, const char* gdb_path);
 extern dbgevent_t *DbgDestroyFE(dbgfrontend_sw *);
 extern dbgevent_t *DbgFESetFile(dbgfrontend_sw *, const char *);
 extern dbgevent_t *DbgFECheckStartupFunc(dbgfrontend_sw *);

@@ -41,7 +41,7 @@ static frontend_tab DbgFrontendTab[] = {
     {"gdbmi", &DbgFrontendGDBMICreate},
     {NULL, (dbgfrontend_sw_create *)NULL}};
 
-dbgfrontend_sw *DbgInstantiateFE(const char *debug_def) {
+dbgfrontend_sw *DbgInstantiateFE(const char *debug_def, const char* gdbPath) {
     frontend_tab *p;
     dbgfrontend_sw *fe_obj;
 
@@ -62,7 +62,7 @@ dbgfrontend_sw *DbgInstantiateFE(const char *debug_def) {
 
             // init the frontend if it has an init function defined
             if (fe_obj->dbg_init != NULL) {
-                if (auto e = fe_obj->dbg_init(fe_obj)) {
+                if (auto e = fe_obj->dbg_init(fe_obj, gdbPath)) {
                     // the event has always been ignored
                     FreeEvent(e);
                 }
@@ -159,14 +159,6 @@ static void FreeSetLocation(set_location *set_loc) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "debugger function not implemented"); \
         return e;                                                             \
     }
-
-dbgevent_t *DbgFEInit(dbgfrontend_sw *fe_obj) {
-    dbgevent_t *e;
-
-    DBG_IMP(e, fe_obj->dbg_init);
-
-    return fe_obj->dbg_init(fe_obj);
-}
 
 dbgevent_t *DbgFESetFile(dbgfrontend_sw *fe_obj, const char *file) {
     dbgevent_t *e;

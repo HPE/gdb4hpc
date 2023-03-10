@@ -53,21 +53,21 @@ TEST_CASE("DbgInvoke: set/get/unset frontendGdb") {
     REQUIRE(di.frontendGdb() == nullptr);
 
     SUBCASE("Instantiate, deinstantiate with nullptr") {
-        auto r = di.instantiateFrontendGdb("gdbmi");
+        auto r = di.instantiateFrontendGdb("gdbmi", nullptr);
         CHECK(r != nullptr);
         REQUIRE(di.frontendGdb() != nullptr);
 
-        auto r2 = di.instantiateFrontendGdb(nullptr);
+        auto r2 = di.instantiateFrontendGdb(nullptr, nullptr);
         CHECK(di.frontendGdb() == nullptr);
         CHECK(r2 == nullptr);
     }
 
     SUBCASE("Instantiate, deinstantiate with invalid impl") {
-        auto r = di.instantiateFrontendGdb("gdbmi");
+        auto r = di.instantiateFrontendGdb("gdbmi", nullptr);
         CHECK(r != nullptr);
         REQUIRE(di.frontendGdb() != nullptr);
 
-        auto r2 = di.instantiateFrontendGdb("not real");
+        auto r2 = di.instantiateFrontendGdb("not real", nullptr);
         CHECK(r2 == nullptr);
         CHECK(di.frontendGdb() == nullptr);
     }
@@ -522,14 +522,14 @@ void DbgInvoke::setNetwork(std::unique_ptr<DebugClientNetwork>&& net) {
     m_proto_net = std::move(net);
 }
 
-dbgfrontend_sw* DbgInvoke::instantiateFrontendGdb(const char* impl) {
+dbgfrontend_sw* DbgInvoke::instantiateFrontendGdb(const char* impl, const char* gdbPath) {
     if (m_frontend_gdb) {
         auto e = DbgDestroyFE(m_frontend_gdb);
         FreeEvent(e);
     }
 
     if (impl) {
-        m_frontend_gdb = DbgInstantiateFE(impl);
+        m_frontend_gdb = DbgInstantiateFE(impl, gdbPath);
     } else {
         m_frontend_gdb = nullptr;
     }

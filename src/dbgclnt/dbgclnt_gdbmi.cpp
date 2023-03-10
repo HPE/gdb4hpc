@@ -30,7 +30,7 @@
 
 /* static prototypes */
 static void DbgInstantiateGDBMI(dbgfrontend_sw *);
-static dbgevent_t *DbgGDBMIInit_fe(dbgfrontend_sw *);
+static dbgevent_t *DbgGDBMIInit_fe(dbgfrontend_sw *, const char* gdbPath);
 static dbgevent_t *DbgGDBMIQuit_fe(dbgfrontend_sw *);
 static dbgevent_t *DbgGDBMIList_fe(dbgfrontend_sw *, const char*, const char *);
 static dbgevent_t *DbgGDBMIGetSources_fe(dbgfrontend_sw *);
@@ -172,7 +172,7 @@ static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
     return NULL;
 }
 
-static dbgevent_t *DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj) {
+static dbgevent_t *DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj, const char* gdbPath) {
     dbgevent_t *e;
     MISession *sess = (MISession *)fe_obj->dbg_session;
 
@@ -184,7 +184,7 @@ static dbgevent_t *DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj) {
     MISessionRegisterTargetCallback(sess, target_callback);*/
 
     // set the gdb path to use gdb-guard
-    MISessionSetGDBPath(sess, "gdb-guard");
+    MISessionSetGDBPath(sess, gdbPath ? gdbPath : "gdb-guard");
 
     // Get the base dir env var and setup data-dir if the env var is set
     char *env_base_dir = getenv(GUARD_INST_DIRECTORY);

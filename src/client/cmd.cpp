@@ -527,6 +527,10 @@ void InitCommands() {
     InitCmd_step();
     InitCmd_thread();
     InitCmd_whatis();
+#ifdef USE_PYTHON    
+    InitCmd_python();
+#endif    
+
 
     // alphabetize the command list
     _alphabetize_cmd_list(Cmds->cmd_list);

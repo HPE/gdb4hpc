@@ -669,6 +669,13 @@ const char* const cmd_ptype_help[] = {
     "   /mt suppresses both.",
     0};
 
+extern const char* const cmd_python_help[] = {
+    "Summary: enter the integrated python interpreter.",
+    "Usage: python",
+    ""
+    "This enters a python interpreter, and all lines enterred will be",
+    "interpreted as python code.",
+    0};
 
 const char* const cmd_quit_help[] = {"Summary: Quit command.",
                                      "Usage: quit",

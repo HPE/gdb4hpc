@@ -120,6 +120,12 @@ void Value::print(std::ostream& os, rec_set_t* rec_set, const std::string& forma
 
 void Value::addMetaInfo(const std::string& metaInfo) {}
 
+void Value::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
+    auto os = std::ostringstream{};
+    print(os, nullptr, "");
+    visitor(os.str());
+}
+
 std::pair<size_t, bool> Value::getNumResults() {
     throw EvalError("Type does not support operations");
 }
@@ -171,6 +177,7 @@ static std::string getLabel(rec_set_t* rec_set, group_reply* reply, const std::s
 
     auto label = GetProcSetString(diName, reply->rep_group.get(), threads);
     if (label.empty()) ;
+    else if (format == "procset") {}
     else if (format.find("csv") == std::string::npos) label += ": ";
     else label = "\"" + label + "\",";
 
@@ -189,6 +196,22 @@ void ReplyValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& 
         auto aif = EVENT_DATA(reply->rep_event);
         aif->print(os, label, format);
         os << "\n";
+    }
+
+    FreeRepSet(rep_set);
+}
+
+void ReplyValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
+    auto rep_set = retrieve();
+
+    for ( auto reply : rep_set) {
+        // retrieve shouldn't return anything that isn't data, but lets be safe..
+        if (reply->rep_event->ev_event != DBGEV_DATA) continue;
+        auto label = getLabel(rec_set, reply, "procset");
+        if (auto aif = EVENT_DATA(reply->rep_event)) {
+            visitor.beginReply(label);
+            aif->getVStream().apply(visitor);
+        }
     }
 
     FreeRepSet(rep_set);
@@ -872,4 +895,5 @@ void ComparisonValue::getFullResult(std::optional<std::string>& passed,
 
     //os << "Don't forget MI!!!!\n";
 }
+
 

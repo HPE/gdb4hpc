@@ -9,6 +9,7 @@
 #include <map>
 #include <vector>
 #include "dbginvoke.h"
+#include "ais.h"
 
 class AIFStream;
 class rep_set_t;
@@ -61,6 +62,7 @@ private:
     static std::map<std::string, rec_set_t*> m_psetMap;
 };
 
+    
 // struct for negotiating a common set of ranks for a binary operation
 struct ResultPair {
     std::unique_ptr<Bitset> ranks;
@@ -69,6 +71,12 @@ struct ResultPair {
     AIFStream* a = nullptr;
     AIFStream* b = nullptr;
     std::string label;
+};
+
+// visitor for AIS based operations on a value
+class ValueVisitor : public ais::Visitor {
+public:
+    virtual void beginReply(const std::string& label) = 0;
 };
 
 //---------------------------------------------------------------------------
@@ -96,6 +104,9 @@ public:
     // used for pushing additional meta-info (like array length) for the 
     // back-end gdb
     virtual void addMetaInfo(const std::string& metaInfo);
+
+    // apply a general operation to the value
+    virtual void apply(rec_set_t* rec_set, ValueVisitor& visitor);
 
     //-- interface for negotiating a common set of ranks with a pair of replies --
     // the next four functions all throw an exception for any value types that
@@ -129,6 +140,8 @@ public:
     ~ReplyValue();
 
     virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+    virtual void apply(rec_set_t* rec_set, ValueVisitor& visitor) override;
+    
     virtual void addMetaInfo(const std::string& metaInfo) override;
     rec_set_t* getRecSet() const { return m_rec_set; }
     std::string getExpr() const override { return m_expr; }

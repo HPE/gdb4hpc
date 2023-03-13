@@ -151,6 +151,19 @@ AC_ARG_WITH([valgrind],
 	    [valgrind_mode=no]
 	    )
 
+dnl Check for --with-python
+AC_ARG_WITH([python],
+	    [AS_HELP_STRING([--with-python],
+			    [Enable python support in gdb4hpc.]
+			    )
+	    ],
+	    [python_mode=yes
+	     python_root=$withval
+	    ],
+	    [python_mode=no]
+	    )
+
+
 #########################
 ### Setup env options ###
 #########################
@@ -219,12 +232,24 @@ if test "x$zmqnet_mode" = xyes; then
 fi
 
 ############################
+### Check for python.    ###
+############################
+
+if test "x$python_mode" = xyes; then
+	AC_DEFINE([USE_PYTHON], [1], [Enable python support in gdb4hpc.])
+	AC_SUBST([python_root], ["$python_root"])
+fi
+
+
+############################
 ### Check for libraries. ###
 ############################
 
 dnl Check for libmi
 if test "x$GDB" != xno && test "x$mi_mode" != xno; then
+
 	if test -f "$libmi_path/libmi.so"; then
+		echo "testing $libmi_path/libmi.so"
 		LDFLAGS="$LDFLAGS -L$libmi_path"
 		AC_CHECK_LIB([mi],
 					[MIVarDelete],
@@ -240,6 +265,7 @@ if test "x$GDB" != xno && test "x$mi_mode" != xno; then
 						[AC_MSG_ERROR([You must have libmi.so to compile gdb4hpc.])]
 						)
 		else
+			echo "testing else path = $libmi_path"
 			AC_CHECK_LIB([mi],
 						[MIVarDelete],
 						[AC_SUBST([mi_libs], ["-lmi"])],
@@ -410,6 +436,7 @@ if test "x$zmqnet_mode" = xyes; then
 	fi
 fi
 
+
 #####################################################################
 ### Check for typedefs, structures, and compiler characteristics. ###
 #####################################################################
@@ -478,6 +505,7 @@ AM_CONDITIONAL([CRAY], [test "x$with_cray" != xno])
 dnl DbgSrv proto conds
 AM_CONDITIONAL([MRNET], [test "x$mrnet_mode" != xno])
 AM_CONDITIONAL([ZMQNET], [test "x$zmqnet_mode" != xno])
+AM_CONDITIONAL([PYTHON], [test "x$python_mode" != xno])
 AM_CONDITIONAL([DOCTEST], [test "x$doctest_mode" != xno])
 
 ################

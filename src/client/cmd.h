@@ -39,26 +39,27 @@
 /*
 ** Global Init command functions defined elsewhere
 */
-extern void InitCmd_assign(void);
-extern void InitCmd_blockmap(void);
-extern void InitCmd_break(void);
-extern void InitCmd_checkpoint(void);
-extern void InitCmd_comp(void);
-extern void InitCmd_env(void);
-extern void InitCmd_iostat(void);
-extern void InitCmd_frame(void);
-extern void InitCmd_func(void);
-extern void InitCmd_go(void);
-extern void InitCmd_script(void);
-extern void InitCmd_list(void);
-extern void InitCmd_passthru(void);
-extern void InitCmd_print(void);
-extern void InitCmd_proc(void);
-extern void InitCmd_procset(void);
-extern void InitCmd_source(void);
+extern void InitCmd_assign();
+extern void InitCmd_blockmap();
+extern void InitCmd_break();
+extern void InitCmd_checkpoint();
+extern void InitCmd_comp();
+extern void InitCmd_env();
+extern void InitCmd_iostat();
+extern void InitCmd_frame();
+extern void InitCmd_func();
+extern void InitCmd_go();
+extern void InitCmd_script();
+extern void InitCmd_list();
+extern void InitCmd_passthru();
+extern void InitCmd_print();
+extern void InitCmd_proc();
+extern void InitCmd_procset();
+extern void InitCmd_python();
+extern void InitCmd_source();
 extern void InitCmd_thread();
-extern void InitCmd_step(void);
-extern void InitCmd_whatis(void);
+extern void InitCmd_step();
+extern void InitCmd_whatis();
 
 void FinishCmd_blockmap();
 void FinishCmd_graph();
@@ -67,7 +68,7 @@ void FinishCmd_graph();
  * External command init funcs
  */
 extern void InitCommands();
-extern void DestroyCommands(void);
+extern void DestroyCommands();
 
 /*
 ** Function prototypes

@@ -126,3 +126,6 @@ char *ArgsToBuf(const char * const * argv, int argc);
 
 // returns arguments separated by spaces as a string
 std::string ArgsToString(const char * const * argv, int argc);
+
+// simply append with spaces without adding and quote or quote escapes
+std::string ArgsToStringUnquoted(const char * const * argv, int argc);

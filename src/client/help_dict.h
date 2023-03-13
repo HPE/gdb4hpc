@@ -49,6 +49,7 @@ extern const char* const cmd_ompd_help[];
 extern const char* const cmd_pipe_help[];
 extern const char* const cmd_print_help[];
 extern const char* const cmd_ptype_help[];
+extern const char* const cmd_python_help[];
 extern const char* const cmd_quit_help[];
 extern const char* const cmd_release_help[];
 extern const char* const cmd_restart_help[];

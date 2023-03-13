@@ -145,6 +145,14 @@ std::string ArgsToString(const char * const * argv, int argc) {
     return ArgvStream(argc, argv).asString(0, argc);
 }
 
+std::string ArgsToStringUnquoted(const char * const * argv, int argc) {
+    auto os = std::ostringstream{};
+    for (int i=0; i<argc; ++i) {
+        os << (i ? " " : "") << argv[i];
+    }
+    return os.str();
+}
+
 const std::vector<const char *> ArgvStream::c_strs(size_t start) const {
     std::vector<const char *> c_strs;
     std::transform(m_argv.begin() + start, m_argv.end(), 
@@ -208,4 +216,3 @@ std::string ArgvStream::asString(size_t start, size_t stop_after, char delim) co
 
     return ss.str();
 }
-

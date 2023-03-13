@@ -1159,6 +1159,7 @@ std::shared_ptr<ais::VStream> makeBinaryOpStream(
 
 ais::Formatter& operator<<(std::ostream& s, ais::Formatter& f);
 
+
 template <class T>
 std::ostream& operator<<(ais::Formatter& f, T val) {
     switch (f.form) {

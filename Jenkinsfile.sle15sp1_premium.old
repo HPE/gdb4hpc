@@ -17,4 +17,5 @@ sle15sp1PE {
     timeout = 60
     product = "pe-base"
     receiveEvent = ["cti-sles15sp1-complete-master"]
+    agent = "gcp-x86_64"
 }

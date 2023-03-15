@@ -352,8 +352,37 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
     auto output = ZMQNetNetwork::OutputPtr(DbgCreateGenericProgOutp(), DbgFreeGenericProgOutp);
 
     auto launcherArgs = ArgvStream("-n", di->numRanks(), arch_args, prog, argv);
-    di->setAppId(cti_launchAppBarrier(launcherArgs.c_strs().data(), output->p_o_wfd,
+
+    // Print an informational message that launch is still pending if WLM hasn't
+    // launched job within a few seconds.
+    { auto waitCv = std::condition_variable{};
+        auto waitMtx = std::mutex{};
+        auto applicationLaunched = false;
+        auto waitFuture = std::async(std::launch::async,
+            [&waitCv, &waitMtx, &applicationLaunched] {
+
+            // Wait before printing message
+            auto lock = std::unique_lock<std::mutex>{waitMtx};
+            if (!waitCv.wait_for(lock, std::chrono::seconds{10}, [&applicationLaunched] {
+                return applicationLaunched; })) {
+
+                PrintOutMsg("Job was submitted, but launch is still pending.\n"
+                    "  Check your workload manager queue for schedule or resource conflicts.\n"
+                    "  GDB4hpc will continue to wait.\n");
+            }
+        });
+
+        di->setAppId(cti_launchAppBarrier(launcherArgs.c_strs().data(), output->p_o_wfd,
                                       output->p_o_wfd, arch_input, cwd, env));
+
+        // Notify the message thread that launch has completed and that it can exit its wait
+        { auto guard = std::lock_guard<std::mutex>{waitMtx};
+            applicationLaunched = true;
+        }
+        waitCv.notify_all();
+        waitFuture.get();
+    }
+
     if (di->appId() == 0) {
         PrintOutError("Failed to launch CTI app.\n");
         PrintOutError("CTI error: %s\n", cti_error_str());

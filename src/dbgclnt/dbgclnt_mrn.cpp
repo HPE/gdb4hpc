@@ -33,6 +33,8 @@
 #include <initializer_list>
 #include <fstream>
 #include <filesystem>
+#include <future>
+#include <condition_variable>
 
 #include "dbg_client.h"
 #include "dbg_mrn_network.h"
@@ -835,10 +837,38 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
 
     DPERFLOG(SetTimerStart("application launch"));
 
-    // launch the application using the tool interface
-    // Note that the prog_outp is the WRITE END OF THE PIPE!!!!
-    di->setAppId(cti_launchAppBarrier(app_argv.c_strs().data(), prog_outp, prog_outp,
-                                      arch_input, cwd, (const char* const*)env));
+    // Print an informational message that launch is still pending if WLM hasn't
+    // launched job within a few seconds.
+    { auto waitCv = std::condition_variable{};
+        auto waitMtx = std::mutex{};
+        auto applicationLaunched = false;
+        auto waitFuture = std::async(std::launch::async,
+            [&waitCv, &waitMtx, &applicationLaunched] {
+
+            // Wait before printing message
+            auto lock = std::unique_lock<std::mutex>{waitMtx};
+            if (!waitCv.wait_for(lock, std::chrono::seconds{10}, [&applicationLaunched] {
+                return applicationLaunched; })) {
+
+                PrintOutMsg("Job was submitted, but launch is still pending.\n"
+                    "  Check your workload manager queue for schedule or resource conflicts.\n"
+                    "  GDB4hpc will continue to wait.\n");
+            }
+        });
+
+        // launch the application using the tool interface
+        // Note that the prog_outp is the WRITE END OF THE PIPE!!!!
+        di->setAppId(cti_launchAppBarrier(app_argv.c_strs().data(), prog_outp, prog_outp,
+                                          arch_input, cwd, (const char* const*)env));
+
+        // Notify the message thread that launch has completed and that it can exit its wait
+        { auto guard = std::lock_guard<std::mutex>{waitMtx};
+            applicationLaunched = true;
+        }
+        waitCv.notify_all();
+        waitFuture.get();
+    }
+
     if (di->appId() == 0) {
         int n = 0, r;
         char *read_buf;
@@ -874,6 +904,7 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
     }
 
     DPERFLOG(SetTimerStopAndLog("application launch"));
+    PrintOutMsg("Launched application...\n");
 
     // ship over the binaries to the compute nodes
 

@@ -1,6 +1,5 @@
 16: maint set sync on
-18: # launch 3 instances of the application
-19: launch $a{3}   bin/CRAY/c/c_type_test.x
+19: launch $a{1} bin/CRAY/c/c_type_test.x --gdb=./tmp/custom_gdb:$$GDB4HPC_INSTALL_DIR$$/share/gdb???
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -10,7 +9,7 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [6];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
+a{0}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
 21: # Test gdbmode and that things are reset upon entering/exiting gdb
 23: set print elements 5
 25: gdbmode
@@ -47,11 +46,14 @@ Ending gdb pass-thru mode. If program location has changed (i.e. continue) debug
 33: show print elements
 Limit on string chars or array elements to print is 5.
 33: b 228
-a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c, line 228.
+a{0}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c, line 228.
 13: c
-a{0..2}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:228
+a{0}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:228
 14: gdb x/4xb char_ptr_test_1
-a{0..2}: 0x200aec:	0x31	0x32	0x33	0x34
+a{0}: 0x200aec:	0x31	0x32	0x33	0x34
+14: # verify --gdb argument from the launch
+14: gdb python print(open(\"/proc/self/cmdline\", \"rb\").read())
+a{0}: %.*/tmp/custom_gdb.*%
 15: #exit lgdb
 16: q
 Shutting down debugger and killing application for 'a'.

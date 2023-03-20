@@ -18,6 +18,8 @@
 #include "mi_funcs.h"
 #include "dbgclnt_settings.h"
 
+#include <map>
+
 enum class PendingBrkType {
     Auto,
     On,
@@ -27,35 +29,35 @@ enum class PendingBrkType {
 // This is the global settings object definition
 // All settings should go here. If you find any that are missing, add them!
 struct clnt_settings : public ClientSettingsInterface {
-    int confirm;                /* Confirm dangerous commands */
-    int quit;                   /* Quit the debugger? */
-    int interactive;            /* Interactive mode? */
-    int silent;                 /* Print banner? */
-    bool echo;                  /* Echo each command in batch mode? */
-    bool keep_going;            /* Ignore errors in batch mode? */
-    int unsafe;                 // Attempt to work with a non-mpi application
-    int early_entry;            // Start debugging before continuing to an entry breakpoint
-    int non_stop;               // Launch applications in non stop mode
-    int print_entry_frame;      /* Print frame locations at startup? */
-    bool print_bp_frames;       /* Print breakpoint frames as they are hit? */
-    int print_source_on_step;   /* Print line after each step? */
-    int print_elements;         /* Number of elements to print in arrays or char * strings */
-    bool print_pretty;          // print indented structures
-    int sync_wait;              /* Treat asynchronous cmds as sync? */
-    int sync_blocked;           /* Current blocked on async cmd? */
-    const char* proto;          /* Default debugger protocol */
-    const char* arch;           /* Default starter achitecture */
-    const char* backend;        /* Default debug backend*/
-    cli_type_t cli_mode;        /* CLI mode */
-    // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
-    cli_out_t* cli_out;         /* output stream-like object */
+    int confirm;                                   /* Confirm dangerous commands */
+    int quit;                                      /* Quit the debugger? */
+    int interactive;                               /* Interactive mode? */
+    int silent;                                    /* Print banner? */
+    bool echo;                                     /* Echo each command in batch mode? */
+    bool keep_going;                               /* Ignore errors in batch mode? */
+    int unsafe;                                    // Attempt to work with a non-mpi application
+    int early_entry;                               // Start debugging before continuing to an entry breakpoint
+    int non_stop;                                  // Launch applications in non stop mode
+    int print_entry_frame;                         /* Print frame locations at startup? */
+    bool print_bp_frames;                          /* Print breakpoint frames as they are hit? */
+    int print_source_on_step;                      /* Print line after each step? */
+    int print_elements;                            /* Number of elements to print in arrays or char * strings */
+    bool print_pretty;                             // print indented structures
+    int sync_wait;                                 /* Treat asynchronous cmds as sync? */
+    int sync_blocked;                              /* Current blocked on async cmd? */
+    const char* proto;                             /* Default debugger protocol */
+    const char* arch;                              /* Default starter achitecture */
+    const char* backend;                           /* Default debug backend*/
+    cli_type_t cli_mode;                           /* CLI mode */
+                                                   // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
+    cli_out_t* cli_out;                            /* output stream-like object */
     FILE* cli_fpprog;
-    int XML_mode;               /* XML output mode */
-    bool MI_mode;                /* MI output mode */
-    list_t* set_env_list;       /* Env vars from set env cmd */
-    double cmp_lower_eps;         /* Lower eps limit */
-    double cmp_upper_eps;         /* upper eps limit */
-    PendingBrkType brk_pending; /* pending breakpoint mode */
+    int XML_mode;                                  /* XML output mode */
+    bool MI_mode;                                  /* MI output mode */
+    std::map<std::string, std::string> launch_env; /* Env vars applied to future job launches, modified by the set env cmd */
+    double cmp_lower_eps;                          /* Lower eps limit */
+    double cmp_upper_eps;                          /* upper eps limit */
+    PendingBrkType brk_pending;                    /* pending breakpoint mode */
 
     // methods for ClientSettingsInterface base class
     std::string getProto() override { return proto; }

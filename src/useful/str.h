@@ -59,7 +59,7 @@ T* skipstring(T* res_buf) {
     return res_buf;
 }
 
-char *StripQuotes(char *);
+std::string StripQuotes(const std::string_view& input);
 
 template <typename T>
 T* SkipTo(T* str, char c) {

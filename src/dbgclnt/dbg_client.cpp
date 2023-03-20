@@ -1531,6 +1531,8 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, DbgInvoke::LaunchOpts&&
     // checks on the a.out
 
     // The frontend debug presence can fail silently
+    // FIXME: This will fail if using --gdb=/path/to/gdb:/path/to/datadir form.
+    // See PE-46911
     const auto& gdbPath = args.gdb_path;
     di->instantiateFrontendGdb(args.backend_name.c_str(),
                                gdbPath.empty() ? nullptr : gdbPath.c_str());
@@ -1543,7 +1545,6 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, DbgInvoke::LaunchOpts&&
         if (e->ev_event == DBGEV_ERROR) {
             // We want to tear down the frontend since it has no way of reading
             // symbols since loading the binary failed.
-            FreeEvent(e);
             di->instantiateFrontendGdb(nullptr, nullptr);
         }
 

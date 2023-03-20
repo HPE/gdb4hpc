@@ -157,7 +157,10 @@ def compare_lines(ref_line, out_line):
         print('compare "%s" and "%s"' % (ref_line, out_line))
     percents = ref_line.count('%')
     if percents != 0 and percents & 1 == 0:
-        return re.match(make_regex(ref_line), out_line) != None
+        ref_line_regex = make_regex(ref_line)
+        if verbose:
+            print(f"\"{ref_line}\" -> r\"{ref_line_regex}\"")
+        return re.match(ref_line_regex, out_line) != None
     else:
         return ref_line == out_line
 
@@ -170,6 +173,8 @@ def compare_batch_lines(ref_line, out_line):
     if indeterminate:
         return None
 
+    # XXX: no make_regex here like in compare_lines because fortran uses % for struct
+    # member access, so % might be in the batch line and we can't assume it's a regex.
     if not ref_batch_line == out_line:
         return "batch lines do not match"
 
@@ -246,6 +251,9 @@ def compare_files(ref_file_path, out_file_path):
                 # until "Launch complete." or another command (checked above)
                 if outline == "Launch complete.":
                     launching = False
+                    indeterminate = False # XXX: next_ref_line would skip "Launch
+                                          #      complete." line otherwise
+
                     # fast forward ref file until it catches up
                     refline = next_ref_line(ref)
                     while refline is not None and refline != "Launch complete.":
@@ -387,6 +395,20 @@ class TestLibTest(unittest.TestCase):
         self.assertTrue(len(suppressedCheck) == 1, len(suppressedCheck))
         result, error = compare_files(packed_in, packed_out)
         self.assertTrue(len(suppressedCheck) == 0)
+
+    def test_regex(self):
+        # test that %% regex notation is applied
+        dot_in = "./tests.py.data/unit/regex.in"
+        dot_out = "./tests.py.data/unit/regex.out"
+        result, error = compare_files(dot_in, dot_out)
+        self.assertTrue(result, error)
+
+    def test_indeterminate_launch_line(self):
+        # test that "launch ...???" is supported
+        dot_in = "./tests.py.data/unit/indeterminate_launch.in"
+        dot_out = "./tests.py.data/unit/indeterminate_launch.out"
+        result, error = compare_files(dot_in, dot_out)
+        self.assertTrue(result, error)
 
     REGRESSION_PREFIX = "./tests.py.data/unit/regression"
 

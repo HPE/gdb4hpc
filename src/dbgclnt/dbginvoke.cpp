@@ -310,6 +310,50 @@ TEST_CASE("DbgInvoke: launch args enforceValid replaces relative paths with full
     }
 }
 
+TEST_CASE("DbgInvoke: LaunchArgs --gdb=/path/to/gdb:/path/to/datadir") {
+    if (auto fs = MockFs::make()) {
+        const char* const argv[] = {
+            "launch", "$a{1}", "./mockfs/unittest_binary",
+            "--gdb=./mockfs/unittest_gdb:./mockfs",
+        };
+        auto csi = MockClientSettings();
+        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+        using path = std::filesystem::path;
+        auto cwd = std::filesystem::current_path();
+        REQUIRE(std::filesystem::exists(cwd / path{"mockfs"}));
+
+        REQUIRE_NOTHROW(opts.enforceValid());
+
+        // something like /path/to/mockfs/unittest_gdb:/path/to/mockfs
+        auto full_paths = std::string{cwd} + "/mockfs/unittest_gdb:" + std::string{cwd} + "/mockfs";
+        CHECK(opts.gdb_path == full_paths);
+    } else {
+        WARN_MESSAGE(false, "Failed to create mockfs");
+    }
+}
+
+TEST_CASE("DbgInvoke: LaunchArgs --gdb=/path/to/gdb: edge case") {
+    if (auto fs = MockFs::make()) {
+        const char* const argv[] = {
+            "launch", "$a{1}", "./mockfs/unittest_binary",
+            "--gdb=./mockfs/unittest_gdb:",
+        };
+        auto csi = MockClientSettings();
+        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+        using path = std::filesystem::path;
+        auto cwd = std::filesystem::current_path();
+        REQUIRE(std::filesystem::exists(cwd / path{"mockfs"}));
+
+        REQUIRE_NOTHROW(opts.enforceValid());
+
+        // colon is removed
+        CHECK(opts.gdb_path == std::string{cwd} + "/mockfs/unittest_gdb");
+    } else {
+        WARN_MESSAGE(false, "Failed to create mockfs");
+    }
+}
 
 // Public API for accessing dbginvoke table
 
@@ -850,19 +894,47 @@ void DbgInvoke::LaunchOpts::enforceValid() {
     }
 
     if (!gdb_path.empty()) {
-        namespace fs = std::filesystem;
-        if (auto p = pathFind(gdb_path.c_str(), nullptr)) {
+        // the user can specify this option as --gdb=/path/to/gdb:/path/to/gdb/datadir or
+        // just --gdb=/path/to/gdb
+        auto colon_idx = gdb_path.find(":");
+
+        auto gdb_binary = gdb_path.substr(0, colon_idx);
+        auto data_dir = std::string{""};
+        if (colon_idx != std::string::npos) {
+            data_dir = gdb_path.substr(colon_idx + 1);
+        }
+
+        // check gdb path
+        if (auto p = pathFind(gdb_binary.c_str(), nullptr)) {
+            namespace fs = std::filesystem;
             // make sure p is cleaned up in case fs:canonical throws
             auto p_str = std::string{p};
             free(p);
-            gdb_path = fs::canonical(p_str);
-            canonFile(gdb_path);
+            gdb_binary = fs::canonical(p_str);
+            canonFile(gdb_binary);
         } else {
             using namespace std::string_literals;
             throw std::runtime_error(
                 "Could not find --gdb provided ("s + gdb_path + ") in PATH."
             );
         }
+
+        // check datadir path if present
+        if (!data_dir.empty()) {
+            // throws if data_dir doesn't exist
+            auto canon_data_dir = fs::canonical(data_dir);
+            auto status = fs::status(canon_data_dir); // follows links
+            if (!fs::is_directory(status)) {
+                throw std::runtime_error(
+                    canon_data_dir.string() + " is not a directory, it " + fTypeStr(status.type())
+                );
+            }
+            data_dir = canon_data_dir;
+        }
+
+        // compose full path string
+        gdb_path = gdb_binary;
+        if (!data_dir.empty()) gdb_path += ":" + data_dir;
     }
 }
 

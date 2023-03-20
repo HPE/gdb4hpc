@@ -1,0 +1,15 @@
+1: maint set sync on
+1: launch $a{2} ./bin/CRAY/C++/cpp_attach.x --sbatch=./tmp/sbatch.sh
+Launch complete.
+a{0..1}: Initial breakpoint, main at /src/C++/cpp_attach.cpp:6
+4: # get back to main
+4: break cpp_attach.cpp:15
+a{0..1}: Breakpoint 1: file /src/C++/cpp_attach.cpp, line 15.
+16: c
+a{0..1}: Breakpoint 1, main(int, char**) at /src/C++/cpp_attach.cpp:15
+16: # change argc, which will break us out of the loop, ending the job quickly when we release it
+16: assign argc 999
+17: p argc
+a{0..3}: 999
+2: q
+Shutting down debugger and resuming application for 'a'.

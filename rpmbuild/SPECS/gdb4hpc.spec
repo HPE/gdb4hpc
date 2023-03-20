@@ -412,73 +412,71 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_cmp_diff.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_cmp_diff.f90
 %{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_decomp.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_decomp.f90
 
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_scalars.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_expressions.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_arrays.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_arrays.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_decomp.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_decomp.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_deadlock.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_deadlock.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_interrupted.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_interrupted.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_errors.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_errors.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_stopstart.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_stopstart.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_twice.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_twice.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_invalidated.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_invalidated.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_assign.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_assign.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_breakpoint.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_breakpoint.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_scalars.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_expressions.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_arrays.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_arrays.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_decomp.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_decomp.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_deadlock.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_deadlock.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_interrupted.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_interrupted.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_errors.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_errors.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_stopstart.in     ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_stopstart.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_twice.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_twice.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_invalidated.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_invalidated.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_assign.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_assign.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_breakpoint.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_breakpoint.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_breakpoint_pending.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_breakpoint_pending.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_checkpoint0.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint0.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_checkpoint1.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint1.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_checkpoint2.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint2.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_cmp_false.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_cmp_false.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_cmp_true.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_cmp_true.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_commnode_fanout.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_commnode_fanout.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_defset.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_defset.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_finish.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_finish.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_focus.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_focus.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_frame.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_frame.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_gdbmode.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_gdbmode.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_help.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_help.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_half_exit.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_half_exit.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_info.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_info.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_kill.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_kill.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_list.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_list.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_next.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_next.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_arrays_compare.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_compare.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_arrays_print.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_print.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_bt.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_bt.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_catch.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_catch.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_decomp2.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_decomp2.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_decomp.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_decomp.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_thread_funcs.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_thread_funcs.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_thread_focus.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_thread_focus.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_attach.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_attach.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_print.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_print.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_release.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_release.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_run.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_run.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_set_unset.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_set_unset.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_show.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_show.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_sizeof.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_sizeof.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_step.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_step.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_up_down.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_up_down.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_viewset.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_viewset.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_whatis.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_whatis.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_segv.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_segv.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_arrays.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_arrays.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_decomp.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_decomp.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_ds1.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_ds1.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_t1.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t1.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_t2.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t2.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_t3.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t3.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t1.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t1.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t2.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t2.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t3.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t3.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/rocmGpu.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocmGpu.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cudaGpu.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
-#%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_openacc_t1.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_openacc_t1.in
-#%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_upc_t1.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_upc_t1.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/qsub.template ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/rocm/pinoak-login1.sh ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda/pegasus.sh       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pegasus.sh
-
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_checkpoint0.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint0.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_checkpoint1.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint1.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_checkpoint2.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint2.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_cmp_false.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_cmp_false.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_cmp_true.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_cmp_true.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_commnode_fanout.in    ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_commnode_fanout.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_defset.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_defset.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_finish.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_finish.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_focus.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_focus.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_frame.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_frame.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_gdbmode.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_gdbmode.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_help.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_help.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_half_exit.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_half_exit.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_info.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_info.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_kill.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_kill.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_list.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_list.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_next.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_next.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_arrays_compare.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_compare.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_arrays_print.in     ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_print.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_bt.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_bt.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_catch.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_catch.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_decomp2.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_decomp2.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_decomp.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_decomp.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_thread_funcs.in     ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_thread_funcs.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_thread_focus.in     ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_thread_focus.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_attach.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_attach.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_print.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_print.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_release.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_release.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_run.in                ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_run.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_set_unset.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_set_unset.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_show.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_show.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_sizeof.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_sizeof.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_step.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_step.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_up_down.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_up_down.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_viewset.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_viewset.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_whatis.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_whatis.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_segv.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_segv.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_arrays.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_arrays.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_decomp.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_decomp.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_ds1.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_ds1.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_t1.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t1.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_t2.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t2.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_t3.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t3.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t1.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t1.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t2.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t2.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t3.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t3.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/sbatch.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/sbatch.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/rocmGpu.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocmGpu.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cudaGpu.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/qsub.template           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/rocm/pinoak-login1.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda/pegasus.sh         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pegasus.sh
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %{__cp} -a %{tests_source_dir}/function/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
@@ -513,13 +511,11 @@ else
         ${RPM_INSTALL_PREFIX}/%{set_default_path}/%{set_default_command}_%{cray_name}_%{pkgversion}
     fi
 
-    # Don't want to set LD_LIBRARY_PATH or GDB4HPC_INSTALL_DIR if we are not relocating since rpath was set properly
+    # Don't want to set LD_LIBRARY_PATH if we are not relocating since rpath was set properly
     # tcl module
     %{__sed} -i "/^[[:space:]]*prepend-path[[:space:]]*LD_LIBRARY_PATH.*/d" ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/%{pkgversion}
-    %{__sed} -i "/^[[:space:]]*setenv[[:space:]]*GDB4HPC_INSTALL_DIR.*/d" ${RPM_INSTALL_PREFIX}/modulefiles/%{modulefile_name}/%{pkgversion}
     # lua module
     %{__sed} -i "/^prepend-path[[:space:]]*LD_LIBRARY_PATH.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
-    %{__sed} -i "/^setenv[[:space:]]*GDB4HPC_INSTALL_DIR.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 fi
 %{__gzip} -d -k -f ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
 
@@ -834,6 +830,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t1.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t2.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t3.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/sbatch.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocmGpu.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template

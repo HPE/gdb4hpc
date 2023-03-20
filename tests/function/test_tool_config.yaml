@@ -38,9 +38,11 @@ test:
 
 # launcher config
 launch:
-  # launcher args are defined per test in gdb4hpc
+  # use arguments without spaces to make automatic batch script creation easy.
+  # for example, use "--time=5:00" instead of "-t 5:00".
+  # rank/node count args are defined per test in gdb4hpc, so avoid -n and -N here.
   args:
-    slurm: "--exclusive -t 5:00"
+    slurm: "--exclusive --time=5:00"
     alps: ""
     ssh: ""
     aprun: ""
@@ -57,7 +59,7 @@ meta:
 horizon-aarch:
   launch:
     args:
-      slurm: "-p aarch --exclusive -t 5:00"
+      slurm: "--partition=aarch --exclusive --time=5:00"
     environment:
       GDB4HPC_STARTUP_TIMEOUT: "120"
 
@@ -69,10 +71,10 @@ kay:
 pinoak-login1:
   launch:
     args:
-      slurm: "--exclusive -t 5:00"
+      slurm: "--exclusive --time=5:00 --partition=allnodes"
 
 pegasus:
   launch:
     args:
       # Multi-node MPI launches break if they include node007 or node008
-      slurm: "--exclusive --exclude=node007,node008 -t 5:00"
+      slurm: "--exclusive --exclude=node007,node008 --time=5:00"

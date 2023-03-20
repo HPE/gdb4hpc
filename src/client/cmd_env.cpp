@@ -30,138 +30,57 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_set_environment_cmd(rec_set_t *rec_set, int argc,
-                                            char **argv) {
-    int putenv_str_size;
-    char *putenv_str;
-    char *str;
-    char *name;
-    char *value;
-
+static int cmd_set_environment_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (argc != 3) {
         PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: set environment name value\n");
+        PrintOutError("Expected: set environment <key> <value>\n");
         return 0;
     }
 
-    name = StripQuotes(strdup(argv[1]));
-    value = StripQuotes(strdup(argv[2]));
-
-    // we need to ensure that the name is not already set in the list
-
-    SetList(Client.set_env_list);
-
-    // loop through the list
-    while ((str = (char *)GetListElement(Client.set_env_list)) !=
-           (char *)NULL) {
-        // compare only the number of chars in the name, this should get us up
-        // to the "=" part
-        if (!strncmp(str, name, strlen(name))) {
-            // name found, so lets remove the old value
-            RemoveFromList(Client.set_env_list, (void *)str);
-            Free(str);
-            break;
-        }
-    }
-
-    // need 2 extra chars for "=" and null terminator
-    putenv_str_size = strlen(name) + strlen(value) + 2;
-
-    putenv_str = (char *)Alloc(putenv_str_size);
-
-    // snprintf the new string
-    snprintf(putenv_str, putenv_str_size, "%s=%s", name, value);
-
-    // add it to the set_env_list
-    AddToList(Client.set_env_list, (void *)putenv_str);
+    auto key = StripQuotes(argv[1]);
+    auto value = StripQuotes(argv[2]);
+    Client.launch_env.insert(std::make_pair(key, value));
 
     return 1;
 }
 
-static int cmd_unset_environment_cmd(rec_set_t *rec_set, int argc,
-                                              char **argv) {
-    char *str;
-    char *name;
-
-    // ensure that there are entries in the list
-    if (SizeOfList(Client.set_env_list) < 1) {
-        PrintOutError("There are no environment variables set.\n");
-        return 1;
-    }
-
-    // ensure the user gave us a single name
+static int cmd_unset_environment_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (argc != 2) {
         PrintOutError("Incorrect number of command arguments.\n");
-        PrintOutError("Expected: unset environment name\n");
+        PrintOutError("Expected: unset environment <key>\n");
         return 0;
     }
 
-    SetList(Client.set_env_list);
+    auto key = StripQuotes(argv[1]);
 
-    // this points to the name the user provided
-    name = argv[1];
-
-    // loop through the list
-    while ((str = (char *)GetListElement(Client.set_env_list)) !=
-           (char *)NULL) {
-        // compare only the number of chars in the name, this should get us up
-        // to the "=" part
-        if (!strncmp(str, name, strlen(name))) {
-            RemoveFromList(Client.set_env_list, (void *)str);
-            Free(str);
-            // return here so that we can do error handling below
-            return 1;
-        }
+    if (auto it = Client.launch_env.find(key); it != Client.launch_env.end()) {
+        Client.launch_env.erase(it);
+    } else {
+        // variable name not found, so lets print out an error
+        PrintOutError("Environment variable \"%s\" not set.\n", key.c_str());
     }
-
-    // variable name not found, so lets print out an error
-    PrintOutError("Environment variable \"%s\" not set.\n", name);
 
     return 1;
 }
 
-static int cmd_show_environment_cmd(rec_set_t *rec_set, int argc,
-                                             char **argv) {
-    char *str;
-    char *name;
-
-    // ensure that there are entries in the list
-    if (SizeOfList(Client.set_env_list) < 1) {
-        PrintOutError("There are no environment variables set.\n");
-        return 1;
-    }
-
-    SetList(Client.set_env_list);
-
+static int cmd_show_environment_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // if the user didn't provide an argument, print out the entire list
     if (argc < 2) {
-        // loop through the list
-        while ((str = (char *)GetListElement(Client.set_env_list)) !=
-               (char *)NULL) {
-            PrintOutMsg("%s\n", str);
+        for (const auto& [key, value] : Client.launch_env ) {
+            PrintOutMsg("%s=%s\n", key.c_str(), value.c_str());
         }
         return 1;
     }
 
     // argument was provided, so lets try to print it out
+    auto key = StripQuotes(argv[1]);
 
-    // this points to the name the user provided
-    name = argv[1];
-
-    // loop through the list
-    while ((str = (char *)GetListElement(Client.set_env_list)) !=
-           (char *)NULL) {
-        // compare only the number of chars in the name, this should get us up
-        // to the "=" part
-        if (!strncmp(str, name, strlen(name))) {
-            PrintOutMsg("%s\n", str);
-            // we return here so that we can do error handling below
-            return 1;
-        }
+    if (auto it = Client.launch_env.find(key); it != Client.launch_env.end()) {
+        PrintOutMsg("%s=%s\n", it->first.c_str(), it->second.c_str());
+    } else {
+        // variable name not found, so lets print out an error
+        PrintOutError("Environment variable \"%s\" not set.\n", key.c_str());
     }
-
-    // variable name not found, so lets print out an error
-    PrintOutError("Environment variable \"%s\" not set.\n", name);
 
     return 1;
 }

@@ -1,0 +1,2 @@
+1: launch $a{3} bin/CRAY/c/c_type_test.x --gdb=./bin/custom_gdb:/usr/share/gdb
+a{0..2}: The result of the command is: 1997.5

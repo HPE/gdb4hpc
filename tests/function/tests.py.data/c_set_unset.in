@@ -1,18 +1,31 @@
 16: maint set sync on
-19: launch $a{3}   bin/CRAY/c/c_type_test.x
-Starting application, please wait...
-Launch complete.
-a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
-21: #set env var
 22: set environment CRAY_ENV_TEST "TRUE"
-24: #has set env var worked?
 25: show environment
 CRAY_ENV_TEST=TRUE
-27: #test unset environment command
+19: launch $a{1} bin/CRAY/c/c_type_test.x --env=FOO=bar -e ZIG=zag
+Starting application, please wait...
+Launch complete.
+a{0}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
+28: gdb p (char*) getenv(\"FOO\")
+a{0}: $1 = 0xffffffff "bar"
+28: gdb p (char*) getenv(\"ZIG\")
+a{0}: $2 = 0xffffffff "zag"
+28: gdb p (char*) getenv(\"CRAY_ENV_TEST\")
+a{0}: $3 = 0xffffffff "TRUE"
 28: unset environment CRAY_ENV_TEST
-30: #has unset var worked?
 31: show environment
-There are no environment variables set.
-34: #exit lgdb
+19: launch $b{1} bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+Launch complete.
+b{0}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
+20: focus $b
+28: gdb p (char*) getenv(\"FOO\")
+b{0}: $1 = 0x0
+28: gdb p (char*) getenv(\"ZIG\")
+b{0}: $2 = 0x0
+28: gdb p (char*) getenv(\"CRAY_ENV_TEST\")
+b{0}: $3 = 0x0
+35: focus $all
 35: q
 Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

@@ -212,13 +212,10 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
     if (!ps) return exitWithFailure();
 
     // if the user has set any environment variables via the set env command, add them
-    if (SizeOfList(Client.set_env_list) > 1) {
-        SetList(Client.set_env_list);
-
-        char* env_str;
-        while ((env_str = (char *)GetListElement(Client.set_env_list)) != nullptr) {
-            args.env << env_str;
-        }
+    for (const auto& [key, value] : Client.launch_env) {
+        // args.env << key << "=" << value would be wrong,
+        // ArgvStream expects a single string per << operation.
+        args.env << (key + "=" + value);
     }
 
     // set below depending on launch strategy
@@ -241,6 +238,8 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
                         ? "(have " + std::string(wlm_name) + ")"
                         : "(failed to detect WLM)");
             }
+
+            PrintOutMsg("Starting application, please wait...\n");
 
             // Submit PBS script and get PBS job ID
             auto launcherArgs = args.launcher_argv.c_strs(1);
@@ -292,6 +291,8 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
                         ? "(have " + std::string(wlm_name) + ")"
                         : "(failed to detect WLM)");
             }
+
+            PrintOutMsg("Starting application, please wait...\n");
 
             // Submit sbatch script and get Slurm job / step ID
             auto launcherArgs = args.launcher_argv.c_strs(1);

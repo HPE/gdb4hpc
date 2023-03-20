@@ -32,17 +32,25 @@
 #include "defs.h"
 #include "str.h"
 
-char *StripQuotes(char *s) {
-    char *e;
+#include "unittest_macros.h"
 
-    if (s == NULL || *s != '"') return s;
+std::string StripQuotes(const std::string_view& input) {
+    if (input.size() <= 1 || input.front() != '"' || input.back() != '"') return std::string{input};
+    return std::string{input.substr(1, input.size() - 2)};
+}
 
-    s++;
-    e = &s[strlen(s) - 1];
+TEST_CASE("StripQuotes") {
+    using namespace std::string_literals;
 
-    if (*e == '"') *e = '\0';
+    CHECK(StripQuotes("hello world") == "hello world"s);
+    CHECK(StripQuotes("\"hello quoted world\"") == "hello quoted world"s);
 
-    return s;
+    // edge cases
+    CHECK(StripQuotes("") == ""s);
+    CHECK(StripQuotes("\"") == "\""s);
+    CHECK(StripQuotes("\"\"") == ""s);
+    CHECK(StripQuotes("\"half quoted") == "\"half quoted"s);
+    CHECK(StripQuotes("other half quoted\"") == "other half quoted\""s);
 }
 
 /*

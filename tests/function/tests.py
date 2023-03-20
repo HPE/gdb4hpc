@@ -160,7 +160,7 @@ def getOut(test):
 '''
 Run the gdb4phc batch script for a test. Throws subprocess.TimeoutExpired on test timeout
 '''
-def runScript(test, substitutions = {}):
+def runScript(test, substitutions = ()):
     runfile = makeRunFile(test, substitutions)
     outfile = getOut(test)
 
@@ -203,7 +203,7 @@ def runScript(test, substitutions = {}):
 Driver for generating the gdb4hpc run script, running gdb4hpc, and comparing the output
 against the saved reference file.
 '''
-def runTest(test):
+def runTest(test, substitutions = ()):
     # Do prep for non-CRAY PrgEnv test
     if test.penv != "CRAY":
         # Load PrgEnv to ensure PrgEnv-specific libraries link correctly.
@@ -227,7 +227,7 @@ def runTest(test):
 
     # Run gdb4hpc until completion or timeout
     try:
-        runScript(test)
+        runScript(test, substitutions)
     except (subprocess.TimeoutExpired, avocado.core.exceptions.TestTimeoutInterrupted):
         if not lt.all_launches_successful(getOut(test)):
             # 90% of timeouts are caused by system problems preventing a launch
@@ -261,7 +261,6 @@ def runGpuTest(test, gpu):
     if not os.path.exists(gpuScript):
         test.cancel("No " + gpuScript + " script")
 
-    substitutions = {}
     runfile = makeRunFile(test, substitutions)
     outfile = getOut(test)
  
@@ -369,7 +368,21 @@ class FunctionTests(Gdb4hpcTest):
         
     def test_c_gdbmode(self):
         self.base_name = "c_gdbmode"
-        runTest(self)
+
+        # before running the test, copy gdb-guard to ./tmp with a different name in order
+        # to test --gdb launcher arg
+
+        gdb4_root = os.getenv("GDB4HPC_INSTALL_DIR")
+        if gdb4_root is None:
+            self.cancel("Couldn't find gdb4hpc install dir")
+
+        guard = f"{gdb4_root}/libexec/gdb-guard"
+
+        shutil.copy2(guard, "./tmp/custom_gdb")
+
+        substitutions = ( ("$$GDB4HPC_INSTALL_DIR$$", gdb4_root), )
+
+        runTest(self, substitutions)
         
     def test_c_help(self):
         self.base_name = "c_help"
@@ -759,6 +772,27 @@ class FunctionTests(Gdb4hpcTest):
 
     def test_c_run(self):
         self.base_name = "c_run"
+        runTest(self)
+
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_sbatch(self):
+        self.base_name = "sbatch"
+
+        launch_args = os.environ.get("CDST_TESTS_LAUNCHER_ARGS")
+
+        # write sbatch file
+        with open(getTmpDir() + "/sbatch.sh", "w") as batchf:
+            batchf.write("#!/bin/bash\n")
+
+            batchf.write("#SBATCH -n2\n")
+            batchf.write("#SBATCH -N2\n")
+
+            if launch_args:
+                for arg in launch_args.split():
+                    batchf.write(f"#SBATCH {arg}\n")
+
+            batchf.write("srun ./bin/CRAY/C++/cpp_attach.x 60\n")
+
         runTest(self)
 
 class c_commnode_fanout(Gdb4hpcTest):

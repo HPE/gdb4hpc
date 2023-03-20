@@ -300,8 +300,8 @@ int main(int argc, char *argv[]) {
     double ulp;
     int opt_ind = 0;
     cli_stream_args_t *cli_args = NULL;  // CLI args
-    char *in_file = NULL;
-    char *out_file = NULL;
+    auto in_file = std::string{};
+    auto out_file = std::string{};
     bool should_read_init = true; // read gdb4hpc_init?
 
     if (argc >= 2 && strcmp(argv[1], "--has-tests") == 0) {
@@ -349,7 +349,6 @@ int main(int argc, char *argv[]) {
     Client.cli_fpprog = nullptr;      // only set to override the stream setting
     Client.XML_mode = 0;              // XML output mode
     Client.MI_mode = false;               // MI output mode
-    Client.set_env_list = NewList();  // Env vars from set env cmd
     // find out the ulp for this machine
     ulp = nextafter(0.0, 0.1);
     Client.cmp_lower_eps = ulp;
@@ -380,8 +379,6 @@ int main(int argc, char *argv[]) {
                 // if this is a flag, do nothing
                 break;
             case 'b': {
-                char *stringp;
-
                 if (optarg == NULL) {
                     PrintOutError(
                         "Error: --batch provided, but missing arguments.\n");
@@ -390,9 +387,7 @@ int main(int argc, char *argv[]) {
 
                 // Set the mode and create the cli args
                 Client.cli_mode = CLI_FILE_STREAM;
-                stringp = strdup(optarg);
-                in_file = strdup(StripQuotes(stringp));
-                Free(stringp);
+                in_file = StripQuotes(optarg);
 
                 // Turn confirm off, we will not be able to call fgetc on stdin
                 // with batch. If this is needed, rework the query function
@@ -463,8 +458,6 @@ int main(int argc, char *argv[]) {
             }
 
             case 'o': {
-                char *stringp;
-
                 if (optarg == NULL) {
                     PrintOutError(
                         "Error: --output provided, but missing arguments.\n");
@@ -473,9 +466,7 @@ int main(int argc, char *argv[]) {
 
                 // Set the mode and create the cli args
                 Client.cli_mode = CLI_FILE_STREAM;
-                stringp = strdup(optarg);
-                out_file = strdup(StripQuotes(stringp));
-                Free(stringp);
+                out_file = StripQuotes(optarg);
 
                 break;
             }
@@ -511,15 +502,16 @@ int main(int argc, char *argv[]) {
     if (cli_args == NULL) {
         if (Client.cli_mode == CLI_FILE_STREAM) {
             // Ensure that there is an in_file, this is a requirement.
-            if (in_file == NULL) {
+            if (in_file.empty()) {
                 PrintOutError(
                     "Error: Cannot use --output argument without --batch "
                     "argument.\n");
                 exit(1);
             }
-            cli_args = NewCLIArgs(CLI_FILE_STREAM, in_file, out_file, out_file);
-            Free(in_file);
-            if (out_file != NULL) Free(out_file);
+            // XXX: CLI_FILE_STREAM NewCLIArgs expects nullptrs to represent "unspecified".
+            // no in_file_p here because we would have exited above if it was empty.
+            const char* out_file_p = out_file.empty() ? nullptr : out_file.c_str();
+            cli_args = NewCLIArgs(CLI_FILE_STREAM, in_file.c_str(), out_file_p, out_file_p);
         } else {
             // Use the default CLI
             // Check to see if stdin is a tty, if not set the default CLI to

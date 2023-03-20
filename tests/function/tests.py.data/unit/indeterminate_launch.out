@@ -1,0 +1,9 @@
+3: launch $a{3} bin/CRAY/c/c_type_test.x
+Starting application, please wait...
+
+Anything can go here
+
+Launch complete.
+a{0..2}: Initial breakpoint, main at /cray/css/users/chandlej/home/chandlej/gdb4hpc/45771/tests/function/src/c/c_type_test.c:58
+5: p argc
+a{0..2}: 3

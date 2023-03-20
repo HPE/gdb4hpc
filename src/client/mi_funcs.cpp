@@ -59,7 +59,8 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-stack-info-frame", "frame"},
  {"-stack-list-frames","backtrace"},
  {"-stack-list-variables", "info locals"},
- {"-thread-info", "info threads -v"},
+ {"-stack-select-frame", "select-frame"},
+ {"-thread-info", "info threads"},
  {"-thread-select", "thread" },
 };
 

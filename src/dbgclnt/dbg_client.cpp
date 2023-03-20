@@ -3530,10 +3530,10 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
 /*
 ** DBG_MOVEFRAME: Move up or down stack frames.
 */
-rep_set_t *DbgMoveFrame(rec_set_t *set, int count, int up) {
+rep_set_t *DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir dir) {
     if (!set) return nullptr;
 
-    auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, up, set->getThreads());
+    auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, int(dir), set->getThreads());
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 

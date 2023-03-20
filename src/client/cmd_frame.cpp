@@ -85,17 +85,18 @@ void PrintFrameSet(const char *setname, Bitset *group, const dbgframe_t *frame) 
 }
 
 static int movecmd(rec_set_t *rec_set, int argc, char **argv) {
-    int up = 0;
     int count = 1;
     dbgframe_t *f;
 
-    if (*argv[0] == 'u') up++;
+    DbgFrameDir dir = DbgFrameDir::DOWN;
+    if (*argv[0] == 'u') dir = DbgFrameDir::UP;
+    else if (*argv[0] == 's') dir = DbgFrameDir::ABSOLUTE;
 
     if (argc >= 2) count = atoi(argv[1]);
 
     rep_set_t *rep_set;
 
-    rep_set = DbgMoveFrame(rec_set, count, up);
+    rep_set = DbgMoveFrame(rec_set, count, dir);
 
     // process error
     ProcessErrorInRepSet(rep_set);
@@ -135,22 +136,19 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
         // we want to print them in most shallow (i.e. main) first order.
         std::vector<BTTree> frames;
 
-         std::stringstream ss;
+        std::stringstream ss;
+        int n = 0;
         
-        for (const dbgframe_t* f = EVENT_FRAME(reply->rep_event); f != nullptr; f = f->getNext()) {
+        for (const dbgframe_t* f = EVENT_FRAME(reply->rep_event); f; f = f->getNext(), ++n) {
             // deepest (farthest from main) frame will be in the front
             frames.push_back(BTTree(reply->rep_di.c_str(), reply->rep_group.get(), f));
             auto loc = f->getLoc();
 
             if(Client.MI_mode){
-                if (!ss.str().empty()){
-                    ss<<",";
-                }else{
-                    ss<<"[";
-                }
-                ss << "frame={level=\"" << f->getLevel() << "\",addr=\"" << loc.loc_addr
-                << "\",func=\"" << loc.loc_func << "\",file=\"" << loc.loc_file
-                << "\",fullname=\""<<loc.loc_file<<"\",line=\""<<loc.loc_line<<"\"}";
+                ss << (n ? "," : "[");
+                ss << "frame={level=\"" << f->getLevel() 
+                   << "\",func=\"" << loc.loc_func << "\",file=\"" << loc.loc_file
+                   << "\",fullname=\""<<loc.loc_file<<"\",line=\""<<loc.loc_line<<"\"}";
             }
         }
 
@@ -231,6 +229,8 @@ void InitCmd_frame(void) {
                "Move up one or more stack frames.");
     AddCommand("down", NULL, proc_required, 0, movecmd,
                cmd_down_help, "Move down one or more stack frames.");
+    AddCommand("select-frame", nullptr, proc_required, 0, movecmd,
+               nullptr, nullptr);
     AddCommand("backtrace", "bt", proc_required, 0,
                cmd_backtrace_cmd, cmd_backtrace_help,
                "Print backtrace of all stack frames.");

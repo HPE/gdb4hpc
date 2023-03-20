@@ -1,7 +1,7 @@
 /*********************************************************************************\
  * Thread commands.
  *
- * Copyright 2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2020-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sstream>
 #include <algorithm>
+#include <regex>
 
 #include "client.h"
 #include "useful.h"
@@ -105,6 +106,51 @@ static int cmd_taas_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return cmd_thread_cmd(rec_set, newArgs.size(), const_cast<char**>(&newArgs[0]));
 }
 
+static void PrintMIThread(const std::string& line,
+                          std::ostringstream& ss, std::string& current_thread_id) {
+
+    auto stoppedRE = std::regex{R"((\*)?\s+([-0-9]+)\s[^"]*["]([^"]*)["]\s*(\w+).*\sat\s([^:]*):(\d+))"};
+    auto runningRE = std::regex{R"((\*)?\s+([-0-9]+)\s[^"]*["]([^"]*)["]\s*\(running\))"};
+
+    std::string word;
+    std::string id="id=\"";
+    std::string target_id="target-id=\"";
+    std::string addr="addr=\"";
+    std::string func="func=\"";
+    std::string file="file=\"";
+    std::string atLine="line=\"";
+    std::string thread_state="state=\"";
+
+    auto match = std::smatch{};
+    if (std::regex_match(line, match, stoppedRE)) {
+        id += match[2];
+        target_id += match[3];
+        func += match[4];
+        file += match[5];
+        atLine += match[6];
+        if (match[1].length())
+            current_thread_id += match[2];
+        thread_state += "break";
+    } else if (std::regex_match(line, match, runningRE)) {
+        id += match[2];
+        target_id += match[3];
+        thread_state += "running";
+    } else {
+        // I hope this was the header
+        return;
+    }
+
+    if (ss.tellp() == std::streampos()) ss << "[";
+    else ss << ",";
+
+    ss << "{"<<id << "\","
+       << target_id
+       << "\",frame={" << func << "\","
+       << file << "\","
+       << atLine << "\"},"
+       << thread_state<<"\"}";
+}
+
 
 static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
@@ -121,8 +167,8 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
 
     ProcessErrorInRepSet(rep_set);
 
-    std::stringstream ss;
-    std::string current_thread_id="current_thread_id=\"";
+    std::ostringstream ss;
+    std::string current_thread_id="current-thread-id=\"";
 
     // process replies
     for (auto&& reply : rep_set) {
@@ -136,52 +182,7 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
 
         while (std::getline(is,line)) {
             if (Client.MI_mode){
-                std::istringstream line_stream(line);
-                std::string word;
-                std::string id="id=\"";
-                std::string target_id="target-id=\"";
-                std::string func="func=\"";
-                std::string file="file=";
-                std::string thread_state="state=\"";
-                line_stream >> word;
-                if (strstr( word.c_str(), "*")){
-                    if(line_stream >> word){
-                        current_thread_id.append(word);
-                        
-                    }
-                }
-                else if(strstr(word.c_str(), "Id")){
-                    continue;
-                }
-                id.append(word);
-                for (int i =0; i<4; i++){
-                    line_stream >> word;
-                    target_id.append(word);
-                    target_id.append(" ");
-                }
-
-                line_stream >> word;
-                file.append(word);
-
-                line_stream >> word;
-
-                if (!strcmp(word.c_str(), "(running)")){
-                    thread_state.append("running");
-                }else{
-                    func.append(word);
-                    thread_state.append("break");
-                }
-
-
-                if (!ss.str().empty()){
-                    ss<<",";
-                }else{
-                    ss<<"[";
-                }
-                ss << "{"<<id.data()<<"\","<<target_id
-                   << "\",frame={"<<func<<"\","
-                   << file<<"},"
-                   << thread_state<<"\"}";
+                PrintMIThread(line, ss, current_thread_id);
             } else{
                 PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
             }
@@ -192,7 +193,7 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
         }
 
         if (Client.MI_mode && !ss.str().empty()){
-            ss<<"],"<<current_thread_id.data()<<"\"";
+            ss<<"],"<<current_thread_id<<"\"";
             PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",threads=%s\n%s",handle,ss.str().c_str(),
                              GetMIEpilogue());
         }

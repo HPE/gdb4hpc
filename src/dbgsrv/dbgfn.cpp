@@ -244,9 +244,9 @@ dbgevent_t *DbgStep(int count, int in, const char* threads) {
     return DbgBackendSW->step(count, in, threads);
 }
 
-dbgevent_t *DbgMoveFrame(int count, bool up, const char* threads) {
+dbgevent_t *DbgMoveFrame(int count, DbgFrameDir dir, const char* threads) {
     DBG_READY();
-    return DbgBackendSW->moveFrame(count, up, threads);
+    return DbgBackendSW->moveFrame(count, dir, threads);
 }
 
 // If count is 0, then an unlimited number of frames should be displayed.

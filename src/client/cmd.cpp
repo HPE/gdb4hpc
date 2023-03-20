@@ -674,8 +674,6 @@ void ExecuteCommand(const char *line) {
             PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
             free(cmd);
             return;
-        }else if (cmd_str.substr(0, cmd_str.find(" ")) == "focus"){
-            PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
         }
     }
 
@@ -724,9 +722,7 @@ void ExecuteCommand(const char *line) {
     if (Client.MI_mode){
         if (strstr(cmd, "-exec-continue")){
             PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
-        } else if (strstr(cmd, "focus")){
-            PrintOutOk();
-        }
+        } 
     }
 
     // If Quit is true after executing the command, remove the input handler.

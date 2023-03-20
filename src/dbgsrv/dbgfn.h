@@ -17,6 +17,7 @@
 #define _DBGFN_H
 
 #include "dbgevent.h"
+#include "dbgcmd.h"
 
 class dbgcomm_info;
 
@@ -53,7 +54,7 @@ extern dbgevent_t *DbgGo(bool all, const char* threads);
 extern dbgevent_t *DbgFinishFunc(const char* threads);
 extern dbgevent_t *DbgSetArgs(const char *);
 extern dbgevent_t *DbgStep(int, int, const char*);
-extern dbgevent_t *DbgMoveFrame(int, bool, const char*);
+extern dbgevent_t *DbgMoveFrame(int, DbgFrameDir dir, const char*);
 extern dbgevent_t *DbgShowFrame(int, const char*);
 extern dbgevent_t *DbgGetFrame(bool, const char*);
 extern dbgevent_t *DbgSetVar(const char *, const char* val, const char* threads);

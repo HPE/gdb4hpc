@@ -1062,13 +1062,13 @@ static dbgframe_t* MakeFrameFromMIFrame(MIFrame* mi, bool keepAddr) {
 /*
 ** Move up or down count stack frames.
 */
-dbgevent_t *DbgGdbMI::moveFrame(int count, bool up, const char* threads) {
+dbgevent_t *DbgGdbMI::moveFrame(int count, DbgFrameDir dir, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
     int cur_level;
     int max_depth;
-    int frame_number;
+    int frame_number = 0;
 
     MICommand *cmd;
     MIList *mi_frame_list;
@@ -1076,7 +1076,13 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up, const char* threads) {
 
     if (threads) {
         std::ostringstream op;
-        op << threads << (up ? " up " : " down ") << count;
+        auto dirStr = "";
+        switch (dir) {
+        case DbgFrameDir::UP: dirStr = " up"; break;
+        case DbgFrameDir::DOWN: dirStr = " down"; break;
+        case DbgFrameDir::ABSOLUTE: dirStr = " select-frame"; break;
+        };
+        op << threads << dirStr << count;
         return threadEventToFrame(threadApply(op.str().c_str()));
     }
 
@@ -1119,19 +1125,27 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, bool up, const char* threads) {
     // the frame we want to select is based on an offset of the current
     // frame. We must ensure that this is between a min of 0 and a max of
     // max_depth
-    switch (up) {
-        case 0:
-            if ((frame_number = cur_level - count) < 0) {
-                EVENT_ERROR(e, DBGERR_LASTFRAME, "");
-                return e;
-            }
-            break;
+    switch (dir) {
+    case DbgFrameDir::DOWN:
+        if ((frame_number = cur_level - count) < 0) {
+            EVENT_ERROR(e, DBGERR_LASTFRAME, "");
+            return e;
+        }
+        break;
 
-        default:
-            if ((frame_number = cur_level + count) >= max_depth) {
-                EVENT_ERROR(e, DBGERR_FIRSTFRAME, "");
-                return e;
-            }
+    case DbgFrameDir::UP:
+        if ((frame_number = cur_level + count) >= max_depth) {
+            EVENT_ERROR(e, DBGERR_FIRSTFRAME, "");
+            return e;
+        }
+        break;
+
+    case DbgFrameDir::ABSOLUTE:
+        if ( (frame_number = count) >= max_depth) {
+            EVENT_ERROR(e, DBGERR_FIRSTFRAME, "");
+            return e;
+        }
+        break;
     }
 
     // now we know which frame we should select

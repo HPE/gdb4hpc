@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2012 by Monash Uni.
  *
- * Copyright 2013,2020-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013,2020-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -185,9 +185,9 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_MOVEFRAME: {
-            int count; bool up; soc::OptionalString threads;
-            is.get(count, up, threads);
-            e = DbgMoveFrame(count, up, threads);
+            int count, dir; soc::OptionalString threads;
+            is.get(count, dir, threads);
+            e = DbgMoveFrame(count, DbgFrameDir(dir), threads);
             break;
         }
 

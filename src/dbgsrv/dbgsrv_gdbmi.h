@@ -17,6 +17,7 @@
 #include <vector>
 #include <map>
 #include "dbgfn.h"
+#include "dbgcmd.h"
 #include "MI.h"
 
 class DbgGdbMI {
@@ -46,7 +47,7 @@ public:
     dbgevent_t *finishFunc(const char* threads);
     dbgevent_t *setArgs(const char *arg); // set run arguments
     dbgevent_t *step(int const, bool in, const char* threads);
-    dbgevent_t *moveFrame(int count, bool up, const char* threads);
+    dbgevent_t *moveFrame(int count, DbgFrameDir dir, const char* threads);
 
     // If count is not zero then return only that many frames. If count is zero then
     // return an unlimited number of frames. If count is negative return the

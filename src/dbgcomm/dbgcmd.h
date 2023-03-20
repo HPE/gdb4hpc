@@ -76,4 +76,6 @@ enum dbgcmd {
     DBGCMD_GETARGS
 };
 
+enum class DbgFrameDir { DOWN, UP, ABSOLUTE };
+
 #endif /* !_DBGCMD_H */

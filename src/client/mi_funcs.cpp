@@ -45,7 +45,7 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-exec-continue", "continue"},
  {"-exec-next", "next"},
  {"-exec-return", "finish"},
- {"-exec-run", "-exec-run"},
+ {"-exec-run", "run"},
  {"-exec-step", "step"},
  {"-file-list-exec-source-file", "info source"},
  {"-file-list-exec-source-files", "info sources"},

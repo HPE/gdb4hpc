@@ -669,12 +669,6 @@ void ExecuteCommand(const char *line) {
         }
 
         std::string cmd_str = cmd;
-
-        if (cmd_str.substr(0, cmd_str.find(" ")) == "-exec-run"){
-            PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
-            free(cmd);
-            return;
-        }
     }
 
     DPRINT("ExecuteCommand: cmd is \"%s\"\n", cmd);

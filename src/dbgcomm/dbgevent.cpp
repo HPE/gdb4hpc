@@ -95,7 +95,7 @@ constexpr auto DbgErrTab = []() -> std::array<const char*, DBGERR_NULL + 1> {
     table[DBGERR_ATTACH_FAILED]       = "Attach failed"; // FIXME: This is never used yet.
     table[DBGERR_AT_EXIT]             = "*** The application is at an exit breakpoint.";
     table[DBGERR_INTERNAL]            = "Internal error: %s";
-    table[DBGERR_OPERATION_ABANDONED] = "Operation abandoned, results discarded.";
+    table[DBGERR_OPERATION_ABANDONED] = "Operation abandoned (%s), results discarded.";
     table[DBGERR_UNKNOWN]             = "Unkown GDB error: \"%s\"";
     table[DBGERR_NULL]                = "Invalid error number";
 

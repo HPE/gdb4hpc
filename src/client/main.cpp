@@ -88,6 +88,7 @@ static const struct option long_opts[] = {
     {"launch", required_argument, 0, 'l'},
     {"attach", required_argument, 0, 'j'},
     {"exec", required_argument, 0, 'x'},
+    {"command-timeout", required_argument, 0, 't'},
     {0, 0, 0, 0}};
 
 static void usage(char *name) {
@@ -372,7 +373,7 @@ int main(int argc, char *argv[]) {
     // we want to ignore SIGPIPE
     DbgHandleSignal(SIGPIPE, SIG_IGN, DBG_SIG_NOMASK);
 
-    while ((c = getopt_long(argc, argv, "b:j:l:x:nkehi:o:sv", long_opts, &opt_ind)) !=
+    while ((c = getopt_long(argc, argv, "b:j:l:x:nkehi:o:svt:", long_opts, &opt_ind)) !=
            -1) {
         switch (c) {
             case 0:
@@ -476,6 +477,16 @@ int main(int argc, char *argv[]) {
                 } else {
                     PrintOutError("Unrecognized interpreter: %s\n", optarg);
                 }
+                break;
+            }
+
+            case 't': {
+                if (optarg == nullptr) {
+                    PrintOutMsg("Warning: --command-timeout specified without argument. Ignoring.\n");
+                } else {
+                    QueueCommand(std::string{"set command-timeout "} + optarg);
+                }
+
                 break;
             }
 

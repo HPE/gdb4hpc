@@ -55,3 +55,17 @@ private:
 };
 
 typedef std::vector<ProtoMessage> ProtoMessageSet;
+
+// Returned from some proto operations to signify that no data was returned
+struct ProtoNothing {
+    enum class Why {
+        CancelledByUser, // the user cancelled the proto operation
+        TimedOut,        // the proto operation timed out
+        InternalError,   // unspecified internal error
+    };
+
+    ProtoNothing() : why{Why::InternalError} {};
+    ProtoNothing(Why _why) : why{_why} {};
+
+    Why why;
+};

@@ -67,7 +67,7 @@ public:
     ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontEnd, OutputPtr &&output, std::unique_ptr<Bitset> &&allRanks);
 
     std::unique_ptr<Bitset> sendCommand(const Bitset *target, const char *request);
-    std::optional<ProtoMessageSet> receiveReply(const Bitset *target, Bitset &received);
+    std::variant<ProtoMessageSet, ProtoNothing> receiveReply(const Bitset *target, std::chrono::seconds timeout, Bitset &received);
 
     int checkEvents();
     ProtoMessageSet releaseEvents();
@@ -96,16 +96,18 @@ private:
 
             void sendCommand(const char *command, size_t len);
 
-            // Wait for a response to arrive. The wait can be cancelled with a SIGINT.
-            // If the operation is cancelled, the function returns an empty optional.
-            std::optional<ProtoMessageSet> extractResult();
+            // Wait for a response to arrive. The wait can be cancelled with a SIGINT. If
+            // the operation is cancelled, the function returns ProtoNothing::CancelledByUser.
+            // If `timeout` it greater than 0, the wait will time out after `timeout`
+            // seconds if no result was received by then. On timeout, returns ProtoNothing::TimedOut.
+            std::variant<ProtoMessageSet, ProtoNothing> extractResult(std::chrono::seconds timeout);
 
-            // Like extractResult, but the operation is not cancellable. Will wait forever
-            // for a result.
+            // Like extractResult, but the operation is not cancellable and will not time
+            // out. Will wait forever for a result.
             ProtoMessageSet extractResultWait();
 
         private:
-            std::optional<ProtoMessageSet> internalExtractResult(bool cancellable);
+            std::variant<ProtoMessageSet, ProtoNothing> internalExtractResult(bool cancellable, std::chrono::seconds timeout);
 
             zmqnet::AsyncFrontend &m_parentNetwork;
             std::unique_ptr<zmqnet::Stream> m_stream;

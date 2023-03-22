@@ -85,17 +85,19 @@ std::unique_ptr<Bitset> ZMQNetNetwork::sendCommand(const Bitset *target, const c
     return target->clone();
 }
 
-std::optional<ProtoMessageSet> ZMQNetNetwork::receiveReply(const Bitset *target, Bitset &received) {
+std::variant<ProtoMessageSet, ProtoNothing>
+ZMQNetNetwork::receiveReply(const Bitset *target, std::chrono::seconds timeout, Bitset &received) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     // wait for result
     LOG("waiting for result...\n");
 
     auto &stream = m_stream_table.getCommandStream(target);
-    auto result = stream.extractResult();
+    auto result = stream.extractResult(timeout);
 
-    if (result) {
-        for (const auto& res : *result) {
+    // if we received a result, update received bitset
+    if (auto* message_set = std::get_if<ProtoMessageSet>(&result)) {
+        for (const auto& res : *message_set) {
             received |= *res.getBitset();
         }
     }
@@ -180,9 +182,10 @@ void ZMQNetNetwork::StreamTable::CommandStream::sendCommand(const char *command,
     m_commands_sent += 1;
 }
 
-std::optional<ProtoMessageSet> ZMQNetNetwork::StreamTable::CommandStream::extractResult() {
-    LOG("CommandStream %d: extracting...\n", m_stream->id);
-    return internalExtractResult(/* cancellable */ true);
+std::variant<ProtoMessageSet, ProtoNothing>
+ZMQNetNetwork::StreamTable::CommandStream::extractResult(std::chrono::seconds timeout) {
+    LOG("CommandStream %d: extracting... (%lus timeout)\n", m_stream->id, timeout.count());
+    return internalExtractResult(/* cancellable */ true, timeout);
 }
 
 ProtoMessageSet ZMQNetNetwork::StreamTable::CommandStream::extractResultWait() {
@@ -191,9 +194,11 @@ ProtoMessageSet ZMQNetNetwork::StreamTable::CommandStream::extractResultWait() {
     // impossible to recover from an error (cancels are errors) during that process.
 
     LOG("CommandStream %d: extracting (uncancellable)...\n", m_stream->id);
-    // if cancellable is false, the only way for internalExtractResult to return is with
-    // a non-null result.
-    return *internalExtractResult(/* cancellable */ false);
+    // if cancellable is false and no timeout is used,
+    // the only way for internalExtractResult to return is with a result.
+    return std::get<ProtoMessageSet>(
+        internalExtractResult(/* cancellable */ false, /* no timeout */ std::chrono::seconds(-1))
+    );
 }
 
 // for now, having one shared bool for all command streams is okay because the main
@@ -204,52 +209,65 @@ void cancelExtractResult(int signal) {
     if (signal == SIGINT) g_extract_result_cancel_flag = true;
 }
 
-std::optional<ProtoMessageSet> ZMQNetNetwork::StreamTable::CommandStream::internalExtractResult(bool cancellable) {
-    LOG("CommandStream %d: internalExtractResult (cancellable == %d)...\n", m_stream->id, cancellable);
+std::variant<ProtoMessageSet, ProtoNothing>
+ZMQNetNetwork::StreamTable::CommandStream::internalExtractResult(bool cancellable, std::chrono::seconds timeout) {
+    LOG("CommandStream %d: internalExtractResult (cancellable == %d) (timeout = %lds)...\n",
+        m_stream->id, cancellable, timeout.count()
+    );
 
-    auto reply = [this, cancellable]() -> std::optional<zmqnet::ByteArray> {
-        std::unique_lock<std::mutex> lock(m_shared_result.mutex);
+    // set up cancellation criteria
 
-        g_extract_result_cancel_flag = false;
-        auto signal_handler = cancellable ? std::make_unique<TmpSignalHandler>(SIGINT, cancelExtractResult) : nullptr;
+    g_extract_result_cancel_flag = false;
+    auto signal_handler = cancellable ? std::make_unique<TmpSignalHandler>(SIGINT, cancelExtractResult) : nullptr;
 
-        auto stopWaiting = [&](){
-            return (m_commands_sent == m_shared_result.results_received) // message arrived
-                || g_extract_result_cancel_flag;                         // user cancelled wait
-        };
+    using namespace std::chrono_literals;
+    auto time_elapsed = 0ms;
+    auto wait_interval = 250ms;
 
-        using namespace std::chrono_literals;
-        while (!m_shared_result.cv.wait_for(lock, 333ms, stopWaiting)) {
-            LOG("waiting on cv... (sent %lu == recvd %lu)\n", m_commands_sent, m_shared_result.results_received.load());
-        }
+    auto stopWaiting = [&](){
+        return (m_commands_sent == m_shared_result.results_received) // message arrived
+            || g_extract_result_cancel_flag                          // user cancelled wait
+            || (timeout.count() > 0 && time_elapsed >= timeout);     // timed out
+    };
 
-        if (m_commands_sent == m_shared_result.results_received) {
-            // the result got here
-            LOG("done waiting. got result\n");
-            return std::move(m_shared_result.data);
-        } else {
-            // the user cancelled the operation
-            LOG("done waiting. user cancelled wait.\n");
-            return {};
-        }
-    }();
+    // wait for result or cancellation
 
-    if (reply) {
-        // unpack data
-        auto reader = getReaderFromData(*reply);
+    // this lock should be held for the remainder of the function (except when in wait_for)
+    // so that the zmqnet callback doesn't change the result out from under us
+    std::unique_lock<std::mutex> lock(m_shared_result.mutex);
+
+    while (!m_shared_result.cv.wait_for(lock, wait_interval, stopWaiting)) {
+        time_elapsed += wait_interval;
+        LOG("waiting on cv... (sent %lu == recvd %lu) (%lums passed)\n",
+            m_commands_sent, m_shared_result.results_received.load(), time_elapsed.count()
+        );
+    }
+
+    // handle result
+
+    if (m_commands_sent == m_shared_result.results_received) {
+        // the result got here
+        LOG("done waiting. got result\n");
+
+        // unpack data and construct proto message set
+        auto reader = getReaderFromData(m_shared_result.data);
         auto pack = reader.getRoot<ZmqnetMessagePackage>();
         auto result = ProtoMessageSet();
 
-        // construct proto message set, update received
         for (const auto message : pack.getMessages()) {
             auto unpacked = unpackMessageReader(message);
             result.emplace_back(std::move(unpacked.bitset), std::move(unpacked.data));
         }
 
         return result;
+    } else if (time_elapsed >= wait_interval) {
+        // timed out
+        LOG("done waiting. timed out\n");
+        return ProtoNothing(ProtoNothing::Why::TimedOut);
     } else {
-        // cancelled. the layers above will turn this into a proper error message
-        return {};
+        // the user cancelled the operation
+        LOG("done waiting. user cancelled wait.\n");
+        return ProtoNothing(ProtoNothing::Why::CancelledByUser);
     }
 }
 

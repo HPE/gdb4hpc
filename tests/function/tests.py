@@ -181,7 +181,16 @@ def runScript(test, substitutions = ()):
     print(f"timeout: {timeout}, cleanup: {cleanup_time}")
     
     try:
-        p = subprocess.Popen(['gdb4hpc', '-snekb', runfile, '--output', outfile])
+        p = subprocess.Popen([
+            'gdb4hpc',
+            '--silent',
+            '--no-init',
+            '--echo',
+            '--keep-going',
+            '--command-timeout', '120',
+            '--batch', runfile,
+            '--output', outfile
+        ])
         p.wait(timeout)
     except subprocess.TimeoutExpired:
         # send sigterm to gdb4hpc, triggering clean up.
@@ -793,6 +802,10 @@ class FunctionTests(Gdb4hpcTest):
 
             batchf.write("srun ./bin/CRAY/C++/cpp_attach.x 60\n")
 
+        runTest(self)
+
+    def test_command_timeout(self):
+        self.base_name = "command_timeout"
         runTest(self)
 
 class c_commnode_fanout(Gdb4hpcTest):

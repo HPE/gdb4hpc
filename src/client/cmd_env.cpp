@@ -994,6 +994,36 @@ static int cmd_interpreter_exec_cmd(rec_set_t* rec_set, int argc, char** argv) {
     return 1;
 }
 
+int cmd_set_command_timeout_cmd(rec_set_t*, int argc, char* argv[]) {
+    if (argc < 2) {
+        PrintOutError("Usage: set command-timeout <seconds>\n");
+        return 0;
+    }
+
+    try {
+        auto seconds = std::stol(argv[1]);
+        DbgSetSyncCommandTimeout(std::chrono::seconds(seconds));
+
+        return 1;
+    } catch (const std::logic_error& e) {
+        PrintOutError("Error setting command timeout.\n");
+        return 0;
+    }
+}
+
+int cmd_show_command_timeout_cmd(rec_set_t*, int argc, char* argv[]) {
+    auto seconds = DbgGetSyncCommandTimeout().count();
+
+    if (seconds <= 0) {
+        PrintOutMsg("Command timeout is disabled.\n");
+    } else {
+        const char* s = seconds == 1 ? "" : "s";
+        PrintOutMsg("%ld second%s\n", seconds, s);
+    }
+
+    return 1;
+}
+
 void InitCmd_env(void) {
     // regular commands
     AddCommand("quit", "q", proc_ignore, 0, cmd_quit_cmd,
@@ -1127,6 +1157,13 @@ void InitCmd_env(void) {
 
     AddSetCommand("inferior-tty", proc_ignore, 0, cmd_set_inferior_tty_cmd,
                   nullptr,  "set the tty for the application i/o");
+
+    AddSetCommand("command-timeout", proc_ignore, 0,
+                  cmd_set_command_timeout_cmd, cmd_set_command_timeout_help,
+                  "Set timeout for synchronous commands.");
+    AddShowCommand("command-timeout", proc_ignore, 0,
+                   cmd_show_command_timeout_cmd, cmd_show_command_timeout_help,
+                   "Show timeout for synchronous commands.");
 
     ShellMode::init();
 }

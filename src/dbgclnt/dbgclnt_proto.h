@@ -37,6 +37,8 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <chrono>
+#include <variant>
 
 // event handlers used by protocols to handle events in certain situations
 //
@@ -81,8 +83,8 @@ public:
     virtual std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
         const char *request) = 0;
 
-    virtual std::optional<ProtoMessageSet> receiveReply(DbgInvoke *di, 
-        const Bitset *target, Bitset &received) = 0;
+    virtual std::variant<ProtoMessageSet, ProtoNothing> receiveReply(DbgInvoke *di,
+        const Bitset *target, std::chrono::seconds timeout, Bitset &received) = 0;
 
     // optional functions:
     virtual int init() { return 1; }; // success by default

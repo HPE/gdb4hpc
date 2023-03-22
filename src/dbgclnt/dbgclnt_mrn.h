@@ -46,8 +46,8 @@ public:
     std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
         const char *request) override;
 
-    std::optional<ProtoMessageSet> receiveReply(DbgInvoke *di, 
-        const Bitset *target, Bitset &received) override;
+    std::variant<ProtoMessageSet, ProtoNothing> receiveReply(DbgInvoke *di, 
+        const Bitset *target, std::chrono::seconds timeout, Bitset &received) override;
 
     int init() override;
     

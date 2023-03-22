@@ -2179,5 +2179,28 @@ const char * const cmd_script_end_help[] = {
     "the assertion script can be run by issuing the start command.",
     0};
 
+const char* const cmd_set_command_timeout_help[] = {
+    "Summary: Set timeout for blocking commands.",
+    "Usage: set command-timeout <seconds>",
+    "Example command: set command-timeout 30",
+    "",
+    "Argument: Duration in seconds.",
+    "",
+    "Description:",
+    "Set an automatic time out for blocking commands. When set to zero or a",
+    "negative number, no timeout is applied, and blocking commands will wait forever.",
+    "This timeout also applies to the quit command.",
+    0};
+
+const char* const cmd_show_command_timeout_help[] = {
+    "Summary: Show timeout for blocking commands.",
+    "Usage: show command-timeout",
+    "",
+    "Arguments: None.",
+    "",
+    "Description:",
+    "Show the current amount of time that a blocking command will be cancelled after.",
+    0};
+
 // Dummy help
 const char* const dummy_help[] = {0};

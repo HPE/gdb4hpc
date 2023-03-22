@@ -34,6 +34,7 @@
 #include "defs.h"
 #include "dbginvoke.h"
 #include <vector>
+#include <chrono>
 #include <functional>
 
 // Forward declare event set
@@ -325,6 +326,9 @@ extern void DbgUnmaskSignal(int);
 // Used by higher layers to check if the inferior status has changed
 extern int DbgCheckForStatusChange(void);
 extern void DbgResetStatusChange(void);
+
+extern void DbgSetSyncCommandTimeout(std::chrono::seconds seconds);
+extern std::chrono::seconds DbgGetSyncCommandTimeout();
 
 // Used by higher layers to check if we are currently waiting on an asynchronous
 // event

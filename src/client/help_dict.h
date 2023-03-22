@@ -135,6 +135,7 @@ extern const char* const cmd_set_function_help[];
 extern const char* const cmd_set_scheduler_locking_help[];
 extern const char* const cmd_set_non_stop_help[];
 extern const char* const set_subcmd_args_help[];
+extern const char* const cmd_set_command_timeout_help[];
 
 /*
  * Class set print subcommands
@@ -169,6 +170,7 @@ extern const char* const cmd_show_version_help[];
 extern const char* const cmd_show_scheduler_locking_help[];
 extern const char* const cmd_show_non_stop_help[];
 extern const char* const show_subcmd_args_help[];
+extern const char* const cmd_show_command_timeout_help[];
 
 /*
  * Class show print subcommands

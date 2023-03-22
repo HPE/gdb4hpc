@@ -142,15 +142,15 @@ std::unique_ptr<Bitset> ZMQNetClientProtocol::sendCommand(DbgInvoke *di, const B
     return getNetwork<ZMQNetNetwork>(di).sendCommand(target, request);
 }
 
-std::optional<ProtoMessageSet> ZMQNetClientProtocol::receiveReply(DbgInvoke *di,
-                                            const Bitset *target, Bitset &received) {
+std::variant<ProtoMessageSet, ProtoNothing>
+ZMQNetClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono::seconds timeout, Bitset &received) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (di->isShutdown()) {
         return {};
     }
 
-    return getNetwork<ZMQNetNetwork>(di).receiveReply(target, received);
+    return getNetwork<ZMQNetNetwork>(di).receiveReply(target, timeout, received);
 }
 
 int ZMQNetClientProtocol::checkEvents(DbgInvoke *di) {
@@ -316,7 +316,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
 
     // wait for response
     auto received{DenseBitset(num_be)};
-    receiveReply(di, di->fullBitset(), received);
+    receiveReply(di, di->fullBitset(), /* no timeout */ std::chrono::seconds(-1), received);
 
     if (!received.isFull()) {
         PrintOutError("Error: not all ranks received startup message. Attempting to clean up...\n");

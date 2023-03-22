@@ -143,14 +143,14 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(DbgInvoke *di, const Bits
     return received;
 }
 
-std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(DbgInvoke *di,
-                                            const Bitset *target, Bitset &received) {
+std::variant<ProtoMessageSet, ProtoNothing>
+MRNClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono::seconds _, Bitset &received) {
     auto &network = getNetwork<MRNetNetwork>(di);
     int full = 0;
 
     // recv reply only if not already in a shutdown state
     if (di->isShutdown()) {
-        return {};
+        return ProtoNothing();
     }
 
     std::optional<ProtoMessageSet> result{};
@@ -159,7 +159,8 @@ std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(DbgInvoke *di,
         auto msg_set = network.recv_reply(target);
         if (!msg_set) {
             PrintOutError("Could not recv reply from MRNet network.\n");
-            return result;
+            if (result) return std::move(*result);
+            return ProtoNothing();
         }
 
         // If this is the first message set, then use this as our return type,
@@ -187,7 +188,8 @@ std::optional<ProtoMessageSet> MRNClientProtocol::receiveReply(DbgInvoke *di,
         full = *target == received;
     }
 
-    return result;
+    if (result) return std::move(*result);
+    return ProtoNothing();
 }
 
 void MRNClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {

@@ -98,6 +98,10 @@ static rec_set_t *async_set;  // full set of async receivers
 
 static std::vector<inpcb_t*> InputCBs;
 
+// If a sync command doesn't return in this many seconds, attempt to cancel it. 0 means no
+// timeout is applied.
+static auto sync_command_timeout = std::chrono::seconds(0);
+
 /*
 ** Hold any pending signals.
 */
@@ -1631,30 +1635,45 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, DbgInvoke::LaunchOpts&&
 //      DBG_DATA).
 // \return the reply as a rep_set_t*, note errors are returned with an error response.
 static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type) {
-    rep_set_t *reply;
-    group_reply_t *rep;
-
-    bool isFinal = true;
-    reply = NewRepSet();
-
     auto proto_res =
-        set->rec_di.proto().receiveReply(&set->rec_di, set->rec_group.get(), *set->_cmd_sent);
+        set->rec_di.proto().receiveReply(&set->rec_di, set->rec_group.get(), sync_command_timeout, *set->_cmd_sent);
 
-    if (!proto_res) {
-        // the only way for proto_res to be null (under zmqnet) is the user cancelling the command.
-        auto e = NewErrorEvent(DBGERR_OPERATION_ABANDONED, "");
+    // handle nothing
+    if (const auto* nothing = std::get_if<ProtoNothing>(&proto_res)) {
+        using Why = ProtoNothing::Why;
 
-        // omit di and group bitset from the error since this error will eventually
-        // snowball into abandoning the command in *all* dis involved, and to the user
-        // it's not important which di we were in when the cancel happened.
-        rep = NewGroupReply(nullptr, nullptr, e);
-        AddErrToSet(reply, rep);
-        ClearCmdSent(set);
-        return reply;
+        switch (nothing->why) {
+            case Why::CancelledByUser: // fall through
+            case Why::TimedOut: {
+                const char* error_string = nothing->why == Why::CancelledByUser ? "cancelled" : "timed out";
+
+                // omit di and group bitset from the error since this error will
+                // eventually snowball into abandoning the command in *all* dis involved,
+                // and to the user it's not important which di we were in when the cancel
+                // happened.
+                auto* error = NewErrorEvent(DBGERR_OPERATION_ABANDONED, error_string);
+                auto* reply = NewRepSet();
+                auto* group_rep = NewGroupReply(nullptr, nullptr, error);
+                AddErrToSet(reply, group_rep);
+                ClearCmdSent(set);
+                return reply;
+            }
+            default: {
+                auto* error = NewErrorEvent(DBGERR_INTERNAL, "Failed to receive response");
+                auto* reply = NewRepSet();
+                auto* group_rep = NewGroupReply(set->rec_di.handle(), set->rec_group->clone(), error);
+                AddErrToSet(reply, group_rep);
+                return reply;
+            }
+        }
     }
 
+    auto* reply = NewRepSet();
+    group_reply_t *rep = nullptr;
+    bool isFinal = true;
+
     // process the proto_res
-    for (const auto &msg : *proto_res) {
+    for (const auto &msg : std::get<ProtoMessageSet>(proto_res)) {
         // convert this protocol msg string to an event
         auto e = SocProtoToEvent(msg.getMessage());
         auto ev = EVENT_EV(e);
@@ -3916,4 +3935,10 @@ void inpcb_t::mask(bool mask) {
     if (mask) ++masked; else --masked;
 }
 
-    
+void DbgSetSyncCommandTimeout(std::chrono::seconds seconds) {
+    sync_command_timeout = seconds;
+}
+
+std::chrono::seconds DbgGetSyncCommandTimeout() {
+    return sync_command_timeout;
+}

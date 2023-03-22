@@ -76,8 +76,8 @@ protected:
     SubArray(Mi2Aif& mi, const std::string& expr);
 
     void getRngs(const std::vector<std::string>& idcs);
-    void makeArrayType(std::shared_ptr<ais::Type> baseType,
-                       const std::vector<std::pair<int,int>>& rngs);
+    virtual void makeArrayType(std::shared_ptr<ais::Type> baseType,
+                       const std::vector<std::pair<int,int>>& rngs) = 0;
     int getIdx(const std::string& s) const;
 
     Mi2Aif& m_mi;
@@ -90,6 +90,10 @@ class CSubArray : public SubArray {
 public:
     CSubArray(Mi2Aif& mi, const std::string& expr);
     char* getArrayDataString() override;
+    void makeArrayType(std::shared_ptr<ais::Type> baseType,
+                       const std::vector<std::pair<int,int>>& rngs) override;
+    
+    
 private:
     std::vector<std::string> parse(const std::string& type);
 };
@@ -100,6 +104,9 @@ public:
                                                std::shared_ptr<ais::KokkosView> view);
     static bool getViewLens(Mi2Aif& mi, const std::string& expr, ais::KokkosView& view);
     char* getArrayDataString() override;
+    void makeArrayType(std::shared_ptr<ais::Type> baseType,
+                       const std::vector<std::pair<int,int>>& rngs) override;
+
 private:
     KokkosSubArray(Mi2Aif& mi, std::shared_ptr<ais::KokkosView> type, const std::string& expr, const std::string& baseExpr);
     void parse(const std::string& type);
@@ -375,7 +382,7 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
 
     if (!isFtn && (m_subArray = SubArray::get(m_mi, m_type, expr1))) {
         DVPRINT("expression is a SubArray\n");
-        return m_type = m_subArray->getType();
+        m_type = m_subArray->getType();
     }
 
     if (metaInfo.empty())
@@ -420,7 +427,7 @@ class SubArrayFilter : public ais::FilteredArray::Filter {
 public:
     SubArrayFilter(std::unique_ptr<BlockMap>&& blockMap,
                    const std::string& rngStr,
-                   bool isFortran);
+                   bool isFortran, int idx0);
     int getLen() override;
     bool doWrite() override;
 
@@ -435,18 +442,24 @@ private:
 
 SubArrayFilter::SubArrayFilter(std::unique_ptr<BlockMap>&& blockMap,
                                const std::string& rngStr,
-                               bool isFortran) 
+                               bool isFortran, int index0) 
     : m_blockMap(std::move(blockMap)), m_len(0),
       m_repeat(0), m_it(m_blockMap.get())
 {
     auto bm = m_blockMap.get();
     m_len = 0;
-    m_it.begin(isFortran);
+    m_it.begin(isFortran, index0);
 
     m_subRngs = bm->getIndexRng(rngStr);
     if (isFortran) {
         // m_subRngs and m_it are ordered from slowest to fastest
         std::reverse(m_subRngs.begin(), m_subRngs.end());
+        if (auto off = 1-index0) {
+            for (auto& [lo,hi] : m_subRngs) {
+                lo += off;
+                hi += off;
+            }
+        }
     }
     auto dim = m_it.getDim();
     m_idcs.resize(dim);
@@ -522,9 +535,9 @@ void LazyMIVar::getSliceType(const std::string& expr,
 
     if (auto array = std::dynamic_pointer_cast<ais::Array>(m_type)) {
         auto bm = BlockMap::fromDefinition(bmDef);
-        auto isFortran = (dynamic_cast<ais::FtnArray*>(m_type.get()) != nullptr);
+        auto isFortran = array->isFortran();
         auto filter = std::make_shared<SubArrayFilter>(std::move(bm), idx,
-                                                       isFortran);
+                                                       isFortran, array->getIndex0());
         m_type = std::make_shared<ais::FilteredArray>(array, filter);
     }
     m_expr = expr;
@@ -604,22 +617,6 @@ std::unique_ptr<SubArray> SubArray::get(Mi2Aif& mi, std::shared_ptr<ais::Type> b
 
 SubArray::SubArray(Mi2Aif& mi, const std::string& expr) : m_mi(mi) {}
 
-void SubArray::makeArrayType(std::shared_ptr<ais::Type> baseType,
-                             const std::vector<std::pair<int,int>>& rngs) {
-    m_type = baseType;
-
-    // rngs are listed from slowest varying to fastest varying
-    for (auto rit = rngs.rbegin(); rit != rngs.rend(); ++rit) {
-        auto [lower, upper] = *rit;
-        if (upper > lower) {
-            if (dynamic_cast<ais::Char*>(m_type.get())) {
-                m_type = std::make_shared<ais::CharArray>();
-            } else {
-                m_type = std::make_shared<ais::Array>(m_type, upper-lower+1);
-            }
-        }
-    }
-}
 
 CSubArray::CSubArray(Mi2Aif& mi, const std::string& expr) : SubArray(mi, expr) {
     // get the element type
@@ -651,6 +648,25 @@ std::vector<std::string> CSubArray::parse(const std::string& expr) {
     m_baseExpr = expr.substr(0,i+1);
     std::reverse(idcs.begin(), idcs.end());
     return idcs;
+}
+
+void CSubArray::makeArrayType(std::shared_ptr<ais::Type> baseType,
+                             const std::vector<std::pair<int,int>>& rngs) {
+    m_type = baseType;
+
+    // rngs are listed from slowest varying to fastest varying
+    for (auto rit = rngs.rbegin(); rit != rngs.rend(); ++rit) {
+        auto [lower, upper] = *rit;
+        if (upper > lower) {
+            if (dynamic_cast<ais::Char*>(m_type.get())) {
+                m_type = std::make_shared<ais::CharArray>();
+            } else {
+                auto arr = std::make_shared<ais::Array>(m_type, upper-lower+1);
+                arr->setBounds(upper-lower+1, 0);
+                m_type = arr;
+            }
+        }
+    }
 }
 
 void SubArray::getRngs(const std::vector<std::string>& idcs) {
@@ -754,6 +770,23 @@ KokkosSubArray::get(Mi2Aif& mi, const std::string& expr,
     }
     return retVal;
 }
+
+// Create the type for sending back to the front-end
+void KokkosSubArray::makeArrayType(std::shared_ptr<ais::Type> baseType,
+                             const std::vector<std::pair<int,int>>& rngs) {
+
+    // rngs are listed from slowest varying to fastest varying
+    size_t totLen = 1;
+    for (auto [lo,hi] : rngs) {
+        if (hi > lo) totLen *= (hi-lo+1);
+    }
+
+    // kokkos arrays are always returned as a 1d array
+    auto arr = std::make_shared<ais::FtnArray>(baseType, totLen);
+    arr->setBounds(totLen, 0);
+    m_type = arr;
+}
+
 
 // Retrieve - or try to retrieve - the length and stride information
 // of a KokkosView from the debugger.   Most of the interface is
@@ -1847,7 +1880,7 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> Chunker::getNext()
             // update the array type to contain just the length of the chunk
             auto subArrayType = std::static_pointer_cast<ais::Array>(m_var->getType());
             subArrayType = subArrayType->makeTyped(subArrayType->getElemTypePtr());
-            subArrayType->setBounds(len, m_subIdx);
+            subArrayType->setBounds(len, subArrayType->getIndex0() + m_subIdx);
             retType = subArrayType;
             
             m_subIdx = maxIdx+1;

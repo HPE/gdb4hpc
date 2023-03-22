@@ -1,4 +1,4 @@
-// Copyright 2022 Hewlett Packard Enterprise Development LP.
+// Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
 #pragma once
 
 #include <string>
@@ -207,7 +207,7 @@ private:
 // Abstract class for managing a set of data streams in DecompReader
 class DecompIterator {
 public:
-    virtual void begin(bool isFortran) = 0;
+    virtual void begin(bool isFortran, int index0) = 0;
     virtual bool next() = 0;
     virtual int getDim() = 0;
     virtual ~DecompIterator() {}
@@ -791,6 +791,7 @@ public:
     const Type* getElemType() const { return m_elemType.get(); }
     std::shared_ptr<Type> getAtomicType() const;
     int getLen() const { return m_numElems; }
+    int getIndex0() const { return m_idx0; }
     void setBounds(int len, int idx0) { m_numElems = len; m_idx0 = idx0; }
 
     class Output { public: virtual Writer& getOut(ais::Writer& out) { return out; } };

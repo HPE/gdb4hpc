@@ -268,7 +268,7 @@ BlockMap::Iterator::Iterator(BlockMap* bm)
     }
 }
 
-void BlockMap::Iterator::begin(bool isFortran) {
+void BlockMap::Iterator::begin(bool isFortran, int index0) {
     BlockMap::Indexer1D::init(m_idcs, isFortran);
     m_idx = 0;
     m_totElems = m_idcs[0].getTotalDataSize();

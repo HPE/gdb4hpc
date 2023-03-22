@@ -659,8 +659,6 @@ void ais::Function::parseL(InterpretStream& in, Writer& out) const {
         return;
     }
 
-    fprintf(stderr, "In Function::parseL \"%s\"\n", s);
-
     std::ostringstream ss;
     static const char* toggles = "{}<K>k"; // <K and >k keep the delim
     static const char* toggles2 = "<k>k";
@@ -970,14 +968,10 @@ std::shared_ptr<ais::Type> ais::Array::getAtomicType() const {
 ais::FilteredArray::Filter::Filter() {}
 ais::FilteredArray::Filter::~Filter() {}
 
-ais::FtnArray::FtnArray() {}
+ais::FtnArray::FtnArray() { m_idx0 = 1; }
 
 ais::FtnArray::FtnArray(std::shared_ptr<Type> elemType, int len) :
-    ais::Array(elemType, len) {
-    // not resetting m_idx0 to 1 here.  That is used for handling a slice.
-    // The cultural difference of starting with 1 is handled in
-    // FtnArray::printIndex.
-}
+    ais::Array(elemType, len, 1) {}
 
 std::string ais::FtnArray::getTypeName() const {
     return m_elemType ? "^fortran[" + m_elemType->getTypeName() : "^fortran[";
@@ -990,7 +984,9 @@ int ais::FtnArray::getTypeId(ais::Writer& writer) const {
 }
 
 std::shared_ptr<ais::Array> ais::FtnArray::makeTyped(std::shared_ptr<ais::Type> elemType) const {
-    return std::make_shared<ais::FtnArray>(elemType);
+    auto arr = std::make_shared<ais::FtnArray>(elemType);
+    arr->setBounds(0,m_idx0);
+    return arr;
 }
 
 std::unique_ptr<ais::Printer> ais::FtnArray::makePrinter(Printer& parent) const {
@@ -1202,8 +1198,10 @@ void ais::DecompArray::applyL(Reader& reader, Visitor& f) const {
     bool pend = false;
     int outputLevel = 0;
     bool isFortran = m_array->isFortran();
+    int index0 = m_array->getIndex0();
+
     auto& it = *m_decompIter;
-    it.begin(isFortran);
+    it.begin(isFortran, index0);
     while (it.next()) {
         if (pend) f.end();
 
@@ -1299,7 +1297,7 @@ private:
 ais::FilteredArray::FilteredArray(std::shared_ptr<Array> baseType,
                                   std::shared_ptr<Filter> filter)
     : Array(baseType->getAtomicType()), m_baseType(baseType), m_filter(filter) {
-    if (dynamic_cast<FtnArray*>(baseType.get())) {
+    if (baseType->isFortran()) {
         m_ftn = std::make_unique<FtnArray>(baseType->getAtomicType());
     }
 }
@@ -1985,7 +1983,7 @@ std::string ais::KokkosView::getTypeName() const {
 
 void ais::KokkosView::parseL(InterpretStream& in, Writer& out) const {
     // Currently, the KokkosView type is use to just return the header of
-    // information about the view.   All extaction is done via element or
+    // information about the view.   All extraction is done via element or
     // range (from..to) access.
     const char* s = in.get();
     while (*s) ++s;

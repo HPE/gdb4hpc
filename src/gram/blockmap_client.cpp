@@ -383,7 +383,7 @@ namespace {
     class RangeBlockMapIterator : public ais::DecompIterator {
     public:
         RangeBlockMapIterator(BlockMap* bm, const std::string& subRng);
-        void begin(bool isFortran) override;
+        void begin(bool isFortran, int index0) override;
         bool next() override;
         int getDim() override;
     private:
@@ -396,8 +396,7 @@ namespace {
 
 
 RangeBlockMapIterator::RangeBlockMapIterator(BlockMap* bm,
-                                             const std::string& subRng)
-{
+                                             const std::string& subRng){
     for (int i=0; i<bm->getRank(); ++i) {
         m_idcs.push_back(BlockMap::Indexer1D(bm, i));
     }
@@ -408,13 +407,19 @@ RangeBlockMapIterator::RangeBlockMapIterator(BlockMap* bm,
     }
 }
 
-void RangeBlockMapIterator::begin(bool isFortran) {
+void RangeBlockMapIterator::begin(bool isFortran, int index0) {
     BlockMap::Indexer1D::init(m_idcs, isFortran);
 
     if (isFortran) {
         // arrange slowest to fastest changing
         // - BlockMapGetIndexRng already indexes to 0
         std::reverse(m_subRng.begin(), m_subRng.end());
+        if (auto offset = 1-index0) {
+            for (auto& [lo,hi] : m_subRng) {
+                lo += offset;
+                hi += offset;
+            }
+        }
     }
 
     for (auto& [lo,hi] : m_subRng) {

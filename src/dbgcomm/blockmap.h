@@ -107,7 +107,7 @@ private:
 class BlockMap::Iterator : public ais::DecompIterator {
 public:
     Iterator(BlockMap* bm);
-    void begin(bool isFortran) override;
+    void begin(bool isFortran, int index0) override;
     bool next() override;
     int getDim() override;
 

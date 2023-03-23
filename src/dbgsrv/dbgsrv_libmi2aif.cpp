@@ -453,12 +453,11 @@ SubArrayFilter::SubArrayFilter(std::unique_ptr<BlockMap>&& blockMap,
     m_subRngs = bm->getIndexRng(rngStr);
     if (isFortran) {
         // m_subRngs and m_it are ordered from slowest to fastest
+        // and zero based
         std::reverse(m_subRngs.begin(), m_subRngs.end());
-        if (auto off = 1-index0) {
-            for (auto& [lo,hi] : m_subRngs) {
-                lo += off;
-                hi += off;
-            }
+        for (auto& [lo,hi] : m_subRngs) {
+            lo -= index0;
+            hi -= index0;
         }
     }
     auto dim = m_it.getDim();
@@ -775,16 +774,17 @@ KokkosSubArray::get(Mi2Aif& mi, const std::string& expr,
 void KokkosSubArray::makeArrayType(std::shared_ptr<ais::Type> baseType,
                              const std::vector<std::pair<int,int>>& rngs) {
 
-    // rngs are listed from slowest varying to fastest varying
-    size_t totLen = 1;
-    for (auto [lo,hi] : rngs) {
-        if (hi > lo) totLen *= (hi-lo+1);
-    }
+    m_type = baseType;
 
-    // kokkos arrays are always returned as a 1d array
-    auto arr = std::make_shared<ais::FtnArray>(baseType, totLen);
-    arr->setBounds(totLen, 0);
-    m_type = arr;
+    // rngs are listed from slowest varying to fastest varying
+    for (auto rit = rngs.rbegin(); rit != rngs.rend(); ++rit) {
+        auto [lower, upper] = *rit;
+        if (upper > lower) {
+            auto arr = std::make_shared<ais::FtnArray>(m_type, upper-lower+1);
+            arr->setBounds(upper-lower+1, 0);
+            m_type = arr;
+        }
+    }
 }
 
 
@@ -964,9 +964,12 @@ char* KokkosSubArray::getArrayDataString()
         return nullptr;
     }
 
+    // these are from fastest to slowest
+    auto outLens = rngLens;
+    outLens.erase(std::remove(outLens.begin(), outLens.end(), 1), outLens.end());
+
     // and put the results into a string.   
     auto open = "{", sep = ",", close = "}";
-    if (totalLen == 1) open = sep = close = "";
 
     auto os = std::ostringstream{};
     for (size_t i=0; i<totalLen; ++i) {
@@ -976,12 +979,24 @@ char* KokkosSubArray::getArrayDataString()
         if (!elemEnd) elemEnd = strchr(elem,'}');
 
         auto elemVal = std::string_view{elem, size_t(elemEnd-elem)};
-        
-        os << open << elemVal;
-        open = sep;
+
+        auto j = i;
+        for (auto len : outLens) {
+            if (j % len) break;
+            else os << open;
+            j /= len;
+        }
+
+        os << elemVal;
+
+        j = i+1;
+        for (auto len : outLens) {
+            if (j % len) { os << sep; break; }
+            else os << close;
+            j /= len;
+        }
     }
 
-    os << close;
 
     // we could potentially avoid copying the data (twice) by
     // changing this interface to supply a custom ais::InterpretStream instead

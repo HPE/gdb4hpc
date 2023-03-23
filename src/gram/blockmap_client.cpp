@@ -389,6 +389,7 @@ namespace {
     private:
         std::vector<BlockMap::Indexer1D> m_idcs;
         std::vector<std::pair<int,int>> m_subRng;
+        std::vector<int> m_lens;
         std::vector<int> m_curIdx;
         int m_resDim = 0;
     };
@@ -399,6 +400,7 @@ RangeBlockMapIterator::RangeBlockMapIterator(BlockMap* bm,
                                              const std::string& subRng){
     for (int i=0; i<bm->getRank(); ++i) {
         m_idcs.push_back(BlockMap::Indexer1D(bm, i));
+        m_lens.push_back(bm->getDims()[i]);
     }
     m_subRng = bm->getIndexRng(subRng);
     m_resDim = 0;
@@ -410,16 +412,24 @@ RangeBlockMapIterator::RangeBlockMapIterator(BlockMap* bm,
 void RangeBlockMapIterator::begin(bool isFortran, int index0) {
     BlockMap::Indexer1D::init(m_idcs, isFortran);
 
-    if (isFortran) {
-        // arrange slowest to fastest changing
-        // - BlockMapGetIndexRng already indexes to 0
-        std::reverse(m_subRng.begin(), m_subRng.end());
-        if (auto offset = 1-index0) {
-            for (auto& [lo,hi] : m_subRng) {
-                lo += offset;
-                hi += offset;
-            }
+    // index to zero
+    if (index0) {
+        for (auto& [lo,hi] : m_subRng) {
+            lo -= index0;
+            hi -= index0;
         }
+    }
+
+    // trim the range to the available size
+    int i=0;
+    for (auto& [lo,hi] : m_subRng) {
+        lo = std::max(0,lo);
+        hi = std::min(hi,m_lens[i++]-1);
+    }
+
+    // arrange slowet to fastest changing
+    if (isFortran) {
+        std::reverse(m_subRng.begin(), m_subRng.end());
     }
 
     for (auto& [lo,hi] : m_subRng) {

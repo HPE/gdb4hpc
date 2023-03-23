@@ -125,27 +125,20 @@ std::vector<std::pair<int,int>> BlockMap::getIndexRng(const std::string& rng) co
             auto i = std::stoi(match[1]);
             idxRngs.emplace_back(i,i);
         } else if (regex_search(remIdx, match, ftnRngRE)) {
-            idxRngs.emplace_back(std::stoi(match[1])-1, std::stoi(match[2])-1);
+            idxRngs.emplace_back(std::stoi(match[1]), std::stoi(match[2]));
         } else if (regex_search(remIdx, match, ftnElemRE)) {
-            auto i = std::stoi(match[1])-1;
+            auto i = std::stoi(match[1]);
             idxRngs.emplace_back(i,i);
         } else {
             break;
         }
         remIdx = match.suffix().str();
     }
-
-    for (int i=0; i<m_rank; ++i) {
-        auto up = m_data[i]-1;
-        if (size_t(i) >= idxRngs.size()) {
-            // the range doesn't have all dimensions, but with a 2d array
-            // in C/C++  array[0] naturally refers to the full sub-array.
-            idxRngs.push_back(std::make_pair(0,up));
-        } else {
-            auto& [lo,hi] = idxRngs[i];
-            lo = std::max(0,lo);
-            hi = std::min(up,hi);
-        }
+    
+    // the range doesn't have all dimensions, but with a 2d array
+    // in C/C++  array[0] naturally refers to the full sub-array.
+    for (int i = idxRngs.size(); i<m_rank; ++i) {
+        idxRngs.push_back(std::make_pair(0,m_data[i]-1));
     }
 
     return idxRngs;

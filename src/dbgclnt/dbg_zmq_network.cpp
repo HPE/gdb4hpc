@@ -412,7 +412,7 @@ ZMQNetNetwork::OutputWatcher::OutputWatcher(OutputPtr &&output)
                         if (errno == EINTR) {
                             // signals are ok, just try again
                         } else {
-                            fprintf(stderr, "An error occured while watching program output.\n");
+                            fprintf(stderr, "An error occurred while watching program output.\n");
                             fprintf(stderr, "error text: %s\n", strerror(errno));
                         }
                         break;
@@ -424,7 +424,7 @@ ZMQNetNetwork::OutputWatcher::OutputWatcher(OutputPtr &&output)
                 }
             }
         } catch (...) {
-            fprintf(stderr, "WARNING: An exception in the program output collection thread occured.\nProgram output will no longer be displayed.\n");
+            fprintf(stderr, "WARNING: An exception in the program output collection thread occurred.\nProgram output will no longer be displayed.\n");
         }
     };
 

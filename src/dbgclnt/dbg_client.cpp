@@ -3876,7 +3876,7 @@ rep_set_t *DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
         // Now that the app is running again, release it from cti so it won't be
         // killed when cti is killed
         if (cti_releaseApp(di.appId())) {
-            PrintOutMsg("Warning: an error occured during release of $%s.\n",
+            PrintOutMsg("Warning: an error occurred during release of $%s.\n",
                           di.handle().c_str());
             PrintOutMsg("The job might be killed before completing.\n");
         }

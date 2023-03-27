@@ -173,6 +173,11 @@ static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_directmode_interpreter_exec_cmd(rec_set_t *rec_set, int argc,
                                                char **argv) {
+
+    if (argc > 2 || strstr(argv[1], "mi")) {
+        return cmd_directmode_direct_cmd(rec_set, argc, argv);
+    }
+        
     auto command = std::string{};
     if (argc > 3 || argv[2][0] != '"') {
         command = ArgsToString(argv+2, argc-2);
@@ -246,7 +251,7 @@ void InitCmd_passthru(void) {
     AddAltCommand(DirectModeCmds, "kill", NULL, proc_ignore, 0,
                   cmd_directmode_blacklist_cmd, dummy_help, "");
 
-    AddAltCommand(DirectModeCmds, "interpreter-exec", NULL, proc_ignore, 0,
+    AddAltCommand(DirectModeCmds, "interpreter-exec", NULL, proc_required, 0,
                   cmd_directmode_interpreter_exec_cmd, dummy_help, "");
 
     SetDefaultCommand(DirectModeCmds, "_default_cmd");

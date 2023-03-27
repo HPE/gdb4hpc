@@ -40,7 +40,7 @@ Threshold for repeated print elements is 10.
 29: show source open
 Source opening is on.
 
-31: e
+31: end
 
 Ending gdb pass-thru mode. If program location has changed (i.e. continue) debugger is in an unknown state.
 33: show print elements

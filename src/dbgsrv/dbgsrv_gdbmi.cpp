@@ -211,7 +211,15 @@ dbgevent_t *DbgGdbMI::setLineBreak(int feId,
     auto where = std::to_string(lno);
     if (file && file[0]) {
         where = std::string{file} + ":" + where;
+    } else if (auto frameEvt = getFrame(false, threadSet)) {
+        if (frameEvt->ev_event == DBGEV_FRAME) {
+            if (auto frameFile = frameEvt->ev_frame->getLoc().loc_file) {
+                where = std::string{frameFile} + ":" + where;
+            }
+        }
+        FreeEvent(frameEvt);
     }
+        
 
     return setBreak(feId, allowPending, where, threadSet, commInfo);
 }
@@ -1300,7 +1308,7 @@ dbgevent_t *DbgGdbMI::getFrame(bool verbose, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
-    if (threads) {
+    if (threads && threads[0]) {
         auto op = std::string{threads} + " frame";
         return threadEventToFrame(threadApply(op.c_str()));
     }
@@ -3093,8 +3101,19 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     MICommand *cmd;
     dbgevent_t *e;
+    auto isMI = false;
 
-    cmd = CLIBypass(cmd_argc, cmd_argv);
+    if (strcmp(cmd_argv[0],"interpreter-exec") != 0) {
+        cmd = CLIBypass(cmd_argc, cmd_argv);
+    } else if (cmd_argc > 2 && strstr(cmd_argv[1],"mi")) {
+        isMI = true;
+        cmd = MICommandNew(cmd_argv[2],MIResultRecordDONE);
+        for (int i=3; i<cmd_argc; ++i)
+            MICommandAddOption(cmd, cmd_argv[i], nullptr);
+    } else {
+        cmd = CLIBypass(cmd_argc-2, cmd_argv+2);
+    }
+   
     SendMICommand(GDBMISession, cmd);
 
     // Sometimes a command can cause the debugger to start running
@@ -3134,7 +3153,14 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
     }
 
     e = NewEvent(DBGEV_CMD);
-    e->ev_cmd = MICommandConsoleOOBMessages(cmd);
+    if (!isMI) {
+        e->ev_cmd = MICommandConsoleOOBMessages(cmd);
+    } else if (auto rr = MICommandResult(cmd)) {
+        if (auto miStr = MIResultRecordToString(rr)) {
+            e->ev_cmd = strdup(MIStringToCString(miStr));
+            MIStringFree(miStr);
+        }
+    }
 
     MICommandFree(cmd);
 

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020,2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -309,43 +309,37 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
  */
 
 static cmdtype_t *_findcmd(cmdlist_t *cmds, const char *cmd) {
-    int cnt = 0;
-    cmdtype_t *c;
-    cmdtype_t *cp = NULL;
-
     auto cmdlen = strlen(cmd);
     if (auto slash = strchr(cmd, '/')) cmdlen = (slash-cmd);
 
+    auto match = [cmd,cmdlen](const char* c) { return c && strncmp(cmd, c, cmdlen) == 0; };
+    auto eq = [cmd,cmdlen,match](const char* c) { return match(c) && strlen(c) == cmdlen; };
+
     SetList(cmds->cmd_list);
+    
+    bool ambig = false;
+    cmdtype_t *cp = nullptr;
 
-    while ((c = (cmdtype_t *)GetListElement(cmds->cmd_list)) !=
-           (cmdtype_t *)NULL) {
-        if (c->c_alias && strlen(c->c_alias) == cmdlen && strncmp(cmd, c->c_alias, cmdlen) == 0) return c;
-
-        if (strncmp(cmd, c->c_name, cmdlen) == 0 && c->c_cmd != NULL) {
-            cnt++;
-            cp = c;
-            if (strlen(c->c_name) == cmdlen) {
-                cnt = 1;  // an exact match takes precedence over a subset
-                break;
-            }
+    while (auto c = (cmdtype_t *)GetListElement(cmds->cmd_list)) {
+        if ( !c->c_cmd) continue;
+        else if (eq(c->c_name)) return c;
+        else if (eq(c->c_alias)) return c;
+        else if (!cmds->cmd_default && (match(c->c_name) || match(c->c_alias))) {
+            if (!cp) cp = c; else ambig = true;
         }
     }
 
-    if (cnt > 1) {
+    if (ambig) {
         cmds->cmd_ambig(cmd);
-        return (cmdtype_t *)NULL;
-    }
-
-    if (cnt == 0) {
-        // Check to see if there is a default command set, if so return that
-        if (cmds->cmd_default != NULL) return cmds->cmd_default;
-
+        return nullptr;
+    } else if (cp) {
+        return cp;
+    } else if (cmds->cmd_default) {
+        return cmds->cmd_default;
+    } else {
         cmds->cmd_notfound(cmd);
-        return (cmdtype_t *)NULL;
+        return nullptr;
     }
-
-    return cp;
 }
 
 static cmdtype_t *FindHelpClassCommand(char **cmd_argv) {

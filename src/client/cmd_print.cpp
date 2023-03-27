@@ -204,7 +204,8 @@ static int cmd_show_print_pretty_cmd(rec_set_t *rec_set, int argc,
 // remove new lines and escape quotes so output can be added to an MI response
 std::string FormatMIValue(std::string origValue) {
     auto value = std::move(origValue);
-    value.erase(std::remove(value.begin(), value.end(), '\n'), value.end());
+    while (!value.empty() && value.back() == '\n') value.pop_back();
+    std::replace(value.begin(), value.end(), '\n', ' ');
     for (std::size_t pos=0;
          (pos=value.find_first_of("\"\'\\",pos)) != std::string::npos; ) {
         value.insert(pos,"\\");

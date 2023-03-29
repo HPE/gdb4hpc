@@ -1,10 +1,12 @@
 // mi_funcs.cpp - Command line interface routines.
-// Copyright 2022 Hewlett Packard Enterprise Development LP.
+// Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
 
 #include "client.h"
 #include "useful.h"
 #include <map>
 #include <regex>
+
+const char* mi_dummyFrameAddr = "addr=\"0xf00f\",";
 
 static std::string launcher_args;
 static std::string num_ranks;

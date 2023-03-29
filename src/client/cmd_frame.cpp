@@ -146,8 +146,9 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
             if(Client.MI_mode){
                 ss << (n ? "," : "[");
-                ss << "frame={level=\"" << f->getLevel() 
-                   << "\",func=\"" << loc.loc_func << "\",file=\"" << loc.loc_file
+                ss << "frame={level=\"" << f->getLevel() << "\","
+                   << (f->getLevel() ? "" : mi_dummyFrameAddr)
+                   << "func=\"" << loc.loc_func << "\",file=\"" << loc.loc_file
                    << "\",fullname=\""<<loc.loc_file<<"\",line=\""<<loc.loc_line<<"\"}";
             }
         }

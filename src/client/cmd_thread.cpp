@@ -109,13 +109,21 @@ static int cmd_taas_cmd(rec_set_t *rec_set, int argc, char **argv) {
 static void PrintMIThread(const std::string& line,
                           std::ostringstream& ss, std::string& current_thread_id) {
 
-    auto stoppedRE = std::regex{R"((\*)?\s+([-0-9]+)\s[^"]*["]([^"]*)["]\s*(\w+).*\sat\s([^:]*):(\d+))"};
-    auto runningRE = std::regex{R"((\*)?\s+([-0-9]+)\s[^"]*["]([^"]*)["]\s*\(running\))"};
+    auto stoppedRE = std::regex{R"((\*)?\s+([- 0-9]*\d)\s[^"]*["]([^"]*)["]\s*(\w+).*\sat\s([^:]*):(\d+))"};
+    auto runningRE = std::regex{R"((\*)?\s+([- 0-9]*\d)\s[^"]*["]([^"]*)["]\s*\(running\))"};
+    // ccdb uses the frame address to match the backtrace to the current thread,
+    // create a dummy frame address tag is this the current thread and set
+    // current_thread_id
+    auto frameAddr = [&current_thread_id] (const std::smatch& match) {
+        if (!match[1].length()) return "";
+        current_thread_id = match[2].str();
+        return mi_dummyFrameAddr;
+    };
 
     std::string word;
     std::string id="id=\"";
     std::string target_id="target-id=\"";
-    std::string addr="addr=\"";
+    std::string addr="";
     std::string func="func=\"";
     std::string file="file=\"";
     std::string atLine="line=\"";
@@ -128,13 +136,13 @@ static void PrintMIThread(const std::string& line,
         func += match[4];
         file += match[5];
         atLine += match[6];
-        if (match[1].length())
-            current_thread_id += match[2];
+        addr = frameAddr(match);
         thread_state += "break";
     } else if (std::regex_match(line, match, runningRE)) {
         id += match[2];
         target_id += match[3];
         thread_state += "running";
+        frameAddr(match); // just setting current thread
     } else {
         // I hope this was the header
         return;
@@ -145,7 +153,9 @@ static void PrintMIThread(const std::string& line,
 
     ss << "{"<<id << "\","
        << target_id
-       << "\",frame={" << func << "\","
+       << "\",frame={"
+       << addr
+       << func << "\","
        << file << "\","
        << atLine << "\"},"
        << thread_state<<"\"}";

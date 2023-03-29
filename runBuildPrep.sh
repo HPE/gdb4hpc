@@ -82,7 +82,7 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             ncurses \
             ncurses-devel \
             python3-devel \
-	          jq \
+            jq \
             rpm-build \
             tcl \
             which \
@@ -91,8 +91,8 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
 
     if [[ "$target_arch" == "$cdst_arch_aarch64" && "$target_os" == "$cdst_os_rhel84" ]]; then
       yum --assumeyes install \
-      https://arti.dev.cray.com/artifactory/hpe-rhel-remote/EL8/Update4/GA/CRB/os/Packages/perl-Unicode-EastAsianWidth-1.33-13.el8.noarch.rpm \
-      https://vault.centos.org/centos/8/PowerTools/aarch64/os/Packages/texinfo-6.5-6.el8.aarch64.rpm
+      https://arti.hpc.amslabs.hpecorp.net/artifactory/hpe-rhel-remote/EL8/Update4/GA/CRB/os/Packages/perl-Unicode-EastAsianWidth-1.33-13.el8.noarch.rpm \
+      https://arti.hpc.amslabs.hpecorp.net/artifactory/mirror-centos8/PowerTools/aarch64/os/Packages/texinfo-6.5-6.el8.aarch64.rpm
     else
       yum --assumeyes install texinfo
     fi

@@ -263,8 +263,13 @@ std::string sanitizeType(const std::string& type) {
     auto match = std::smatch{};
     if (std::regex_match(sanType, match, virtualTypeRE)) {
         sanType = match[1];
-        DVPRINT("got devied class type: \"%s\"\n", sanType.c_str());
-    }     
+        DVPRINT("got derived class type: \"%s\"\n", sanType.c_str());
+    }
+
+    // gdb prints (anonymous namespace)::
+    for (size_t pos=0; (pos=sanType.find(ANONYMOUS_NAMESPACE,pos)) != std::string::npos; ) {
+        sanType.erase(pos, ANONYMOUS_NAMESPACE.size());
+    }
 
     // remove leading and trailing whitespace
     if (auto p = sanType.find_first_not_of(' ')) sanType.erase(0,p);
@@ -474,15 +479,7 @@ addStructMembers(Mi2Aif& mi, ais::Struct& stype,
            return memberName;
         };
 
-        while (true) {
-            DVPRINT("Gettting children of type %s\n", var->type);
-            mi.getChildren(var);
-            if (var->type && var->type != type && var->numchild) {
-                var = var->children[0];
-            } else {
-                break;
-            }
-        }
+        mi.getChildren(var);
         DVPRINT("Got %d children\n", var->numchild);
 
         // The members are in the children of MIVar

@@ -108,5 +108,5 @@ namespace TypeParser {
 std::shared_ptr<ais::Type> getType(Mi2Aif& mi, MIVar* var, const char* typeStr);
 }
 
-
+extern const std::string ANONYMOUS_NAMESPACE;
 

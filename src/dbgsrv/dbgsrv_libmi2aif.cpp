@@ -36,6 +36,8 @@ extern void SendMICommand(MISession *, MICommand *);
 // Used to fix infinite loop issue for recursive calls to whatis
 extern int clientPrintElements;
 
+const std::string ANONYMOUS_NAMESPACE = "(anonymous namespace)::";
+
 namespace { class SubArray; }
 
 class LazyMIVar {
@@ -1503,7 +1505,12 @@ PTypeFields::PTypeFields(MICommand& sentCmd, bool isFortran)
             }
         }
 
-        DVPRINT("nextBaseClass returning %s\n", earliest);
+        auto alen = ANONYMOUS_NAMESPACE.size();
+        if (earliest && strncmp(earliest, ANONYMOUS_NAMESPACE.c_str(), alen) == 0) {
+            earliest += alen;
+        }
+
+        DVPRINT("nextBaseClass returning %s\n", (earliest ? earliest : "null"));
         return earliest;
     };
 
@@ -1751,12 +1758,21 @@ std::string Mi2Aif::getPTypeAlias(const std::string& type, bool isExpression, bo
             retType = std::string{info, bracket};
             DVPRINT("Got union alias %s\n", retType.c_str());
         } else if (strncmp(info, "class ", 6) == 0 && bracket) {
-            auto isWd = [](char c) { return isalnum(c) || c == '_' ||  c == ':'; };
             auto s = std::string{info+6, bracket};
+
+            if (s.rfind(ANONYMOUS_NAMESPACE, 0) == 0) s.erase(0, ANONYMOUS_NAMESPACE.size());
+
+            auto isWd = [](char c) { return isalnum(c) || c == '_' ||  c == ':'; };
+            
             if (auto end = std::find_if_not(s.begin(), s.end(),isWd); end != s.end()) {
                 if (*end == '<') end += FindTemplateLength(s, end-s.begin());
                 s.erase(end, s.end());
             }
+            if (s.empty()) { /* anonymous class */ }  
+            else if (auto endBracket = findExprMatch(bracket)) {
+                s += std::string{endBracket+1, strspn(endBracket+1, " *")};
+            }
+
             retType = std::move(s);
             DVPRINT("got class alias %s\n", s.c_str());
         } else if (strict) {

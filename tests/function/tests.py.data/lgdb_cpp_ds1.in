@@ -422,7 +422,7 @@ b{0..1}: (Derived*) <1>
 162: p *this
 b{0..1}: {PureVirtual = {baseMember = 122}, dmember = -17.1}
 163: up
-b{0..1}: #2  virtualFuncTest at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:414
+b{0..1}: #2  virtualFuncTest at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:417
 164: p a
 b{0..1}: {PureVirtual = {baseMember = 122}, dmember = -17.1}
 165: p b
@@ -446,5 +446,17 @@ class Derived : public PureVirtual {
 b{0..1}: /* real type = Derived */
 170: p a.f
 b{0..1}: void (Derived * const) <Derived::f()>
-171: q
+171: b 443
+b{0..1}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp, line 443.
+185: c
+b{0..1}: Breakpoint 2, anonymousNamespace() at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp:443
+174: p d
+b{0..1}: {AnonBaseClass = {m_a = 116}, m_x = 101.125}
+175: p dp
+b{0..1}: (AnonDerivedClass*) <1>
+  <1>:{(anonymous namespace)::AnonBaseClass = {m_a = 116}, m_x = -104.125}
+176: p dsp
+b{0..1}: std::shared_ptr<AnonDerivedClass>(<2>)
+  <2>:{(anonymous namespace)::AnonBaseClass = {m_a = 116}, m_x = 66.5}
+177: q
 Shutting down debugger and killing application for 'b'.

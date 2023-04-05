@@ -26,7 +26,7 @@ static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes(), virtualFuncTest();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
-
+static void anonymousNamespace();
 
 
 static void trap() {
@@ -116,7 +116,7 @@ int main(int argc, char ** argv){
     nestedTypedef();
     anonymousClass();
     virtualFuncTest();
-
+    anonymousNamespace();
 
     
 
@@ -411,6 +411,35 @@ static void virtualFuncTest()
     Derived a(122, -17.1);
     Derived &b = a;
     Derived* p = &a;
+    auto sp = std::make_shared<Derived>(16, 101.25);
+    auto bsp = std::shared_ptr<PureVirtual>{sp};
+    auto bp = bsp.get();
     a.f();
+    
 }
 
+namespace {
+    class AnonBaseClass {
+    public:
+        AnonBaseClass(int a) : m_a(a) {}
+        virtual ~AnonBaseClass() {}
+    private:
+        int m_a;
+    };
+    class AnonDerivedClass : private AnonBaseClass {
+    public:
+        AnonDerivedClass(double x) : AnonBaseClass(116), m_x(x) {}
+    private:
+        double m_x;
+    };
+}
+
+static void anonymousNamespace()
+{
+    auto d = AnonDerivedClass{101.125};
+    auto dp = new AnonDerivedClass{-104.125};
+    auto dsp = std::make_shared<AnonDerivedClass>(66.5);
+
+    delete dp;
+}
+    

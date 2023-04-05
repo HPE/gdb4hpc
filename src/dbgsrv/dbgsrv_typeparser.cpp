@@ -1023,7 +1023,8 @@ std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t) {
         DVPRINT("Got inner types: \"%s\", \"%s\", \"%s\"\n", int_seq.c_str(), rest.c_str(), dec.c_str());
 
         // the number of dimensions is equal to the number of commas in
-        // camp::int_seq<long, 0l, ..., nl>
+        // camp::int_seq<long, 0l, ..., nl> (the first 'long' term makes dimensions ==
+        // commas instead of more common/expected dimensions == commas+1)
         const auto leader_size = strlen("camp::int_seq");
         if (int_seq.size() < leader_size)
             return unimplemented(mi, t);
@@ -1033,10 +1034,7 @@ std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t) {
         if (closing == nullptr)
             return unimplemented(mi, t);
 
-        auto commas = 0;
-        for (const auto& c : std::string_view(opening, closing - opening)) {
-            if (c == ',') commas++;
-        }
+        auto commas = std::count(opening, closing, ',');
 
         return std::make_shared<ais::RajaView>(elem_type, commas);
 

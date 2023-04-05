@@ -14,8 +14,11 @@
 #include <condition_variable>
 #include <iomanip>
 #include <variant>
+#include <charconv>
 #include "dbgevent.h"
 #include "parse.h"
+
+#include "unittest_macros.h"
 
 //===========================================================================
 
@@ -2028,6 +2031,14 @@ std::shared_ptr<ais::Type> ais::RajaView::getElemTypePtr() const {
     return m_elem_type;
 }
 
+const ais::RajaView::Bounds& ais::RajaView::getBounds() const {
+    return m_bounds;
+}
+
+void ais::RajaView::setBounds(ais::RajaView::Bounds&& bounds) {
+    m_bounds = bounds;
+}
+
 void ais::RajaView::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
     while (*s) s++;
@@ -2035,10 +2046,69 @@ void ais::RajaView::parseL(InterpretStream& in, Writer& out) const {
 
     auto msg = std::ostringstream{};
     msg << "RAJA::View; Use ";
-    for (int i = 0; i < dim(); i++) msg << (!i ? "(" : ", ") << "...";
+    for (int i = 0; i < dim(); i++) {
+        msg << (!i ? "(" : ", ")
+            << 0 + m_bounds.offsets[i]
+            << ".."
+            << (m_bounds.sizes[i] - 1) + m_bounds.offsets[i]
+        ;
+    }
     msg << ") for full contents.";
 
     out.writeString(msg.str());
+}
+
+bool ais::RajaView::verboseDebug() {
+    static const auto _enabled = [] {
+        return bool{::getenv("GDB4HPC_RAJA_VERBOSE_DEBUG")};
+    }();
+    return _enabled;
+}
+
+ais::RajaView::Bounds::Bounds(const std::string_view input) {
+    // expecting an input like the following (ellipses are abbreviations, not actually expected):
+    // {m_data = 0x7ff102500000, m_layout = ... = {..., sizes = {7, 6}, strides = {6, 1}, ..., offsets = {-1, -1}}, ... }}
+    //
+    // the strategy is to skip delimiters from the input string and parse the
+    // interesting numbers as we see them come up in the stream. we know sizes, strides,
+    // and offsets will always be 1D lists, so we don't need any special handling for {.
+
+    std::vector<int>* current_number_bucket = nullptr;
+    const char* delims = "{=, <>}";
+
+    auto token_idx = input.find_first_not_of(delims);
+    while (token_idx < input.size()) {
+        auto end_idx = input.find_first_of(delims, token_idx);
+        auto token = input.substr(token_idx, end_idx - token_idx);
+
+        if (!std::isdigit(token.front()) && token.front() != '-') {
+            // found a key, switch bucket
+            if (token == "sizes") current_number_bucket = &this->sizes;
+            else if (token == "strides") current_number_bucket = &this->strides;
+            else if (token == "offsets") current_number_bucket = &this->offsets;
+            else current_number_bucket = nullptr;
+        } else if (current_number_bucket) {
+            // found a number, add to current bucket
+            auto num = int{0};
+            auto [_, error] = std::from_chars(token.begin(), token.end(), num);
+            if (error != std::errc())
+                throw std::runtime_error(std::string{"Failed to parse number: "} + std::string{token});
+
+            current_number_bucket->emplace_back(num);
+        }
+
+        token_idx = input.find_first_not_of(delims, end_idx);
+    }
+
+    // check if the data is valid.
+    // we should always have the same number of sizes and strides. offsets only appear in
+    // certain types of RAJA views. if offsets aren't present, we fill them in with zeros
+    // to make future math easier.
+    if (this->offsets.size() == 0)
+        for (size_t i = 0; i < this->sizes.size(); i++) this->offsets.push_back(0);
+
+    if (!(this->sizes.size() == this->strides.size() && this->strides.size() == this->offsets.size()))
+        throw std::runtime_error("Invalid view bounds");
 }
 
 //===========================================================================
@@ -2796,3 +2866,96 @@ void ais::BinaryOperator::operator()(double a, double b) {
     (*this)(static_cast<long double>(a), static_cast<long double>(b));
 }
 
+TEST_CASE("RajaView::Bounds::fromText: Standard view") {
+    const char* to_parse =
+        "{"
+          "m_data = 0x2273f0, "
+          "m_layout = {"
+              "static n_dims = 2, "
+              "static limit = 2147483647, "
+              "static stride_one_dim = -1, "
+              "sizes = {4, 4}, "
+              "strides = {4, 1}, "
+              "inv_strides = {4, 1}, "
+              "inv_mods = {4, 4}"
+          "}"
+        "}"
+    ;
+
+    auto bounds = ais::RajaView::Bounds(to_parse);
+
+    REQUIRE(bounds.sizes.size() == 2);
+    CHECK(bounds.sizes[0] == 4);
+    CHECK(bounds.sizes[1] == 4);
+
+    REQUIRE(bounds.strides.size() == 2);
+    CHECK(bounds.strides[0] == 4);
+    CHECK(bounds.strides[1] == 1);
+
+    CHECK(bounds.offsets.size() == 2);
+    CHECK(bounds.offsets[0] == 0);
+    CHECK(bounds.offsets[1] == 0);
+}
+
+TEST_CASE("RajaView::Bounds::fromText: Offset view") {
+    const char* to_parse =
+        "{"
+          "m_data = 0x7ff102500000, "
+          "m_layout = {<RAJA::internal::OffsetLayout_impl<camp::int_seq<long, 0l, 1l>, int>> = {"
+            "base_ = {"
+              "static n_dims = 2, "
+              "static limit = 2147483647, "
+              "static stride_one_dim = -1, "
+              "sizes = {7, 6}, "
+              "strides = {6, 1}, "
+              "inv_strides = {6, 1}, "
+              "inv_mods = {7, 6}"
+            "}, "
+            "static stride_one_dim = -1, "
+            "static n_dims = 2, "
+            "offsets = {-1, -1}"
+        "}, <No data fields>}}"
+    ;
+
+    auto bounds = ais::RajaView::Bounds(to_parse);
+
+    REQUIRE(bounds.sizes.size() == 2);
+    CHECK(bounds.sizes[0] == 7);
+    CHECK(bounds.sizes[1] == 6);
+
+    REQUIRE(bounds.strides.size() == 2);
+    CHECK(bounds.strides[0] == 6);
+    CHECK(bounds.strides[1] == 1);
+
+    REQUIRE(bounds.offsets.size() == 2);
+    CHECK(bounds.offsets[0] == -1);
+    CHECK(bounds.offsets[1] == -1);
+}
+
+TEST_CASE("RajaView::Bounds::fromText: Permuted view") {
+    const char* to_parse =
+        "{"
+          "static n_dims = 2, "
+          "static limit = 2147483647, "
+          "static stride_one_dim = -1, "
+          "sizes = {3, 5}, "
+          "strides = {1, 3}, "
+          "inv_strides = {1, 3}, "
+          "inv_mods = {3, 5}"
+        "}"
+    ;
+
+    auto bounds = ais::RajaView::Bounds(to_parse);
+
+    REQUIRE(bounds.sizes.size() == 2);
+    CHECK(bounds.sizes[0] == 3);
+    CHECK(bounds.sizes[1] == 5);
+
+    REQUIRE(bounds.strides.size() == 2);
+    CHECK(bounds.strides[0] == 1);
+    CHECK(bounds.strides[1] == 3);
+
+    REQUIRE(bounds.offsets.size() == 2);
+    CHECK(bounds.offsets[0] == 0);
+    CHECK(bounds.offsets[1] == 0);
+}

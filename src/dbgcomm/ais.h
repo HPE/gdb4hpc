@@ -1043,15 +1043,33 @@ class RajaView : public Literal {
     // data is fetched when the user uses "my_view(0..1, 2..3)" syntax, which creates a
     // RajaSubArray.
 public:
+    struct Bounds {
+        // Construct a Bounds struct from the result of a "p my_raja_view" gdb command.
+        // throws std::runtime_error on malformed input.
+        Bounds(const std::string_view input);
+        Bounds() = default;
+
+        std::vector<int> sizes;
+        std::vector<int> strides;
+        std::vector<int> offsets;
+    };
+
+    // noisy raja debug messages should check this flag before dumping hundreds of lines to a log
+    static bool verboseDebug();
+
     RajaView(std::shared_ptr<ais::Type> elem_type, int dim);
     RajaView();
 
     std::string getTypeName() const override;
+    void setBounds(Bounds&& bounds);
+    const Bounds& getBounds() const;
     std::shared_ptr<ais::Type> getElemTypePtr() const;
     void parseL(InterpretStream& in, Writer& out) const override;
 
     int dim() const;
+
 private:
+    Bounds m_bounds;
     std::shared_ptr<ais::Type> m_elem_type;
     int m_dim;
 };

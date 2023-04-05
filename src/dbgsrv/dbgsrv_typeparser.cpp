@@ -7,6 +7,7 @@
 #include "dbgsrv_libmi2aif.h"
 #include "dbgsrv_defs.h"
 #include "unittest_macros.h"
+#include "parse.h"
 #include <regex>
 
 extern void SendMICommand(MISession *, MICommand *);
@@ -52,6 +53,7 @@ std::shared_ptr<ais::Type> stlContainer(Mi2Aif& mi, const ais::Array& contType,
                                         TypeName t);
 std::shared_ptr<ais::Type> stdArray(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> kokkosView(Mi2Aif& mi, TypeName t);
+std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdConditional(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdString(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> smartPointer(Mi2Aif& mi, TypeName t);
@@ -156,7 +158,9 @@ std::vector<Prim> m_cppStlPrims =
  {"std::queue", ContainerWrap<ais::Queue>()},
  {"std::shared_ptr", SmartPointerWrap()},
  {"std::unique_ptr", SmartPointerWrap()},
- {"Kokkos::View", kokkosView}
+ {"Kokkos::View", kokkosView},
+ {"RAJA::View", rajaView},
+ {"RAJA::internal::ViewBase", rajaView}, // "ptype RAJA::View<...>" will turn into this
 };
 
 std::vector<Prim> m_fortranPrims =
@@ -977,6 +981,86 @@ std::shared_ptr<ais::Type> kokkosView(Mi2Aif& mi, TypeName t) {
     return std::make_shared<ais::KokkosView>(elemType, dim);
 }
 
+std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing RAJA::view type %s\n", t.decoration.c_str());
+
+    // RAJA::Views will start like an stl container type with their contained type as their first argument.
+    // e.g. RAJA::View<int, ...> or RAJA::internal::ViewBase<int, ...>
+
+    auto [elem_type_str, template_args, decoration] = getContainerTypes(t);
+
+    DVPRINT("Got types: \"%s\", \"%s\", \"%s\"\n",
+        elem_type_str.c_str(), template_args.c_str(), decoration.c_str());
+    if (elem_type_str.empty()) {
+        return unimplemented(mi, t);
+    }
+
+    // get the inner type
+    auto elem_type = getType(mi, nullptr, elem_type_str.c_str());
+
+    // Now get the dimension.
+    // RAJA::Views encode their dimensions in different ways depending on how they were constructed.
+    //
+    // A 2d view of doubles constructed via RAJA::View<double, RAJA::Layout<2, int>>(...) has type:
+    // "RAJA::View<double, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >"
+    //
+    // Calling ptype with the above view will turn it into the internal type:
+    // RAJA::internal::ViewBase<double, double*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >
+    //
+    // a 3d view of doubles via RAJA::View<double, RAJA::Layout<3, int>> has type:
+    // "RAJA::View<int, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l, 2l>, int, -1l> >"
+    //
+    // For these, the dimension is encoded in the int_seq<...> template argument.
+    //
+    // An offset layout is simpler. An offset layout is a wrapper around a normal layout and has its own type.
+    // A 2d view of ints via RAJA::View<int, RAJA::OffsetLayout<2, int>> has type:
+    // "RAJA::View<int, RAJA::OffsetLayout<2ul, int>>"
+    // with the dimension as the first argument to OffsetLayout.
+
+    const auto layout_token = "RAJA::detail::LayoutBase_impl";
+    const auto offset_token = "RAJA::OffsetLayout";
+
+    if (auto layout_idx = template_args.find(layout_token); layout_idx != std::string::npos) {
+        auto layout_template = template_args.substr(layout_idx);
+        auto [int_seq, rest, dec] = getContainerTypes({layout_template, strlen(layout_token)});
+        DVPRINT("Got inner types: \"%s\", \"%s\", \"%s\"\n", int_seq.c_str(), rest.c_str(), dec.c_str());
+
+        // the number of dimensions is equal to the number of commas in
+        // camp::int_seq<long, 0l, ..., nl>
+        const auto leader_size = strlen("camp::int_seq");
+        if (int_seq.size() < leader_size)
+            return unimplemented(mi, t);
+
+        const auto* opening = &int_seq[leader_size];
+        const auto* closing = findExprMatch(opening);
+        if (closing == nullptr)
+            return unimplemented(mi, t);
+
+        auto commas = 0;
+        for (const auto& c : std::string_view(opening, closing - opening)) {
+            if (c == ',') commas++;
+        }
+
+        return std::make_shared<ais::RajaView>(elem_type, commas);
+
+    } else if (auto offset_idx = template_args.find(offset_token); offset_idx != std::string::npos) {
+        auto offset_template = template_args.substr(offset_idx);
+        auto [dims_str, rest, dec] = getContainerTypes({template_args, strlen(offset_token)});
+        DVPRINT("Got inner types: \"%s\", \"%s\", \"%s\"\n", dims_str.c_str(), rest.c_str(), dec.c_str());
+        if (dims_str.empty())
+            return unimplemented(mi, t);
+
+        try {
+            auto dims = std::stoi(dims_str);
+            return std::make_shared<ais::RajaView>(elem_type, dims);
+        } catch (std::logic_error &e) {
+            return unimplemented(mi, t);
+        }
+    }
+
+    return unimplemented(mi, t);
+}
+
 std::shared_ptr<ais::Type> unimplemented(Mi2Aif& mi, TypeName t) {
     return std::make_unique<ais::Unimplemented>(t.type + t.decoration);
 }
@@ -1246,6 +1330,64 @@ TEST_CASE("TypeParser::getType: cpp string types") {
     basicTypeTest<ais::String>(TypeParser::Lang::Cpp, "std::basic_string");
     basicTypeTest<ais::String>(TypeParser::Lang::Cpp, "std::string<std::allocator>");
     basicTypeTest<ais::String>(TypeParser::Lang::Cpp, "std::basic_string<std::basic_allocator>");
+}
+
+TEST_CASE("TypeParser::getType: RAJA::View") {
+    SUBCASE("Basic 2D view") {
+        // 2d view of doubles
+        auto t = basicTypeTest<ais::RajaView>(TypeParser::Lang::Cpp,
+            "RAJA::View<double, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >"
+        );
+
+        auto raja_view = std::dynamic_pointer_cast<ais::RajaView>(t);
+        REQUIRE(raja_view != nullptr);
+        CHECK(raja_view->dim() == 2);
+
+        auto inner = std::dynamic_pointer_cast<ais::Double>(raja_view->getElemTypePtr());
+        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
+    }
+
+    SUBCASE("Basic 2D view: internal type") {
+        // 2d view of doubles
+        auto t = basicTypeTest<ais::RajaView>(TypeParser::Lang::Cpp,
+            "RAJA::internal::ViewBase<double, double*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >"
+        );
+
+        auto raja_view = std::dynamic_pointer_cast<ais::RajaView>(t);
+        REQUIRE(raja_view != nullptr);
+        CHECK(raja_view->dim() == 2);
+
+        auto inner = std::dynamic_pointer_cast<ais::Double>(raja_view->getElemTypePtr());
+        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
+    }
+
+    SUBCASE("Basic 3D view") {
+        // 3d view of ints
+        auto t = basicTypeTest<ais::RajaView>(TypeParser::Lang::Cpp,
+            "RAJA::View<int, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l, 2l>, int, -1l> >"
+        );
+
+        auto raja_view = std::dynamic_pointer_cast<ais::RajaView>(t);
+        REQUIRE(raja_view != nullptr);
+        CHECK(raja_view->dim() == 3);
+
+        auto inner = std::dynamic_pointer_cast<ais::Int>(raja_view->getElemTypePtr());
+        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
+    }
+
+    SUBCASE("Offset view") {
+        // 2d offset view of ints
+        auto t = basicTypeTest<ais::RajaView>(TypeParser::Lang::Cpp,
+            "RAJA::View<int, RAJA::OffsetLayout<2ul, int> >"
+        );
+
+        auto raja_view = std::dynamic_pointer_cast<ais::RajaView>(t);
+        REQUIRE(raja_view != nullptr);
+        CHECK(raja_view->dim() == 2);
+
+        auto inner = std::dynamic_pointer_cast<ais::Int>(raja_view->getElemTypePtr());
+        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
+    }
 }
 
 TEST_CASE("TypeParser::getType: ftn \"double precision\"") {

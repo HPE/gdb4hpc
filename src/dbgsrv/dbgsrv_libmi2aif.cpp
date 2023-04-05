@@ -17,6 +17,8 @@
 
 #include <iomanip>
 #include <regex>
+#include <cctype>
+#include <charconv>
 
 #include "dbgevent.h"
 #include "dbgsrv_defs.h"
@@ -25,6 +27,8 @@
 #include "parse.h"
 #include "MIOOBRecord.h"
 #include "blockmap.h"
+
+#include "unittest_macros.h"
 
 // external prototypes
 extern void SendMICommand(MISession *, MICommand *);
@@ -76,8 +80,6 @@ protected:
     SubArray(Mi2Aif& mi, const std::string& expr);
 
     void getRngs(const std::vector<std::string>& idcs);
-    virtual void makeArrayType(std::shared_ptr<ais::Type> baseType,
-                       const std::vector<std::pair<int,int>>& rngs) = 0;
     int getIdx(const std::string& s) const;
 
     Mi2Aif& m_mi;
@@ -90,11 +92,11 @@ class CSubArray : public SubArray {
 public:
     CSubArray(Mi2Aif& mi, const std::string& expr);
     char* getArrayDataString() override;
-    void makeArrayType(std::shared_ptr<ais::Type> baseType,
-                       const std::vector<std::pair<int,int>>& rngs) override;
-    
-    
+
 private:
+    void makeArrayType(std::shared_ptr<ais::Type> baseType,
+                       const std::vector<std::pair<int,int>>& rngs);
+
     std::vector<std::string> parse(const std::string& type);
 };
 
@@ -102,17 +104,60 @@ class KokkosSubArray : public SubArray {
 public:
     static std::unique_ptr<KokkosSubArray> get(Mi2Aif& mi, const std::string& expr,
                                                std::shared_ptr<ais::KokkosView> view);
-    static bool getViewLens(Mi2Aif& mi, const std::string& expr, ais::KokkosView& view);
     char* getArrayDataString() override;
-    void makeArrayType(std::shared_ptr<ais::Type> baseType,
-                       const std::vector<std::pair<int,int>>& rngs) override;
 
 private:
     KokkosSubArray(Mi2Aif& mi, std::shared_ptr<ais::KokkosView> type, const std::string& expr, const std::string& baseExpr);
     void parse(const std::string& type);
+    static bool getViewLens(Mi2Aif& mi, const std::string& expr, ais::KokkosView& view);
+    void makeArrayType(std::shared_ptr<ais::Type> baseType,
+                       const std::vector<std::pair<int,int>>& rngs);
 
     std::shared_ptr<ais::KokkosView> m_kv;
 };
+
+class RajaSubArray : public SubArray {
+public:
+    static std::unique_ptr<RajaSubArray> get(Mi2Aif& mi, const std::string& expr, std::shared_ptr<ais::RajaView> raja_view);
+    char* getArrayDataString() override;
+
+    struct Tester;
+
+private:
+    // throws std::runtime_error on failure
+    RajaSubArray(Mi2Aif& mi, const std::string& expr, std::shared_ptr<ais::Type> base_type);
+
+    struct ViewBounds {
+        // Construct a ViewBounds struct from the result of a "p my_raja_view" gdb command.
+        // throws std::runtime_error on malformed input.
+        ViewBounds(const std::string_view input);
+
+        ViewBounds() = default;
+
+        std::vector<int> sizes;
+        std::vector<int> strides;
+        std::vector<int> offsets;
+    };
+
+    ViewBounds m_bounds;
+
+    struct RajaIndex {
+        int position;
+        int index;
+        const char* text = nullptr;
+    };
+
+    static std::vector<RajaIndex> generateIndices(const std::vector<std::pair<int, int>>& ranges,
+                                                  const ViewBounds& bounds);
+    friend RajaSubArray::Tester;
+};
+
+struct RajaSubArray::Tester {
+    // exposes some private members of RajaSubArray for unit tests
+    using ViewBounds = RajaSubArray::ViewBounds;
+    static constexpr auto generateIndices = &RajaSubArray::generateIndices;
+};
+
 }
 
 // Implementation for translating primitive data objects into a data to be sent
@@ -559,6 +604,8 @@ std::pair<std::string,bool> SubArray::removeRngs(Mi2Aif& mi, const std::string& 
             auto type = var.getType();
             if (dynamic_cast<ais::KokkosView*>(type.get()))
                 return std::make_pair(s,false);
+            else if (std::dynamic_pointer_cast<ais::RajaView>(type))
+                return std::make_pair(s, false);
             else if (dynamic_cast<ais::FtnArray*>(type.get()))
                 isFtnArray = true;
             else
@@ -603,6 +650,8 @@ std::unique_ptr<SubArray> SubArray::get(Mi2Aif& mi, std::shared_ptr<ais::Type> b
     try {
         if (auto kv = std::dynamic_pointer_cast<ais::KokkosView>(baseType)) {
             retVal = KokkosSubArray::get(mi, expr, kv);
+        } else if (auto rv = std::dynamic_pointer_cast<ais::RajaView>(baseType)) {
+            retVal = RajaSubArray::get(mi, expr, rv);
         } else if (expr.find("..") != std::string::npos) {
             retVal.reset(new CSubArray(mi, expr));
         }
@@ -1001,6 +1050,311 @@ char* KokkosSubArray::getArrayDataString()
     // we could potentially avoid copying the data (twice) by
     // changing this interface to supply a custom ais::InterpretStream instead
     return strdup(os.str().c_str());
+}
+
+std::unique_ptr<RajaSubArray> RajaSubArray::get(Mi2Aif& mi, const std::string& expr,
+                                                std::shared_ptr<ais::RajaView> raja_view) {
+    DVPRINT("RajaSubArray::get \"%s\"\n", expr.c_str());
+
+    try {
+        return std::unique_ptr<RajaSubArray>(
+            new RajaSubArray(mi, expr, raja_view->getElemTypePtr()));
+    } catch (std::exception& e) {
+        DVPRINT("failed to get RajaSubArray: %s\n", e.what());
+    }
+
+    return nullptr;
+}
+
+RajaSubArray::RajaSubArray(Mi2Aif& mi, const std::string& expr, std::shared_ptr<ais::Type> base_elem_type)
+    : SubArray(mi, expr)
+{
+    {   // extract m_baseExpr and m_rngs from expr
+        auto ranges_text = std::vector<std::string>{};
+        auto paren = expr.find_last_of('(');
+
+        if (paren == std::string::npos) throw std::runtime_error("No parenthesis");
+
+        m_baseExpr = expr.substr(0,paren);
+
+        for (auto loc = paren; loc != std::string::npos; ) {
+            auto end = expr.find_first_of(",)", loc+1);
+            if (end != std::string::npos) {
+                ranges_text.push_back(expr.substr(loc+1,end-loc-1));
+            }
+            loc = end;
+        }
+
+        getRngs(ranges_text); // sets m_rngs
+    }
+
+    {   // get view sizes (m_bounds) from gdb
+        auto res = std::unique_ptr<char, decltype(&free)>
+            (EvalExpression(m_mi.getSession(), m_baseExpr.c_str()), free);
+
+        if (!res) throw std::runtime_error("EvalExpression failed");
+
+        m_bounds = ViewBounds(res.get());
+    }
+
+    {   // fit the user specified ranges into the actual ranges of the view. with offset
+        // views, negative indices can be valid.
+        if (m_rngs.size() != m_bounds.sizes.size())
+            throw std::runtime_error("Specified slice doesn't match dimension of underlying RAJA::View");
+
+        for (size_t i = 0; i < m_rngs.size(); i++) {
+            // FIXME: show a warning to the user if truncation happens.
+            m_rngs[i].first = std::max(0 + m_bounds.offsets[i], m_rngs[i].first);
+            m_rngs[i].first = std::min((m_bounds.sizes[i] - 1) + m_bounds.offsets[i], m_rngs[i].first);
+
+            m_rngs[i].second = std::max(0 + m_bounds.offsets[i], m_rngs[i].second);
+            m_rngs[i].second = std::min((m_bounds.sizes[i] - 1) + m_bounds.offsets[i], m_rngs[i].second);
+        }
+    }
+
+    {   // generate m_type as properly sized and nested ais array
+        m_type = base_elem_type;
+
+        // rngs are listed from slowest varying to fastest varying. we need to build
+        // the array type from the inside (fastest) out, so we use reverse iterators
+        for (auto rit = m_rngs.rbegin(); rit != m_rngs.rend(); ++rit) {
+            auto [lower, upper] = *rit;
+            if (upper > lower) {
+                auto arr = std::make_shared<ais::Array>(m_type, upper-lower+1);
+                arr->setBounds(upper-lower+1, 0);
+                m_type = arr;
+            }
+        }
+    }
+}
+
+RajaSubArray::ViewBounds::ViewBounds(const std::string_view input) {
+    // expecting an input like the following (ellipses are abbreviations, not actually expected):
+    // {m_data = 0x7ff102500000, m_layout = ... = {..., sizes = {7, 6}, strides = {6, 1}, ..., offsets = {-1, -1}}, ... }}
+    //
+    // the strategy is to skip delimiters from the input string and parse the
+    // interesting numbers as we see them come up in the stream. we know sizes, strides,
+    // and offsets will always be 1D lists, so we don't need any special handling for {.
+
+    std::vector<int>* current_number_bucket = nullptr;
+    const char* delims = "{=, <>}";
+
+    auto token_idx = input.find_first_not_of(delims);
+    while (token_idx < input.size()) {
+        auto end_idx = input.find_first_of(delims, token_idx);
+        auto token = input.substr(token_idx, end_idx - token_idx);
+
+        if (!std::isdigit(token.front()) && token.front() != '-') {
+            // found a key, switch bucket
+            if (token == "sizes") current_number_bucket = &this->sizes;
+            else if (token == "strides") current_number_bucket = &this->strides;
+            else if (token == "offsets") current_number_bucket = &this->offsets;
+            else current_number_bucket = nullptr;
+        } else if (current_number_bucket) {
+            // found a number, add to current bucket
+            auto num = int{0};
+            auto [_, error] = std::from_chars(token.begin(), token.end(), num);
+            if (error != std::errc())
+                throw std::runtime_error(std::string{"Failed to parse number: "} + std::string{token});
+
+            current_number_bucket->emplace_back(num);
+        }
+
+        token_idx = input.find_first_not_of(delims, end_idx);
+    }
+
+    if (debug_flag) {
+        // using fprintf here to avoid printing the DVPRINT header for each item
+        DVPRINT("sizes:\n  ");
+        for (auto i : this->sizes) fprintf(stderr, "%d, ", i);
+        fprintf(stderr, "\n");
+
+        DVPRINT("strides:\n  ");
+        for (auto i : this->strides) fprintf(stderr, "%d, ", i);
+        fprintf(stderr, "\n");
+
+        DVPRINT("offsets:\n  ");
+        for (auto i : this->offsets) fprintf(stderr, "%d, ", i);
+        fprintf(stderr, "\n");
+    }
+
+    // check if the data is valid.
+    // we should always have the same number of sizes and strides. offsets only appear in
+    // certain types of RAJA views. if offsets aren't present, we fill them in with zeros
+    // to make future math easier.
+    if (this->offsets.size() == 0)
+        for (size_t i = 0; i < this->sizes.size(); i++) this->offsets.push_back(0);
+
+    if (!(this->sizes.size() == this->strides.size() && this->strides.size() == this->offsets.size()))
+        throw std::runtime_error("Invalid view bounds");
+}
+
+std::vector<RajaSubArray::RajaIndex> RajaSubArray::generateIndices(
+    const std::vector<std::pair<int, int>>& ranges,
+    const ViewBounds& bounds)
+{
+    // iterate through the range space and generate the 1D index into the 1D backing array
+    // corresponding to each possible tuple. the output indices can be ordered in two
+    // ways: the order in which they should appear as text output after applying the view
+    // reordering ("logical position") and the way that they appear in the actual 1D
+    // backing array.
+
+    auto result = std::vector<RajaSubArray::RajaIndex>{};
+    if (ranges.empty()) return result;
+
+    auto next_position = 0; // for the logical position ordering
+
+    // iterating through (0..2, 0..2, 0..1) would look something like this:
+    // 0, 0, 0 "current_tuple" below
+    // 0, 0, 1
+    // 0, 1, 0 <- referred to as an overflow below
+    // 0, 1, 1
+    // 0, 2, 0
+    // 0, 2, 1
+    // 1, 0, 0 <- another overflow
+    // ...
+
+    auto current_tuple = std::vector<int>{};
+    for (size_t i = 0; i < ranges.size(); i++) {
+        current_tuple.push_back(ranges[i].first - bounds.offsets[i]);
+    }
+
+    while (current_tuple[0] <= ranges[0].second - bounds.offsets[0]) {
+        int idx = 0;
+        for (size_t i = 0; i < current_tuple.size(); i++)
+            idx += current_tuple[i] * bounds.strides[i];
+        result.push_back({.position = next_position, .index = idx, .text = nullptr});
+        next_position++;
+
+        // increment and overflow if needed
+        current_tuple.back() += 1;
+        for (size_t i = current_tuple.size() - 1; i > 0; i--) {
+            if (current_tuple[i] > ranges[i].second - bounds.offsets[i]) {
+                current_tuple[i] = ranges[i].first - bounds.offsets[i];
+                current_tuple[i-1] += 1;
+            } else {
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+char* RajaSubArray::getArrayDataString() {
+    DVPRINT("RajaSubArray::getArrayDataString()\n");
+
+    // indices in the flat data
+    auto flat_indices = generateIndices(m_rngs, m_bounds);
+
+    if (debug_flag) {
+        DVPRINT("flat indices:\n");
+        for (auto i : flat_indices) fprintf(stderr, "%d, ", i.index);
+        fprintf(stderr, "\n");
+    }
+
+    // RAJA supports changing which index is the fastest changing in a view, but it does
+    // *not* support changing the order of elements within a single dimension. because of
+    // this, we can assume that the first index returned above will always be the smallest,
+    // and the last index will always be the biggest.
+    auto smallest_index = flat_indices.front().index;
+    auto biggest_index = flat_indices.back().index;
+
+    // generate the smallest span of data that will include everything we're interested in
+    auto full_data_expr = m_baseExpr + ".m_data[" + std::to_string(smallest_index) + "]";
+    if (biggest_index - smallest_index >= 1)
+        full_data_expr += "@" + std::to_string(biggest_index - smallest_index + 1);
+
+    // get the data from gdb
+    auto full_data = std::unique_ptr<char, decltype(&free)>
+        (EvalExpression(m_mi.getSession(), full_data_expr.c_str()), free);
+
+    if (!full_data) {
+        DVPRINT("Failed to evaluate\n");
+        return nullptr;
+    }
+
+    // now we link the entries in flat_indices to the text that represents each one
+
+    // sort entries in the order that they will appear in the gdb output
+    std::sort(flat_indices.begin(), flat_indices.end(),
+        [](auto l, auto r) { return l.index < r.index; });
+
+    auto input = std::string_view(full_data.get());
+    auto current_idx_in_data = smallest_index;
+    auto next_flat_idx = int{0}; // index into flat_indices
+
+    // FIXME: PE-47126: a view of structs will have elements that start with { and this won't work
+    auto current_char = input.find_first_not_of("{, }");
+
+    while (current_char < input.size()) {
+        auto end = input.find_first_of(",}", current_char);
+        DVPRINT("Current: %d Waiting4: %d text: %.*s\n",
+            current_idx_in_data, flat_indices[next_flat_idx].index, (int)(end - current_char), full_data.get() + current_char);
+
+        if (current_idx_in_data == flat_indices[next_flat_idx].index) {
+            DVPRINT("Matched\n");
+            flat_indices[next_flat_idx].text = full_data.get() + current_char;
+            next_flat_idx++;
+        }
+
+        current_char = input.find_first_not_of("{, }", end);
+        current_idx_in_data++;
+    }
+
+    // now reconstruct the parsed data in the order that the view applies
+
+    for (auto e : flat_indices) {
+        DVPRINT("order: %d, idx: %d, txt: %4s...\n", e.position, e.index, e.text);
+    }
+
+    DVPRINT("by logical idx:\n");
+    std::sort(flat_indices.begin(), flat_indices.end(), 
+        [](auto l, auto r) { return l.position < r.position; });
+
+    for (auto e : flat_indices) {
+        DVPRINT("order: %d, idx: %d, txt: %.4s...\n", e.position, e.index, e.text);
+    }
+
+    // even though we always make a text representation of a 1D array here, the parser in
+    // m_type will correctly parse it for any dimension.
+    //
+    // braces should only be printed if the result has more than one value. if the result
+    // only has one value, m_type will be the base type and not an array. brackets for the
+    // base type would break its parse later on.
+    std::ostringstream output;
+
+    if (flat_indices.size() > 1)
+        output << "{";
+
+    for (size_t i = 0; i < flat_indices.size(); i++) {
+        auto e = flat_indices[i];
+
+        DVPRINT("e.text: %.8s...\n", e.text);
+        auto end = strchr(e.text, ',');
+        DVPRINT("end (comma): %.4s...\n", end);
+        if (!end) {
+            end = strchr(e.text, '}');
+            DVPRINT("end (bracket): %.4s...\n", end);
+        }
+        if (!end) {
+            // this happens with single element data
+            end = strchr(e.text, '\0');
+            DVPRINT("end (\\0): %.4s...\n", end);
+        }
+
+        output << std::string_view(e.text, end - e.text);
+
+        if (i < flat_indices.size() - 1) {
+            output << ",";
+        } else if (flat_indices.size() > 1) {
+            output << "}";
+        }
+    }
+
+    DVPRINT("output: %s\n", output.str().c_str());
+
+    return strdup(output.str().c_str());
 }
 
 // Build up the mapping from the ptype result.  Oobs is the
@@ -2065,3 +2419,360 @@ AIFStream* AIFStream::fromMultiThreadResult(const char* val) {
     return new AIFStream(buff->exportResult(), false);
 }    
 
+TEST_CASE("RajaSubArray::ViewBounds::fromText: Standard view") {
+    const char* to_parse = strdup(
+        "{"
+          "m_data = 0x2273f0, "
+          "m_layout = {"
+              "static n_dims = 2, "
+              "static limit = 2147483647, "
+              "static stride_one_dim = -1, "
+              "sizes = {4, 4}, "
+              "strides = {4, 1}, "
+              "inv_strides = {4, 1}, "
+              "inv_mods = {4, 4}"
+          "}"
+        "}"
+    );
+
+    auto bounds = RajaSubArray::Tester::ViewBounds(to_parse);
+
+    REQUIRE(bounds.sizes.size() == 2);
+    CHECK(bounds.sizes[0] == 4);
+    CHECK(bounds.sizes[1] == 4);
+
+    REQUIRE(bounds.strides.size() == 2);
+    CHECK(bounds.strides[0] == 4);
+    CHECK(bounds.strides[1] == 1);
+
+    CHECK(bounds.offsets.size() == 2);
+    CHECK(bounds.offsets[0] == 0);
+    CHECK(bounds.offsets[1] == 0);
+}
+
+TEST_CASE("RajaSubArray::ViewBounds::fromText: Offset view") {
+    const char* to_parse = strdup(
+        "{"
+          "m_data = 0x7ff102500000, "
+          "m_layout = {<RAJA::internal::OffsetLayout_impl<camp::int_seq<long, 0l, 1l>, int>> = {"
+            "base_ = {"
+              "static n_dims = 2, "
+              "static limit = 2147483647, "
+              "static stride_one_dim = -1, "
+              "sizes = {7, 6}, "
+              "strides = {6, 1}, "
+              "inv_strides = {6, 1}, "
+              "inv_mods = {7, 6}"
+            "}, "
+            "static stride_one_dim = -1, "
+            "static n_dims = 2, "
+            "offsets = {-1, -1}"
+        "}, <No data fields>}}"
+    );
+
+    auto bounds = RajaSubArray::Tester::ViewBounds(to_parse);
+
+    REQUIRE(bounds.sizes.size() == 2);
+    CHECK(bounds.sizes[0] == 7);
+    CHECK(bounds.sizes[1] == 6);
+
+    REQUIRE(bounds.strides.size() == 2);
+    CHECK(bounds.strides[0] == 6);
+    CHECK(bounds.strides[1] == 1);
+
+    REQUIRE(bounds.offsets.size() == 2);
+    CHECK(bounds.offsets[0] == -1);
+    CHECK(bounds.offsets[1] == -1);
+}
+
+TEST_CASE("RajaSubArray::ViewBounds::fromText: Permuted view") {
+    const char* to_parse = strdup(
+        "{"
+          "static n_dims = 2, "
+          "static limit = 2147483647, "
+          "static stride_one_dim = -1, "
+          "sizes = {3, 5}, "
+          "strides = {1, 3}, "
+          "inv_strides = {1, 3}, "
+          "inv_mods = {3, 5}"
+        "}"
+    );
+
+    auto bounds = RajaSubArray::Tester::ViewBounds(to_parse);
+
+    REQUIRE(bounds.sizes.size() == 2);
+    CHECK(bounds.sizes[0] == 3);
+    CHECK(bounds.sizes[1] == 5);
+
+    REQUIRE(bounds.strides.size() == 2);
+    CHECK(bounds.strides[0] == 1);
+    CHECK(bounds.strides[1] == 3);
+
+    REQUIRE(bounds.offsets.size() == 2);
+    CHECK(bounds.offsets[0] == 0);
+    CHECK(bounds.offsets[1] == 0);
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 1x4 slice of a 4x4 view") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {4, 4};
+    bounds.strides = {4, 1};
+    bounds.offsets = {0, 0};
+
+    // "p view(0, 0..3)"
+    const auto ranges = std::vector<std::pair<int, int>>{{0, 0}, {0, 3}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    const auto position_truth = std::array{0, 1, 2, 3};
+    const auto index_truth = std::array{0, 1, 2, 3};
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 1x4 slice of a transposed 4x4 view") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {4, 4};
+    bounds.strides = {1, 4};
+    bounds.offsets = {0, 0};
+
+    // "p view(0, 0..3)"
+    const auto ranges = std::vector<std::pair<int, int>>{{0, 0}, {0, 3}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    const auto position_truth = std::array{0, 1, 2, 3};
+    const auto index_truth = std::array{0, 4, 8, 12};
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 4x1 slice of a 4x4 view") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {4, 4};
+    bounds.strides = {4, 1};
+    bounds.offsets = {0, 0};
+
+    // "p view(0..3, 3)"
+    const auto ranges = std::vector<std::pair<int, int>>{{0, 3}, {3, 3}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    const auto position_truth = std::array{0, 1, 2, 3};
+    const auto index_truth = std::array{3, 7, 11, 15};
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 4x1 slice of a transposed 4x4 view") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {4, 4};
+    bounds.strides = {1, 4};
+    bounds.offsets = {0, 0};
+
+    // "p view(0..3, 1)"
+    const auto ranges = std::vector<std::pair<int, int>>{{0, 3}, {1, 1}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    const auto position_truth = std::array{0, 1, 2, 3};
+    const auto index_truth = std::array{4, 5, 6, 7};
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 2x4 slice of a 4x4 view") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {4, 4};
+    bounds.strides = {4, 1};
+    bounds.offsets = {0, 0};
+
+    // "p view(1..2, 0..3)"
+    const auto ranges = std::vector<std::pair<int, int>>{{1, 2}, {0, 3}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    const auto position_truth = std::array{0, 1, 2, 3, 4, 5, 6, 7};
+    const auto index_truth = std::array{4, 5, 6, 7, 8, 9, 10, 11};
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 3x5x2 slice of a 3x5x2 view") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {3, 5, 2};
+    bounds.strides = {10, 2, 1};
+    bounds.offsets = {0, 0, 0};
+
+    // "p view(0..2, 0..4, 0..1)"
+    const auto ranges = std::vector<std::pair<int, int>>{{0, 2}, {0, 4}, {0, 1}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    const auto position_truth = std::array{
+        0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+        10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+        20, 21, 22, 23, 24, 25, 26, 27, 28, 29
+    };
+    const auto index_truth = std::array{
+        0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+        10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+        20, 21, 22, 23, 24, 25, 26, 27, 28, 29
+    };
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 1x5x2 slice of a 3x5x2 view") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {3, 5, 2};
+    bounds.strides = {10, 2, 1};
+    bounds.offsets = {0, 0, 0};
+
+    // "p view(1, 0..4, 0..1)"
+    const auto ranges = std::vector<std::pair<int, int>>{{1, 1}, {0, 4}, {0, 1}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    const auto position_truth = std::array{
+        0,  1,  2,  3,  4,  5,  6,  7,  8,  9
+    };
+    const auto index_truth = std::array{
+        10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+    };
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 2x4 slice of a transposed 4x4 view") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {4, 4};
+    bounds.strides = {1, 4};
+    bounds.offsets = {0, 0};
+
+    // "p view(1..2, 0..3)"
+    const auto ranges = std::vector<std::pair<int, int>>{{1, 2}, {0, 3}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    const auto position_truth = std::array{0, 1, 2, 3, 4, 5, 6, 7};
+    const auto index_truth = std::array{1, 5, 9, 13, 2, 6, 10, 14};
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 3x3 slice of a 5x5 view with an offset") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {5, 5};
+    bounds.strides = {5, 1};
+    bounds.offsets = {-1, -1};
+
+    // "p view(0..2, 0..2)"
+    const auto ranges = std::vector<std::pair<int, int>>{{0, 2}, {0, 2}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    // logical data layout with given offset:
+    // | (-1, -1), (-1, 0), (-1, 1), (-1, 2), (-1, 3) |
+    // |                                              |
+    // | (0,  -1), (0,  0), (0,  1), (0,  2), (0,  3) |
+    // |                                              |
+    // | (1,  -1), (1,  0), (1,  1), (1,  2), (1,  3) |
+    // |                                              |
+    // | (2,  -1), (2,  0), (2,  1), (2,  2), (2,  3) |
+    // |                                              |
+    // | (3,  -1), (3,  0), (3,  1), (3,  2), (3,  3) |
+
+    const auto position_truth = std::array{0, 1, 2, 3, 4, 5, 6, 7, 8};
+    const auto index_truth = std::array{6, 7, 8, 11, 12, 13, 16, 17, 18};
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}
+
+TEST_CASE("RajaSubArray::generateIndices: 3x3 slice of a 5x5 view with an offset using negative indices") {
+    auto bounds = RajaSubArray::Tester::ViewBounds{};
+    bounds.sizes = {5, 5};
+    bounds.strides = {5, 1};
+    bounds.offsets = {-1, -1};
+
+    // "p view(0..2, 0..2)"
+    const auto ranges = std::vector<std::pair<int, int>>{{-1, 1}, {-1, 1}};
+
+    const auto indices = RajaSubArray::Tester::generateIndices(ranges, bounds);
+
+    // logical data layout with given offset:
+    // | (-1, -1), (-1, 0), (-1, 1), (-1, 2), (-1, 3) |
+    // |                                              |
+    // | (0,  -1), (0,  0), (0,  1), (0,  2), (0,  3) |
+    // |                                              |
+    // | (1,  -1), (1,  0), (1,  1), (1,  2), (1,  3) |
+    // |                                              |
+    // | (2,  -1), (2,  0), (2,  1), (2,  2), (2,  3) |
+    // |                                              |
+    // | (3,  -1), (3,  0), (3,  1), (3,  2), (3,  3) |
+
+    const auto position_truth = std::array{0, 1, 2, 3, 4, 5, 6, 7, 8};
+    const auto index_truth = std::array{0, 1, 2, 5, 6, 7, 10, 11, 12};
+
+    REQUIRE(indices.size() == position_truth.size());
+    REQUIRE(indices.size() == index_truth.size());
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        CHECK_MESSAGE(indices[i].position == position_truth[i], i);
+        CHECK_MESSAGE(indices[i].index == index_truth[i], i);
+    }
+}

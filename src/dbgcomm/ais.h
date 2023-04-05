@@ -1036,7 +1036,26 @@ private:
     std::vector<size_t> m_strides;
     int m_dim;
 };
-  
+
+class RajaView : public Literal {
+    // Handle for a RAJA::View. No array data is associated with this class. This class
+    // behaves like a string literal which tells the user how to access array data. Array
+    // data is fetched when the user uses "my_view(0..1, 2..3)" syntax, which creates a
+    // RajaSubArray.
+public:
+    RajaView(std::shared_ptr<ais::Type> elem_type, int dim);
+    RajaView();
+
+    std::string getTypeName() const override;
+    std::shared_ptr<ais::Type> getElemTypePtr() const;
+    void parseL(InterpretStream& in, Writer& out) const override;
+
+    int dim() const;
+private:
+    std::shared_ptr<ais::Type> m_elem_type;
+    int m_dim;
+};
+
 // Possible results from comparing two primitives
 enum Comparison { LT, WARN_LT, EQ, WARN_GT, GT, NOT_COMPARABLE };
 

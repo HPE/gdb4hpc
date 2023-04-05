@@ -753,7 +753,8 @@ std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
     std::make_shared<ais::Complex>(std::make_shared<ais::Double>()),
     std::make_shared<ais::Complex>(std::make_shared<ais::LongDouble>()),                     
     std::make_shared<ais::MultiThreadResult>(),
-    std::make_shared<ais::KokkosView>()
+    std::make_shared<ais::KokkosView>(),
+    std::make_shared<ais::RajaView>(),
 };
 
 std::vector<std::shared_ptr<ais::Array>> ais::Reader::m_arrayTypes =
@@ -2003,6 +2004,41 @@ void ais::KokkosView::applyL(Reader& reader, Visitor& f) const {
 
 std::unique_ptr<ais::Printer> ais::KokkosView::makePrinter(Printer& parent) const {
     return Literal::makePrinter(parent);
+}
+
+ais::RajaView::RajaView(std::shared_ptr<ais::Type> elem_type, int dim)
+    : m_elem_type{elem_type}
+    , m_dim{dim}
+{}
+
+ais::RajaView::RajaView()
+    : m_elem_type{nullptr}
+    , m_dim{-1}
+{}
+
+std::string ais::RajaView::getTypeName() const {
+    return "RAJA::View";
+}
+
+int ais::RajaView::dim() const {
+    return m_dim;
+}
+
+std::shared_ptr<ais::Type> ais::RajaView::getElemTypePtr() const {
+    return m_elem_type;
+}
+
+void ais::RajaView::parseL(InterpretStream& in, Writer& out) const {
+    const char* s = in.get();
+    while (*s) s++;
+    in.setPos(s);
+
+    auto msg = std::ostringstream{};
+    msg << "RAJA::View; Use ";
+    for (int i = 0; i < dim(); i++) msg << (!i ? "(" : ", ") << "...";
+    msg << ") for full contents.";
+
+    out.writeString(msg.str());
 }
 
 //===========================================================================

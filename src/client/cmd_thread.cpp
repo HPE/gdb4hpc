@@ -116,7 +116,7 @@ static void PrintMIThread(const std::string& line,
     // current_thread_id
     auto frameAddr = [&current_thread_id] (const std::smatch& match) {
         if (!match[1].length()) return "";
-        current_thread_id = match[2].str();
+        current_thread_id += match[2].str();
         return mi_dummyFrameAddr;
     };
 

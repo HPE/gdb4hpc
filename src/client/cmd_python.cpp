@@ -128,7 +128,7 @@ int PythonMode::executeLine(rec_set_t *rec_set, int argc, char**argv) {
 
 void InitCmd_python() {
     AddCommand("python", nullptr, proc_optional, 0,
-               cmd_python_cmd, cmd_python_help, "Enter python interpreter.");
+               cmd_python_cmd, cmd_python_help, "Enter python interpreter (experimental).");
 
     PythonMode::init();
 

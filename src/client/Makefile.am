@@ -6,7 +6,6 @@ MRNET_ROOT	= @mrn_root@
 BITSET	= @gdb4hpc_srcdir@/bitset
 SCRIPT	= @gdb4hpc_srcdir@/script
 ZMQNET_ROOT  = @zmqnet_root@
-PYTHON_ROOT  = @python_root@
 UNITTEST     = @gdb4hpc_srcdir@/unittest
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM) \
@@ -40,7 +39,6 @@ endif
 
 # Check for python
 if PYTHON
-PYTHON_LIBS  = -l$(PYTHON_ROOT)
 CMD_PYTHON_SRC = cmd_python.cpp
 endif
 
@@ -65,5 +63,5 @@ gdb4hpc_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
 				  -Wl,--enable-new-dtags
 gdb4hpc_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(GUARD_RD_LIBS) $(GRAM)/libgram.a \
 				  $(DBGCLNT)/libdbgclnt.a $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
-				  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(ZMQN_LIBS) $(MI_LIBS) $(PYTHON_LIBS) \
+				  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(ZMQN_LIBS) $(MI_LIBS) $(PYTHON3_LIBS) \
 				  $(SSH2_LIBS) $(BITSET)/libbitset.la -lm -lstdc++ -lstdc++fs -lpthread

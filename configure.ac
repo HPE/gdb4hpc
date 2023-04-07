@@ -157,9 +157,7 @@ AC_ARG_WITH([python],
 			    [Enable python support in gdb4hpc.]
 			    )
 	    ],
-	    [python_mode=yes
-	     python_root=$withval
-	    ],
+	    [python_mode=yes],
 	    [python_mode=no]
 	    )
 
@@ -237,7 +235,7 @@ fi
 
 if test "x$python_mode" = xyes; then
 	AC_DEFINE([USE_PYTHON], [1], [Enable python support in gdb4hpc.])
-	AC_SUBST([python_root], ["$python_root"])
+	PKG_CHECK_MODULES([PYTHON3], [python3], [], [AC_MSG_ERROR([python3 package not found.])])
 fi
 
 

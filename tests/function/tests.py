@@ -248,10 +248,10 @@ def runTest(test, substitutions = ()):
         test.fail("Timed out at some point after successful launch")
 
     if not os.path.exists(getTxt(test)):
-        self.cancel(f"Missing .in file {getTxt(test)}")
+        test.cancel(f"Missing .in file {getTxt(test)}")
 
     if not os.path.exists(getOut(test)):
-        self.cancel(f"Missing .out file {getOut(test)}")
+        test.cancel(f"Missing .out file {getOut(test)}")
 
     # main result check
     result, error = lt.compare_files(getTxt(test), getOut(test))

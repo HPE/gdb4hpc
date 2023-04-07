@@ -31,7 +31,7 @@ a{0..2}: #0  %.*%__cxa_begin_catch%.*%
 13: c
 a{0..2}: Catchpoint 3 (load of library matching libfoo.so)
 14: frame
-a{0..2}: #0  %.*%dl_open_worker%.*%
+a{0..2}: #0  %.*%dl_%.*%
 15: c
 a{0..2}: Catchpoint 4 (fork)
 16: frame

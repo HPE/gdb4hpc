@@ -282,11 +282,12 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{external_build_dir}/share/doc/tutorial.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/getting-started.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/getting-started.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
+%{__cp} -a %{external_build_dir}/share/doc/raja-support.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
+%{__cp} -a %{external_build_dir}/share/doc/raja-support.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/kokkos-support.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/kokkos-support.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/handling-arrays.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/handling-arrays.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
-
 
 # modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}
@@ -673,11 +674,12 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/getting-started.html
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/tutorial.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/tutorial.html
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/raja-support.md
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/raja-support.html
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/handling-arrays.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/handling-arrays.html
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/kokkos-support.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/kokkos-support.html
-
 
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}

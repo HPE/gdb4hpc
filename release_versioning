@@ -70,5 +70,5 @@ major="4"
 minor="15"
 revision="0"
 # set by jenkins
-build_number="0"
+build_number=""
 

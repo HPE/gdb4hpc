@@ -259,11 +259,7 @@ TEST_CASE("DbgInvoke: LaunchArgs enforceValid() validates that files are present
         auto csi = MockClientSettings();
         auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
-        // XXX: when doctest is disabled, this using definition leaks and causes
-        // -Werror=unused-local-typedefs.
-        // TODO: properly address this (PE-47346)
         using path = std::filesystem::path;
-        [[maybe_unused]] auto use_the_alias = path{};
 
         auto cwd = std::filesystem::current_path();
         REQUIRE(std::filesystem::exists(cwd / path{"mockfs"}));
@@ -296,11 +292,7 @@ TEST_CASE("DbgInvoke: launch args enforceValid replaces relative paths with full
         auto csi = MockClientSettings();
         auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
-        // XXX: when doctest is disabled, this using definition leaks and causes
-        // -Werror=unused-local-typedefs.
-        // TODO: properly address this (PE-47346)
         using path = std::filesystem::path;
-        [[maybe_unused]] auto use_the_alias = path{};
 
         auto cwd = std::filesystem::current_path();
         REQUIRE(std::filesystem::exists(cwd / path{"mockfs"}));
@@ -329,11 +321,7 @@ TEST_CASE("DbgInvoke: LaunchArgs --gdb=/path/to/gdb:/path/to/datadir") {
         auto csi = MockClientSettings();
         auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
-        // XXX: when doctest is disabled, this using definition leaks and causes
-        // -Werror=unused-local-typedefs.
-        // TODO: properly address this (PE-47346)
         using path = std::filesystem::path;
-        [[maybe_unused]] auto use_the_alias = path{};
 
         auto cwd = std::filesystem::current_path();
         REQUIRE(std::filesystem::exists(cwd / path{"mockfs"}));
@@ -357,11 +345,7 @@ TEST_CASE("DbgInvoke: LaunchArgs --gdb=/path/to/gdb: edge case") {
         auto csi = MockClientSettings();
         auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
-        // XXX: when doctest is disabled, this using definition leaks and causes
-        // -Werror=unused-local-typedefs.
-        // TODO: properly address this (PE-47346)
         using path = std::filesystem::path;
-        [[maybe_unused]] auto use_the_alias = path{};
 
         auto cwd = std::filesystem::current_path();
         REQUIRE(std::filesystem::exists(cwd / path{"mockfs"}));

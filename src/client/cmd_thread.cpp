@@ -27,8 +27,9 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc, char **argv);
 
+static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: thread <thread-number> or thread name <thread-name>,\n");
@@ -88,6 +89,18 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     } else {
         const char* arg = argv[1];
+
+        if (const auto num = std::atoi(arg); num < 1) {
+            // special case: alias to "info thread" if user typed "thread info"
+            if (strcmp(arg, "info") == 0) {
+                // info functions expect the "info" keyword to be removed from argv
+                return cmd_info_threads_cmd(rec_set, argc - 1, &argv[1]);
+            }
+
+            PrintOutError("Thread ID must be an integer greater than 0.\n");
+            return 0;
+        }
+
         rep_set_t *rep_set = DbgSetThread(rec_set, arg);
 
         ProcessErrorInRepSet(rep_set);
@@ -161,10 +174,7 @@ static void PrintMIThread(const std::string& line,
        << thread_state<<"\"}";
 }
 
-
-static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc,
-                                         char **argv) {
-
+static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (Client.MI_mode && !rec_set) {
         PrintOutOk();
         return 1;

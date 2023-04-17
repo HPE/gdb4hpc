@@ -808,6 +808,13 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "command_timeout"
         runTest(self)
 
+    @avocado.skipIf(detect_wlm() != "SLURM", "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
+    def test_raja_views(self):
+        if not os.path.exists(f"./bin/{self.penv}/raja/view-layout_solution.x"):
+            self.cancel("RAJA view-layout_solution.x not built")
+        self.base_name = "raja_views"
+        runTest(self)
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

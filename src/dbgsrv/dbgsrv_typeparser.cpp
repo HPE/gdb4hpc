@@ -159,7 +159,6 @@ std::vector<Prim> m_cppStlPrims =
  {"std::shared_ptr", SmartPointerWrap()},
  {"std::unique_ptr", SmartPointerWrap()},
  {"Kokkos::View", kokkosView},
- {"RAJA::View", rajaView},
  {"RAJA::internal::ViewBase", rajaView}, // "ptype RAJA::View<...>" will turn into this
 };
 
@@ -982,7 +981,7 @@ std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t) {
     DVPRINT("parsing RAJA::view type %s\n", t.decoration.c_str());
 
     // RAJA::Views will start like an stl container type with their contained type as their first argument.
-    // e.g. RAJA::View<int, ...> or RAJA::internal::ViewBase<int, ...>
+    // e.g. RAJA::internal::ViewBase<int, ...>
 
     auto [elem_type_str, template_args, decoration] = getContainerTypes(t);
 
@@ -996,22 +995,17 @@ std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t) {
     auto elem_type = getType(mi, nullptr, elem_type_str.c_str());
 
     // Now get the dimension.
-    // RAJA::Views encode their dimensions in different ways depending on how they were constructed.
-    //
-    // A 2d view of doubles constructed via RAJA::View<double, RAJA::Layout<2, int>>(...) has type:
-    // "RAJA::View<double, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >"
-    //
-    // Calling ptype with the above view will turn it into the internal type:
+    // We expect this function to be called with the internal RAJA::View type:
     // RAJA::internal::ViewBase<double, double*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >
     //
     // a 3d view of doubles via RAJA::View<double, RAJA::Layout<3, int>> has type:
-    // "RAJA::View<int, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l, 2l>, int, -1l> >"
+    // "RAJA::internal::ViewBase<int, int*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l, 2l>, int, -1l> >"
     //
     // For these, the dimension is encoded in the int_seq<...> template argument.
     //
     // An offset layout is simpler. An offset layout is a wrapper around a normal layout and has its own type.
     // A 2d view of ints via RAJA::View<int, RAJA::OffsetLayout<2, int>> has type:
-    // "RAJA::View<int, RAJA::OffsetLayout<2ul, int>>"
+    // "RAJA::internal::ViewBase<int, int*, RAJA::OffsetLayout<2ul, int> >"
     // with the dimension as the first argument to OffsetLayout.
 
     const auto layout_token = "RAJA::detail::LayoutBase_impl";
@@ -1331,20 +1325,6 @@ TEST_CASE("TypeParser::getType: RAJA::View") {
     SUBCASE("Basic 2D view") {
         // 2d view of doubles
         auto t = basicTypeTest<ais::RajaView>(TypeParser::Lang::Cpp,
-            "RAJA::View<double, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >"
-        );
-
-        auto raja_view = std::dynamic_pointer_cast<ais::RajaView>(t);
-        REQUIRE(raja_view != nullptr);
-        CHECK(raja_view->dim() == 2);
-
-        auto inner = std::dynamic_pointer_cast<ais::Double>(raja_view->getElemTypePtr());
-        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
-    }
-
-    SUBCASE("Basic 2D view: internal type") {
-        // 2d view of doubles
-        auto t = basicTypeTest<ais::RajaView>(TypeParser::Lang::Cpp,
             "RAJA::internal::ViewBase<double, double*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >"
         );
 
@@ -1359,7 +1339,7 @@ TEST_CASE("TypeParser::getType: RAJA::View") {
     SUBCASE("Basic 3D view") {
         // 3d view of ints
         auto t = basicTypeTest<ais::RajaView>(TypeParser::Lang::Cpp,
-            "RAJA::View<int, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l, 2l>, int, -1l> >"
+            "RAJA::internal::ViewBase<int, int*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l, 2l>, int, -1l> >"
         );
 
         auto raja_view = std::dynamic_pointer_cast<ais::RajaView>(t);
@@ -1373,7 +1353,7 @@ TEST_CASE("TypeParser::getType: RAJA::View") {
     SUBCASE("Offset view") {
         // 2d offset view of ints
         auto t = basicTypeTest<ais::RajaView>(TypeParser::Lang::Cpp,
-            "RAJA::View<int, RAJA::OffsetLayout<2ul, int> >"
+            "RAJA::internal::ViewBase<int, int*, RAJA::OffsetLayout<2ul, int> >"
         );
 
         auto raja_view = std::dynamic_pointer_cast<ais::RajaView>(t);

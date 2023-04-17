@@ -10,6 +10,8 @@ build:
       optional-modules:
       - PrgEnv-cray
       - cray-cti-devel
+    raja:
+      can-fail: yes
     gnu:
       j: 16
       modules:

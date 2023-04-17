@@ -39,6 +39,9 @@ GPU_TESTS = \
 	./bin/CRAY/c/simple_gpu-rocm.x \
 	./bin/CRAY/c/simple_gpu-cuda.x
 
+RAJA_TESTS = \
+	./bin/CRAY/raja/view-layout_solution.x
+
 # you shouldn't have to have cti devel installed to test gdb4hpc, so only build
 # tests which require it if we happen to have it
 CTI_INC      = -I${CTI_INSTALL_DIR}/include
@@ -94,6 +97,7 @@ dirs:
 
 clean:
 	rm -rf ./bin
+	rm -rf raja_installation*
 
 ./bin/${PE_ENV}/c/%.o : ./src/c/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -194,6 +198,10 @@ clean:
 ./bin/${PE_ENV}/cti_launch.x : ./bin/${PE_ENV}/cti_launch.o
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(CTI_LD)
 
+./bin/${PE_ENV}/raja/view-layout_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./src/raja/view-layout_solution.cpp
+	mkdir -p ./bin/${PE_ENV}/raja
+	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/view-layout_solution.cpp ./raja_installation/lib/libRAJA.a -o $@
+
 ROCM_SCRIPT = ./tests.py.data/rocm/$(HOSTNAME).sh
 CUDA_SCRIPT = ./tests.py.data/cuda/$(HOSTNAME).sh
 
@@ -207,3 +215,10 @@ CUDA_SCRIPT = ./tests.py.data/cuda/$(HOSTNAME).sh
 		$(CUDA_SCRIPT) make $< $@; \
 	fi
 
+raja: $(RAJA_TESTS)
+
+get_raja:
+	if [ ! -e "./raja_installation" ]; then \
+		wget https://arti.dev.cray.com:443/artifactory/pe-internal-third-party-generic-local/raja/raja_installation.tar.gz && \
+		tar -xf ./raja_installation.tar.gz; \
+	fi

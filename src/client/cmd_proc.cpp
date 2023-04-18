@@ -1315,7 +1315,7 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
             if (!bpset) {
                 if (ev_set.event()->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
                     if (Client.MI_mode){
-                        PrintMIStoppedMsg(StoppedType::EXIT, "", "", 0, "","","");
+                        PrintMIStoppedMsg(StoppedType::EXIT, "", "", 0, "",ev_set.di().handle().c_str(),"");
                     }
                     PrintMsgWithSetInfo(
                         ev_set.di().handle().c_str(), &ev_set.group(),

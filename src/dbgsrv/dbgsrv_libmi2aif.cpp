@@ -590,14 +590,10 @@ void LazyMIVar::getSliceType(const std::string& expr,
                              const std::string& metaInfo)
 {
     // break meta info info blockmap and index parts
-    int depth = 1;
-    size_t i=2;
-    for ( ; depth && i < metaInfo.size(); ++i) {
-        auto c = metaInfo[i];
-        if (c == '(') ++depth;
-        else if (c == ')') --depth;
-    }
-    auto bmDef = metaInfo.substr(1,i-1);
+    auto i = findExprMatch(metaInfo,1);
+    auto bmDef = metaInfo.substr(2,i-2);
+
+    if (metaInfo[i]) ++i;
 
     // and the indices
     auto idxBeg = i;

@@ -392,7 +392,7 @@ AIFStream* DecompValue::getAIF() {
 
     if (!m_idx.empty()) {
         auto os = std::ostringstream{};
-        os << "[[|" << m_blockMap->getDefinition() << m_idx << "]]";
+        os << "[[|(" << m_blockMap->getDefinition() << ")" << m_idx << "]]";
         val->addMetaInfo(os.str());
     }
 

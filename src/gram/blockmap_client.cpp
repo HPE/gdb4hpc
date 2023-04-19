@@ -52,25 +52,9 @@ const std::vector<std::shared_ptr<BlockMap>> GetBlockMapList() {
 // blockmap works. So this function should be made more versatile at some point.
 bool BlockMap::verify() {
     // Check data definition
-    if (m_data == (int *)NULL) {
+    if (m_dims.empty()) {
         SetError(
             "Must provide a dimension definition before ending a "
-            "decomposition.");
-        return false;
-    }
-
-    // Check distribute definition
-    if (m_distribute == nullptr) {
-        SetError(
-            "Must provide a distribute definition before ending a "
-            "decomposition.");
-        return false;
-    }
-
-    // Check grid definition
-    if (m_procs == (int *)NULL) {
-        SetError(
-            "Must provide a proc_grid definition before ending a "
             "decomposition.");
         return false;
     }
@@ -78,15 +62,16 @@ bool BlockMap::verify() {
     // We need to count the number of non-distributed dimensions to ensure they
     // match between each definition.
     int count = 0;
-    for (auto i = 0; i < m_rank; ++i) {
-        if (m_distribute[i] == Distribution::Star) ++count;
+    for (const auto& d : m_dims) {
+        if (d.distribution == Distribution::Star) ++count;
     }
 
     int star_dims = count;
 
     // Check to make sure the grid definition matches
-    for (int i = 0, count = 0; i < m_rank; ++i) {
-        if (m_procs[i] == 1) ++count;
+    count = 0;
+    for (const auto& d : m_dims) {
+        if (d.numProcs == 1) ++count;
     }
 
     if (star_dims != count) {
@@ -97,54 +82,24 @@ bool BlockMap::verify() {
     }
 
     // check order definition
-    if (!m_dim_order) {
-        // If this is a 1-D distribution we can assume the dimension ordering
-        if (m_rank - star_dims == 1) {
-            // note here that count now refers to the number of "numbers"
-            // written to make sure there isn't an issue in the logic
-            count = 0;
-            m_dim_order = new int[m_rank];
-            for (int i = 0; i < m_rank; ++i) {
-                if (m_distribute[i] == Distribution::Star) {
-                    m_dim_order[i] = int(Distribution::Star);
-                } else {
-                    m_dim_order[i] = 1;
-                    ++count;
-                }
-            }
-            if (count != 1) {
-                // This should never happen
-                SetError(
-                    "'*' allocation mismatch between distribute and dim_order "
-                    "definitions.");
-                return false;
-            }
-        } else {
-            SetError(
-                "Must provide a dim_order definition before ending a "
-                "decomposition.");
-            return false;
-        }
-    } else {
-        // Check to make sure the order definition matches
-        for (int i = 0, count = 0; i < m_rank; ++i) {
-            if (m_dim_order[i] == int(Distribution::Star)) ++count;
-        }
+    // Check to make sure the order definition matches
+    count = 0;
+    for (const auto& d : m_dims) {
+        if (d.dim_order == int(Distribution::Star)) ++count;
+    }
 
-        if (star_dims != count) {
-            SetError(
-                "'*' allocation mismatch between distribute and dim_order "
-                "definition.");
-            return false;
-        }
+    if (star_dims != count) {
+        SetError(
+            "'*' allocation mismatch between distribute and dim_order "
+            "definition.");
+        return false;
     }
 
     // check that the dimension in each direction is a multiple of the number of ranks
-    for (int i=0; i<m_rank; ++i) {
-        if (m_distribute[i] != Distribution::Star &&
-            m_data[i] % m_procs[i] != 0) {
-            SetError("dimension size %d is not a multiple of proc_grid %d.",
-                     m_data[i], m_procs[i]);
+    for (const auto& d : m_dims) {
+        if (d.distribution != Distribution::Star && (d.size % d.numProcs != 0)) {
+            SetError("dimension size %zu is not a multiple of proc_grid %zu.",
+                     d.size, d.numProcs);
             return false;
         }
     }
@@ -175,89 +130,80 @@ std::string BlockMap::msg() const {
     std::stringstream sc; //stringstream for cli messages
     std::stringstream sm; //stringstream for mi messages
 
-    sc<<"$"<<m_name<<":\n";
+    auto rank = getRank();
+
+    sc<<m_name<<":\n";
     sm<<"{decomp_name=\""<<m_name;
 
-    if (m_rank == 0) {
+    if (getRank() == 0) {
         SetError("Invalid decomposition.");
         return "";
     }
 
+    auto csep = [rank](int i) { return (i+1 == rank ? "\n" : ","); };
+    auto msep = [rank](int i) { return (i+1 == rank ? "" : ","); };
+
     sc<<"\tdimension ";
     sm<<"\",dimension=\"";
-    if (m_data == (int *)NULL) {
-        SetError("Invalid dimension definition for decomposition.");
-        return "";
-    } else {
-        for (i = 0; i < m_rank; i++) {
-            sc << m_data[i] << (i+1==m_rank ? "\n" : ",");
-            sm << m_data[i] << (i+1==m_rank ? "" : ",");
-        }
+
+    for (i = 0; i < rank; i++) {
+        const auto& d = getDimension(i);
+        sc << d.size << csep(i);
+        sm << d.size << msep(i);
     }
 
     sc<<"\tdistribute ";
     sm<<"\",distribute=\"";
-    if (m_distribute == nullptr) {
-        SetError("Invalid distribute definition for decomposition.");
-        return "";
-    } else {
-        for (i = 0; i < m_rank; i++) {
-            switch (m_distribute[i]) {
-                case Distribution::Block:
-                    sc<<"block"<<(i+1==m_rank ? "\n" : ",");
-                    sm<<"block"<<(i+1==m_rank ? "" : ",");
-                    break;
-                case Distribution::Cyclic:
-                    sc<<"cyclic"<<(i+1==m_rank ? "\n" : ",");
-                    sm<<"cyclic"<<(i+1==m_rank ? "" : ",");
-                    break;
-                case Distribution::Star:
-                    sc<<"*"<<(i+1==m_rank ? "\n" : ",");
-                    sm<<"*"<<(i+1==m_rank ? "" : ",");
-                    break;
-                case Distribution::BlockCyclic:
-                    sc<<m_blockcyclic_val[i]<<(i+1==m_rank ? "\n" : ",");
-                    sm<<m_blockcyclic_val[i]<<(i+1==m_rank ? "" : ",");
-                    break;
-                default:
-                    SetError(
-                        "Invalid distribute definition for decomposition.");
-                    return "";
-            }
+    for (i = 0; i < rank; i++) {
+        auto c = csep(i), m = msep(i);
+        const auto& d = getDimension(i);
+        switch (d.distribution) {
+        case Distribution::Block:
+            sc<<"block"<<c;
+            sm<<"block"<<m;
+            break;
+        case Distribution::Cyclic:
+            sc<<"cyclic"<<c;
+            sm<<"cyclic"<<m;
+            break;
+        case Distribution::Star:
+            sc<<"*"<<c;
+            sm<<"*"<<m;
+            break;
+        case Distribution::BlockCyclic:
+            sc<<d.blockCyclic<<c;
+            sm<<d.blockCyclic<<m;
+            break;
+        default:
+            SetError(
+                "Invalid distribute definition for decomposition.");
+            return "";
         }
     }
 
     sc<<"\tproc_grid ";
     sm<<"\",proc_grid=\"";
-    if (m_procs == (int *)NULL) {
-        SetError("Invalid process grid definition for decomposition.");
-        return "";
-    } else {
-        for (i = 0; i < m_rank; i++) {
-            if (m_procs[i] == 1){
-                sc<<"*"<<(i+1==m_rank ? "\n" : ",");
-                sm<<"*"<<(i+1==m_rank ? "" : ",");
-            }else{
-                sc<<m_procs[i]<<(i+1==m_rank ? "\n" : ",");
-                sm<<m_procs[i]<<(i+1==m_rank ? "" : ",");
-            }
+    for (i = 0; i < rank; i++) {
+        const auto& d = getDimension(i);
+        if (d.numProcs == 1){
+            sc<<"*"<<csep(i);
+            sm<<"*"<<msep(i);
+        }else{
+            sc<<d.numProcs<<csep(i);
+            sm<<d.numProcs<<msep(i);
         }
     }
 
     sc<<"\tdim_order ";
     sm<<"\",dim_order=\"";
-    if (m_dim_order == (int *)NULL) {
-        SetError("Invalid dimension order definition for decomposition.");
-        return "";
-    } else {
-        for (i = 0; i < m_rank; i++) {
-            if (m_dim_order[i] == int(Distribution::Star)){
-                sc<<"*"<<(i+1==m_rank ? "\n" : ",");
-                sm<<"*"<<(i+1==m_rank ? "" : ",");
-            }else{
-                sc<<m_dim_order[i]<<(i+1==m_rank ? "\n" : ",");
-                sm<<m_dim_order[i]<<(i+1==m_rank ? "" : ",");
-            }
+    for (i = 0; i < rank; i++) {
+        const auto& d = getDimension(i);
+        if (d.dim_order == int(Distribution::Star)){
+            sc<<"*"<<csep(i);
+            sm<<"*"<<msep(i);
+        }else{
+            sc<<d.dim_order<<csep(i);
+            sm<<d.dim_order<<msep(i);
         }
     }
 
@@ -278,20 +224,20 @@ void FinishBlockMap(void) {
 }
 
 bool BlockMap::isDegen() const {
-    for (int i=0; i<m_rank; ++i) {
-        if (m_distribute[i] != Distribution::Star) return false;
+    for (const auto& d : m_dims) {
+        if (d.distribution != Distribution::Star) return false;
     }
     return true;
 }
 size_t BlockMap::getElementsPerRank() const {
     size_t len = 1;
-    for (int i=0; i<m_rank; ++i) {
-        if (m_distribute[i] == Distribution::Star) {
-            len *= m_data[i];
-        } else if (m_procs[i] > 0) {
+    for (const auto& d : m_dims) {
+        if (d.distribution == Distribution::Star) {
+            len *= d.size;
+        } else if (d.numProcs > 0) {
             // there's no reason m_procs[i] would be zero,
             // just being careful
-            len *= (m_data[i] / m_procs[i]);
+            len *= (d.size / d.numProcs);
         }
     }
     return len;
@@ -399,8 +345,9 @@ namespace {
 RangeBlockMapIterator::RangeBlockMapIterator(BlockMap* bm,
                                              const std::string& subRng){
     for (int i=0; i<bm->getRank(); ++i) {
-        m_idcs.push_back(BlockMap::Indexer1D(bm, i));
-        m_lens.push_back(bm->getDims()[i]);
+        auto d = bm->getDimension(i);
+        m_idcs.push_back(BlockMap::Indexer1D(d, i));
+        m_lens.push_back(d.size);
     }
     m_subRng = bm->getIndexRng(subRng);
     m_resDim = 0;

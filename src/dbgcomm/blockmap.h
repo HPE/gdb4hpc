@@ -16,16 +16,17 @@ enum class Distribution { Star=1000, Block, Cyclic, BlockCyclic };
 
 class BlockMap {
 public:    
-    BlockMap(const std::string& name, bool debug);
+    BlockMap(const std::string& name);
+    BlockMap(const std::string& name, const std::string& definition);
     ~BlockMap();
 
     const std::string& getName() const { return m_name; }
 
-    int getRank() const { return m_rank; }
-    const int* getDimOrder() const { return m_dim_order; }
-    const int* getDims() const { return m_data; }
-    const Distribution *getDistribution() const { return m_distribute; }
-    const int* getProcGrid() const { return m_procs; }
+    int getRank() const { return m_dims.size(); }
+    //const int* getDimOrder() const;
+    //const int* getDims();
+    //const Distribution *getDistribution();
+    const int* getProcGrid();
 
     // check that the block map is valid
     bool verify();
@@ -58,15 +59,23 @@ public:
     class Indexer1D;
     class Iterator;
 
+    struct Dimension {
+        size_t size;
+        Distribution distribution;
+        size_t numProcs;
+        size_t blockCyclic;
+        int dim_order;
+
+        std::ostream& printConcise(std::ostream& s) const;
+    };
+
+    const Dimension& getDimension(int i) const { return m_dims[i]; }
+        
 private:
+    void parseDefinition(const std::string& definition);
     std::string m_name;
-    int  m_rank;              // store the rank of the blockmap function
-    Distribution *m_distribute;  // store the mode of the block, cyclic
-    int *m_data;             // store the upperbound of the dimensions
-    int *m_procs;            // store the process grid
-    int *m_blockcyclic_val;  // store block-cyclic value
-    int *m_dim_order;        // store dimension order of mapping
-    bool m_debug;
+
+    std::vector<Dimension> m_dims;
 };
 
 // parse a range defined as [min..max][val] into ranges
@@ -74,7 +83,7 @@ private:
 // handle the data distribution in a single dimension
 class BlockMap::Indexer1D {
 public:
-    Indexer1D(const BlockMap* m, int dimIdx);
+    Indexer1D(const BlockMap::Dimension& m, int dimIdx);
     Indexer1D() : m_dimIdx(0), m_len(0) {}
     void map(size_t& dataIdx, size_t& procIdx, size_t& repeat, bool& atEnd) const;
     

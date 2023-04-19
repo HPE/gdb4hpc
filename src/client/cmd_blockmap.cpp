@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -137,6 +137,7 @@ static int cmd_decomposition_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: decomposition $decomposition_name\n");
+        PrintOutError("  or decomposition $decomposition_name dim1 [, dim2] [, dim3] .. \n");
         return 0;
     }
 
@@ -170,23 +171,25 @@ static int cmd_decomposition_cmd(rec_set_t *rec_set, int argc, char **argv) {
         PrintOutError("%s\n", err.what());
     }
 
-    bool debug = false;
-    if (argc > 2) {
-        if (strcmp(argv[2], "-debug") == 0) {
-            debug = true;
-        } else {
-            PrintOutError("Invalid decomposition switch \"%s\".\n", argv[2]);
+    if (argc == 2) {
+        // Old modal form for decomposition definition
+        CurrentBlockMap = std::make_shared<BlockMap>(argv[1]);
+
+        OldBlockCmds = SetCommands(BlockMapCmds);
+
+        cli_inc_prompt();
+        return 1;
+    } else {
+        // Create the decomposition from a single line definition
+        try {
+            auto bm = std::make_shared<BlockMap>(argv[1], ArgsToString(argv+2, argc-2));
+            RegisterBlockMap(bm);
+            return 1;
+        } catch ( std::exception& err) {
+            PrintOutError("Bad decomposition definition: %s\n", err.what());
             return 0;
         }
     }
-
-    CurrentBlockMap = std::make_shared<BlockMap>(argv[1], debug);
-
-    OldBlockCmds = SetCommands(BlockMapCmds);
-
-    cli_inc_prompt();
-
-    return 1;
 }
 
 /********************************
@@ -199,11 +202,6 @@ static int cmd_blockmap_dimension_cmd(rec_set_t *rec_set, int argc,
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: dimension 64,64,64\n");
         return 0;
-    }
-
-    if (CurrentBlockMap->getDims()) {
-        PrintOutError("Dimension already defined.\n");
-        if (!cli_query("Re-define dimension?")) return 1;
     }
 
     auto args = ArgsToString(argv+1,argc-1);
@@ -244,11 +242,6 @@ static int cmd_blockmap_distribute_cmd(rec_set_t *rec_set, int argc,
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: distribute block,block,*\n");
         return 0;
-    }
-
-    if (CurrentBlockMap->getDistribution()) {
-        PrintOutError("Distribute already defined.\n");
-        if (!cli_query("Re-define distribute?")) return 1;
     }
 
     auto args = ArgsToString(argv+1,argc-1);
@@ -309,11 +302,6 @@ static int cmd_blockmap_proc_grid_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    if (CurrentBlockMap->getProcGrid()) {
-        PrintOutError("proc_grid already defined.\n");
-        if (!cli_query("Re-define proc_grid?")) return 1;
-    }
-
     auto args = ArgsToString(argv+1,argc-1);
     args.erase(std::remove_if(args.begin(),args.end(),isspace), args.end());
 
@@ -359,11 +347,6 @@ static int cmd_blockmap_dim_order_cmd(rec_set_t *rec_set, int argc,
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: dim_order 1,2,*\n");
         return 0;
-    }
-
-    if (CurrentBlockMap->getDimOrder()) {
-        PrintOutError("dim_order already defined.\n");
-        if (!cli_query("Re-define dim_order?")) return 1;
     }
 
     auto args = ArgsToString(argv+1,argc-1);

@@ -8,105 +8,109 @@
 #include <regex>
 
 // Create a new map
-BlockMap::BlockMap(const std::string& name, bool debug)
-    : m_name(name),
-      m_rank(0),
-      m_distribute(nullptr),
-      m_data(nullptr),
-      m_procs(nullptr),
-      m_blockcyclic_val(nullptr),
-      m_dim_order(nullptr),
-      m_debug(debug) {
+BlockMap::BlockMap(const std::string& name)
+    : m_name(name)
+{
     if (name.size() && name[0] != '$') m_name = '$' + m_name;
 }
 
-BlockMap::~BlockMap() {
-    delete[] m_distribute;
-    delete[] m_data;
-    delete[] m_procs;
-    delete[] m_blockcyclic_val;
-    delete[] m_dim_order;
+BlockMap::BlockMap(const std::string& name, const std::string& definition)
+    : m_name(name)
+{
+    parseDefinition(definition);
 }
 
-static void writeDists(std::ostream& os, const Distribution* vals, int dim) {
-    os << ",(";
-    for (int i=0; i<dim; ++i) {
-        const char* s = nullptr;
-        switch (vals[i]) {
-        case Distribution::Star: s = "Star"; break;
-        case Distribution::Block: s = "Block"; break;
-        case Distribution::Cyclic: s = "Cyclic"; break;
-        case Distribution::BlockCyclic: s = "BlockCyclic"; break;
-        }
-        os << (i ? "," : "") << s;
-    }
-    os << ')';
-}
-static Distribution* readDists(std::istream& is, int dim) {
-    // I know: shockingly primitive
-    auto d = new Distribution[dim];
-    is.get(); is.get(); // ,(
-    for (int i=0; i<dim; ++i) {
-        auto type = std::string{};
-        for (int c; (c=is.get()) && c != EOF && c != ',' && c != ')'; ) {
-            type += c;
-        }
-        d[i] = Distribution::Star;
-        if (type == "Block") d[i] = Distribution::Block;
-        else if (type == "Cyclic") d[i] = Distribution::Cyclic;
-        else if (type == "BlockCyclic") d[i] = Distribution::BlockCyclic;
-    }
-    return d;
-}
-
-static void writeInts(std::ostream& os, const int* vals, int dim) {
-    os << ",(";
-    for (int i=0; i<dim; ++i) {
-        os << (i ? "," : "") << vals[i];
-    }
-    os << ')';
-}
-
-static int* readInts(std::istream& is, int dim) {
-    auto v = new int[dim];
-    char sep;
-    is >> sep >> sep; // ,(
-    for (int i=0; i<dim; ++i) {
-        is >> v[i] >> sep;
-    }
-    return v;
-}
+BlockMap::~BlockMap() {}
 
 std::string BlockMap::getDefinition() const {
-    auto rank = m_rank;
     std::ostringstream os;
-    os << "(" << std::quoted(m_name) << ',' << rank;
-    writeDists(os, m_distribute, rank);
-    writeInts(os, m_data, rank);
-    writeInts(os, m_procs, rank);
-    writeInts(os, m_blockcyclic_val, rank);
-    writeInts(os, m_dim_order, rank);
-    os << ')';
+    os << std::quoted(m_name) << " ";
+    int n = 0;
+    for ( auto d : m_dims ) {
+        if (n++) os << ", ";
+        d.printConcise(os);
+    }
     return os.str();
 }
 
 std::unique_ptr<BlockMap> BlockMap::fromDefinition(const std::string& definition)
 {
     auto is = std::istringstream{definition};
-    auto name = std::string{}; int rank = 0;
-    char comma;
+    auto name = std::string{}, dims = std::string{};
+    is >> std::quoted(name);
+    std::getline(is, dims);
 
-    is >> comma >> std::quoted(name) >> comma >> rank;
-    auto bm = std::make_unique<BlockMap>(name,false);
-
-    bm->m_rank = rank;
-    bm->m_distribute = readDists(is,rank);
-    bm->m_data = readInts(is,rank);
-    bm->m_procs = readInts(is,rank);
-    bm->m_blockcyclic_val = readInts(is,rank);
-    bm->m_dim_order = readInts(is,rank);
-
+    auto bm = std::make_unique<BlockMap>(name);
+    bm->parseDefinition(dims);  // may throw exception
     return bm;
+}
+
+void BlockMap::parseDefinition(const std::string& definition) {
+
+    static auto num = std::string{R"(\s*(\d+)\s*)"};
+    static auto num0 = "^" + num;
+    static auto optComma = R"(\s*,?\s*)";
+    static auto order = R"((order\(\s*(\d+)\s*\))?)";
+    static auto starRE = std::regex{num0 + optComma};
+    static auto blockRE = std::regex{num0 + "/" + num + order + optComma};
+    static auto cyclicRE = std::regex{num0 + "%" + num + order + optComma};
+    static auto blockCyclicRE = std::regex{num0 + "/" + num + "%" + num + order + optComma};
+
+    int dim_order = 1;
+    auto val = [](const auto& m) { return size_t(m.length() ? std::stoi(m.str()) : 0); };
+    auto oval = [&dim_order](const auto& m) {
+                    return m.length() ? std::stoi(m.str()) : dim_order++; };
+
+    auto err = std::ostringstream{};
+    std::smatch match;
+
+    auto toMatch = definition;
+    std::transform(toMatch.begin(), toMatch.end(), toMatch.begin(),
+                   [](char c) { return std::tolower(c); });
+    
+    for ( ; !toMatch.empty(); toMatch = match.suffix().str()) {
+        if (std::regex_search(toMatch, match, blockCyclicRE)) {
+            auto len = val(match[1]), procs = val(match[2]), bc = val(match[3]);
+            if ( !procs || !bc || (len % (procs * bc))) {
+                err << "array length " << len << " must be a multiple of num_procs "
+                    <<  procs << " * cycle " << bc;
+                break;
+            } else {
+                m_dims.push_back(Dimension{len, Distribution::BlockCyclic, procs, bc, oval(match[5])});
+            }
+        } else if (std::regex_search(toMatch, match, blockRE)) {
+            auto len = val(match[1]);
+            auto procs = val(match[2]);
+            if (!procs || (len % procs)) {
+                err << "length " << len << " must be a multiple of num_procs " << procs;
+                break;
+            } else {
+                m_dims.push_back(Dimension{len, Distribution::Block, procs, 0, oval(match[4])});
+            }
+        } else if (std::regex_search(toMatch, match, cyclicRE)) {
+            auto len = val(match[1]);
+            auto procs = val(match[2]);
+            if (!procs || (len % procs)) {
+                err << "length " << len << " must be a multiple of num_procs " << procs;
+                break;
+            } else {
+                m_dims.push_back(Dimension{len, Distribution::Cyclic, procs, 0, oval(match[4])});
+            }
+        } else if (std::regex_search(toMatch, match, starRE)) {
+            auto len = val(match[1]);
+            if (!len) {
+                err << "array length must be positive";
+                break;
+            } else {
+                m_dims.push_back(Dimension{len, Distribution::Star, 1, 0, int(Distribution::Star)});
+            }
+        } else {
+            err << "unrecognized decomposition expression";
+            break;
+        }
+    }
+
+    if (err.tellp()) throw std::invalid_argument(err.str());
 }
 
 std::vector<std::pair<int,int>> BlockMap::getIndexRng(const std::string& rng) const {
@@ -137,8 +141,8 @@ std::vector<std::pair<int,int>> BlockMap::getIndexRng(const std::string& rng) co
     
     // the range doesn't have all dimensions, but with a 2d array
     // in C/C++  array[0] naturally refers to the full sub-array.
-    for (int i = idxRngs.size(); i<m_rank; ++i) {
-        idxRngs.push_back(std::make_pair(0,m_data[i]-1));
+    for (int i = idxRngs.size(); i<getRank(); ++i) {
+        idxRngs.push_back(std::make_pair(0,m_dims[i].size-1));
     }
 
     return idxRngs;
@@ -149,13 +153,13 @@ std::vector<std::pair<int,int>> BlockMap::getIndexRng(const std::string& rng) co
 // \param m is the block map definition
 // \param d is the index for this dimension, starting at 0
 // \param prev if given is the distribution for the next faster dimension
-BlockMap::Indexer1D::Indexer1D(const BlockMap* m, int d) :
+BlockMap::Indexer1D::Indexer1D(const BlockMap::Dimension& m, int d) :
     m_dimIdx(d),
-    m_distribute(m->m_distribute[d]),
-    m_len(m->m_data[d]),
-    m_numProcs(std::max(m->m_procs[d],1)),
-    m_blockCyclic(m->m_blockcyclic_val[d]),
-    m_dimOrder(m->m_dim_order[d]),
+    m_distribute(m.distribution),
+    m_len(m.size),
+    m_numProcs(std::max(m.numProcs,size_t(1))),
+    m_blockCyclic(m.blockCyclic),
+    m_dimOrder(m.dim_order),
     m_blockLen(std::max(m_len / m_numProcs,size_t{1})),
     m_totalProcSize(m_numProcs),
     m_dataScale(1),
@@ -257,7 +261,7 @@ void BlockMap::Indexer1D::init(std::vector<Indexer1D>& idcs, bool isFortran) {
 BlockMap::Iterator::Iterator(BlockMap* bm)
 {
     for (int i=0; i<bm->getRank(); ++i) {
-        m_idcs.push_back(BlockMap::Indexer1D(bm, i));
+        m_idcs.push_back(BlockMap::Indexer1D(bm->m_dims[i], i));
     }
 }
 
@@ -320,36 +324,58 @@ void BlockMap::Iterator::getIdcs(std::vector<int>& idcs) const {
     }
 }
 
-bool BlockMap::isRerank(int rank) const { return m_rank && m_rank != rank; }
+bool BlockMap::isRerank(int rank) const { return getRank() && getRank() != rank; }
 
 void BlockMap::setDimOrder(const std::vector<int>& order) {
-    m_rank = order.size();
-    m_dim_order = new int[m_rank];
-    copy(order.begin(), order.end(), m_dim_order);
+    auto n = order.size();
+    m_dims.resize(n);
+    for (size_t i=0; i<n; ++i)
+        m_dims[i].dim_order = order[i];
 }
 
 void BlockMap::setDims(const std::vector<int>& dims) {
-    m_rank = dims.size();
-    m_data = new int[m_rank];
-    std::copy(dims.begin(), dims.end(), m_data);
+    auto n = dims.size();
+    m_dims.resize(n);
+    for (size_t i=0; i<n; ++i)
+        m_dims[i].size = dims[i];
 }
 
 void BlockMap::setDistribution(const std::vector<Distribution>& distribute,
                                const std::vector<int>& blockCyclic) {
     // Allocate the distribute and blockcyclic_val array inside the blockmap
     // definition
-    auto rank = distribute.size();
-    m_rank = rank;
-    m_distribute = new Distribution[rank];
-    m_blockcyclic_val = new int[rank];
-
-    copy(distribute.begin(), distribute.end(), m_distribute);
-    copy(blockCyclic.begin(), blockCyclic.end(), m_blockcyclic_val);
+    auto n = distribute.size();
+    auto nd = 0;
+    m_dims.resize(n);
+    for (size_t i=0; i<n; ++i) {
+        auto& d = m_dims[i];
+        d.distribution = distribute[i];
+        // set default ordering
+        d.dim_order = (distribute[i] == Distribution::Star ? int(Distribution::Star) : ++nd);
+        d.blockCyclic = blockCyclic[i];
+    }
 }
 
 void BlockMap::setProcGrid(const std::vector<int>& procs) {
-    m_rank = procs.size();
-    m_procs = new int[m_rank];
-    std::copy(procs.begin(), procs.end(), m_procs);
+    auto n = procs.size();
+    m_dims.resize(n);
+    for (size_t i=0; i<n; ++i) {
+        m_dims[i].numProcs = procs[i];
+    }
 }
 
+std::ostream& BlockMap::Dimension::printConcise(std::ostream& os) const {
+    os << size;
+    switch (distribution) {
+    case Distribution::Star: break;
+    case Distribution::Block: os << "/" << numProcs; break;
+    case Distribution::Cyclic: os << "%" << numProcs; break;
+    case Distribution::BlockCyclic: os << "/" << numProcs << "%" << blockCyclic; break;
+    };
+
+    if (dim_order != int(Distribution::Star)) {
+        os << " order(" << dim_order << ")";
+    }
+    return os;        
+
+}

@@ -1,5 +1,5 @@
 // cmd_iostat.cpp - Fortran IOSTAT table.
-// Copyright 2022 Hewlett Packard Enterprise Development LP.
+// Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -102,7 +102,7 @@ static int cmd_info_iostat_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_iostat(void) {
-    AddInfoCommand("iostat", proc_optional, 0, cmd_info_iostat_cmd,
+    AddCommand("info iostat", proc_optional, cmd_info_iostat_cmd,
                cmd_info_iostat_help,
                "Display table with iostat codes for Fortran.");
 }

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -140,16 +140,16 @@ static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 void InitCmd_list(void) {
     // Regular commands
-    AddCommand("list", "l", proc_required, 0, cmd_list_cmd,
+    AddCommand("list", "l", proc_required, cmd_list_cmd,
                cmd_list_help, "List source for specified function or line.");
 
     // Info commands
-    AddInfoCommand("source", proc_required, 0,
+    AddCommand("info source", proc_required,
                    cmd_info_source_cmd,
                    cmd_info_source_help,
                    "Display information about the current source file.");
 
-    AddInfoCommand("sources", proc_required, 0,
+    AddCommand("info sources", proc_required,
                    cmd_info_sources_cmd,
                    cmd_info_sources_help,
                    "Display the source files in the application.");

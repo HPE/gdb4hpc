@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -156,10 +156,10 @@ static int cmd_defset_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_procset(void) {
-    AddCommand("defset", nullptr, proc_ignore, 0, cmd_defset_cmd,
+    AddCommand("defset", proc_ignore, cmd_defset_cmd,
                cmd_defset_help, "Create a set of processes.");
-    AddCommand("viewset", nullptr, proc_ignore, 0, cmd_viewset_cmd,
+    AddCommand("viewset", proc_ignore, cmd_viewset_cmd,
                cmd_viewset_help, "Display information about process sets.");
-    AddCommand("focus", nullptr, proc_ignore, 0, cmd_focus_cmd,
+    AddCommand("focus", proc_ignore, cmd_focus_cmd,
                cmd_focus_help, "Set the current process set.");
 }

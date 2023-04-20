@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -51,8 +51,8 @@ static int StepCmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_step(void) {
-    AddCommand("step", "s", proc_required, 0, StepCmd, cmd_step_help,
+    AddCommand("step", "s", proc_required, StepCmd, cmd_step_help,
                "Step application until it reaches a different source line.");
-    AddCommand("next", "n", proc_required, 0, StepCmd, cmd_next_help,
+    AddCommand("next", "n", proc_required, StepCmd, cmd_next_help,
                "Step application, proceeding through subroutine calls.");
 }

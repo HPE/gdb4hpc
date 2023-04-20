@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cmd_passthru.c - Command line interface routines.
  *
- * Copyright 2012-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2012-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -18,8 +18,8 @@
 #include "client.h"
 #include "useful.h"
 
-static cmdlist_t *DirectModeCmds;
-static cmdlist_t *OldCmds;
+static std::shared_ptr<Command> DirectModeCmds;
+static Command* OldCmds;
 
 static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
@@ -69,7 +69,7 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return cmd_maint_direct_cmd(rec_set, argc, argv);
     }
 
-    OldCmds = SetCommands(DirectModeCmds);
+    OldCmds = SetCommands(DirectModeCmds.get());
 
     cli_inc_prompt();
 
@@ -206,53 +206,45 @@ static int cmd_directmode_blacklist_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-/********************************
- * Helper functions
- ********************************/
+class DirectMode : public Command {
+public:
+    DirectMode();
+    void failed() override;
+};
 
-static void directmodenotfound(const char *cmd) { CmdNotFound(cmd); }
+DirectMode::DirectMode() : Command(proc_optional, cmd_directmode_direct_cmd) {}
 
-static void directmodeambig(const char *cmd) {
-    AmbiguousAltCmd(DirectModeCmds, cmd);
-}
-
-static void directmodefailed(void) {
+void DirectMode::failed()
+{
     cli_dec_prompt();
     SetCommands(OldCmds);
 }
 
 void InitCmd_passthru(void) {
     // regular commands
-    AddCommand("gdbmode", NULL, proc_required, 0, cmd_directmode_cmd,
+    AddCommand("gdbmode", proc_required, cmd_directmode_cmd,
                cmd_directmode_help, "Send raw gdb commands.");
 
     // maint commands
-    AddMaintCommand(
-        "passthru", proc_required, 0, cmd_maint_direct_cmd,
+    AddCommand(
+        "maint passthru", proc_required, cmd_maint_direct_cmd,
         cmd_maint_direct_help, "Pass command to gdb backend.");
 
     // gdbmode alt commands
-    DirectModeCmds =
-        NewCommandList(directmodenotfound, directmodeambig, directmodefailed);
+    DirectModeCmds = std::make_shared<DirectMode>();
 
     // XXX: The help strings below are not viewable. The help command is passed
     // to the gdb backend while in gdbmode.
-    AddAltCommand(DirectModeCmds, "_default_cmd", NULL, proc_required, 0,
-                  cmd_directmode_direct_cmd, dummy_help, "");
-    AddAltCommand(DirectModeCmds, "end", NULL, proc_ignore, 0,
-                  cmd_directmode_end_cmd, dummy_help, "");
-    AddAltCommand(DirectModeCmds, "quit", NULL, proc_ignore, 0,
-                  cmd_quit_cmd, dummy_help, "");
-
-    AddAltCommand(DirectModeCmds, "run", "r", proc_ignore, 0,
-                  cmd_directmode_blacklist_cmd, dummy_help, "");
-    AddAltCommand(DirectModeCmds, "detach", NULL, proc_ignore, 0,
-                  cmd_directmode_blacklist_cmd, dummy_help, "");
-    AddAltCommand(DirectModeCmds, "kill", NULL, proc_ignore, 0,
-                  cmd_directmode_blacklist_cmd, dummy_help, "");
-
-    AddAltCommand(DirectModeCmds, "interpreter-exec", NULL, proc_required, 0,
-                  cmd_directmode_interpreter_exec_cmd, dummy_help, "");
-
-    SetDefaultCommand(DirectModeCmds, "_default_cmd");
+    DirectModeCmds->addSubCmd("end", nullptr, proc_ignore, 
+                              cmd_directmode_end_cmd, nullptr, nullptr);
+    DirectModeCmds->addSubCmd("quit", nullptr, proc_ignore,
+                              cmd_quit_cmd, nullptr, nullptr );
+    DirectModeCmds->addSubCmd("run", "r", proc_ignore,
+                              cmd_directmode_blacklist_cmd, nullptr, nullptr);
+    DirectModeCmds->addSubCmd("detach", nullptr, proc_ignore,
+                              cmd_directmode_blacklist_cmd, nullptr, nullptr);
+    DirectModeCmds->addSubCmd("kill", nullptr, proc_ignore,
+                              cmd_directmode_blacklist_cmd, nullptr, nullptr);
+    DirectModeCmds->addSubCmd("interpreter-exec", nullptr, proc_required,
+                              cmd_directmode_interpreter_exec_cmd, nullptr, nullptr);
 }

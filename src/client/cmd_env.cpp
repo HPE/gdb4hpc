@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -173,25 +173,25 @@ private:
 };
 
 // gdb4hpc level commands to handle a shell as a mode
-class ShellMode {
+class ShellMode : public Command {
 public:
+    ShellMode();
+    void failed() override;
+
     static void init();
     static void enter();
 private:
-    static void notfound(const char *cmd) { CmdNotFound(cmd); }
-    static void ambig(const char *cmd) { AmbiguousAltCmd(m_cmds, cmd); }
-    static void failed() { cli_dec_prompt(); SetCommands(m_oldCmds); }
-
     static int sendToShell(rec_set_t *rec_set, int argc, char**argv);
     static int exit(rec_set_t* rec_set, int argc, char **argv);
     static int suspend(rec_set_t* rec_set, int argc, char **argv);
 
-    static cmdlist_t *m_cmds;
-    static cmdlist_t *m_oldCmds;
+    static std::shared_ptr<Command> m_cmds;
+    static Command *m_oldCmds;
 
     static std::unique_ptr<SubShell> m_subshell;
 };
 }
+
 
 static int cmd_shell_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // If remote flag, run shell on remote nodes and return
@@ -302,19 +302,25 @@ static int cmd_pipe_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+ShellMode::ShellMode() : Command(proc_optional, sendToShell) {}
+
 void ShellMode::init() {
-    m_cmds = NewCommandList(notfound, ambig, failed);
-    AddAltCommand(m_cmds, "_default_cmd", nullptr, proc_optional, 0,
-                  sendToShell, dummy_help, "");
-    AddAltCommand(m_cmds, "exit", nullptr, proc_optional, 0,
-                  exit, dummy_help, "");
-    AddAltCommand(m_cmds, "suspend", nullptr, proc_optional, 0,
-                  suspend, dummy_help, "");
-    SetDefaultCommand(m_cmds, "_default_cmd");
+    m_cmds = std::make_shared<ShellMode>();
+
+    m_cmds->addSubCmd(std::make_shared<Command>("exit", nullptr, proc_optional,
+                                             exit, nullptr, nullptr));
+    m_cmds->addSubCmd(std::make_shared<Command>("suspend", nullptr, proc_optional,
+                                             suspend, nullptr, nullptr));
 }
 
-cmdlist_t *ShellMode::m_cmds = nullptr;
-cmdlist_t *ShellMode::m_oldCmds = nullptr;
+void ShellMode::failed()
+{
+    cli_dec_prompt();
+    SetCommands(m_oldCmds);
+}
+
+std::shared_ptr<Command> ShellMode::m_cmds;
+Command* ShellMode::m_oldCmds = nullptr;
 std::unique_ptr<SubShell> ShellMode::m_subshell;
 
 int ShellMode::sendToShell(rec_set_t *rec_set, int argc, char**argv) {
@@ -333,7 +339,7 @@ int ShellMode::sendToShell(rec_set_t *rec_set, int argc, char**argv) {
 void ShellMode::enter()
 {
     PrintOutMsg("Entering shell mode, use exit or suspend to leave.\n");
-    m_oldCmds = SetCommands(m_cmds);
+    m_oldCmds = SetCommands(m_cmds.get());
     cli_inc_prompt();
 }
 
@@ -1026,142 +1032,132 @@ int cmd_show_command_timeout_cmd(rec_set_t*, int argc, char* argv[]) {
 
 void InitCmd_env(void) {
     // regular commands
-    AddCommand("quit", "q", proc_ignore, 0, cmd_quit_cmd,
+    AddCommand("quit", "q", proc_ignore, cmd_quit_cmd,
                cmd_quit_help, "Exit the debugger.");
     
-    AddCommand("shell", nullptr, proc_optional, 0,
-                cmd_shell_cmd,
+    AddCommand("shell", proc_optional, cmd_shell_cmd,
                 cmd_shell_help, "Run a shell command.");
 
-    AddCommand("pipe", nullptr, proc_optional, 0,
-               cmd_pipe_cmd,
+    AddCommand("pipe", proc_optional, cmd_pipe_cmd,
                cmd_pipe_help, "Send the output of a gdb command to a shell command.");
 
 
-    AddCommand("interpreter-exec", nullptr, proc_optional, 0,
+    AddCommand("interpreter-exec", proc_optional,
                cmd_interpreter_exec_cmd, nullptr, nullptr); // undocumented
 
     // maint commands
-    AddMaintCommand("echo", proc_ignore, 0,
-                    cmd_maint_echo_cmd,
-                    cmd_maint_echo_help, "Echo a string.");
+    AddCommand("maint echo", proc_ignore, cmd_maint_echo_cmd,
+               cmd_maint_echo_help, "Echo a string.");
 
-    AddMaintCommand("system", proc_ignore, 0,
-                cmd_shell_cmd,
+    AddCommand("maint system", proc_ignore, cmd_shell_cmd,
                 cmd_shell_help, "Run a shell command.");
 
-    AddMaintCommand("sleep", proc_optional, 0,
-                    cmd_maint_sleep_cmd,
-                    cmd_maint_sleep_help, "Pause the debugger.");
+    AddCommand("maint sleep", proc_optional, cmd_maint_sleep_cmd,
+               cmd_maint_sleep_help, "Pause the debugger.");
     
     // info commands
-    AddInfoCommand("status", proc_required, 0,
-                   cmd_info_status_cmd,
+    AddCommand("info status", proc_required, cmd_info_status_cmd,
                    cmd_info_status_help,
                    "Display the status of the debug servers.");
 
     // set commands
-    AddSetCommand("directory", proc_required, 0,
-                  cmd_set_directory_cmd,
+    AddCommand("set directory", proc_required, cmd_set_directory_cmd,
                   cmd_set_directory_help,
                   "Add directory to search path for source files.");
-    AddSetCommand("error", proc_ignore, 0,
-                  cmd_set_error_cmd,
+    AddCommand("set error", proc_ignore, cmd_set_error_cmd,
                   cmd_set_error_help,
                   "Set warn and error epsilon for floating point comparison.");
-    AddSetCommand("environment", proc_ignore, 0,
-                  cmd_set_environment_cmd,
+    AddCommand("set environment", proc_ignore, cmd_set_environment_cmd,
                   cmd_set_environment_help,
                   "Set environment variable value for launching applications.");
-    AddSetCommand("logging", proc_ignore, 0,
-                  cmd_set_logging_cmd,
+    AddCommand("set logging", proc_ignore, cmd_set_logging_cmd,
                   cmd_set_logging_help,
                   "Redirect client side output.");
 
     // set print commands
-    AddSetPrintCommand(
-        "entry-frame", proc_ignore, 0,
+    AddCommand(
+        "set print entry-frame", proc_ignore,
         cmd_set_print_entryframe_cmd,
         cmd_set_print_entryframe_help,
         "Enable/disable printing of entry frames on launch/attach.");
-    AddSetPrintCommand(
-        "source-on-step", proc_ignore, 0,
+    AddCommand(
+        "set print source-on-step", proc_ignore,
         cmd_set_print_sourceonstep_cmd,
         cmd_set_print_sourceonstep_help,
         "Enable/disable printing of source on step/next.");
 
     // maint set commands
-    AddMaintSetCommand("earlyentry", proc_ignore, 0,
+    AddCommand("maint set earlyentry", proc_ignore,
                        cmd_maint_set_earlyentry_cmd,
                        cmd_maint_set_earlyentry_help,
                        "Enable early entry mode.");
-    AddMaintSetCommand(
-        "unsafe", proc_ignore, 0, cmd_maint_set_unsafe_cmd,
+    AddCommand(
+        "maint set unsafe", proc_ignore, cmd_maint_set_unsafe_cmd,
         cmd_maint_set_unsafe_help, "Enable unsafe functionality.");
-    AddMaintSetCommand(
-        "sync", proc_ignore, 0, cmd_maint_set_sync_cmd,
+    AddCommand(
+        "maint set sync", proc_ignore, cmd_maint_set_sync_cmd,
         cmd_maint_set_sync_help, "Enable synchronous event mode.");
 
     // show commands
-    AddShowCommand("directories", proc_required, 0,
+    AddCommand("show directories", proc_required,
                    cmd_show_directories_cmd,
                    cmd_show_directories_help,
                    "Show current search path for finding source files.");
-    AddShowCommand(
-        "error", proc_ignore, 0, cmd_show_error_cmd,
+    AddCommand(
+        "show error", proc_ignore, cmd_show_error_cmd,
         cmd_show_error_help,
         "Show warn and error epsilon for floating point comparison.");
-    AddShowCommand("environment", proc_ignore, 0,
+    AddCommand("show environment", proc_ignore,
                    cmd_show_environment_cmd,
                    cmd_show_environment_help,
                    "Show environment variables that were set.");
-    AddShowCommand(
-        "version", proc_ignore, 0, cmd_show_version_cmd,
+    AddCommand(
+        "show version", proc_ignore, cmd_show_version_cmd,
         cmd_show_version_help, "Show the debugger version number.");
 
-    AddShowCommand(
-        "prompt", proc_ignore, 0, class_show_sub_cmd_prompt_cmd,
+    AddCommand(
+        "show prompt", proc_ignore, class_show_sub_cmd_prompt_cmd,
         cmd_show_prompt_help, "Show the prompt.");
 
     // show print commands
-    AddShowPrintCommand("entry-frame", proc_ignore, 0,
+    AddCommand("show print entry-frame", proc_ignore,
                         cmd_show_print_entryframe_cmd,
                         cmd_show_print_entryframe_help,
                         "Show setting of print entry-frame mode.");
-    AddShowPrintCommand("source-on-step", proc_ignore, 0,
+    AddCommand("show source-on-step", proc_ignore,
                         cmd_show_print_sourceonstep_cmd,
                         cmd_show_print_sourceonstep_help,
                         "Show setting of print source-on-step mode.");
 
     // maint show commands
-    AddMaintShowCommand("earlyentry", proc_ignore, 0,
+    AddCommand("maint show earlyentry", proc_ignore,
                         cmd_maint_show_earlyentry_cmd,
                         cmd_maint_show_earlyentry_help,
                         "Show setting of early entry mode.");
-    AddMaintShowCommand(
-        "unsafe", proc_ignore, 0, cmd_maint_show_unsafe_cmd,
+    AddCommand(
+        "maint show unsafe", proc_ignore, cmd_maint_show_unsafe_cmd,
         cmd_maint_show_unsafe_help, "Show setting of unsafe mode.");
-    AddMaintShowCommand("sync", proc_ignore, 0,
+    AddCommand("maint show sync", proc_ignore,
                         cmd_maint_show_sync_cmd,
                         cmd_maint_show_sync_help,
                         "Show setting of synchronous event mode.");
 
     // unset commands
-    AddUnsetCommand("environment", proc_ignore, 0,
+    AddCommand("unset environment", proc_ignore,
                     cmd_unset_environment_cmd,
                     cmd_unset_environment_help,
                     "Remove a previously set environment variable.");
 
     // MI related commands - not documented
-    AddCommand("new-ui", nullptr, proc_ignore, 0, class_new_ui_cmd, nullptr, nullptr);
+    AddCommand("new-ui", proc_ignore, class_new_ui_cmd, nullptr, nullptr);
 
-    AddSetCommand("inferior-tty", proc_ignore, 0, cmd_set_inferior_tty_cmd,
+    AddCommand("set inferior-tty", proc_ignore, cmd_set_inferior_tty_cmd,
                   nullptr,  "set the tty for the application i/o");
 
-    AddSetCommand("command-timeout", proc_ignore, 0,
+    AddCommand("set command-timeout", proc_ignore,
                   cmd_set_command_timeout_cmd, cmd_set_command_timeout_help,
                   "Set timeout for synchronous commands.");
-    AddShowCommand("command-timeout", proc_ignore, 0,
+    AddCommand("show command-timeout", proc_ignore,
                    cmd_show_command_timeout_cmd, cmd_show_command_timeout_help,
                    "Show timeout for synchronous commands.");
 

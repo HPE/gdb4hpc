@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 #include <iostream>
 #include <iomanip>
@@ -162,11 +162,11 @@ static int cmd_restart_cmd(rec_set_t *recSet, int argc, char **argv) {
 }
 
 void InitCmd_checkpoint(void) {
-    AddCommand("checkpoint", "ch", proc_required, 0, cmd_checkpoint_cmd,
+    AddCommand("checkpoint", "ch", proc_required, cmd_checkpoint_cmd,
                cmd_checkpoint_help,
                "Fork program for restoration at a later point.");
 
-    AddCommand("restart", "res", proc_required, 0, cmd_restart_cmd,
+    AddCommand("restart", "res", proc_required, cmd_restart_cmd,
                cmd_restart_help,
                "Restore program to state of previously created checkpoint.");
 
@@ -174,7 +174,8 @@ void InitCmd_checkpoint(void) {
     // the delete command
 
     // info commands
-    AddInfoCommand(
-        "checkpoints", proc_required, 0, cmd_info_checkpoints_cmd,
+    AddCommand(
+        "info checkpoints", proc_required,
+        cmd_info_checkpoints_cmd,
         cmd_info_checkpoints_help, "Show status of checkpoints.");
 }

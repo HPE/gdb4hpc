@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -100,6 +100,6 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_comp(void) {
-    AddCommand("compare", NULL, proc_optional, 0, cmd_compare_cmd,
+    AddCommand("compare", NULL, proc_optional, cmd_compare_cmd,
                cmd_compare_help, "Compare the contents of two variables.");
 }

@@ -406,44 +406,44 @@ static int cmd_show_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 
 void InitCmd_thread(void) {
-    AddCommand("thread", "t", proc_required, 0, cmd_thread_cmd,
+    AddCommand("thread", "t", proc_required, cmd_thread_cmd,
                cmd_thread_help, "Thread control functions.");
-    AddCommand("taas", "", proc_required, 0, cmd_taas_cmd,
+    AddCommand("taas", "", proc_required, cmd_taas_cmd,
                cmd_thread_help, nullptr);
-    AddCommand("ompd", "", proc_required, 0, cmd_ompd_cmd,
+    AddCommand("ompd", "", proc_required, cmd_ompd_cmd,
                cmd_ompd_help, "OpenMP debugging functions.");
-    AddCommand("cuda", "", proc_required, 0, cmd_cuda_cmd,
+    AddCommand("cuda", "", proc_required, cmd_cuda_cmd,
                cmd_cuda_help, "Cuda debugging functions.");
-    AddInfoCommand("cuda", proc_required, 0, cmd_info_cuda_cmd,
+    AddCommand("info cuda", proc_required, cmd_info_cuda_cmd,
                    cmd_info_cuda_help,
                    "Display cuda specific information.");
-    AddSetCommand("cuda", proc_required, 0, cmd_set_cuda_cmd,
+    AddCommand("set cuda", proc_required, cmd_set_cuda_cmd,
                   cmd_set_cuda_help,
                   "Set cuda specific information.");
-    AddShowCommand("cuda", proc_required, 0, cmd_show_cuda_cmd,
+    AddCommand("show cuda", proc_required, cmd_show_cuda_cmd,
                    cmd_show_cuda_help,
                    "Show cuda specific settings.");
 
 
-    AddInfoCommand("threads", proc_optional_mi, 0,
+    AddCommand("info threads", proc_optional_mi,
                    cmd_info_threads_cmd,
                    cmd_info_threads_help,
                    "List currently known threads.");
 
-    AddSetCommand("scheduler-locking", proc_required, 0,
+    AddCommand("set scheduler-locking", proc_required,
                   cmd_set_scheduler_locking_cmd,
                   cmd_set_scheduler_locking_help,
                   "Set mode for locking scheduler during execution.");
-    AddShowCommand("scheduler-locking", proc_required, 0,
+    AddCommand("show scheduler-locking", proc_required,
                    cmd_show_scheduler_locking_cmd,
                    cmd_show_scheduler_locking_help,
                    "Show mode for locking scheduler during execution.");
 
-    AddSetCommand("non-stop", proc_optional, 0,
+    AddCommand("set non-stop", proc_optional,
                   cmd_set_non_stop_cmd,
                   cmd_set_non_stop_help,
                   "Set mode for thread stopping during execution.");
-    AddShowCommand("non-stop", proc_optional, 0,
+    AddCommand("show non-stop", proc_optional,
                    cmd_show_non_stop_cmd,
                    cmd_show_non_stop_help,
                    "Show mode for thread stopping during execution.");

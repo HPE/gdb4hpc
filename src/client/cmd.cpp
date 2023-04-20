@@ -30,273 +30,124 @@
 #include "bitset.h"
 #include "dbgevent.h"
 #include "mi_funcs.h"
+
 /*
 ** Internal global variables
 */
-static cmdlist_t *CurrentCmds;  /* Current command list */
-static list_t *help_class_list; /* Class Command help lookup */
-static cmdlist_t *Cmds;         /* Main command list */
+static std::shared_ptr<Command> Cmds;
+static Command* CurrentCmds = nullptr;  /* Current command list */
 static std::deque<std::string> pendingCommandQueue{}; /* Commands queued, waiting to be executed */
 
-/*
-** Internal function prototypes
-*/
-static cmdtype_t *_addcmd(list_t *, const char *, const char *, cmdptype_t, int,
-                          cmdfunc_t, const char *const[], const char *);
-static cmdhelp_t *_addhelpclasscmd(const char *, cmdtype_t *(*)(char *));
-static void _alphabetize_cmd_list(list_t *);
-static int _docmd(cmdlist_t *, dbgprocset_t *, cmdtype_t *, int, char *[], int);
-static cmdtype_t *_findcmd(cmdlist_t *, const char *);
-static void _ambigcmd(list_t *, const char *);
-static int _apply_command(dbgprocset_t *, cmdtype_t *, int, char *[]);
-
-/*
- * Command list functions
- */
-
-cmdlist_t *NewCommandList(void (*notfound)(const char *),
-                          void (*ambig)(const char *), void (*failed)(void)) {
-    cmdlist_t *c;
-
-    c = (cmdlist_t *)Alloc(sizeof(cmdlist_t));
-    c->cmd_list = NewList();
-    c->cmd_notfound = notfound;
-    c->cmd_ambig = ambig;
-    c->cmd_failed = failed;
-    c->cmd_default = NULL;
-
-    return c;
-}
-
-void DestroyCommandList(cmdlist_t *c) {
-    if (c == (cmdlist_t *)NULL) return;
-    DestroyList(c->cmd_list, Free);
-    Free(c);
-}
-
-/*
- * AddCommand functions
- */
-
-static cmdtype_t *_addcmd(list_t *l, const char *name, const char *alias,
-                          cmdptype_t pt, int sub, cmdfunc_t cmd,
-                          const char *const help[], const char *desc) {
-    cmdtype_t *c;
-
-    c = (cmdtype_t *)Alloc(sizeof(cmdtype_t));
-    c->c_name = name;
-    c->c_alias = alias;
-    c->c_cmd = cmd;
-    c->c_help = (char **)help;
-    c->c_desc = desc;
-    c->c_ptype = pt;
-    c->c_hassub = sub;
-
-    AddToList(l, (void *)c);
-
-    return c;
-}
-
-static cmdhelp_t *_addhelpclasscmd(const char *name,
-                                   cmdtype_t *(*find)(char *)) {
-    cmdhelp_t *c_help;
-
-    c_help = (cmdhelp_t *)Alloc(sizeof(cmdhelp_t));
-    c_help->c_name = name;
-    c_help->c_find = (cmdtype_t * (*)(char *)) find;
-
-    AddToList(help_class_list, (void *)c_help);
-
-    return c_help;
-}
-
-static void _alphabetize_cmd_list(list_t *l) {
-    int swap;
-    cmdtype_t *c1;
-    cmdtype_t *c2;
-
-    // This is a simple bubble sort implementation
-    do {
-        swap = 0;
-
-        SetList(l);
-
-        // set c1 and c2 to the first and second elements in the list
-        c1 = (cmdtype_t *)GetListElement(l);
-        c2 = (cmdtype_t *)GetListElement(l);
-
-        // need to ensure c2 is not null, if so we are done
-        while (c2 != (cmdtype_t *)NULL) {
-            if (strcmp(c1->c_name, c2->c_name) > 0) {
-                ++swap;
-                SwapWithNextNeighbor(l, (void *)c1);
-                // no need to update c1 since it is now in c2's spot in the list
-            } else {
-                // update c1 to point at c2 since there was no swap
-                c1 = c2;
-            }
-
-            // update c2 to point at the next element in the list
-            c2 = (cmdtype_t *)GetListElement(l);
-        }
-    } while (swap != 0);
-}
-
-void AddCommand(const char *name, const char *alias, cmdptype_t pt, int sub,
+void AddCommand(const char *name, const char *alias, cmdptype pt,
                 cmdfunc_t cmd, const char *const help[], const char *desc) {
-    _addcmd(Cmds->cmd_list, name, alias, pt, sub, cmd, help, desc);
+    if (!Cmds) {
+        // create the top level entry
+        Cmds = std::make_shared<Command>("", nullptr, proc_optional,
+                                         nullptr, nullptr, nullptr);
+        CurrentCmds = Cmds.get();
+    }
+
+    Cmds->addSubCmd(name, alias, pt, cmd, help, desc);
 }
 
-void AddAltCommand(cmdlist_t *cmds, const char *name, const char *alias,
-                   cmdptype_t pt, int sub, cmdfunc_t cmd,
-                   const char *const help[], const char *desc) {
-    _addcmd(cmds->cmd_list, name, alias, pt, sub, cmd, help, desc);
+void AddCommand(const char *name, cmdptype pt,
+                cmdfunc_t cmd, const char *const help[], const char *desc) {
+    return AddCommand(name, nullptr, pt, cmd, help, desc);
 }
 
-void AddClassCommand(const char *name, const char *alias, cmdptype_t pt,
-                     int sub, cmdfunc_t cmd, cmdtype_t *(*find)(char *),
-                     const char *const help[], const char *desc) {
-    // register the class command with the regular command list
-    _addcmd(Cmds->cmd_list, name, alias, pt, sub, cmd, help, desc);
-    // register the class command name in the help list
-    _addhelpclasscmd(name, find);
+
+Command::Command(const std::string& name, const char* alias,
+                 cmdptype ptype, cmdfunc_t cmd,
+                 const char* const* help,
+                 const char* desc) :
+    m_fullName(name), m_alias(alias), m_ptype(ptype),
+    m_func(cmd), m_help(help), m_desc(desc)
+{
+    if (auto spc = name.find_last_of(' '); spc == std::string::npos) {
+        m_name = name;
+    } else {
+        m_name = name.substr(spc+1);
+    }
 }
 
-void AddClassSubCommand(list_t *l, const char *name, cmdptype_t pt, int sub,
-                        cmdfunc_t cmd, const char *const help[],
-                        const char *desc) {
-    _addcmd(l, name, NULL, pt, sub, cmd, help, desc);
+
+Command::Command(cmdptype ptype, cmdfunc_t defaultCmd) :
+    m_ptype(ptype), m_func(nullptr), m_help(nullptr), m_desc(nullptr)
+{
+    if (defaultCmd) {
+        m_default = std::make_shared<Command>("", nullptr, proc_optional, defaultCmd,
+                                              nullptr, nullptr);
+    }
 }
 
-/*
- * DoCommand functions
- */
+Command::~Command() {}
 
-static int _docmd(cmdlist_t *cmd, dbgprocset_t *s, cmdtype_t *c, int argc,
-                  char *argv[], int isSubCmd) {
-    int res = 0;
+void Command::addSubCmd( std::shared_ptr<Command> sub) {
 
-    if (!isSubCmd && c->c_hassub)
-        res = (*c->c_cmd)(NULL, argc, argv);
-    else {
-        switch (c->c_ptype) {
-            case proc_required:
-                if (s == (dbgprocset_t *)NULL || s->s_nproc <= 0) {
-                    PrintOutError("No process, use launch/attach first.\n");
-                    res = 0;
-                } else
-                    res = _apply_command(s, c, argc, argv);
-                break;
+    auto spc = sub->m_fullName.find_last_of(" ");
+    if ( spc == std::string::npos ||
+         (!m_fullName.empty() && sub->m_fullName.rfind(m_fullName,0) == 0)) {
+        auto loc = std::lower_bound(m_subCmds.begin(), m_subCmds.end(), sub,
+                                    [](auto a, auto b) {
+                                        return a->getShortName() < b->getShortName();
+                                    });
+        m_subCmds.insert(loc, sub);
+    } else {
+        auto prefix = sub->m_fullName.substr(0, spc);
+        if (auto [parent, empty] = findCmd(prefix); parent) {
+            parent->addSubCmd(sub);
+        }
+    }
+            
+}
 
-            case proc_optional:
-                if (s == (dbgprocset_t *)NULL || s->s_nproc <= 0)
-                    res = (*c->c_cmd)(NULL, argc, argv);
-                else
-                    res = _apply_command(s, c, argc, argv);
+void Command::addSubCmd(const char* name, const char* alias, cmdptype ptype,
+                        cmdfunc_t cmd,
+                        const char* const* help, const char* desc) {
+    addSubCmd(std::make_shared<Command>(name, alias, ptype, cmd, help, desc));
+}
 
-                break;
+// execute the command given a procset and arguments
+int Command::execute(dbgprocset_t *s, int argc, char *argv[]) {
 
-            case proc_ignore:
-                res = (*c->c_cmd)(NULL, argc, argv);
-                break;
-
-            case proc_optional_mi:
-                if (!Client.MI_mode && (!s || s->s_nproc <= 0)) {
-                    PrintOutError("No process, use launch/attach first.\n");
-                    res = 0;
-                } else {
-                    res = _apply_command(s, c, argc, argv);
-                }
-                break;
+    if (m_ptype == proc_required ||
+        (m_ptype == proc_optional_mi && !Client.MI_mode)) {
+        if (!s || s->s_nproc <= 0) {
+            PrintOutError("No process, use launch/attach first.\n");
+            return 0;
         }
     }
 
-    if (!res && cmd->cmd_failed != (void (*)(void))NULL) cmd->cmd_failed();
 
-    return res;
-}
-
-int DoClassSubCommand(cmdlist_t *cmd_l, dbgprocset_t *s, cmdtype_t *c, int argc,
-                      char *argv[], int isSubCmd) {
-    return _docmd(cmd_l, s, c, argc, argv, isSubCmd);
-}
-
-/*
-** Apply a command to each process in a process set.
-** Print and compare handle blockmap function
-*/
-static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
-                          char *argv[]) {
-    int res = 1;
-    dbgstatus_t *stat;
-
-    // Create a new rec_set for this procset
-    auto rec_set = CreateRecSetForProcset(s);
-
-    // Call the command
-    if (!(*c->c_cmd)(rec_set, argc, argv)) res = 0;
-
-    // If XML mode is enabled, we need to ask the dbgclient layer if the
-    // command we just executed changed the status. If it did, we want to
-    // add the status information to the xml output. We also check to see
-    // if the command caused the inferior to exit. Inferior exit can only be
-    // caused by a command.
-    if (Client.XML_mode) {
-        if (DbgCheckForStatusChange()) {
-            // Status has changed. We need to generate updated status
-            // information
-
-            // Query the new status from the backends, note that for this we
-            // want to grab the location information
-            auto rep_set = DbgStatus(rec_set, 1);
-
-            ProcessErrorInRepSet(rep_set);
-
-            // We need to loop over each di in the rec_set and process it one at
-            // a time. This is because we need to create a status block for each
-            // di.
-            for (auto&& recv_ptr : rec_set) {
-                // Start a new status block for this di
-                auto status_block = XMLStartStatusBlock(recv_ptr->rec_di.handle().c_str());
-
-                // Process each status message and add it to the status block
-                for (auto&& reply : rep_set) {
-                    // Ensure the di match
-                    if (recv_ptr->rec_di.handle() != reply->rep_di) {
-                        continue;
-                    }
-
-                    // First create the bitset string
-                    auto bitset_str = reply->rep_group->toSetString();
-
-                    // Next create the full set string
-                    char *set_str = nullptr;
-                    Asprintf(&set_str, "%s%s", reply->rep_di.c_str(),
-                             bitset_str.c_str());
-
-                    // point at the status data
-                    stat = EVENT_STATUS(reply->rep_event);
-
-                    // The XML status that is printed is based on the status
-                    // value
-                    XMLAddStatus(&status_block, set_str, stat->stat,
-                                 stat->stat_loc);
-
-                    // Done with the set_str
-                    Free(set_str);
-                }
-
-                // Print the entire status block, this will free the string
-                XMLPrintStatusBlock(status_block);
+    if (!m_func && m_subCmds.empty()) {
+        PrintOutError("Command is not runnable.\n");
+        return 0;
+    } else if (!m_func && argc == 1) {
+        // class command - list the sub commands
+        for (auto c : m_subCmds) {
+            auto name = c->getFullName();
+            auto desc = c->getDesc();
+            if (desc && !name.empty()) {
+                PrintOutMsg("%-25s%s\n", name.c_str(), desc);
             }
-
-            // Free the reply set
-            FreeRepSet(rep_set);
-
-            // Reset the status change since we handled it
-            DbgResetStatusChange();
         }
+        return 1;
+    } else if (!m_func) {
+        PrintOutError("Undefined %s command: \"%s\".  Try \"help %s\".\n",
+                      m_fullName.c_str(), argv[1], m_fullName.c_str());
+        return 0;
     }
+                      
+    auto rec_set = (m_ptype == proc_ignore ? nullptr :
+                    CreateRecSetForProcset(s) // handles nullptr
+                    );
+
+    auto res = (*m_func)(rec_set, argc, argv);
+    if (!res) {
+        failed();
+    }
+
+    if (Client.XML_mode) postProcessXML(rec_set);
 
     // Done with the rec_set
     FreeRecSet(rec_set);
@@ -304,133 +155,80 @@ static int _apply_command(dbgprocset_t *s, cmdtype_t *c, int argc,
     return res;
 }
 
+
 /*
- * FindCommand functions
- */
+** Apply a command to each process in a process set.
+** Print and compare handle blockmap function
+*/
+void Command::postProcessXML(rec_set_t *rec_set) {
 
-static cmdtype_t *_findcmd(cmdlist_t *cmds, const char *cmd) {
-    auto cmdlen = strlen(cmd);
-    if (auto slash = strchr(cmd, '/')) cmdlen = (slash-cmd);
+    // If XML mode is enabled, we need to ask the dbgclient layer if the
+    // command we just executed changed the status. If it did, we want to
+    // add the status information to the xml output. We also check to see
+    // if the command caused the inferior to exit. Inferior exit can only be
+    // caused by a command.
+    if (!DbgCheckForStatusChange()) return;
 
-    auto match = [cmd,cmdlen](const char* c) { return c && strncmp(cmd, c, cmdlen) == 0; };
-    auto eq = [cmd,cmdlen,match](const char* c) { return match(c) && strlen(c) == cmdlen; };
+    // Status has changed. We need to generate updated status
+    // information
 
-    SetList(cmds->cmd_list);
-    
-    bool ambig = false;
-    cmdtype_t *cp = nullptr;
+    // Query the new status from the backends, note that for this we
+    // want to grab the location information
+    auto rep_set = DbgStatus(rec_set, 1);
 
-    while (auto c = (cmdtype_t *)GetListElement(cmds->cmd_list)) {
-        if ( !c->c_cmd) continue;
-        else if (eq(c->c_name)) return c;
-        else if (eq(c->c_alias)) return c;
-        else if (!cmds->cmd_default && (match(c->c_name) || match(c->c_alias))) {
-            if (!cp) cp = c; else ambig = true;
+    ProcessErrorInRepSet(rep_set);
+
+    // We need to loop over each di in the rec_set and process it one at
+    // a time. This is because we need to create a status block for each
+    // di.
+    for (auto&& recv_ptr : rec_set) {
+        // Start a new status block for this di
+        auto status_block = XMLStartStatusBlock(recv_ptr->rec_di.handle().c_str());
+
+        // Process each status message and add it to the status block
+        for (auto&& reply : rep_set) {
+            // Ensure the di match
+            if (recv_ptr->rec_di.handle() != reply->rep_di) {
+                continue;
+            }
+
+            // First create the bitset string
+            auto bitset_str = reply->rep_group->toSetString();
+
+            // Next create the full set string
+            char *set_str = nullptr;
+            Asprintf(&set_str, "%s%s", reply->rep_di.c_str(),
+                     bitset_str.c_str());
+
+            // point at the status data
+            auto stat = EVENT_STATUS(reply->rep_event);
+
+            // The XML status that is printed is based on the status
+            // value
+            XMLAddStatus(&status_block, set_str, stat->stat,
+                         stat->stat_loc);
+
+            // Done with the set_str
+            Free(set_str);
         }
+
+        // Print the entire status block, this will free the string
+        XMLPrintStatusBlock(status_block);
     }
 
-    if (ambig) {
-        cmds->cmd_ambig(cmd);
-        return nullptr;
-    } else if (cp) {
-        return cp;
-    } else if (cmds->cmd_default) {
-        return cmds->cmd_default;
-    } else {
-        cmds->cmd_notfound(cmd);
-        return nullptr;
-    }
+    // Free the reply set
+    FreeRepSet(rep_set);
+
+    // Reset the status change since we handled it
+    DbgResetStatusChange();
 }
 
-static cmdtype_t *FindHelpClassCommand(char **cmd_argv) {
-    cmdhelp_t *c;
-    char *cmd = cmd_argv[0];
+void Command::failed() {}
 
-    SetList(help_class_list);
-
-    while ((c = (cmdhelp_t *)GetListElement(help_class_list)) !=
-           (cmdhelp_t *)NULL) {
-        if (c->c_name != NULL && strcmp(cmd, c->c_name) == 0) break;
-    }
-
-    if (c != (cmdhelp_t *)NULL)
-        return (*c->c_find)(cmd_argv[1]);
-    else
-        return _findcmd(CurrentCmds, cmd);
-}
-
-cmdtype_t *FindCommand(const char *cmd) { return _findcmd(CurrentCmds, cmd); }
-
-cmdtype_t *FindSubCommand(cmdlist_t *cmd_l, const char *cmd) {
-    return _findcmd(cmd_l, cmd);
-}
-
-/*
- * functions which define default command not found behavior
- */
-
-void CmdNotFound(const char *cmd) {
-    PrintOutError("Undefined command: \"%s\".  Try \"help\".\n", cmd);
-}
-
-/*
- * functions which define default ambiguous command behavior
- */
-
-static void _ambigcmd(list_t *cmds, const char *cmd) {
-    int cnt = 0;
-    cmdtype_t *c;
-    list_t *l = NewList();
-
-    SetList(cmds);
-
-    while ((c = (cmdtype_t *)GetListElement(cmds)) != (cmdtype_t *)NULL) {
-        if (strncmp(cmd, c->c_name, strlen(cmd)) == 0 && c->c_cmd != NULL) {
-            AddToList(l, (void *)c);
-            cnt++;
-        }
-    }
-
-    SetList(l);
-
-    while ((c = (cmdtype_t *)GetListElement(l)) != (cmdtype_t *)NULL) {
-        PrintOutError("%s", c->c_name);
-
-        if (--cnt > 0) PrintOutError(", ");
-    }
-
-    PrintOutError("\n");
-
-    DestroyList(l, (void (*)(void *))NULL);
-}
-
-static void AmbiguousCmd(const char *cmd) {
-    PrintOutError("Ambiguous command \"%s\": ", cmd);
-    _ambigcmd(CurrentCmds->cmd_list, cmd);
-}
-
-void AmbiguousAltCmd(cmdlist_t *cmds, const char *cmd) {
-    PrintOutError("Ambiguous command \"%s\": ", cmd);
-    _ambigcmd(cmds->cmd_list, cmd);
-}
-
-void AmbiguousClassSubCmd(list_t *l, const char *cmd) { _ambigcmd(l, cmd); }
-
-/*
- * functions for getting and setting commands
- */
-
-cmdlist_t *SetCommands(cmdlist_t *cmds) {
-    cmdlist_t *old = CurrentCmds;
-
+Command *SetCommands(Command *cmds) {
+    auto old = CurrentCmds;
     CurrentCmds = cmds;
     return old;
-}
-
-void SetDefaultCommand(cmdlist_t *cmds, const char *cmd) {
-    if (cmds == NULL) return;
-
-    cmds->cmd_default = FindSubCommand(cmds, cmd);
 }
 
 /*
@@ -438,43 +236,42 @@ void SetDefaultCommand(cmdlist_t *cmds, const char *cmd) {
  */
 
 int cmd_help_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    cmdtype_t *c;
-
     if (argc < 2) {
-        SetList(CurrentCmds->cmd_list);
-
-        while ((c = (cmdtype_t *)GetListElement(CurrentCmds->cmd_list)) !=
-               (cmdtype_t *)NULL)
-            if (c->c_cmd != NULL && c->c_desc != NULL)
-                PrintOutMsg("%-15s %s\n", c->c_name, c->c_desc);
+        for (auto c : CurrentCmds->getSubCmds()) {
+            auto name = c->getShortName();
+            auto desc = c->getDesc();
+            if (desc && !name.empty()) {
+                PrintOutMsg("%-15s %s\n", name.c_str(), desc);
+            }
+        }
 
         return 1;
     }
 
-    if (argc > 2)
-        c = FindHelpClassCommand(&argv[1]);
-    else
-        c = _findcmd(CurrentCmds, argv[1]);
+    auto cmdStr = ArgsToString(argv+1, argc-1);
+    auto [cmd, err] = CurrentCmds->findCmd(cmdStr);
 
-    if (c == (cmdtype_t *)NULL) return 0;
+    if (cmd && cmd->getHelp()) {
+        PrintHelpEntry(cmd->getHelp());
+        return 1;
+    } else if (cmd) {
+        PrintOutError("No help for %s\n", cmdStr.c_str());
+    } else {
+        PrintOutError("%s\n", err.c_str());
+    }
 
-    if (c->c_help == (char **)NULL) return 0;
-
-    PrintHelpEntry(c->c_help);
-
-    return 1;
+    return 0;
 }
 
-void PrintHelpEntry(char **helpStrArray) {
-    char **cur_line;
 
+void PrintHelpEntry(const char *const * helpStrArray) {
     if (helpStrArray == NULL) return;
 
     // print initial newline
     PrintOutMsg("\n");
 
     // iterate over the array of strings
-    cur_line = helpStrArray;
+    auto cur_line = helpStrArray;
     while (*cur_line) {
         PrintOutMsg("%s\n", *cur_line++);
     }
@@ -488,17 +285,12 @@ void PrintHelpEntry(char **helpStrArray) {
 /*
  * command initialization
  */
-
 void InitCommands() {
-    // init the internal command lists
-    Cmds = NewCommandList(CmdNotFound, AmbiguousCmd, (void (*)(void))NULL);
-    help_class_list = NewList();
-
     // init the class commands
     InitCmd_class();
 
     // add the help command
-    AddCommand("help", "h", proc_ignore, 0, cmd_help_cmd,
+    AddCommand("help", "h", proc_ignore, cmd_help_cmd,
                cmd_help_help, "Display help information about commands.");
 
     // Begin init of every other command
@@ -525,33 +317,13 @@ void InitCommands() {
     InitCmd_python();
 #endif    
 
-
-    // alphabetize the command list
-    _alphabetize_cmd_list(Cmds->cmd_list);
-
-    // alphabetize the class command lists
-    _alphabetize_cmd_list(InfoCmds->cmd_list);
-    _alphabetize_cmd_list(MaintCmds->cmd_list);
-    _alphabetize_cmd_list(MaintSetCmds->cmd_list);
-    _alphabetize_cmd_list(MaintShowCmds->cmd_list);
-    _alphabetize_cmd_list(SetCmds->cmd_list);
-    _alphabetize_cmd_list(ShowCmds->cmd_list);
-    _alphabetize_cmd_list(UnsetCmds->cmd_list);
-    _alphabetize_cmd_list(UsageCmds->cmd_list);
-
-    (void)SetCommands(Cmds);
+    SetCommands(Cmds.get());
 };
 
 void DestroyCommands(void) {
     // destroy the internal help class list
-    if (help_class_list != (list_t *)NULL) {
-        DestroyList(help_class_list, Free);
-    }
-
-    FinishCmd_graph();
     FinishCmd_blockmap();
-    DestroyCommandList(Cmds);
-    DestroyCmd_class();
+    Cmds.reset();
 }
 
 // queue a command to later be executed by ExecuteQueuedCommands
@@ -587,24 +359,24 @@ size_t ExecuteQueuedCommands() {
 */
 
 void ExecuteCommand(const char *line) {
+
+    while (*line && std::isspace(*line)) ++line;
+    if (!*line || *line == '#') return;
+    
     int seq = 0;
-    int num_read = 0;
-    char *cmd = NULL;
-    char *haystack = NULL;
-    char *needle = NULL;
-    auto argv = ArgvStream{};
-    cmdtype_t *c = NULL;
+
     dbgprocset_t *s = CurrentProcSet();
     auto exiter = OnScopeExit([](){DPRINT("Exit ExecuteCommand\n");});
 
     DPRINT("In ExecuteCommand\n");
 
-    if (line == NULL) return;
+    if (!line) return;
 
-    cmd = strdup(line);
+    auto cmd = strdup(line);
 
     // If xml mode is enabled, we need to pull apart the xml tag we received
     if (Client.XML_mode) {
+        int num_read = 0;
         if ((sscanf(line, XML_REQUEST_START, &seq, &num_read)) < 1) {
             PrintOutError("XML request parse error.\n");
             cli_set_error();
@@ -614,7 +386,7 @@ void ExecuteCommand(const char *line) {
         Free(cmd);
         cmd = strdup(line + num_read);
 
-        haystack = cmd;
+        auto haystack = cmd;
         // If we don't find the end needle the first time, its an error
         if ((haystack = strstr(haystack, XML_REQUEST_END)) == NULL) {
             PrintOutError("XML request parse error.\n");
@@ -622,7 +394,7 @@ void ExecuteCommand(const char *line) {
             Free(cmd);
             return;
         }
-        needle = haystack;
+        auto needle = haystack;
 
         // Make sure that the user didn't type the needle in their command.
         // Its unlikely that they would do this, but we should still guard
@@ -667,7 +439,6 @@ void ExecuteCommand(const char *line) {
 
     DPRINT("ExecuteCommand: cmd is \"%s\"\n", cmd);
 
-    argv.parseAndAppendArgs(cmd);
 
     // Inform the cli layer that we are starting to execute a command
     if (!Client.MI_mode){
@@ -677,15 +448,9 @@ void ExecuteCommand(const char *line) {
             return;
         }
     }
-    // These are not considered to be errors
-    if (argv.argc() == 0 || argv[0] == "" || argv[0][0] == '#') {
-        Free(cmd);
-        // Inform the cli layer that we are done executing a command
-        cli_end_response();
-        return;
-    }
 
-    if ((c = _findcmd(CurrentCmds, argv[0].c_str())) == (cmdtype_t *)NULL) {
+    auto [c,args] = CurrentCmds->findCmd(cmd);
+    if (!c) {
         // command not found
         Free(cmd);
         // Inform the cli layer that we are done executing a command
@@ -695,8 +460,11 @@ void ExecuteCommand(const char *line) {
         return;
     }
 
+    auto argv = ArgvStream{};
+    argv.parseAndAppendArgs(c->getShortName() + " " + args);
+
     // do the command
-    if (!_docmd(CurrentCmds, s, c, argv.argc(), const_cast<char**>(argv.c_strs().data()), 0)) {
+    if (!c->execute(s, argv.argc(), const_cast<char**>(argv.c_strs().data()))) {
         Free(cmd);
         // Inform the cli layer that we are done executing a command
         cli_end_response();
@@ -723,4 +491,73 @@ void ExecuteCommand(const char *line) {
     DPRINT("ExecuteCommand: Command ok!\n");
 
     return;
+}
+
+
+// find a command from the command line argument.  Return the command and the
+// arguments if a matching function can be found
+std::pair<Command*, std::string> Command::findCmd(const std::string& cmd) {
+    auto* cp = CurrentCmds;
+
+    const auto spcSlash = "/ \t\n";
+    const auto spc = spcSlash+1;
+
+    auto err = std::string{};
+    auto end = size_t{0};
+
+    for (auto loc=size_t{0}; loc < cmd.size(); loc=end) {
+        if ((loc = cmd.find_first_not_of(spc, loc)) == std::string::npos) break;
+        if (!std::isalpha(cmd[loc])) break;
+        if ((end = cmd.find_first_of(spcSlash, loc)) == std::string::npos) end = cmd.size();
+
+        if (auto [subCp,subErr] = cp->findSubCmd(cmd.substr(loc,end-loc)); subCp) {
+            cp = subCp;
+        } else {
+            end = loc;
+            err = subErr;
+            break;
+        }
+    }
+    if (cp != CurrentCmds) {
+        end = (cp->getShortName().empty() ? 0 : cmd.find_first_not_of(spc, end));
+        return std::make_pair(cp, cmd.substr(std::min(cmd.size(),end)));
+    } else {
+        PrintOutError("%s\n", err.c_str());
+        return std::pair<Command*, std::string>{nullptr, ""};
+    }
+}
+
+std::pair<Command*,std::string> Command::findSubCmd(const std::string& cmd) {
+    Command* cp = nullptr;
+    std::vector<std::string> matches;
+    
+    for (auto subCmd : m_subCmds) {
+        const auto sub = subCmd->getShortName();
+        if (cmd == sub) {
+            cp = subCmd.get();
+            matches.clear();
+            break;
+        } else if (subCmd->m_alias && cmd == subCmd->m_alias) {
+            cp = subCmd.get();
+            matches.clear();
+            break;
+        } else if (!m_default && sub.rfind(cmd,0) == 0) {
+            cp = subCmd.get();
+            matches.push_back(sub);
+        }
+    }
+
+    if (matches.size() > 1) {
+        auto os = std::ostringstream{};
+        os << "command " << cmd << " is ambiguous:";
+        for (auto m : matches) os << " " << m;
+        return std::make_pair(nullptr, os.str());
+    } else if (cp) {
+        return std::make_pair(cp,"");
+    } else if (m_default) {
+        return std::make_pair(m_default.get(),"");
+    } else {
+        auto err = "unknown command: " + cmd;
+        return std::make_pair(nullptr, err);
+    }
 }

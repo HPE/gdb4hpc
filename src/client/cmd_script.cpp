@@ -3,7 +3,7 @@
  * 
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -43,8 +43,8 @@
 #include "useful.h"
 
 
-static cmdlist_t *ScriptCmds;
-static cmdlist_t *OldCmds;
+static std::shared_ptr<Command> ScriptCmds;
+static Command* OldCmds = nullptr;
 
 // script object built up by subsequent assert/set/etc commands
 static std::unique_ptr<script::data::Script> g_pendingScript = nullptr;
@@ -284,7 +284,7 @@ static int cmd_build_cmd(rec_set_t *rec_set, int argc, char **argv) {
     auto name = std::string{argv[1]+1};
     g_pendingScript = std::make_unique<script::data::Script>(name);
 
-    OldCmds = SetCommands(ScriptCmds);
+    OldCmds = SetCommands(ScriptCmds.get());
     cli_inc_prompt();
 
     return 1;
@@ -556,18 +556,6 @@ static int cmd_script_show_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-/********************************
- * Helper functions
- ********************************/
-
-static void scriptnotfound(const char *cmd) { CmdNotFound(cmd); }
-
-static void scriptambig(const char *cmd) { AmbiguousAltCmd(ScriptCmds, cmd); }
-
-static void scriptfailed(void) {
-    // do nothing
-    return;
-}
 
 /********************************
  * command init functions
@@ -575,43 +563,39 @@ static void scriptfailed(void) {
 
 void InitCmd_script(void) {
     // info commands
-    AddInfoCommand("diff", proc_ignore, 0,
+    AddCommand("info diff", proc_ignore,
                    cmd_info_diff_cmd,
                    cmd_info_diff_help,
                    "Display saved deltas from assertion script execution.");
-    AddInfoCommand("script", proc_ignore, 0,
+    AddCommand("info script", proc_ignore,
                    cmd_info_script_cmd,
                    cmd_info_script_help,
                    "Display built and active assertion scripts.");
 
     // regular commands
-    AddCommand("build", NULL, proc_ignore, 0, cmd_build_cmd,
+    AddCommand("build", NULL, proc_ignore, cmd_build_cmd,
                cmd_build_help, "Build an assertion script.");
-    AddCommand("start", NULL, proc_ignore, 0, cmd_start_cmd,
+    AddCommand("start", NULL, proc_ignore, cmd_start_cmd,
                cmd_start_help, "Start executing an assertion script.");
-    AddCommand("stop", NULL, proc_ignore, 0, cmd_stop_cmd,
+    AddCommand("stop", NULL, proc_ignore, cmd_stop_cmd,
                cmd_stop_help, "Stop the currently executing assertion script.");
 
     // graph alt commands
-    ScriptCmds = NewCommandList(scriptnotfound, scriptambig, scriptfailed);
-
-    AddAltCommand(ScriptCmds, "assert", NULL, proc_ignore, 0,
+    ScriptCmds = std::make_shared<Command>(proc_ignore, nullptr);
+    ScriptCmds->addSubCmd("assert", NULL, proc_ignore,
                   cmd_script_assert_cmd,
                   cmd_script_assert_help, "Create an assertion.");
-    AddAltCommand(ScriptCmds, "end", NULL, proc_ignore, 0,
+    ScriptCmds->addSubCmd("end", NULL, proc_ignore,
                   cmd_script_end_cmd, cmd_script_end_help,
                   "Finish building the current assertion script.");
-    AddAltCommand(ScriptCmds, "help", "h", proc_ignore, 0,
+    ScriptCmds->addSubCmd("help", "h", proc_ignore,
                   cmd_help_cmd, cmd_help_help,
                   "Display help information about build script mode commands.");
-    AddAltCommand(ScriptCmds, "set", NULL, proc_ignore, 1,
+    ScriptCmds->addSubCmd("set", NULL, proc_ignore,
                   cmd_script_set_cmd, cmd_script_set_help,
                   "Set information about the debugger environment.");
-    AddAltCommand(ScriptCmds, "show", NULL, proc_ignore, 1,
+    ScriptCmds->addSubCmd("show", NULL, proc_ignore,
                   cmd_script_show_cmd, cmd_script_show_help,
                   "Show information about the debugger environment.");
 }
 
-void FinishCmd_graph(void) {
-    DestroyCommandList(ScriptCmds);
-}

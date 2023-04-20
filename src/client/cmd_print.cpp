@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -238,26 +238,26 @@ std::string GetMiValue(const std::string& expression)
 }
 
 void InitCmd_print(void) {
-    AddCommand("print", "p", proc_optional, 0, cmd_print_cmd, cmd_print_help,
+    AddCommand("print", "p", proc_optional, cmd_print_cmd, cmd_print_help,
                "Print the value of an expression.");
 
-    AddSetPrintCommand(
-        "elements", proc_optional, 0, cmd_set_print_elements_cmd,
+    AddCommand(
+        "set print elements", proc_optional, cmd_set_print_elements_cmd,
         cmd_set_print_elements_help,
         "Specify number of elements to be printed in arrays or c-strings.");
 
-    AddShowPrintCommand(
-        "elements", proc_optional, 0, cmd_show_print_elements_cmd,
+    AddCommand(
+        "show print elements", proc_optional, cmd_show_print_elements_cmd,
         cmd_show_print_elements_help,
         "Show number of elements to print when an array is printed.");
 
-    AddSetPrintCommand(
-        "pretty", proc_optional, 0, cmd_set_print_pretty_cmd,
+    AddCommand(
+        "set print pretty", proc_optional, cmd_set_print_pretty_cmd,
         cmd_set_print_pretty_help,
         "Enable or disable pretty printing of structures.");
 
-    AddShowPrintCommand(
-        "pretty", proc_optional, 0, cmd_show_print_pretty_cmd,
+    AddCommand(
+        "show print pretty", proc_optional, cmd_show_print_pretty_cmd,
         cmd_show_print_pretty_help,
         "Show if pretty printing of structures is enabled.");
 }

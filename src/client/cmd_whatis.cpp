@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -245,23 +245,23 @@ static int cmd_info_args_cmd(rec_set_t *rec_set, int argc,
 
 
 void InitCmd_whatis(void) {
-    AddCommand("whatis", NULL, proc_required, 0, cmd_whatis_cmd,
+    AddCommand("whatis", NULL, proc_required, cmd_whatis_cmd,
                cmd_whatis_help, "Print the data type of an expression.");
-    AddCommand("ptype", NULL, proc_required, 0, cmd_ptype_cmd,
+    AddCommand("ptype", NULL, proc_required, cmd_ptype_cmd,
                cmd_ptype_help, "Print definition of a type.");
 
 
-    AddInfoCommand("locals", proc_required, 0,
+    AddCommand("info locals", proc_required,
                    cmd_info_locals_cmd,
                    cmd_info_locals_help,
                    "List local variables of ranks in current process set.");
 
-    AddInfoCommand("args", proc_required, 0,
+    AddCommand("info args", proc_required,
                    cmd_info_args_cmd,
                    cmd_info_args_help,
                    "List argument variables of the current frame.");
 
-    AddInfoCommand("scope", proc_required, 0,
+    AddCommand("info scope", proc_required,
                    cmd_info_scope_cmd,
                    cmd_info_scope_help,
                    "List variables local to a scope in the application.");

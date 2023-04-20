@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -70,7 +70,7 @@ static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 void InitCmd_assign(void) {
-    AddCommand("assign", NULL, proc_optional, 0, cmd_assign_cmd,
+    AddCommand("assign", NULL, proc_optional, cmd_assign_cmd,
                cmd_assign_help,
                "Change the value of an application or debugger variable.");
 }

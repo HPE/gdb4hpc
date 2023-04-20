@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -1643,31 +1643,31 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
 
 void InitCmd_proc(void) {
     // info commands
-    AddInfoCommand(
-        "application", proc_ignore, 0,
+    AddCommand(
+        "info application", proc_ignore,
         cmd_info_application_cmd,
         cmd_info_application_help,
         "Show attached/launched applications under debugger control.");
 
     // regular commands
-    AddCommand("launch", NULL, proc_ignore, 0, cmd_launch_cmd,
+    AddCommand("launch", NULL, proc_ignore, cmd_launch_cmd,
                cmd_launch_help, "Launch an application.");
-    AddCommand("attach", NULL, proc_ignore, 0, cmd_attach_cmd,
+    AddCommand("attach", NULL, proc_ignore, cmd_attach_cmd,
                cmd_attach_help, "Attach to an application.");
-    AddCommand("halt", NULL, proc_required, 0, cmd_halt_cmd,
+    AddCommand("halt", NULL, proc_required, cmd_halt_cmd,
                cmd_halt_help,
                "Halt execution of attached/launched application.");
-    AddCommand("release", NULL, proc_ignore, 0, cmd_release_cmd,
+    AddCommand("release", NULL, proc_ignore, cmd_release_cmd,
                cmd_release_help,
                "Release attached/launched application from debugger control.");
-    AddCommand("kill", NULL, proc_ignore, 0, cmd_kill_cmd,
+    AddCommand("kill", NULL, proc_ignore, cmd_kill_cmd,
                cmd_kill_help, "Kill attached/launched application.");
-    AddCommand("run", "r", proc_optional, 0, cmd_run_cmd,
+    AddCommand("run", "r", proc_optional, cmd_run_cmd,
                cmd_run_help, "Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.");
 
     // set/show commands
-    AddSetCommand("args", proc_required, 0, set_subcmd_args_cmd,
+    AddCommand("set args", proc_required, set_subcmd_args_cmd,
                set_subcmd_args_help, "Set program arguments to be used when re-launching with the run command.");
-    AddShowCommand("args", proc_required, 0, show_subcmd_args_cmd,
+    AddCommand("show args", proc_required, show_subcmd_args_cmd,
                show_subcmd_args_help, "Show program arguments to be used when re-launching with the run command.");
 }

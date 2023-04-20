@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -924,41 +924,40 @@ static int cmd_show_break_pending_cmd(rec_set_t *rec_set, int argc,
 }
 
 void InitCmd_break(void) {
-    AddCommand("break", "b", proc_required, 0, cmd_break_cmd,
+    AddCommand("break", "b", proc_required, cmd_break_cmd,
                cmd_break_help, "Set breakpoint at specified line or function.");
-    AddCommand("delete", "d", proc_required, 0, cmd_delete_cmd,
+    AddCommand("delete", "d", proc_required, cmd_delete_cmd,
                cmd_delete_help, "Delete a breakpoint or checkpoint.");
-    AddCommand("disable", nullptr, proc_required, 0, cmd_disable_cmd,
+    AddCommand("disable", proc_required, cmd_disable_cmd,
                cmd_disable_help, "Disable a breakpoint.");
-    AddCommand("enable", nullptr, proc_required, 0, cmd_enable_cmd,
+    AddCommand("enable", proc_required, cmd_enable_cmd,
                cmd_enable_help, "Enable a breakpoint.");
-    AddCommand("ignore", nullptr, proc_required, 0, cmd_ignore_cmd,
+    AddCommand("ignore", proc_required, cmd_ignore_cmd,
                cmd_ignore_help, "Ignore a breakpoint a number of times.");
-    AddCommand("condition", nullptr, proc_required, 0, cmd_condition_cmd,
+    AddCommand("condition", proc_required, cmd_condition_cmd,
                cmd_condition_help, "Stop only if a condition is met.");
 
-    AddCommand("tbreak", nullptr, proc_required, 0, cmd_tbreak_cmd,
-               cmd_tbreak_help,
+    AddCommand("tbreak", proc_required, cmd_tbreak_cmd, cmd_tbreak_help,
                "Set a temporary breakpoint at specified line or function.");
-    AddCommand("watch", nullptr, proc_required, 0, cmd_watch_cmd,
+    AddCommand("watch", proc_required, cmd_watch_cmd,
                cmd_watch_help, "Set watchpoint on specified expression.");
-    AddCommand("catch", nullptr, proc_required, 0, cmd_catch_cmd, 
+    AddCommand("catch", proc_required, cmd_catch_cmd, 
                 cmd_catch_help, "Set catchpoint on specified event.");
 
     // info commands
-    AddInfoCommand("breakpoints", proc_optional_mi, 0,
+    AddCommand("info breakpoints", proc_optional_mi,
         cmd_info_breakpoints_cmd,
         cmd_info_breakpoints_help,
         "Show status of breakpoints.");
 
     // set breakpoint commands
-    AddSetBreakCommand("pending", proc_ignore, 0,
+    AddCommand("set breakpoint pending", proc_ignore,
         cmd_set_break_pending_cmd,
         cmd_set_break_pending_help,
         "Set behavior for pending breakpoints.");
 
     // show breakpoint commands
-    AddShowBreakCommand("pending", proc_ignore, 0,
+    AddCommand("show breakpoint pending", proc_ignore,
         cmd_show_break_pending_cmd,
         cmd_show_break_pending_help,
         "Show behavior for pending breakpoints.");

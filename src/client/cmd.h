@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020,2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2013,2020-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -21,20 +21,77 @@
 #ifndef _CMD_H
 #define _CMD_H
 
-// We must first pull in tye cmd_types.h which declares types used by
-// all command definitions.
-#include "type_cmd.h"
-
 // Even though this header doesn't use stuff in these cmd headers, lets
 // include them to make cmd.h be the master interface to command defines.
-#include "class_cmd.h"
 #include "help_dict.h"
 
 // Declarations from these headers are actually used here.
 #include <string>
 #include "client.h"
 #include "procset.h"
-#include "list.h"
+
+// Definine whether or not a command requires an active launch
+enum cmdptype { proc_required, proc_optional, proc_optional_mi, proc_ignore };
+
+// Basic type for client functions
+using cmdfunc_t = int (*)(rec_set_t*, int, char**);
+
+// The command object links together the name to access a functions,
+// the client side function to call and its help information
+class Command {
+public:
+    // standard function
+    Command(const std::string& name, const char* alias,
+            cmdptype ptype, cmdfunc_t cmd,
+            const char* const* help,
+            const char* desc);
+
+    // root node for a command tree. 
+    Command(cmdptype ptype, cmdfunc_t defaultCmd);
+
+    // access properties of the command 
+    const std::string& getShortName() const { return m_name; }
+    const std::string& getFullName() const { return m_fullName; }
+    const std::vector<std::shared_ptr<Command>>& getSubCmds() const { return  m_subCmds; }
+    const char* getDesc() const { return m_desc; }
+    const char* const* getHelp() const { return m_help; }    
+
+    // Commands can be be compound, for example "set env" or
+    // "show print elements" which is kept as "show" command with
+    // a Command object for each sub-command: args, breakpoint, cuda, etc.
+    void addSubCmd(std::shared_ptr<Command> sub);
+
+    void addSubCmd(const char* name, const char* alias, cmdptype ptype,
+                   cmdfunc_t cmd,
+                   const char* const* help, const char* desc);
+		 
+
+    // Locate a command from user input, return the command object and
+    // the arguments for that command
+    std::pair<Command*,std::string> findCmd(const std::string& cmdLine);
+
+    // run a command with set of arguments
+    int execute(dbgprocset_t *s, int argc, char *argv[]);
+
+    virtual void failed();
+    virtual ~Command();
+
+private:
+
+    void postProcessXML(rec_set_t *rec_set);
+    std::pair<Command*,std::string> findSubCmd(const std::string& cmd);
+
+    std::string m_fullName;       // e.g. "set print elements"
+    std::string m_name;           // "elements" 
+    const char* m_alias;          // optional 
+    cmdptype m_ptype;
+    cmdfunc_t m_func;
+    const char* const* m_help;
+    const char* m_desc;
+    std::vector<std::shared_ptr<Command>> m_subCmds;
+    std::shared_ptr<Command> m_default;
+};
+
 
 /*
 ** Global Init command functions defined elsewhere
@@ -60,9 +117,9 @@ extern void InitCmd_source();
 extern void InitCmd_thread();
 extern void InitCmd_step();
 extern void InitCmd_whatis();
+extern void InitCmd_class();
 
 void FinishCmd_blockmap();
-void FinishCmd_graph();
 
 /*
  * External command init funcs
@@ -74,37 +131,21 @@ extern void DestroyCommands();
 ** Function prototypes
 */
 
-extern cmdlist_t *NewCommandList(void (*)(const char *), void (*)(const char *),
-                                 void (*)(void));
-extern void AddCommand(const char *, const char *, cmdptype_t, int, cmdfunc_t,
-                       const char *const[], const char *);
-extern void AmbiguousAltCmd(cmdlist_t *, const char *);
-extern void CmdNotFound(const char *);
-extern void DestroyCommandList(cmdlist_t *);
-extern void AddAltCommand(cmdlist_t *, const char *, const char *, cmdptype_t,
-                          int, cmdfunc_t, const char *const[], const char *);
-extern cmdlist_t *SetCommands(cmdlist_t *);
-extern void SetDefaultCommand(cmdlist_t *, const char *);
-extern cmdtype_t *FindCommand(const char *);
-extern cmdtype_t *FindSubCommand(cmdlist_t *, const char *);
+extern void AddCommand(const char * cmd, const char * alias,
+                           cmdptype, cmdfunc_t,
+                           const char *const[], const char *);
+
+extern void AddCommand(const char * cmd, cmdptype, cmdfunc_t,
+                           const char *const[], const char *);
+
+extern Command* SetCommands(Command *);
 
 extern void QueueCommand(const std::string &command);
 extern size_t ExecuteQueuedCommands();
 extern void ExecuteCommand(const char *);
 
-// The following prototypes are used for adding Class commands (i.e. help, set,
-// show, etc)
-extern void AddClassCommand(const char *, const char *, cmdptype_t, int,
-                            cmdfunc_t, cmdtype_t *(*)(char *),
-                            const char *const[], const char *);
-extern void AddClassSubCommand(list_t *, const char *, cmdptype_t, int,
-                               cmdfunc_t, const char *const[], const char *);
-extern int DoClassSubCommand(cmdlist_t *, dbgprocset_t *, cmdtype_t *, int,
-                             char *[], int);
-extern void AmbiguousClassSubCmd(list_t *, const char *);
-
 // external access to the help command
-extern void PrintHelpEntry(char **);
+extern void PrintHelpEntry(const char *const *);
 extern int cmd_help_cmd(rec_set_t *, int, char **);
 
 #endif /* ! _CMD_H */

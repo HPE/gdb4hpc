@@ -12,20 +12,19 @@
 
 namespace {
 // commands to handle python as a cli mode
-class PythonMode {
+class PythonMode : public Command {
 public:
+    PythonMode();
+    void failed() override { cli_dec_prompt(); SetCommands(m_oldCmds); }
+    
     static void init();
     static void enter();
 private:
-    static void notfound(const char *cmd) { CmdNotFound(cmd); }
-    static void ambig(const char *cmd) { AmbiguousAltCmd(m_cmds, cmd); }
-    static void failed() { cli_dec_prompt(); SetCommands(m_oldCmds); }
-
     static int executeLine(rec_set_t *rec_set, int argc, char**argv);
     static int exit(rec_set_t* rec_set, int argc, char **argv);
 
-    static cmdlist_t *m_cmds;
-    static cmdlist_t *m_oldCmds;
+    static std::shared_ptr<Command> m_cmds;
+    static Command *m_oldCmds;
 };
 
 // liaison class to connect the python objects to the gdb4hpc functionality
@@ -89,22 +88,22 @@ static int cmd_python_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 }
 
-cmdlist_t* PythonMode::m_cmds = nullptr;
-cmdlist_t* PythonMode::m_oldCmds = nullptr;
+std::shared_ptr<Command> PythonMode::m_cmds = nullptr;
+Command* PythonMode::m_oldCmds = nullptr;
+
+PythonMode::PythonMode() : Command(proc_optional, executeLine) {}
 
 void PythonMode::init() {
-    m_cmds = NewCommandList(notfound, ambig, failed);
-    AddAltCommand(m_cmds, "_default_cmd", nullptr, proc_optional, 0,
-                  executeLine, dummy_help, "");
-    AddAltCommand(m_cmds, "exit", nullptr, proc_optional, 0,
-                  exit, dummy_help, "");
-    SetDefaultCommand(m_cmds, "_default_cmd");
+    m_cmds = std::make_shared<PythonMode>();
+
+    m_cmds->addSubCmd("exit", nullptr, proc_optional, exit,
+                      dummy_help, "Exit python mode");
 }
 
 // Start python mode
 void PythonMode::enter() {
     PrintOutMsg("Entering python interpreter, use exit to leave.\n");
-    m_oldCmds = SetCommands(m_cmds);
+    m_oldCmds = SetCommands(m_cmds.get());
     cli_inc_prompt();
 }
 
@@ -127,7 +126,7 @@ int PythonMode::executeLine(rec_set_t *rec_set, int argc, char**argv) {
 }
 
 void InitCmd_python() {
-    AddCommand("python", nullptr, proc_optional, 0,
+    AddCommand("python", nullptr, proc_optional,
                cmd_python_cmd, cmd_python_help, "Enter python interpreter (experimental).");
 
     PythonMode::init();

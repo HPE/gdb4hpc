@@ -44,12 +44,15 @@ launch:
   # for example, use "--time=5:00" instead of "-t 5:00".
   # rank/node count args are defined per test in gdb4hpc, so avoid -n and -N here.
   args:
-    slurm: "--exclusive --time=5:00"
+    slurm: "--time=5:00"
     alps: ""
     ssh: ""
     aprun: ""
     mpiexec: ""
     localhost: ""
+  allocation:
+    slurm: "-n20 -N4 -t 3:00:00 --exclusive"
+    alps: "-l place=scatter,select=1:nodetype=mom-x86_64+4:nodetype=BW36+4:nodetype=SK48"
 
 # having to do with the test tool itself
 meta:
@@ -57,26 +60,8 @@ meta:
     - Makefile
   avocado-version: "100.0"
 
-# system specific overides
-horizon-aarch:
-  launch:
-    args:
-      slurm: "--partition=aarch --exclusive --time=5:00"
-    environment:
-      GDB4HPC_STARTUP_TIMEOUT: "120"
-
-kay:
-  launch:
-    allocation:
-      nodes: 32
-
-pinoak-login1:
-  launch:
-    args:
-      slurm: "--exclusive --time=5:00 --partition=allnodes"
-
 pegasus:
   launch:
-    args:
+    allocation:
       # Multi-node MPI launches break if they include node007 or node008
-      slurm: "--exclusive --exclude=node007,node008 --time=5:00"
+      slurm: "-n20 -N4 -t 3:00:00 --exclude=node007,node008 --exclusive"

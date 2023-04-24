@@ -39,76 +39,20 @@ b{0..3}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests
 a{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:82
 b{0..3}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:82
 17: #define the buttload of possible decompositions
-18: decomposition $block1_3
-19: dimension 120
-20: distribute block
-21: proc_grid 3
-22: end
-23: decomposition $block1_4
-24: dimension 120
-25: distribute block
-26: proc_grid 4
-27: end
-28: decomposition $cyclic1_3
-29: dimension 120
-30: distribute cyclic
-31: proc_grid 3
-32: end
-33: decomposition $cyclic1_4
-34: dimension 120
-35: distribute cyclic
-36: proc_grid 4
-37: end
-38: decomposition $blockCyclic1_3
-39: dimension 120
-40: distribute 5
-41: proc_grid 3
-42: end
-43: decomposition $blockCyclic1_4
-44: dimension 120
-45: distribute 5
-46: proc_grid 4
-47: end
-48: decomposition $block2_3
-49: dimension 12,10
-50: distribute block,*
-51: proc_grid 3,*
-52: end
-53: decomposition $block2_4
-54: dimension 12,10
-55: distribute block,*
-56: proc_grid 4,*
-57: end
-58: decomposition $cyclic2_3
-59: dimension 12,10
-60: distribute cyclic,*
-61: proc_grid 3,*
-62: end
-63: decomposition $cyclic2_4
-64: dimension 12,10
-65: distribute cyclic,*
-66: proc_grid 4,*
-67: end
-68: decomposition $blockCyclic2_3
-69: dimension 24,5
-70: distribute 2,*
-71: proc_grid 3,*
-72: end
-73: decomposition $blockCyclic2_4
-74: dimension 24,5
-75: distribute 2,*
-76: proc_grid 4,*
-77: end
-78: decomposition $blockT_3
-79: dimension 10,12
-80: distribute *,block
-81: proc_grid *,3
-82: end
-83: decomposition $blockT_4
-84: dimension 10,12
-85: distribute *,block
-86: proc_grid *,4
-87: end
+18: decomposition $block1_3 120 / 3
+23: decomposition $block1_4 120 / 4
+28: decomposition $cyclic1_3 120 % 3
+33: decomposition $cyclic1_4 120 % 4
+38: decomposition $blockCyclic1_3 120/3%5
+43: decomposition $blockCyclic1_4 120/4%5
+48: decomposition $block2_3 12/3,10
+53: decomposition $block2_4 12/4,10
+58: decomposition $cyclic2_3 12%3,10
+63: decomposition $cyclic2_4 12%4, 10
+68: decomposition $blockCyclic2_3 24/3%2,5
+73: decomposition $blockCyclic2_4 24/4%2,5
+78: decomposition $blockT_3 10,12/3
+83: decomposition $blockT_4 10,12/4
 88: # lets just print out the values so we can verify the locations are correct
 89: p $block1_3{$a::block}
 {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119}

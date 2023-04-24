@@ -597,5 +597,9 @@ void InitCmd_script(void) {
     ScriptCmds->addSubCmd("show", NULL, proc_ignore,
                   cmd_script_show_cmd, cmd_script_show_help,
                   "Show information about the debugger environment.");
+
+    // graph help commands
+    AddCommand("build assert", proc_ignore, nullptr,
+               cmd_script_assert_help, "Create an assertion.");
 }
 

@@ -36,12 +36,7 @@ b{0..5}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.
 16: proc_grid 3,2
 17: dim_order 1,2
 18: end
-19: decomposition $block2_21
-20: dimension 12,10
-21: distribute block,block
-22: proc_grid 3,2
-23: dim_order 2,1
-24: end
+19: decomposition $block2_21 12/3 order(2), 10/2 order(1)
 25: b 76
 a{0..5}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp2.cpp, line 76.
 b{0..5}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp2.cpp, line 76.

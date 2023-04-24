@@ -51,7 +51,6 @@ tbreak          Set a temporary breakpoint at specified line or function.
 thread          Thread control functions.
 unset           Unset information in the debugger environment.
 up              Move up one or more stack frames.
-usage           Display usage information about script mode commands.
 viewset         Display information about process sets.
 watch           Set watchpoint on specified expression.
 whatis          Print the data type of an expression.

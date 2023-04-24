@@ -947,44 +947,52 @@ const char* const cmd_whatis_help[] = {
     "type definition.",
     0};
 
-const char * const cmd_blockmap_help[] = {
+const char * const cmd_decomposition_help[] = {
     "Summary: Decomposition creation command.",
+    "Usage: decomposition $<name> [dim_def1] [,dim_def2] [,dim_def3]...",
     "Usage: decomposition $<name>",
-    "Example command: decomposition $myName",
-    "",
-    "Script mode commands: dimension, distribute, proc_grid, dim_order, end, "
-    "help",
-    "Arguments: name (debugger handle)",
+    "Example command: decomposition $myName 100, 1000/10",
     "",
     "Description:",
-    "Begin the definition of a new decomposition scheme. Decomposition "
-    "sub-commands",
-    "are read until \"end\" is encountered. Decomposition is used to specify "
-    "the",
-    "reconstruction of distributed variables into the global representation of",
-    "the data.",
+    "This function defines an n dimensional array that can treat",
+    "data on multiple ranks as a single unified array.",
     "",
-    "Decompositions can be used in an assertion to compare data between "
-    "instances of",
-    "applications. When a decomposition is used in an assertion, it is "
-    "supplied with a",
-    "process handle and a local variable to operate on. It will take each "
-    "ranks variable",
-    "and recreate the global array based on the definitions provided to the "
-    "decomposition.",
+    "In simple form: decomp $d 10, 12",
+    "Which can be used to print an basic double* my_array as a 10 x 12 array:",
+    "p $d{my_array}",
     "",
-    "Typically a decomposition is used inside of an assertion script in order "
-    "to compare",
-    "the global representation of the data space between two instances of "
-    "applications",
-    "that may vary in terms of scale but the global data size is the same.",
+    "The decomposition can also *distribute* an array over multiple ranks.",
+    "For example, when running 10 ranks: decomp $d 100/10, 12",
+    "\"p $d{my_array}\" will print a 100 x 12 array where:",
+    "rank 0 provides elements [0..9][0..11], rank 1 elements [10..19][0..11], etc.",
     "",
-    "To create a decomposition, the user must provide definitions for "
-    "dimension,",
-    "distribute, proc_grid, and dim_order.",
+    "Several forms of decomposition are supported:",
+    "Block: num_elems / num_ranks : the array is broken into equal sized chunks",
+    "Cyclic: num_elems % num_ranks : the array is assigned in round robin",
+    "   so for 100 % 10, elements 0,10,20..90 are on rank 0, 1,11,21.. are on rank1",
+    "Block-cyclic: num_elems / num_ranks % block_size combines both in elements",
+    "   are distributed round robin in block_size chunks, so:",
+    "   in 100/10%5, elements 0..4 and 50..54 are on rank 0,",
+    "                elements 5..9 and 55..59 are on rank 1, etc.",
     "",
-    "See usage dimension/distribute/proc_grid/dim_order for more information.",
-    0};
+    "Arrays can be distributed over multiple dimensions, which means the",
+    "ranks also form a grid. By default the rank ordering uses the natural",
+    "ordering of the language, leftmost major in C/C++, rightmost major in",
+    "fortran.  This can be overridden using \"order(n)\", thus to reverse the",
+    "process grid in C use: decomp $d 100/10 order(1), 120/12 order(2).",
+    "   in this case rank 0 has [0..9][0..9], rank 1 has [10..19][0..9]",
+    "   and rank 35 has [50..59][30..39].",
+    "   Note that \"order\" only affects the assignment order of the ranks,",
+    "   it cannot transpose an array.",
+    "",
+    "See the decomposition tutorial in this package for more examples.",
+    "",
+    "If the command is called with only a decomposition name, the command enters",
+    "a decomposition definition mode where only decomposition specialized",
+    "functions are available.  Use the \"help\" command while in decomposition",
+    "more for details.",
+    0
+};
 
 const char * const cmd_build_help[] = {
     "Summary: Assertion script creation command.",
@@ -1870,6 +1878,7 @@ const char * const cmd_usage_decomposition_help[] = {
 
 const char * const cmd_blockmap_dimension_help[] = {
     "Summary: Decomposition dimension command.",
+    "   Available only when building a decomposition.",
     "Usage: dimension <dimensional definition>",
     "Example command: dimension 32,64,1024",
     "",
@@ -1901,6 +1910,7 @@ const char * const cmd_blockmap_dimension_help[] = {
 
 const char * const cmd_blockmap_distribute_help[] = {
     "Summary: Decomposition distribute command.",
+    "   Available only when building a decomposition.",
     "Usage: distribute <dimensional definition>",
     "Example command: distribute *,block,block",
     "",
@@ -2014,6 +2024,7 @@ const char * const cmd_blockmap_proc_grid_help[] = {
 
 const char * const cmd_blockmap_dim_order_help[] = {
     "Summary: Decomposition dimension order command.",
+    "   Available only when building a decomposition.",
     "Usage: dim_order <dimensional definition>",
     "Example command: dim_order *,1,2",
     "",
@@ -2131,6 +2142,7 @@ const char* const cmd_script_show_help[] = {
 
 const char * const cmd_script_assert_help[] = {
     "Summary: Assertion script assert command.",
+    "Available only when building a script.",
     "Usage: assert <expr1> = <expr2>",
     "Example command:",
     "assert $app1::var1@\"app1.c\":10 = $app2::var2@\"app2.c\":20",
@@ -2159,6 +2171,8 @@ const char * const cmd_script_assert_help[] = {
     "",
     "The result of the assertion command depends on the current settings of",
     "error, display, output, and logging.",
+    "",
+    "See help build",
     0};
 
 const char * const cmd_script_end_help[] = {

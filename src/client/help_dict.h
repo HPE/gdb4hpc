@@ -62,7 +62,7 @@ extern const char* const cmd_up_help[];
 extern const char* const cmd_viewset_help[];
 extern const char* const cmd_watch_help[];
 extern const char* const cmd_whatis_help[];
-extern const char* const cmd_blockmap_help[];
+extern const char* const cmd_decomposition_help[];
 extern const char* const cmd_build_help[];
 extern const char* const cmd_start_help[];
 extern const char* const cmd_stop_help[];

@@ -120,7 +120,8 @@ int Command::execute(dbgprocset_t *s, int argc, char *argv[]) {
 
 
     if (!m_func && m_subCmds.empty()) {
-        PrintOutError("Command is not runnable.\n");
+        if (m_help) PrintHelpEntry(m_help);
+        else PrintOutError("Command is not runnable.\n");
         return 0;
     } else if (!m_func && argc == 1) {
         // class command - list the sub commands
@@ -510,24 +511,27 @@ std::pair<Command*, std::string> Command::findCmd(const std::string& cmd) {
         if (!std::isalpha(cmd[loc])) break;
         if ((end = cmd.find_first_of(spcSlash, loc)) == std::string::npos) end = cmd.size();
 
-        if (auto [subCp,subErr] = cp->findSubCmd(cmd.substr(loc,end-loc)); subCp) {
-            cp = subCp;
+        if (auto subRes = cp->findSubCmd(cmd.substr(loc,end-loc)); subRes.index()) {
+            end = loc;
+            err = std::get<1>(subRes);
+            break;
+        } else if (std::get<0>(subRes)) {
+            cp = std::get<0>(subRes);
         } else {
             end = loc;
-            err = subErr;
             break;
         }
     }
-    if (cp != CurrentCmds) {
-        end = (cp->getShortName().empty() ? 0 : cmd.find_first_not_of(spc, end));
-        return std::make_pair(cp, cmd.substr(std::min(cmd.size(),end)));
-    } else {
+    if (!err.empty()) {
         PrintOutError("%s\n", err.c_str());
         return std::pair<Command*, std::string>{nullptr, ""};
+    } else {
+        end = (cp->getShortName().empty() ? 0 : cmd.find_first_not_of(spc, end));
+        return std::make_pair(cp, cmd.substr(std::min(cmd.size(),end)));
     }
 }
 
-std::pair<Command*,std::string> Command::findSubCmd(const std::string& cmd) {
+std::variant<Command*,std::string> Command::findSubCmd(const std::string& cmd) {
     Command* cp = nullptr;
     std::vector<std::string> matches;
     
@@ -551,13 +555,15 @@ std::pair<Command*,std::string> Command::findSubCmd(const std::string& cmd) {
         auto os = std::ostringstream{};
         os << "command " << cmd << " is ambiguous:";
         for (auto m : matches) os << " " << m;
-        return std::make_pair(nullptr, os.str());
+        return os.str();
     } else if (cp) {
-        return std::make_pair(cp,"");
+        return cp;
     } else if (m_default) {
-        return std::make_pair(m_default.get(),"");
+        return m_default.get();
+    } else if (m_func) {
+        return static_cast<Command*>(nullptr);
     } else {
         auto err = "unknown command: " + cmd;
-        return std::make_pair(nullptr, err);
+        return err;
     }
 }

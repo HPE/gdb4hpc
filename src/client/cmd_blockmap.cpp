@@ -422,32 +422,32 @@ void InitCmd_blockmap(void) {
                    cmd_info_decomposition_help,
                    "Display currently defined decomposition schemes.");
 
-    // usage commands
-    AddCommand(
-        "usage dimension", proc_ignore,
-        cmd_usage_dimension_cmd,
-        cmd_usage_decomposition_help,
-        "Display help about using decomposition \"dimension\" command.");
-    AddCommand(
-        "usage distribute", proc_ignore,
-        cmd_usage_distribute_cmd,
-        cmd_usage_decomposition_help,
-        "Display help about using decomposition \"distribute\" command.");
-    AddCommand(
-        "usage proc_grid", proc_ignore,
-        cmd_usage_proc_grid_cmd,
-        cmd_usage_decomposition_help,
-        "Display help about using decomposition \"proc_grid\" command.");
-    AddCommand(
-        "usage dim_order", proc_ignore,
-        cmd_usage_dim_order_cmd,
-        cmd_usage_decomposition_help,
-        "Display help about using decomposition \"dim_order\" command.");
-
     // regular commands
     AddCommand("decomposition", NULL, proc_ignore,
-               cmd_decomposition_cmd, cmd_blockmap_help,
+               cmd_decomposition_cmd, cmd_decomposition_help,
                "Define a decomposition scheme.");
+
+    // extra help for decomposition commands
+    AddCommand(
+        "decomposition dimension", proc_ignore,
+        cmd_usage_dimension_cmd,
+        cmd_blockmap_dimension_help,
+        "Display help about using decomposition \"dimension\" command.");
+    AddCommand(
+        "decomposition distribute", proc_ignore,
+        cmd_usage_distribute_cmd,
+        cmd_blockmap_distribute_help,
+        "Display help about using decomposition \"distribute\" command.");
+    AddCommand(
+        "decomposition proc_grid", proc_ignore,
+        cmd_usage_proc_grid_cmd,
+        cmd_blockmap_proc_grid_help,
+        "Display help about using decomposition \"proc_grid\" command.");
+    AddCommand(
+        "decomposition dim_order", proc_ignore,
+        cmd_usage_dim_order_cmd,
+        cmd_blockmap_dim_order_help,
+        "Display help about using decomposition \"dim_order\" command.");
 
     // blockmap alt commands
     BlockMapCmds = std::make_shared<Command>("", nullptr, proc_ignore, nullptr,

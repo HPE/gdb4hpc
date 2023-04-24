@@ -50,9 +50,6 @@ void InitCmd_class(void) {
     AddCommand("unset", proc_ignore, nullptr,
                class_unset_help,
                "Unset information in the debugger environment.");
-    AddCommand("usage", proc_ignore, nullptr,
-               class_usage_help,
-               "Display usage information about script mode commands.");
 
     // Set class commands
     AddCommand("set print", proc_ignore, nullptr,

@@ -174,5 +174,25 @@ a{0}: RAJA::View; Use (-1..1, -5..4) for full contents.
 a{0}: {{0,3,6,9,12,15,18,21,24,27},{1,4,7,10,13,16,19,22,25,28},{2,5,8,11,14,17,20,23,26,29}}
 99: p aoview_2Dpermoff(-1, -5)
 a{0}: 0
+100: #
+100: #
+100: break 629
+a{0}: Breakpoint 14: file /cray/css/users/chandlej/home/chandlej/gdb4hpc/hpc-pe-cdst-gdb4hpc/tests/function/src/raja/view-layout_solution.cpp, line 629.
+102: c
+a{0}: Breakpoint 14, main(int, char**) at /cray/css/users/chandlej/home/chandlej/gdb4hpc/hpc-pe-cdst-gdb4hpc/tests/function/src/raja/view-layout_solution.cpp:629
+104: p sview_1D
+a{0}: RAJA::View; Use (0..29) for full contents.
+105: p sview_1D(0..29)
+a{0}: {{base = 0, exponent = 0},{base = 1.1, exponent = 0},{base = 2.2, exponent = 0},{base = 3.3, exponent = 0},{base = 4.4, exponent = 0},{base = 5.5, exponent = 1},{base = 6.6, exponent = 1},{base = 7.7, exponent = 1},{base = 8.8, exponent = 1},{base = 9.9, exponent = 1},{base = 11, exponent = 2},{base = 12.1, exponent = 2},{base = 13.2, exponent = 2},{base = 14.3, exponent = 2},{base = 15.4, exponent = 2},{base = 16.5, exponent = 3},{base = 17.6, exponent = 3},{base = 18.7, exponent = 3},{base = 19.8, exponent = 3},{base = 20.9, exponent = 3},{base = 22, exponent = 4},{base = 23.1, exponent = 4},{base = 24.2, exponent = 4},{base = 25.3, exponent = 4},{base = 26.4, exponent = 4},{base = 27.5, exponent = 5},{base = 28.6, exponent = 5},{base = 29.7, exponent = 5},{base = 30.8, exponent = 5},{base = 31.9, exponent = 5}}
+106: p sview_2D
+a{0}: RAJA::View; Use (0..2, 0..4) for full contents.
+107: p sview_2D(0..2, 0..4)
+a{0}: {{{base = 0, exponent = 0},{base = 1.1, exponent = 0},{base = 2.2, exponent = 0},{base = 3.3, exponent = 0},{base = 4.4, exponent = 0}},{{base = 5.5, exponent = 1},{base = 6.6, exponent = 1},{base = 7.7, exponent = 1},{base = 8.8, exponent = 1},{base = 9.9, exponent = 1}},{{base = 11, exponent = 2},{base = 12.1, exponent = 2},{base = 13.2, exponent = 2},{base = 14.3, exponent = 2},{base = 15.4, exponent = 2}}}
+108: p sview_3D
+a{0}: RAJA::View; Use (0..2, 0..4, 0..1) for full contents.
+109: p sview_3D(0..2, 0..4, 0..1)
+a{0}: {{{{base = 0, exponent = 0},{base = 1.1, exponent = 0}},{{base = 2.2, exponent = 0},{base = 3.3, exponent = 0}},{{base = 4.4, exponent = 0},{base = 5.5, exponent = 1}},{{base = 6.6, exponent = 1},{base = 7.7, exponent = 1}},{{base = 8.8, exponent = 1},{base = 9.9, exponent = 1}}},{{{base = 11, exponent = 2},{base = 12.1, exponent = 2}},{{base = 13.2, exponent = 2},{base = 14.3, exponent = 2}},{{base = 15.4, exponent = 2},{base = 16.5, exponent = 3}},{{base = 17.6, exponent = 3},{base = 18.7, exponent = 3}},{{base = 19.8, exponent = 3},{base = 20.9, exponent = 3}}},{{{base = 22, exponent = 4},{base = 23.1, exponent = 4}},{{base = 24.2, exponent = 4},{base = 25.3, exponent = 4}},{{base = 26.4, exponent = 4},{base = 27.5, exponent = 5}},{{base = 28.6, exponent = 5},{base = 29.7, exponent = 5}},{{base = 30.8, exponent = 5},{base = 31.9, exponent = 5}}}}
+109: p sview_3D(1, 1, 1)
+a{0}: {base = 14.3, exponent = 2}
 100: q
 Shutting down debugger and killing application for 'a'.

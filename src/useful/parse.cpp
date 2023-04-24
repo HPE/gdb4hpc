@@ -49,3 +49,7 @@ const char* findExprMatch(const char* s) {
 size_t findExprMatch(const std::string& s, size_t pos) {
     return findExprMatchT(s.begin()+pos, s.end()) - s.begin();
 }
+
+size_t findExprMatch(const std::string_view& sv, size_t pos) {
+    return findExprMatchT(sv.begin()+pos, sv.end()) - sv.begin();
+}

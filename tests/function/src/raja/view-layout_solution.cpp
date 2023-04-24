@@ -610,6 +610,24 @@ int main(int RAJA_UNUSED_ARG(argc), char **RAJA_UNUSED_ARG(argv[]))
 //----------------------------------------------------------------------------//
 //----------------------------------------------------------------------------//
 
+  struct SciNotation {
+    // base * 10 ^ exponent
+    float base;
+    int exponent;
+  };
+
+  SciNotation* nums = new SciNotation[ Ntot ];
+
+  for (int i = 0; i < Ntot; i++) {
+    nums[i] = { .base = 1.1f * i, .exponent = i/5 };
+  }
+
+  RAJA::View< SciNotation, RAJA::Layout<1, int> > sview_1D(nums, Ntot);
+  RAJA::View< SciNotation, RAJA::Layout<2, int> > sview_2D(nums, Nx, Ny);
+  RAJA::View< SciNotation, RAJA::Layout<3, int> > sview_3D(nums, Nx, Ny, Nz);
+
+  delete []nums;
+
   std::cout << "\n DONE!...\n";
 
   return 0;

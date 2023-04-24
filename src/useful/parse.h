@@ -4,6 +4,7 @@
 
 #include <iterator>
 #include <cstring>
+#include <string_view>
 
 //-----------------------------------------------------------------------
 // CStrIt is an iterator that lets you use stl (begin,end) algorithms without
@@ -109,3 +110,4 @@ const char* findExprMatch(const char* s);
 // Return the index to delimiter '">)]} matching s[pos]
 // accounting for nesting quoting and escapes
 size_t findExprMatch(const std::string& s, size_t pos);
+size_t findExprMatch(const std::string_view& sv, size_t pos);

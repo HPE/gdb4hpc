@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <regex>
 #include <cctype>
+#include <algorithm>
 
 #include "dbgevent.h"
 #include "dbgsrv_defs.h"
@@ -132,6 +133,7 @@ private:
         int position;
         int index;
         const char* text = nullptr;
+        size_t text_len = 0;
     };
 
     static std::vector<RajaIndex> generateIndices(const std::vector<std::pair<int, int>>& ranges,
@@ -1187,6 +1189,10 @@ char* RajaSubArray::getArrayDataString() {
 
     // indices in the flat data
     auto flat_indices = generateIndices(m_rngs, m_view->getBounds());
+    if (flat_indices.empty()) {
+        DVPRINT("generateIndices returned no indices\n");
+        return nullptr;
+    }
 
     if (ais::RajaView::verboseDebug()) {
         std::ostringstream debug_stream;
@@ -1213,41 +1219,61 @@ char* RajaSubArray::getArrayDataString() {
     // get the data from gdb
     auto full_data = std::unique_ptr<char, decltype(&free)>
         (EvalExpression(m_mi.getSession(), full_data_expr.c_str()), free);
-
-    if (!full_data) {
+    if (!full_data || *full_data == '\0') {
         DVPRINT("Failed to evaluate\n");
         return nullptr;
     }
 
     // now we link the entries in flat_indices to the text that represents each one
 
-    // sort entries in the order that they will appear in the gdb output
-    std::sort(flat_indices.begin(), flat_indices.end(),
-        [](auto l, auto r) { return l.index < r.index; });
+    if (flat_indices.size() == 1) {
+        // parse/link a single element
+        flat_indices[0].text = full_data.get();
+        flat_indices[0].text_len = strlen(full_data.get());
+    } else {
+        // parse/link a list of items
 
-    auto input = std::string_view(full_data.get());
-    auto current_idx_in_data = smallest_index;
-    auto next_flat_idx = int{0}; // index into flat_indices
+        // sort entries in the order that they will appear in the gdb output
+        std::sort(flat_indices.begin(), flat_indices.end(),
+            [](auto l, auto r) { return l.index < r.index; });
 
-    // FIXME: PE-47126: a view of structs will have elements that start with { and this won't work
-    auto current_char = input.find_first_not_of("{, }");
+        auto input = std::string_view(full_data.get());
+        auto current_idx_in_data = smallest_index;
+        auto next_flat_idx = int{0}; // index into flat_indices
 
-    while (current_char < input.size()) {
-        auto end = input.find_first_of(",}", current_char);
+        // skip opening {. even if the view we are dealing with is >1 dims, we
+        // are dumping the data as a 1D array, so we only have to worry about 1
+        // level of {
+        auto current_char = input.find_first_not_of(", }", 1 /* skip { */);
 
-        if (ais::RajaView::verboseDebug()) {
-            DVPRINT("Current: %d Waiting4: %d text: %.*s\n",
-                current_idx_in_data, flat_indices[next_flat_idx].index,
-                (int)(end - current_char), full_data.get() + current_char);
+        while (current_char < input.size()) {
+            // find element end
+            auto end = input.size();
+            if (input[current_char] == '{') {
+                // elements are structs or arrays
+                end = findExprMatch(input, current_char) + 1;
+            } else {
+                // elements are primitive types
+                end = input.find_first_of(",}", current_char);
+            }
+
+            if (ais::RajaView::verboseDebug()) {
+                DVPRINT("Current: %d Waiting4: %d text: %.*s\n",
+                    current_idx_in_data, flat_indices[next_flat_idx].index,
+                    (int)(end - current_char), full_data.get() + current_char);
+            }
+
+            // is it an element we're interested in?
+            if (current_idx_in_data == flat_indices[next_flat_idx].index) {
+                flat_indices[next_flat_idx].text = &input[current_char];
+                // end might be string::npos, so truncate it to input.size() just in case
+                flat_indices[next_flat_idx].text_len = std::min(end, input.size()) - current_char;
+                next_flat_idx++;
+            }
+
+            current_char = input.find_first_not_of(", }", end);
+            current_idx_in_data++;
         }
-
-        if (current_idx_in_data == flat_indices[next_flat_idx].index) {
-            flat_indices[next_flat_idx].text = full_data.get() + current_char;
-            next_flat_idx++;
-        }
-
-        current_char = input.find_first_not_of("{, }", end);
-        current_idx_in_data++;
     }
 
     // now reconstruct the parsed data in the order that the view applies
@@ -1280,25 +1306,11 @@ char* RajaSubArray::getArrayDataString() {
         output << "{";
 
     for (size_t i = 0; i < flat_indices.size(); i++) {
-        auto e = flat_indices[i];
+        auto elmt = flat_indices[i];
 
-        if (ais::RajaView::verboseDebug()) DVPRINT("e.text: %.8s...\n", e.text);
+        if (ais::RajaView::verboseDebug()) DVPRINT("e.text: %.8s...\n", elmt.text);
 
-        auto end = strchr(e.text, ',');
-
-        if (ais::RajaView::verboseDebug()) DVPRINT("end (comma): %.4s...\n", end);
-
-        if (!end) {
-            end = strchr(e.text, '}');
-            if (ais::RajaView::verboseDebug()) DVPRINT("end (bracket): %.4s...\n", end);
-        }
-        if (!end) {
-            // this happens with single element data
-            end = strchr(e.text, '\0');
-            if (ais::RajaView::verboseDebug()) DVPRINT("end (\\0): %.4s...\n", end);
-        }
-
-        output << std::string_view(e.text, end - e.text);
+        output << std::string_view(elmt.text, elmt.text_len);
 
         if (i < flat_indices.size() - 1) {
             output << ",";

@@ -324,6 +324,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
@@ -417,6 +418,8 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_bd_dt.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_bd_dt.f90
 %{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_cmp_diff.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_cmp_diff.f90
 %{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_decomp.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_decomp.f90
+
+%{__cp} -a %{tests_source_dir}/function/src/raja/view-layout_solution.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/view-layout_solution.cpp
 
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_scalars.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_expressions.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
@@ -692,6 +695,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda
@@ -783,6 +787,8 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_bd_dt.f90
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_cmp_diff.f90
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_decomp.f90
+
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/view-layout_solution.cpp
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in

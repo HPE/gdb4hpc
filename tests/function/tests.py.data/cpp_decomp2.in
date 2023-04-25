@@ -82,6 +82,24 @@ Comparison is false. The difference delta is:
 [6][5]:-10604
 [10][0]:-10999
 [10][5]:-11004
-42: q
+42: info decomposition
+Defined decompositions:
+$block2_12:
+	dimension 12,10
+	distribute block,block
+	proc_grid 3,2
+	dim_order 1,2
+
+$block2_21: 12/3 order(2), 10/2 order(1)
+43: i dec $block2_12
+$block2_12:
+	dimension 12,10
+	distribute block,block
+	proc_grid 3,2
+	dim_order 1,2
+
+44: i dec $block2_21
+$block2_21: 12/3 order(2), 10/2 order(1)
+43: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

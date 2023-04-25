@@ -600,7 +600,7 @@ void LazyMIVar::getSliceType(const std::string& expr,
     // and the indices
     auto idxBeg = i;
     if (metaInfo[i] == '(') {
-        if ((i = metaInfo.find(')')) != std::string::npos)
+        if ((i = metaInfo.find(')',i)) != std::string::npos)
             ++i;
     } else {
         i = metaInfo.find(',',i);

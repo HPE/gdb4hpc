@@ -9,13 +9,13 @@
 
 // Create a new map
 BlockMap::BlockMap(const std::string& name)
-    : m_name(name)
+    : m_name(name), m_oldStyle(true)
 {
     if (name.size() && name[0] != '$') m_name = '$' + m_name;
 }
 
 BlockMap::BlockMap(const std::string& name, const std::string& definition)
-    : m_name(name)
+    : m_name(name), m_oldStyle(false)
 {
     parseDefinition(definition);
 }
@@ -28,7 +28,7 @@ std::string BlockMap::getDefinition() const {
     int n = 0;
     for ( auto d : m_dims ) {
         if (n++) os << ", ";
-        d.printConcise(os);
+        d.printConcise(os, m_explicitOrder);
     }
     return os.str();
 }
@@ -58,8 +58,13 @@ void BlockMap::parseDefinition(const std::string& definition) {
 
     int dim_order = 1;
     auto val = [](const auto& m) { return size_t(m.length() ? std::stoi(m.str()) : 0); };
-    auto oval = [&dim_order](const auto& m) {
-                    return m.length() ? std::stoi(m.str()) : dim_order++; };
+    auto oval = [this, &dim_order](const auto& m) {
+                    if (m.length()) {
+                        this->m_explicitOrder = true;
+                        return std::stoi(m.str());
+                    } else {
+                        return dim_order++;
+                    } };
 
     auto err = std::ostringstream{};
     std::smatch match;
@@ -331,6 +336,7 @@ void BlockMap::setDimOrder(const std::vector<int>& order) {
     m_dims.resize(n);
     for (size_t i=0; i<n; ++i)
         m_dims[i].dim_order = order[i];
+    m_explicitOrder = true;
 }
 
 void BlockMap::setDims(const std::vector<int>& dims) {
@@ -364,7 +370,8 @@ void BlockMap::setProcGrid(const std::vector<int>& procs) {
     }
 }
 
-std::ostream& BlockMap::Dimension::printConcise(std::ostream& os) const {
+std::ostream&
+BlockMap::Dimension::printConcise(std::ostream& os, bool explicitOrder) const {
     os << size;
     switch (distribution) {
     case Distribution::Star: break;
@@ -373,7 +380,7 @@ std::ostream& BlockMap::Dimension::printConcise(std::ostream& os) const {
     case Distribution::BlockCyclic: os << "/" << numProcs << "%" << blockCyclic; break;
     };
 
-    if (dim_order != int(Distribution::Star)) {
+    if (explicitOrder && dim_order != int(Distribution::Star)) {
         os << " order(" << dim_order << ")";
     }
     return os;        

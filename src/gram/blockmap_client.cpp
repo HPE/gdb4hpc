@@ -125,7 +125,7 @@ void UnregisterBlockMap(const std::string& name) {
     }
 }
 
-std::string BlockMap::msg() const {
+std::string BlockMap::oldMsg() const {
     int i;
     std::stringstream sc; //stringstream for cli messages
     std::stringstream sm; //stringstream for mi messages
@@ -215,7 +215,20 @@ std::string BlockMap::msg() const {
         return sm.str();
     }
     return sc.str();
+}
 
+std::string BlockMap::msg() const {
+    if (m_oldStyle) return oldMsg();
+
+    std::ostringstream os;
+    os << m_name << ": ";
+    int n = 0;
+    for ( auto d : m_dims ) {
+        if (n++) os << ", ";
+        d.printConcise(os, m_explicitOrder);
+    }
+    os << "\n";
+    return os.str();
 }
 
 void FinishBlockMap(void) {

@@ -66,16 +66,19 @@ public:
         size_t blockCyclic;
         int dim_order;
 
-        std::ostream& printConcise(std::ostream& s) const;
+        std::ostream& printConcise(std::ostream& s, bool explicitOrder) const;
     };
 
     const Dimension& getDimension(int i) const { return m_dims[i]; }
         
 private:
+    std::string oldMsg() const;
     void parseDefinition(const std::string& definition);
     std::string m_name;
 
     std::vector<Dimension> m_dims;
+    bool m_oldStyle = false;
+    bool m_explicitOrder = false;
 };
 
 // parse a range defined as [min..max][val] into ranges

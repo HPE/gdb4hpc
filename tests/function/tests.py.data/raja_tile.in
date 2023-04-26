@@ -1,0 +1,47 @@
+0: maint set unsafe on
+0: maint set sync on
+0: launch $a{1} ./bin/CRAY/raja/kernel-matrix-transpose-local-array_solution.x
+Starting application, please wait...
+Launched application...
+1/1 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0}: Initial breakpoint, main at /src/raja/kernel-matrix-transpose-local-array_solution.cpp:72
+0: break 238
+a{0}: Breakpoint 1: file /src/raja/kernel-matrix-transpose-local-array_solution.cpp, line 238.
+0: c
+a{0}: Breakpoint 1, main::$_1::operator()(int, int, int, int, RAJA::internal::TypedViewBase<int, int*, RAJA::detail::StaticLayoutBase_impl<long, camp::int_seq<long, 0l, 1l>, camp::int_seq<long, 16l, 16l>, camp::int_seq<long, 16l, 1l>, void>, camp::list<long, long> >&) const at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/raja/kernel-matrix-transpose-local-array_solution.cpp:238
+0: p Tile_Array
+a{0}: RAJA::View; Use (0..15, 0..15) for full contents.
+0: p Tile_Array(1, 0..15)
+a{1}: {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+0: p Tile_Array(0..15, 0..15)
+a{0}: {{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},{2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2},{3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3},{4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4},{5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5},{6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6},{7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7},{8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8},{9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9},{10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10},{11,11,11,11,11,11,11,11,11,11,11,11,11,11,11,11},{12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12},{13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13},{14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14},{15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15}}
+0: ignore 1 255
+0: c
+a{0}: Breakpoint 1, main::$_1::operator()(int, int, int, int, RAJA::internal::TypedViewBase<int, int*, RAJA::detail::StaticLayoutBase_impl<long, camp::int_seq<long, 0l, 1l>, camp::int_seq<long, 16l, 16l>, camp::int_seq<long, 16l, 1l>, void>, camp::list<long, long> >&) const at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/raja/kernel-matrix-transpose-local-array_solution.cpp:238
+0: p Tile_Array(0, 0..15)
+a{0}: {16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16}
+0: p Tile_Array(0..15, 0..15)
+a{0}: {{16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16},{17,17,17,17,17,17,17,17,17,17,17,17,17,17,17,17},{18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18},{19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19},{20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20},{21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21},{22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22},{23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23},{24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24},{25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25},{26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26},{27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27},{28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28},{29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29},{30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30},{31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31}}
+0: disable 1
+0: break 610
+a{0}: Breakpoint 2: file /src/raja/kernel-matrix-transpose-local-array_solution.cpp, line 610.
+0: c
+a{0}: Breakpoint 2, main::$_3::operator()(int, int, int, int, RAJA::internal::TypedViewBase<int, int*, RAJA::detail::StaticLayoutBase_impl<long, camp::int_seq<long, 0l, 1l>, camp::int_seq<long, 16l, 16l>, camp::int_seq<long, 16l, 1l>, void>, camp::list<long, long> >&) const at /src/raja/kernel-matrix-transpose-local-array_solution.cpp:610
+0: p Tile_Array
+a{0}: RAJA::View; Use (0..15, 0..15) for full contents.
+0: p Tile_Array(0..15, 0)
+a{0}: {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+0: p Tile_Array(0..15, 0..15)
+a{0}: {{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}}
+0: ignore 2 255
+0: c
+a{0}: Breakpoint 2, main::$_3::operator()(int, int, int, int, RAJA::internal::TypedViewBase<int, int*, RAJA::detail::StaticLayoutBase_impl<long, camp::int_seq<long, 0l, 1l>, camp::int_seq<long, 16l, 16l>, camp::int_seq<long, 16l, 1l>, void>, camp::list<long, long> >&) const at /src/raja/kernel-matrix-transpose-local-array_solution.cpp:610
+0: p Tile_Array(0..15, 0)
+a{0}: {16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16}
+0: p Tile_Array(0..15, 0..15)
+a{0}: {{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31},{16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31}}
+0: q
+Shutting down debugger and killing application for 'a'.

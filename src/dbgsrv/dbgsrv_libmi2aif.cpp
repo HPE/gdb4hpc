@@ -431,7 +431,29 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
                     (EvalExpression(m_mi.getSession(), base_expr.c_str()), free);
                 if (!res) throw std::runtime_error("EvalExpression failed");
 
-                rv->setBounds(ais::RajaView::Bounds(res.get()));
+                // if it turns out that base_expr is a reference, res will contain
+                // something like "@0x7ffeaf99b110" instead of the data we want.
+                //
+                // PE-47549 might fix this one day.
+                if (::strncmp(res.get(), "@0x", 3) == 0) {
+                    base_expr = "*&" + base_expr;
+                    res.reset(EvalExpression(m_mi.getSession(), base_expr.c_str()));
+                    if (!res) throw std::runtime_error("EvalExpression failed");
+                }
+
+                // some view types have their bounds encoded as template
+                // arguments, and some have their bounds as explicit member
+                // variables. we have no way to know ahead of time which
+                // one we're dealing with, so we arbitrarily try template args
+                // first, then member variables.
+                auto bounds = ais::RajaView::Bounds::fromTemplateArgs(res.get());
+                if (!bounds.isValid())
+                    bounds = ais::RajaView::Bounds::fromMembers(res.get());
+
+                // it's possible that both parses failed and bounds is invalid.
+                // we still set the bounds anyway and let the ais printing/parsing
+                // logic handle the invalid bounds.
+                rv->setBounds(std::move(bounds));
 
                 if (ais::RajaView::verboseDebug()) {
                     std::ostringstream debug_stream;
@@ -450,6 +472,10 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
 
                     DVPRINT("%s\n", debug_stream.str().c_str());
                 }
+
+                // don't try to do any subarray parsing if our bounds are invalid
+                if (!rv->getBounds().isValid())
+                    throw std::runtime_error("Failed to determine view bounds");
 
                 // check if we are slicing the view
                 m_subArray = RajaSubArray::get(m_mi, base_expr, expr1, rv);

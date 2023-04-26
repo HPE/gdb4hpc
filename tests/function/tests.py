@@ -808,11 +808,31 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "command_timeout"
         runTest(self)
 
+    # these skip comments on the raja tests about "non-slurm" systems might really only
+    # mean "ALPS" systems, but these tests haven't been run on HPCM or PALS yet, so
+    # they'll stay slurm-only for now.
     @avocado.skipIf(detect_wlm() != "SLURM", "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
     def test_raja_views(self):
         if not os.path.exists(f"./bin/{self.penv}/raja/view-layout_solution.x"):
             self.cancel("RAJA view-layout_solution.x not built")
         self.base_name = "raja_views"
+        runTest(self)
+
+    @avocado.skipIf(detect_wlm() != "SLURM", "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
+    def test_raja_tile(self):
+        if not os.path.exists(f"./bin/{self.penv}/raja/kernel-matrix-transpose-local-array_solution.x"):
+            self.cancel("RAJA kernel-matrix-transpose-local-array_solution.x not built")
+        self.base_name = "raja_tile"
+        runTest(self)
+
+    @avocado.skipIf(detect_wlm() != "SLURM", "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
+    def test_raja_tile2(self):
+        # the tile method in launch-matrix-transpose-local-array_solution is blocked by
+        # PE-47549.
+        self.cancel("PE-47549")
+        if not os.path.exists(f"./bin/{self.penv}/raja/launch-matrix-transpose-local-array_solution.x"):
+            self.cancel("RAJA launch-matrix-transpose-local-array_solution.x not built")
+        self.base_name = "raja_tile2"
         runTest(self)
 
 class c_commnode_fanout(Gdb4hpcTest):

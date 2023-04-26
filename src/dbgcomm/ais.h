@@ -1045,9 +1045,19 @@ class RajaView : public Literal {
 public:
     struct Bounds {
         // Construct a Bounds struct from the result of a "p my_raja_view" gdb command.
-        // throws std::runtime_error on malformed input.
-        Bounds(const std::string_view input);
+        // fromMembers will try to fill in the bounds information by looking for member
+        // variables like "sizes = {2, 4}", "strides = {4, 1}", etc.
+        static Bounds fromMembers(const std::string_view& input);
+
+        // Construct a Bounds struct from the result of a "p my_raja_view" gdb command.
+        // fromTemplateArgs will try to fill in the bounds information by looking for
+        // RAJA::View template argument patterns like "camp::int_seq<long, 16l, 16l>".
+        static Bounds fromTemplateArgs(const std::string_view& input);
+
         Bounds() = default;
+
+        // return true if the combinations of sizes, strides, and offsets makes sense.
+        bool isValid() const;
 
         std::vector<int> sizes;
         std::vector<int> strides;

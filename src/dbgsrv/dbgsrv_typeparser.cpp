@@ -159,7 +159,8 @@ std::vector<Prim> m_cppStlPrims =
  {"std::shared_ptr", SmartPointerWrap()},
  {"std::unique_ptr", SmartPointerWrap()},
  {"Kokkos::View", kokkosView},
- {"RAJA::internal::ViewBase", rajaView}, // "ptype RAJA::View<...>" will turn into this
+ {"RAJA::internal::ViewBase", rajaView},      // "ptype RAJA::View<...>" will turn into this
+ {"RAJA::internal::TypedViewBase", rajaView}, // or this
 };
 
 std::vector<Prim> m_fortranPrims =
@@ -980,8 +981,10 @@ std::shared_ptr<ais::Type> kokkosView(Mi2Aif& mi, TypeName t) {
 std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t) {
     DVPRINT("parsing RAJA::view type %s\n", t.decoration.c_str());
 
-    // RAJA::Views will start like an stl container type with their contained type as their first argument.
-    // e.g. RAJA::internal::ViewBase<int, ...>
+    // All internal RAJA::View types will start like an stl container type with
+    // their contained type as their first argument. e.g.
+    // RAJA::internal::ViewBase<int, ...>
+    // RAJA::internal::TypedViewBase<int, ...>
 
     auto [elem_type_str, template_args, decoration] = getContainerTypes(t);
 
@@ -991,39 +994,61 @@ std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t) {
         return unimplemented(mi, t);
     }
 
-    // get the inner type
+    // get the element type
     auto elem_type = getType(mi, nullptr, elem_type_str.c_str());
 
     // Now get the dimension.
-    // We expect this function to be called with the internal RAJA::View type:
-    // RAJA::internal::ViewBase<double, double*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >
+    // We expect this function to be called with some kind of internal RAJA::View type like:
+    //   RAJA::internal::ViewBase<double, double*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >
+    //
+    // The internal RAJA view types are all templatized in a pattern like:
+    //   RAJA::internal::ViewBase<ValueType, PointerType, LayoutType>
+    //
+    // The LayoutType is where we can look to figure out the dimensions of the view. They
+    // all look something like:
+    //   RAJA::internal::LayoutTypeName<IndexType, RangeInts, Sizes, Strides, void>
+    // Where RangeInts, Sizes, and Strides are camp::int_seq<IndexType, ...>. All of the
+    // integer sequences will have the same length, and the length is equal to dimension + 1.
+    // Since the camp::int_seq has the extra IdxLin term in the front, we can simply count
+    // the number of commas in the int_seq's template arguments to get the number of dimensions.
+    // Note that in some types the IndexType is not explicitly present and the template
+    // arguments start with camp::int_seq's.
+    //
+    // Some fully expanded examples:
+    //
+    // a 2d view of doubles created via RAJA::View<double, RAJA::Layout<2, int>> has type:
+    //   RAJA::internal::ViewBase<double, double*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l>, int, -1l> >
     //
     // a 3d view of doubles via RAJA::View<double, RAJA::Layout<3, int>> has type:
-    // "RAJA::internal::ViewBase<int, int*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l, 2l>, int, -1l> >"
-    //
-    // For these, the dimension is encoded in the int_seq<...> template argument.
+    //   RAJA::internal::ViewBase<int, int*, RAJA::detail::LayoutBase_impl<camp::int_seq<long, 0l, 1l, 2l>, int, -1l> >
     //
     // An offset layout is simpler. An offset layout is a wrapper around a normal layout and has its own type.
     // A 2d view of ints via RAJA::View<int, RAJA::OffsetLayout<2, int>> has type:
-    // "RAJA::internal::ViewBase<int, int*, RAJA::OffsetLayout<2ul, int> >"
+    //   RAJA::internal::ViewBase<int, int*, RAJA::OffsetLayout<2ul, int> >
     // with the dimension as the first argument to OffsetLayout.
 
-    const auto layout_token = "RAJA::detail::LayoutBase_impl";
+    // we keep layout_token short to match both RAJA::View::LayoutBase_impl and
+    // RAJA::View::StaticLayoutBase_impl
+    const auto layout_token = "LayoutBase_impl";
     const auto offset_token = "RAJA::OffsetLayout";
 
     if (auto layout_idx = template_args.find(layout_token); layout_idx != std::string::npos) {
-        auto layout_template = template_args.substr(layout_idx);
-        auto [int_seq, rest, dec] = getContainerTypes({layout_template, strlen(layout_token)});
-        DVPRINT("Got inner types: \"%s\", \"%s\", \"%s\"\n", int_seq.c_str(), rest.c_str(), dec.c_str());
+        auto layout_type = template_args.substr(layout_idx);
+
+        // find camp::int_seq
+        const auto int_seq_token = "camp::int_seq";
+        auto int_seq_idx = layout_type.find(int_seq_token);
+        if (int_seq_idx == std::string::npos)
+            return unimplemented(mi, t);
 
         // the number of dimensions is equal to the number of commas in
         // camp::int_seq<long, 0l, ..., nl> (the first 'long' term makes dimensions ==
         // commas instead of more common/expected dimensions == commas+1)
-        const auto leader_size = strlen("camp::int_seq");
-        if (int_seq.size() < leader_size)
+        if (layout_type.size() < int_seq_idx + strlen(int_seq_token))
             return unimplemented(mi, t);
 
-        const auto* opening = &int_seq[leader_size];
+        // point `opening` to the '<' in camp::int_seq<...>
+        const auto* opening = &layout_type[int_seq_idx + strlen(int_seq_token)];
         const auto* closing = findExprMatch(opening);
         if (closing == nullptr)
             return unimplemented(mi, t);
@@ -1361,6 +1386,20 @@ TEST_CASE("TypeParser::getType: RAJA::View") {
         CHECK(raja_view->dim() == 2);
 
         auto inner = std::dynamic_pointer_cast<ais::Int>(raja_view->getElemTypePtr());
+        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
+    }
+
+    SUBCASE("Static layout view") {
+        // 2d static layout view of floats
+        auto t = basicTypeTest<ais::RajaView>(TypeParser::Lang::Cpp,
+            "RAJA::internal::TypedViewBase<float, float*, RAJA::detail::StaticLayoutBase_impl<long, camp::int_seq<long, 0l, 1l>, camp::int_seq<long, 16l, 16l>, camp::int_seq<long, 16l, 1l>, void>, camp::list<long, long> >"
+        );
+
+        auto raja_view = std::dynamic_pointer_cast<ais::RajaView>(t);
+        REQUIRE(raja_view != nullptr);
+        CHECK(raja_view->dim() == 2);
+
+        auto inner = std::dynamic_pointer_cast<ais::Float>(raja_view->getElemTypePtr());
         CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
     }
 }

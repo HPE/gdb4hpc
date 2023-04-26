@@ -54,6 +54,42 @@ a{0}: 0x200aec:	0x31	0x32	0x33	0x34
 14: # verify --gdb argument from the launch
 14: gdb python print(open(\"/proc/self/cmdline\", \"rb\").read())
 a{0}: %.*/tmp/custom_gdb.*%
-15: #exit lgdb
-16: q
+15: p one_d_l
+a{0}: {0,1,2,3,4...}
+16: gdb show print elements
+a{0}: Limit on array elements to print is 200.
+17: gdb p one_d_l
+a{0}: $1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+18: gdb set print elements 8
+19: gdb show print elements
+a{0}: Limit on array elements to print is 8.
+20: gdb p one_d_l
+a{0}: $2 = {0, 1, 2, 3, 4, 5, 6, 7}
+21: gdb show print repeats
+a{0}: Threshold for repeated print elements is 10.
+22: gdb set print repeats 4
+23: gdb show print repeats
+a{0}: Threshold for repeated print elements is 4.
+24: p one_d_i
+a{0}: {0,1,2,3,4...}
+25: p one_d_i[0]=1
+a{0}: 1
+26: set print elements unlimited
+27: p one_d_i[2]=1
+a{0}: 1
+28: p one_d_i[3]=1
+a{0}: 1
+29: p one_d_i[4]=1
+a{0}: 1
+30: p one_d_i[5]=1
+a{0}: 1
+31:  p one_d_i
+a{0}: {1,1,1,1,1,1,6,7,8,9}
+32: gdb p one_d_i
+a{0}: $3 = {1 <repeats 6 times>, 6, 7}
+33: gdb set print repeats 10
+34: gdb p one_d_i
+a{0}: $4 = {1, 1, 1, 1, 1, 1, 6, 7}
+35: #exit lgdb
+36: q
 Shutting down debugger and killing application for 'a'.

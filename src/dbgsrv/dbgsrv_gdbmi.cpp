@@ -73,6 +73,10 @@ static bool isInNonStopMode = false;
 // set by DbgSetPrintElements
 int clientPrintElements = 0;
 
+// gdbmode keeps independent "print elements" and "print repeats" setting
+static int directPrintElements = 200;
+static std::string directPrintRepeats = "10";
+
 #ifndef ALPS
 // These are for sending the target output to the fe
 static int WRITE_fd;
@@ -3033,28 +3037,47 @@ dbgevent_t *DbgGdbMI::getSourcePath() {
 */
 dbgevent_t *DbgGdbMI::getDebuggerVar(const char *var) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    MICommand *cmd;
 
-    cmd = MICommandNew("-gdb-show", MIResultRecordDONE);
-    MICommandAddOption(cmd, var, NULL);
-    SendMICommand(GDBMISession, cmd);
-    MICommandFree(cmd);
-
-    return NewEvent(DBGEV_OK);
+    auto val = getDebuggerVarL(var);
+    auto ev = NewEvent(DBGEV_STRING);
+    ev->ev_string = strdup(val.c_str());
+    return ev;
 }
 
-dbgevent_t *DbgGdbMI::setPrintElements(const char *elements) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
+std::string DbgGdbMI::getDebuggerVarL(const char* var) {
+    auto res = std::string{};
+    auto cmd = MICommandNew("-gdb-show", MIResultRecordDONE);
+    MICommandAddOption(cmd, var, NULL);
+    SendMICommand(GDBMISession, cmd);
+    if (MICommandResultOK(cmd)) {
+        res = MICommandOutputString(cmd);
+    }
+    MICommandFree(cmd);
 
-    int elems = atoi(elements);
+    return res;
+}
+
+
+dbgevent_t *DbgGdbMI::setPrintElements(const char *elements) {
+    DVPRINT("*** Dbg %s, %s %s\n", __FILE__, __func__, elements);
+
+    auto elems = atoi(elements);
 
     // update cached value
     clientPrintElements = elems;
 
     // update debugger value
-    dbgevent_t *r = setDebuggerVar("print elements", std::to_string(elems).c_str());
+    return setPrintElementsL(elems);
+}
 
-    return r;
+dbgevent_t *DbgGdbMI::setPrintElementsL(int elems) {
+    // update debugger value
+    return setDebuggerVar("print elements", std::to_string(elems).c_str());
+}
+
+int DbgGdbMI::getPrintElementsL() {
+    auto str = getDebuggerVarL("print elements");
+    return atoi(str.c_str());
 }
 
 // This is called before entering gdbmode and before passthru commands are
@@ -3062,14 +3085,14 @@ dbgevent_t *DbgGdbMI::setPrintElements(const char *elements) {
 // We want gdbmode to appear like a freshly-started gdb instance would, so we
 // reset some printing settings to gdb defaults.
 dbgevent_t *DbgGdbMI::resetBeforeDirectCmd() {
-    dbgevent_t *e;
-
-    // this function always returns NewEvent(DBGEV_OK), so we just need to clean it up
-    e = setPrintElements("200");
+    // this function always returns NewEvent(DBGEV_OK),
+    // so we just need to clean it up
+    DVPRINT("DbgGdbMI::resetBeforeDirectCmd\n");
+    auto e = setPrintElementsL(directPrintElements);
     FreeEvent(e);
 
     // also returns NewEvent(DBGEV_OK)
-    e = setDebuggerVar("print repeats", "10");
+    e = setDebuggerVar("print repeats", directPrintRepeats.c_str());
     FreeEvent(e);
 
     setSourceOpen(true);
@@ -3079,12 +3102,16 @@ dbgevent_t *DbgGdbMI::resetBeforeDirectCmd() {
 
 // Called upon exit from gdbmode and after a passthru command is finished
 dbgevent_t *DbgGdbMI::restoreAfterDirectCmd() {
-    dbgevent_t *e;
+    DVPRINT("In DbgGdbMI::restoreAfterDirectCmd\n");
 
+    directPrintElements = getPrintElementsL();
+    
     // this function always returns NewEvent(DBGEV_OK), so we just need to clean it up
-    e = setPrintElements(std::to_string(clientPrintElements).c_str());
+    auto e = setPrintElementsL(clientPrintElements);
     FreeEvent(e);
 
+    directPrintRepeats = getDebuggerVarL("print repeats");
+        
     // also returns NewEvent(DBGEV_OK)
     e = setDebuggerVar("print repeats", "0");
     FreeEvent(e);

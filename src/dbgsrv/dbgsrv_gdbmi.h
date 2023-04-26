@@ -123,6 +123,9 @@ private:
                                    bool &isVerbose, size_t& numThreads);
     dbgevent_t*  initOmpd();
     bool initOmpdL();
+    dbgevent_t* setPrintElementsL(int elems);
+    int getPrintElementsL();
+    std::string getDebuggerVarL(const char* var);
 
     std::unique_ptr<Initializer> m_initializer;
     bool m_ompdIsInitialized;

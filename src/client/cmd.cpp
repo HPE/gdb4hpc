@@ -138,8 +138,12 @@ int Command::execute(dbgprocset_t *s, int argc, char *argv[]) {
                       m_fullName.c_str(), argv[1], m_fullName.c_str());
         return 0;
     }
-                      
-    auto rec_set = (m_ptype == proc_ignore ? nullptr :
+
+    // pass nullptr if the command is a proc_ignore command or if the passed procset
+    // doesn't have any processes in it. that can happen when the user is running commands
+    // before/after launching/killing any/all apps (the $all procset is passed in but is empty)
+    const auto pass_null_rec_set = (m_ptype == proc_ignore) || (s && s->s_nproc <= 0);
+    auto rec_set = (pass_null_rec_set ? nullptr :
                     CreateRecSetForProcset(s) // handles nullptr
                     );
 

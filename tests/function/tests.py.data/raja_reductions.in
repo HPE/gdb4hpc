@@ -1,0 +1,55 @@
+0: maint set sync on
+0: maint set unsafe on
+0: launch $a{1} ./bin/CRAY/raja/reductions_solution.x
+Starting application, please wait...
+Launched application...
+1/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0}: Initial breakpoint, main at /src/raja/reductions_solution.cpp:45
+0: break 130
+a{0}: Breakpoint 1: file /src/raja/reductions_solution.cpp, line 255.
+0: c
+<$a>:
+<$a>:
+<$a>: RAJA reductions example...
+<$a>:
+<$a>:  Running RAJA sequential reductions...
+<$a>:   sum = 1
+<$a>:   min = -100
+<$a>:   max = 100
+<$a>:   min, loc = -100 , 500000
+<$a>:   max, loc = 100 , 500001
+a{0}: Breakpoint 1, main(int, char**) at /src/raja/reductions_solution.cpp:255
+0: p seq_sum
+a{0}: {RAJA::reduce::detail::BaseReduceSum<int, RAJA::detail::ReduceSeq> = {RAJA::reduce::detail::BaseReduce<int, RAJA::reduce::sum, RAJA::detail::ReduceSeq> = {c = {RAJA::reduce::detail::BaseCombinable<int, RAJA::reduce::sum<int>, RAJA::detail::ReduceSeq<int, RAJA::reduce::sum<int> > > = {parent = (RAJA::reduce::detail::BaseCombinable<int, RAJA::reduce::sum<int>, RAJA::detail::ReduceSeq<int, RAJA::reduce::sum<int> > >*) 0x0, identity = 0, my_data = 1}}}}}
+0: p seq_sum.get()
+a{0}: 1
+0: p seq_min
+a{0}: {RAJA::reduce::detail::BaseReduceMin<int, RAJA::detail::ReduceSeq> = {RAJA::reduce::detail::BaseReduce<int, RAJA::reduce::min, RAJA::detail::ReduceSeq> = {c = {RAJA::reduce::detail::BaseCombinable<int, RAJA::reduce::min<int>, RAJA::detail::ReduceSeq<int, RAJA::reduce::min<int> > > = {parent = (RAJA::reduce::detail::BaseCombinable<int, RAJA::reduce::min<int>, RAJA::detail::ReduceSeq<int, RAJA::reduce::min<int> > >*) 0x0, identity = 2147483647, my_data = -100}}}}}
+0: p seq_min.get()
+a{0}: -100
+0: p seq_max
+a{0}: {RAJA::reduce::detail::BaseReduceMax<int, RAJA::detail::ReduceSeq> = {RAJA::reduce::detail::BaseReduce<int, RAJA::reduce::max, RAJA::detail::ReduceSeq> = {c = {RAJA::reduce::detail::BaseCombinable<int, RAJA::reduce::max<int>, RAJA::detail::ReduceSeq<int, RAJA::reduce::max<int> > > = {parent = (RAJA::reduce::detail::BaseCombinable<int, RAJA::reduce::max<int>, RAJA::detail::ReduceSeq<int, RAJA::reduce::max<int> > >*) 0x0, identity = -2147483648, my_data = 100}}}}}
+0: p seq_max.get()
+a{0}: 100
+0: p seq_minloc
+a{0}: {RAJA::reduce::detail::BaseReduceMinLoc<int, long, RAJA::detail::ReduceSeq> = {RAJA::reduce::detail::BaseReduce<RAJA::reduce::detail::ValueLoc<int, long, true>, RAJA::reduce::min, RAJA::detail::ReduceSeq> = {c = {RAJA::reduce::detail::BaseCombinable<RAJA::reduce::detail::ValueLoc<int, long, true>, RAJA::reduce::min<RAJA::reduce::detail::ValueLoc<int, long, true> >, RAJA::detail::ReduceSeq<RAJA::reduce::detail::ValueLoc<int, long, true>, RAJA::reduce::min<RAJA::reduce::detail::ValueLoc<int, long, true> > > > = {parent = (RAJA::reduce::detail::BaseCombinable<RAJA::reduce::detail::ValueLoc<int, long, true>, RAJA::reduce::min<RAJA::reduce::detail::ValueLoc<int, long, true> >, RAJA::detail::ReduceSeq<RAJA::reduce::detail::ValueLoc<int, long, true>, RAJA::reduce::min<RAJA::reduce::detail::ValueLoc<int, long, true> > > >*) 0x0, identity = {val = 2147483647, loc = -1}, my_data = {val = -100, loc = 500000}}}}}}
+0: p seq_minloc.get()
+a{0}: {val = -100, loc = 500000}
+0: p seq_minloc.getLoc()
+a{0}: 500000
+0: p a[seq_minloc.getLoc()]
+a{0}: -100
+0: p seq_maxloc
+a{0}: {RAJA::reduce::detail::BaseReduceMaxLoc<int, long, RAJA::detail::ReduceSeq> = {RAJA::reduce::detail::BaseReduce<RAJA::reduce::detail::ValueLoc<int, long, false>, RAJA::reduce::max, RAJA::detail::ReduceSeq> = {c = {RAJA::reduce::detail::BaseCombinable<RAJA::reduce::detail::ValueLoc<int, long, false>, RAJA::reduce::max<RAJA::reduce::detail::ValueLoc<int, long, false> >, RAJA::detail::ReduceSeq<RAJA::reduce::detail::ValueLoc<int, long, false>, RAJA::reduce::max<RAJA::reduce::detail::ValueLoc<int, long, false> > > > = {parent = (RAJA::reduce::detail::BaseCombinable<RAJA::reduce::detail::ValueLoc<int, long, false>, RAJA::reduce::max<RAJA::reduce::detail::ValueLoc<int, long, false> >, RAJA::detail::ReduceSeq<RAJA::reduce::detail::ValueLoc<int, long, false>, RAJA::reduce::max<RAJA::reduce::detail::ValueLoc<int, long, false> > > >*) 0x0, identity = {val = -2147483648, loc = -1}, my_data = {val = 100, loc = 500001}}}}}}
+0: p seq_maxloc.get()
+a{0}: {val = 100, loc = 500001}
+0: p seq_maxloc.getLoc()
+a{0}: 500001
+0: p a[seq_maxloc.getLoc()]
+a{0}: 100
+0: q
+Shutting down debugger and killing application for 'a'.

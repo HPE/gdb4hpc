@@ -422,6 +422,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/src/raja/view-layout_solution.cpp                         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/view-layout_solution.cpp
 %{__cp} -a %{tests_source_dir}/function/src/raja/kernel-matrix-transpose-local-array_solution.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/kernel-matrix-transpose-local-array_solution.cpp
 %{__cp} -a %{tests_source_dir}/function/src/raja/launch-matrix-transpose-local-array_solution.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/launch-matrix-transpose-local-array_solution.cpp
+%{__cp} -a %{tests_source_dir}/function/src/raja/reductions_solution.cpp                          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/reductions_solution.cpp
 
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_scalars.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_expressions.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
@@ -793,6 +794,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/view-layout_solution.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/kernel-matrix-transpose-local-array_solution.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/launch-matrix-transpose-local-array_solution.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/reductions_solution.cpp
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in

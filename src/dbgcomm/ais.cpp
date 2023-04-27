@@ -2064,7 +2064,7 @@ void ais::RajaView::parseL(InterpretStream& in, Writer& out) const {
 
 bool ais::RajaView::verboseDebug() {
     static const auto _enabled = [] {
-        return bool{::getenv("GDB4HPC_RAJA_VERBOSE_DEBUG")};
+        return (::getenv("GDB4HPC_RAJA_VERBOSE_DEBUG") != nullptr);
     }();
     return _enabled;
 }

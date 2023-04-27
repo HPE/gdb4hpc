@@ -205,7 +205,7 @@ LT_INIT
 
 AC_LANG([C++])
 m4_include([m4/ax_cxx_compile_stdcxx.m4])
-AX_CXX_COMPILE_STDCXX(17, noext, mandatory)
+AX_CXX_COMPILE_STDCXX(20, noext, mandatory)
 
 dnl Check for Cray's Parallel Environment
 if test "x$with_cray" != xno; then

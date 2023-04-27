@@ -82,7 +82,7 @@ std::string convertMiToCli(const std::string& cmdLine) {
     cli_set_prefix(tag);
 
     if (auto loc = return_cmd_map.find(cmd); loc != return_cmd_map.end()) {
-        if (args.empty() || (loc->second.rfind("ok",0)==0)) return loc->second;
+        if (args.empty() || loc->second.starts_with("ok")) return loc->second;
         else return loc->second + " " + args;
     } else if (auto loc = func_cmd_map.find(cmd); loc != func_cmd_map.end()) {
         return (*loc->second)(args.c_str());

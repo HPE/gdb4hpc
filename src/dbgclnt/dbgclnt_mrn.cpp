@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -232,9 +232,7 @@ void MRNClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     }
 }
 
-int MRNClientProtocol::attach(DbgInvoke *di,
-    const char *app_ident, const char *arch, const char *backend,
-    const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag) {
+int MRNClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
     char *root = nullptr;
     char *cfg_dir;
     char topology_name[MAXPATHLEN];
@@ -254,13 +252,15 @@ int MRNClientProtocol::attach(DbgInvoke *di,
     auto argv = ArgvStream{};
     int event_fd;
     int *ev_fd_ptr;
-    int dbg = debug_flag;
+    int dbg = opts.debug_flag;
     char **machine_hosts = nullptr;
     char **tmp;
     cti_manifest_id_t mid;
     cti_session_id_t sid;
     char *env_base_dir = nullptr;
     std::optional<std::string> serverGdb = {};
+    auto arch = opts.arch.c_str();
+    auto backend = opts.backend.c_str();
     
 #ifdef DEBUG
     dbg = 1;
@@ -317,7 +317,7 @@ int MRNClientProtocol::attach(DbgInvoke *di,
     DPERFLOG(SetTimerStart("Attach total"));
 #endif /* PERFLOG */
 
-    if (di->setAppId(parseAndRegisterAppId(app_ident)); di->appId() == 0) {
+    if (di->setAppId(parseAndRegisterAppId(opts.app_ident.c_str())); di->appId() == 0) {
         PrintOutError("Failed to parse appid.\n");
         goto attach_error;
     }
@@ -350,7 +350,7 @@ int MRNClientProtocol::attach(DbgInvoke *di,
     }
 
     // first add gdb-guard to manifest
-    serverGdb = shipGdb(mid, gdb);
+    serverGdb = shipGdb(mid, opts.gdb);
     if (!serverGdb) {
         PrintOutError("Error shipping gdb.\n");
         goto attach_error;
@@ -358,12 +358,12 @@ int MRNClientProtocol::attach(DbgInvoke *di,
 
     // This checks the setting of gpu_flag to figure out if cuda-gdb and rocgdb
     // sent over
-    if (gpu_flag && !gdb) {
+    if (opts.gpu_flag && opts.gdb.empty()) {
         if (!shipGpuGdbs(mid))
             goto attach_error;
     }
 
-    if (!shipCommonFiles(mid, gpu_flag)) {
+    if (!shipCommonFiles(mid, opts.gpu_flag)) {
         PrintOutError("Error shipping comming files.\n");
         goto attach_error;
     }
@@ -490,26 +490,26 @@ OMPD support will not be available.\n");
     // first create the argv for dbgsrv_alps
     // This now also depends on gpu_flag
     if (dbg) {
-        if (gpu_flag) {
+        if (opts.gpu_flag) {
             argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->proto().name(), "-e", backend, "--gpu",
-                         "--debug");
+                              di->proto().name(), "-e", backend, "--gpu",
+                              "--debug");
         } else {
             argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->proto().name(), "-e", backend, "--debug");
+                              di->proto().name(), "-e", backend, "--debug");
         }
     } else {
-        if (gpu_flag) {
+        if (opts.gpu_flag) {
             argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                         di->proto().name(), "-e", backend, "--gpu");
+                              di->proto().name(), "-e", backend, "--gpu");
         } else {
             argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
                          di->proto().name(), "-e", backend);
         }
     }
 
-    if (gdb && serverGdb) argv << "--gdb" << *serverGdb;
-    if (vgdb_file) argv << "--vgdb-command-file" << vgdb_file;
+    if (!opts.gdb.empty() && serverGdb) argv << "--gdb" << *serverGdb;
+    if (!opts.vgdb_file.empty()) argv << "--vgdb-command-file" << opts.vgdb_file;
 
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n\t%s\n", argv.asString().c_str());

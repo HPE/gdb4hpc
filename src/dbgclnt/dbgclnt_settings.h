@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 #pragma once
 
@@ -22,7 +22,7 @@ struct MockClientSettings : public ClientSettingsInterface {
     std::string getProto() override { return "mock_zmqnet"; }
     std::string getArch() override { return "mock_alps"; }
     std::string getBackend() override { return "mock_gdbmi"; }
-    // these should be opposite to the defaults of DbgInvoke::LaunchOpts for testing
+    // these should be opposite to the defaults of LaunchOpts for testing
     bool isUnsafe() override { return false; }
     bool isEarlyEntry() override { return true; }
     bool isNonStop() override { return true; }

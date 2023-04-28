@@ -1473,17 +1473,15 @@ void DbgFinalize(void) {
 ** Attach to running program.
 ** Returns name of newly created di or "" on failure.
 */
-DbgInvoke::Handle DbgAttach(const char *proto, const char *name,
-    const char *app_ident, const char *arch, const char *backend,
-    const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag) {
-    DebugClientProtocol * const ptab = findClientProtoByName(proto);
+DbgInvoke::Handle DbgAttach(const std::string& name, const AttachOpts& opts) {
+    DebugClientProtocol * const ptab = findClientProtoByName(opts.proto.c_str());
 
     if (ptab == nullptr) {
-        PrintOutError("No such protocol \"%s\"\n", proto);
+        PrintOutError("No such protocol \"%s\"\n", opts.proto.c_str());
         return nullptr;
     }
 
-    if (name == nullptr) {
+    if (name.empty()) {
         PrintOutError("Empty di name\n");
     }
 
@@ -1491,7 +1489,7 @@ DbgInvoke::Handle DbgAttach(const char *proto, const char *name,
     // is the attach case
     auto di = std::make_unique<DbgInvoke>(DbgInvoke::ProcessType::Attached, 0, *ptab);
 
-    if (ptab->attach(di.get(), app_ident, arch, backend, gdb, vgdb_file, gpu_flag, debug_flag)) {
+    if (ptab->attach(di.get(), opts)) {
         return nullptr;
     }
 
@@ -1514,7 +1512,7 @@ DbgInvoke::Handle DbgAttach(const char *proto, const char *name,
 /*
 ** Launch user program.
 */
-DbgInvoke::Handle DbgLaunch(const char* name, int nproc, DbgInvoke::LaunchOpts&& args) {
+DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
     DebugClientProtocol * const ptab = findClientProtoByName(args.proto_name.c_str());
     dbgevent_t *e;
 

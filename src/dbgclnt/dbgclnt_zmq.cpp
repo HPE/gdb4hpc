@@ -1,5 +1,5 @@
 /******************************************************************************\
- * Copyright 2021-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2021-2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #include <future>
@@ -178,33 +178,30 @@ void ZMQNetClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
     }
 }
 
-int ZMQNetClientProtocol::attach(DbgInvoke *di,
-    const char *app_ident, const char *arch, const char *backend,
-    const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag) {
+int ZMQNetClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
     LOG("%s\n", __PRETTY_FUNCTION__);
     // ZMQNetNetwork::OutputPtr is too many aliases deep to be implicitly
     // convertable from a nullptr, so we'll just make a dummy one to pass.
     auto dummyOutput = ZMQNetNetwork::OutputPtr(nullptr, DbgFreeGenericProgOutp);
 
-    return internalAttach(di, nullptr, app_ident, 0, std::move(dummyOutput),
-                   arch, backend, gdb, vgdb_file, gpu_flag, debug_flag, 0, false, false);
+    return internalAttach(di, nullptr, 0, std::move(dummyOutput), opts,
+                          0, false, false);
 }
 
 int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
-    const char *prog, const char *app_ident, uint64_t appid, ZMQNetNetwork::OutputPtr &&output,
-    const char *arch, const char *backend, const char *gdb, const char *vgdb_file,
-    int gpu_flag, int debug_flag, int early_entry_flag, bool isNonStop, bool isNonMpi)
+    const char *prog, uint64_t appid, ZMQNetNetwork::OutputPtr &&output,
+    const AttachOpts& opts, int early_entry_flag, bool isNonStop, bool isNonMpi)
 {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     // figure out our appid
     if (appid != 0) {
         di->setAppId(appid);
-    } else if (app_ident == nullptr) {
+    } else if (opts.app_ident.empty()) {
         PrintOutError("Can't parse appid from nullptr.\n");
         return 1;
     } else {
-        di->setAppId(parseAndRegisterAppId(app_ident));
+        di->setAppId(parseAndRegisterAppId(opts.app_ident.c_str()));
         if (di->appId() == 0) {
             PrintOutError("Failed to parse appid.\n");
             return 1;
@@ -236,19 +233,19 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
         return 1;
     }
 
-    auto serverGdb = shipGdb(manifest_id, gdb);
+    auto serverGdb = shipGdb(manifest_id, opts.gdb);
     if (!serverGdb) {
         PrintOutError("Error shipping gdb.\n");
         return 1;
     }
 
-    if (gpu_flag && !gdb && !shipGpuGdbs(manifest_id)) {
+    if (opts.gpu_flag && opts.gdb.empty() && !shipGpuGdbs(manifest_id)) {
         PrintOutError("Error shipping gpu gdbs.\n");
         return 1;
     }
 
     // dbgsrv is shipped here
-    if (!shipCommonFiles(manifest_id, gpu_flag)) {
+    if (!shipCommonFiles(manifest_id, opts.gpu_flag)) {
         PrintOutError("Error shipping common files.\n");
         return 1;
     }
@@ -273,18 +270,18 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
         "dbgsrv",
         "-h", "zmq",   // meaningless for zmqnet, but required to be non-null by dbgsrv
         "-c", "1",     // meaningless for zmqnet, but required to be non-zero by dbgsrv
-        "-a", arch,
+        "-a", opts.arch.c_str(),
         "-p", "zmqnet",
-        "-e", backend
+        "-e", opts.backend.c_str()
     );
     if (prog)             dbgsrvArgs << "-f" << prog;
-    if (gpu_flag)         dbgsrvArgs << "--gpu";
-    if (debug_flag)       dbgsrvArgs << "--debug";
+    if (opts.gpu_flag)    dbgsrvArgs << "--gpu";
+    if (opts.debug_flag)  dbgsrvArgs << "--debug";
     if (early_entry_flag) dbgsrvArgs << "--early-entry";
     if (isNonStop)        dbgsrvArgs << "--non-stop";
     if (isNonMpi)         dbgsrvArgs << "--non-mpi";
-    if (gdb && serverGdb) dbgsrvArgs << "--gdb" << *serverGdb;
-    if (vgdb_file)        dbgsrvArgs << "--vgdb-command-file" << vgdb_file;
+    if (!opts.gdb.empty() && serverGdb) dbgsrvArgs << "--gdb" << *serverGdb;
+    if (!opts.vgdb_file.empty()) dbgsrvArgs << "--vgdb-command-file" << opts.vgdb_file;
 
 #if DEBUG
     LOG("zmqnet argv:\n");
@@ -391,10 +388,16 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
 
     PrintOutMsg("Launched application...\n");
 
+    auto opts = AttachOpts{.arch = arch,
+                           .backend = backend,
+                           .gdb = (gdb ? gdb : ""),
+                           .gpu_flag = bool(gpu_flag),
+                           .debug_flag = bool(debug_flag) };
+                            
+
     // attach to launched application
-    if (internalAttach(di, prog, nullptr, di->appId(), std::move(output), arch, backend,
-                       gdb, /* no VGDB file */ nullptr,
-                       gpu_flag, debug_flag, early_entry_flag, isNonStop, non_mpi_flag)) {
+    if (internalAttach(di, prog, di->appId(), std::move(output), opts,
+                       early_entry_flag, isNonStop, non_mpi_flag)) {
         PrintOutError("Failed to attach to application. Cleaning up...\n");
 
         if (di->appId() != 0) {

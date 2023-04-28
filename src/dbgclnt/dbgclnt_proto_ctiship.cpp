@@ -1,5 +1,5 @@
 /******************************************************************************\
- * Copyright 2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2021-2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
 #include "dbgclnt_proto_ctiship.h"
@@ -8,12 +8,13 @@
 
 #include <filesystem>
 
-std::optional<std::string> shipGdb(cti_manifest_id_t manifest, const char *gdb) {
+std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
+                                   const std::string& gdb) {
     auto serverGdb = std::string{"gdb-guard"};
 
     // user can specify a custom gdb binary and a (full path) datadir
-    if (gdb) {
-        auto gdbBin = std::string{gdb};
+    if (!gdb.empty()) {
+        auto gdbBin = gdb;
         auto colon = gdbBin.find(':');
         auto dataDir = std::string{};
         if (colon != std::string::npos) {

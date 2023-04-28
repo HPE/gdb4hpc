@@ -1,5 +1,5 @@
 /******************************************************************************\
- * Copyright 2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2021-2023 Hewlett Packard Enterprise Development LP.
  * 
  * Helper functions for shipping files common to all protocols via CTI
  ******************************************************************************/
@@ -13,7 +13,7 @@
 
 // ship gdb-guard, or custom gdb-guard if *gdb is not nullptr
 // returns name of binary to give to dbgsrv as --gdb option, or std::nullopt on error
-std::optional<std::string> shipGdb(cti_manifest_id_t manifest, const char *gdb);
+std::optional<std::string> shipGdb(cti_manifest_id_t manifest, const std::string& gdb);
 // ship gpu specific gdbs
 bool shipGpuGdbs(cti_manifest_id_t manifest);
 // ship ompd related files

@@ -17,9 +17,7 @@ public:
 
     const char* name() const override { return "zmqnet"; };
 
-    int attach(DbgInvoke *di,
-        const char *app_ident, const char *arch, const char *backend, const char* vgdb_file,
-        const char* gdb, int gpu_flag, int debug_flag) override;
+    int attach(DbgInvoke *di, const AttachOpts& opts) override;
 
     int launch(DbgInvoke *di,
         const char *prog, const char * const *argv,
@@ -45,11 +43,11 @@ public:
 private:
     // separate attach function so we can reuse its attach functionality within the launch function
     int internalAttach(DbgInvoke *di, const char *prog,
-                const char *app_ident, uint64_t appid,
-                ZMQNetNetwork::OutputPtr &&output, const char *arch,
-                const char *backend, const char* vgdb_file, const char *gdb, int gpu_flag,
-                int debug_flag, int early_entry_flag, bool isNonStop,
-                bool isNonMpi);
+                       uint64_t appid,
+                       ZMQNetNetwork::OutputPtr &&output,
+                       const AttachOpts& opts,
+                       int early_entry_flag, bool isNonStop,
+                       bool isNonMpi);
 };
 
 // called once by registerProtos

@@ -1,5 +1,5 @@
 /******************************************************************************\
- * Copyright 2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2023 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 #include "dbginvoke.h"
 #include "dbgclnt_proto.h"
@@ -104,7 +104,7 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
         const char* const argv[] = {};
         auto csi = MockClientSettings();
 
-        CHECK_THROWS(DbgInvoke::LaunchOpts(0, argv, csi));
+        CHECK_THROWS(LaunchOpts(0, argv, csi));
     }
 
     SUBCASE("Settings from global client settings") {
@@ -112,7 +112,7 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
             "launch", "$a{1}", "/tmp/c_inc",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         CHECK(opts.unsafe_flag == false);
         CHECK(opts.non_stop_flag == true);
@@ -134,7 +134,7 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
             "--sbatch=/tmp/fake_sbatch",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         CHECK(opts.launcher_argv[0] == "/tmp/fake_mpiexec");
         CHECK(opts.input_file_path == "/tmp/fake_input");
@@ -159,7 +159,7 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
             "-s", "\"/tmp/fake sbatch\"",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         // quotes should be removed
         CHECK(opts.launcher_argv[0] == "/tmp/fake mpiexec");
@@ -176,7 +176,7 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
             "--gpu", "--non-mpi", "--debug", "--workdir",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         CHECK(opts.gpu_flag == true);
         CHECK(opts.non_mpi_flag == true);
@@ -191,7 +191,7 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
             "--launcher-args=\"-n3 -N1 --exclusive \"multi word arg\"\"",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         REQUIRE(opts.launcher_argv.argc() == 5);
         CHECK(opts.launcher_argv[0] == "/tmp/fake_mpiexec");
@@ -207,7 +207,7 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
             "--args=\"input_file output_file 44 \"multi word arg\"\"",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         REQUIRE(opts.app_argv.argc() == 5);
         REQUIRE(opts.run_argv.argc() == 5);
@@ -257,7 +257,7 @@ TEST_CASE("DbgInvoke: LaunchArgs enforceValid() validates that files are present
             "--workdir", "--gdb=unittest_gdb",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         using path = std::filesystem::path;
 
@@ -290,7 +290,7 @@ TEST_CASE("DbgInvoke: launch args enforceValid replaces relative paths with full
             "--sbatch=./mockfs/unittest_txt",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         using path = std::filesystem::path;
 
@@ -319,7 +319,7 @@ TEST_CASE("DbgInvoke: LaunchArgs --gdb=/path/to/gdb:/path/to/datadir") {
             "--gdb=./mockfs/unittest_gdb:./mockfs",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         using path = std::filesystem::path;
 
@@ -343,7 +343,7 @@ TEST_CASE("DbgInvoke: LaunchArgs --gdb=/path/to/gdb: edge case") {
             "--gdb=./mockfs/unittest_gdb:",
         };
         auto csi = MockClientSettings();
-        auto opts = DbgInvoke::LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         using path = std::filesystem::path;
 
@@ -559,8 +559,8 @@ void DbgInvoke::destroyProtoOutput() {
     m_proto_outp = nullptr;
 }
 
-const DbgInvoke::LaunchOpts& DbgInvoke::launchOptions() const { return m_launch_opts; }
-DbgInvoke::LaunchOpts& DbgInvoke::launchOptions() { return m_launch_opts; }
+const LaunchOpts& DbgInvoke::launchOptions() const { return m_launch_opts; }
+LaunchOpts& DbgInvoke::launchOptions() { return m_launch_opts; }
 
 DebugClientProtocol& DbgInvoke::proto() { return m_proto; }
 
@@ -641,7 +641,7 @@ DbgInvoke* DbgInvoke::Handle::lock() const {
     return m_ptr.lock().get();
 }
 
-DbgInvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsInterface& csi) {
+LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsInterface& csi) {
     if (argc < 3) {
         throw std::runtime_error("Not enough command arguments.\nExpected: launch $handle ./program <args>");
     }
@@ -843,7 +843,7 @@ DbgInvoke::LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], Clien
     backend_name = csi.getBackend();
 }
 
-void DbgInvoke::LaunchOpts::enforceValid() {
+void LaunchOpts::enforceValid() {
     namespace fs = std::filesystem;
     using namespace std::string_literals;
 

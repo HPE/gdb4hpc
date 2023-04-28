@@ -4,7 +4,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2014,2020-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -65,9 +65,7 @@ public:
     // functions required by every derived class:
     virtual const char* name() const = 0;
 
-    virtual int attach(DbgInvoke *di,
-        const char *app_ident, const char *arch, const char *backend,
-        const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag) = 0;
+    virtual int attach(DbgInvoke *di, const AttachOpts& opts) = 0;
 
     virtual int launch(DbgInvoke *di,
         const char *prog, const char * const *argv,

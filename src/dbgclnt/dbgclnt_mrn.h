@@ -29,9 +29,7 @@ public:
 
     const char* name() const override { return "mrnet"; };
 
-    int attach(DbgInvoke *di,
-        const char *app_ident, const char *arch, const char *backend,
-        const char *gdb, const char *vgdb_file, int gpu_flag, int debug_flag) override;
+    int attach(DbgInvoke *di, const AttachOpts& opts) override;
 
     int launch(DbgInvoke *di,
         const char *prog, const char * const *argv,

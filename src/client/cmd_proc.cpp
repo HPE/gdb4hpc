@@ -37,12 +37,10 @@
 #include "gram.h"
 extern dbgprocset_t *CreateProcSetForInvoke(const std::string& name);
 
-static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& opts);
+static dbgprocset_t* DoLaunch(LaunchOpts&& opts);
 static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* procset, const char* cloneName);
 static int DoRelaunch(dbgprocset_t* procset, const char* cloneName);
-static int DoAttach(const char *proto, dbgprocset_t *ps,
-                    const char *app_ident, const char *arch, const char *backend,
-                    const char* gdb, const char *vgdb_file, bool gpu_flag, bool debug_flag);
+static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts);
 static void ReleaseProc(dbgprocset_t *, DbgQuitType);
 
 static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *group);
@@ -170,7 +168,7 @@ static dbgprocset_t* getNewProcSet(const std::string& procName) {
 static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
     try {
         // throws if arguments are malformed
-        auto args = DbgInvoke::LaunchOpts(argc, argv, Client);
+        auto args = LaunchOpts(argc, argv, Client);
         args.enforceValid();
         return DoLaunch(std::move(args)) ? 1 : 0;
     } catch (const std::runtime_error& e) {
@@ -183,7 +181,7 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
 ** Invoke helper routine. Invoke one or more processes.
 ** Note that the invoke process always operates synchronously.
 */
-static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
+static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
     rec_set_t *rec_set = nullptr;
     rep_set_t *rep_set = nullptr;
     rep_set_t *quit_rep = nullptr;
@@ -250,12 +248,16 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
                 throw std::runtime_error(cti_error_str());
             }
 
+            auto attachOpts = AttachOpts{.proto = Client.proto,
+                                         .app_ident = pbs_job_id,
+                                         .arch = Client.arch,
+                                         .backend = Client.backend,
+                                         .gdb = args.gdb_path,
+                                         .gpu_flag = args.gpu_flag,
+                                         .debug_flag = args.debug_flag };
+
             // Attach to submitted job
-            if (newHandle = DbgAttach(Client.proto, ps->s_name.c_str(), pbs_job_id,
-                     Client.arch, Client.backend,
-                     args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
-                     /* no VGDB command */ nullptr,
-                     args.gpu_flag, args.debug_flag); !newHandle.lock()) {
+            if (newHandle = DbgAttach(ps->s_name.c_str(), attachOpts); !newHandle.lock()) {
                 PrintOutError("Failed to attach to PBS job ID %s\n", pbs_job_id);
                 free(pbs_job_id);
                 return exitWithFailure();
@@ -297,25 +299,30 @@ static dbgprocset_t* DoLaunch(DbgInvoke::LaunchOpts&& args) {
             // Submit sbatch script and get Slurm job / step ID
             auto launcherArgs = args.launcher_argv.c_strs(1);
             auto envList = args.env.c_strs(0);
-            auto slurm_job_step_id = ops->submitBatchScript(args.sbatch_file_path.c_str(),
-                launcherArgs.data(), envList.data());
-            if (slurm_job_step_id == nullptr) {
+            auto slurmJobStep = std::string{};
+            if (auto slurm_job_step_id = ops->submitBatchScript(args.sbatch_file_path.c_str(),
+                                                                launcherArgs.data(),
+                                                                envList.data())) {
+                slurmJobStep =  std::to_string(slurm_job_step_id->jobid) + "."
+                    + std::to_string(slurm_job_step_id->stepid);
+                free(slurm_job_step_id);
+                
+            } else {
                 throw std::runtime_error(cti_error_str());
             }
-            auto slurmJobStepStr = std::to_string(slurm_job_step_id->jobid) + "."
-                + std::to_string(slurm_job_step_id->stepid);
+
+            auto attachOpts = AttachOpts{.proto = Client.proto,
+                                         .app_ident = slurmJobStep,
+                                         .backend = Client.backend,
+                                         .gdb = args.gdb_path,
+                                         .gpu_flag = args.gpu_flag,
+                                         .debug_flag = args.debug_flag };
 
             // Attach to submitted job
-            if (newHandle = DbgAttach(Client.proto, ps->s_name.c_str(), slurmJobStepStr.c_str(),
-                  Client.arch, Client.backend, /* no VGDB command */ nullptr,
-                  args.gdb_path.empty() ? nullptr : args.gdb_path.c_str(),
-                  args.gpu_flag, args.debug_flag); !newHandle.lock()) {
-                PrintOutError("Failed to attach to Slurm job ID %s\n", slurmJobStepStr.c_str());
-                free(slurm_job_step_id);
+            if (newHandle = DbgAttach(ps->s_name.c_str(), attachOpts); !newHandle.lock()) {
+                PrintOutError("Failed to attach to Slurm job ID %s\n", slurmJobStep.c_str());
                 return exitWithFailure();
             }
-
-            free(slurm_job_step_id);
 
         } catch (std::exception const& ex) {
             PrintOutError("Failed to submit Slurm batch file %s: %s\n",
@@ -454,7 +461,7 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         return nullptr;
     }
 
-    auto newArgs = DbgInvoke::LaunchOpts(oldDi->launchOptions());
+    auto newArgs = LaunchOpts(oldDi->launchOptions());
     newArgs.procset_name = (cloneName ? cloneName : "$tmp_clone");
     newArgs.procset_name += "{" + std::to_string(oldProcset->s_nproc) + "}";
 
@@ -648,11 +655,6 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
 ** attach $proc apid [--gpu] [--debug] [--vgdb]
 */
 static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    dbgprocset_t *ps;
-    char *app_ident;
-    const char *arch = Client.arch;
-    const char *proto = Client.proto;
-    const char *backend = Client.backend;
     int opt_ind = 0;
     int opt;
 
@@ -680,8 +682,16 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         {0, 0, 0, 0}
     };
 
-    char* custom_gdb = nullptr;
-    char* vgdb_file = nullptr;
+    if (!Client.proto) {
+        PrintOutError("Must specify a protocol.\n");
+        return 0;
+    }
+
+
+    auto opts = AttachOpts{ .proto = Client.proto,
+                            .arch = Client.arch,
+                            .backend = Client.backend };
+    
     while ((opt = getopt_long(argc, argv, "", attach_long_opts, &opt_ind)) !=
            -1) {
         switch (opt) {
@@ -689,15 +699,17 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 // if this is a flag, do nothing
                 break;
             case 'b':
-                custom_gdb = pathFind(optarg,nullptr);
-                if (!custom_gdb) {
+                if (auto custom_gdb = pathFind(optarg,nullptr)) {
+                    opts.gdb = custom_gdb;
+                    free(custom_gdb);
+                } else {
                     PrintOutError("Could not find %s in $PATH.\n", optarg);
                     return 0;
                 }
                 break;
 
             case 'v':
-                vgdb_file = strdup(optarg);
+                opts.vgdb_file = optarg;
                 break;
 
             default:
@@ -707,6 +719,9 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 return 0;
         }
     }
+
+    opts.gpu_flag = gpu_flag;
+    opts.debug_flag = debug_flag;
 
     if (Client.MI_mode){
         if (argc - optind != 1) {
@@ -726,42 +741,21 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // parse the non-option arguments
-    if (Client.MI_mode){
-        //temporary name for proc set
-        if ((ps = getNewProcSet("$a")) == NULL) {
-            return 0;
-        }
-    }else{
-        // The first argument should be the name of the process set
-        if ((ps = getNewProcSet(argv[optind++])) == NULL) {
-            return 0;
-        }
-    }
-    app_ident = strdup(argv[optind++]);
-
-    // Verify that the arguments are correct
-
-    if (proto == NULL) {
-        PrintOutError("Must specify a protocol.\n");
-        Free(app_ident);
+    const auto* psName = (Client.MI_mode ? "$a" : argv[optind++]);
+    dbgprocset_t *ps = getNewProcSet(psName);
+    if (!ps) {
         return 0;
     }
 
-    if (!DoAttach(proto, ps, app_ident, arch, backend,
-        custom_gdb, vgdb_file, gpu_flag, debug_flag)) {
+    opts.app_ident = argv[optind++];
+
+    if (!DoAttach(ps, opts)) {
         // If XML mode is enabled, we want to print out a removed message.
         if (Client.XML_mode) {
             XMLPrintRemovedMsg(ps->s_name.c_str());
         }
-        Free(app_ident);
-        free(custom_gdb);
-        free(vgdb_file);
         return 0;
     }
-
-    Free(app_ident);
-    free(custom_gdb);
-    free(vgdb_file);
 
     return 1;
 }
@@ -770,17 +764,14 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 ** Invoke helper routine. Invoke one or more processes.
 ** Note that the attach process always operates synchronously.
 */
-static int DoAttach(const char *proto, dbgprocset_t *ps,
-                    const char *app_ident, const char *arch, const char *backend,
-                    const char* gdb, const char *vgdb_file, bool gpu_flag, bool debug_flag) {
+static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     dbgframe_t *fp;
     rec_set_t *rec_set;
     rep_set_t *rep_set;
     rep_set_t *quit_rep;
 
     // Note that we are reusing the invoke callback.
-    auto newHandle = DbgAttach(proto, ps->s_name.c_str(), app_ident, arch, backend,
-        gdb, vgdb_file, gpu_flag, debug_flag);
+    auto newHandle = DbgAttach(ps->s_name.c_str(), opts);
 
     if (!newHandle.lock()) {
         PrintOutError("Could not attach to application: %s\n",

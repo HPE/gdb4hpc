@@ -115,9 +115,9 @@ static void usage(char *name) {
 }
 
 static void Banner(void) {
-    PrintOutMsg("gdb4hpc %s - Cray Line Mode Parallel Debugger\n", GUARD_VERSION);
+    PrintOutMsg("gdb4hpc %s - Cray Interactive Parallel Debugger\n", GUARD_VERSION);
     PrintOutMsg("With Cray Comparative Debugging Technology.\n");
-    PrintOutMsg("Copyright 2007-2022 Hewlett Packard Enterprise Development LP.\n");
+    PrintOutMsg("Copyright 2007-2023 Hewlett Packard Enterprise Development LP.\n");
     PrintOutMsg(
         "Copyright 1996-2016 University of Queensland. All Rights Reserved.\n");
     PrintOutMsg("\n");

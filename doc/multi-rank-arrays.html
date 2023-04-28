@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Decompositions : treating distributed data as a single array</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="data:text/css,table%20%7B%0Amargin%2Dleft%3A%20auto%3B%0Amargin%2Dright%3A%20auto%3B%0Amargin%2Dbottom%3A%2024px%3B%0Aborder%2Dspacing%3A%200%3B%0Aborder%2Dbottom%3A%202px%20solid%20black%3B%0Aborder%2Dtop%3A%202px%20solid%20black%3B%0A%7D%0Atable%20th%20%7B%0Apadding%3A%203px%2010px%3B%0Abackground%2Dcolor%3A%20white%3B%0Aborder%2Dtop%3A%20none%3B%0Aborder%2Dleft%3A%201px%20solid%20black%3B%0Aborder%2Dright%3A%201px%20solid%20black%3B%0Aborder%2Dbottom%3A%201px%20solid%20black%3B%0A%7D%0Atable%20td%20%7B%0Apadding%3A%203px%2010px%3B%0Aborder%2Dtop%3A%20none%3B%0Aborder%2Dleft%3A%201px%20solid%20black%3B%0Aborder%2Dbottom%3A%20none%3B%0Aborder%2Dright%3A%201px%20solid%20black%3B%0A%7D%0A" />
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Decompositions : treating distributed data as a single array</h1>
+</header>
+<h1 id="motivation">Motivation</h1>
+<p>Commonly in multi-process programming a single conceptual array is parceled out so that each process stores a portion of the array. In a simple case a 100K element array is divided across 100 ranks and rank 0 has elements 0 to 999, rank 1 has elements 1000 to 1999, etc.</p>
+<p>The <strong>decomposition</strong> tool in gdb4hpc lets you define a named mapping so you treat it like a single giant array.</p>
+<p>Decompositions are a flexible tool that lets you:</p>
+<ul>
+<li><p>Work with data tiles across multiple ranks</p></li>
+<li><p>Transform data into an array or table with the rank as one dimension</p></li>
+<li><p>Define the shape and size of a C/C++ array</p></li>
+</ul>
+<h1 id="tiled-data">Tiled data</h1>
+<h2 id="one-d-block-decomposition">One D block decomposition</h2>
+<p>So for the first case, say you are running on 100 ranks that each work on 1,000 elements. You can define a decomposition like this:</p>
+<pre><code>dbg all&gt; decomp $d 100000/100
+dbg all&gt;</code></pre>
+<p>Here “$d” is the name of decomposition, “100000” is the dimension of the full array, and “/100” indicates it’s using a <strong>block decomposition</strong> over 100 ranks.</p>
+<p>If the array of interest is <code>my_array</code> then you get the composed view by using it like a function:</p>
+<pre><code>dbg all&gt; p $d{my_array}
+... one really long array...</code></pre>
+<p>Note that gdb4hpc use curly brackets instead of parentheses to avoid clashing with program expressions.</p>
+<p>For the sake of illustration, we’ll use something a lot smaller:</p>
+<pre><code>dbg all&gt; p block
+a{0}: {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39}
+a{1}: {40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79}
+a{2}: {80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119}
+dbg all&gt; decomp $d3 120/3
+dbg all&gt; p $d3{block}
+{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119}
+dbg all&gt;</code></pre>
+<p>And you can use the expression <code>$d3{block}</code> like a regular array, so:</p>
+<pre><code>dbg all&gt; p $d3{block}[81]
+81
+dbg all&gt; p $d3{block}[38..47]
+{38,39,40,41,42,43,44,45,46,47}
+dbg all&gt; pipe p/1 $d3{$a::block} | grep -n &#39;^107$&#39;
+108:107</code></pre>
+<p>If we launch the same application running on four ranks, and stop at the same place:</p>
+<pre><code>dbg all&gt; decomp $d4 120/4
+dbg all&gt; compare $d3{$a::block} == $d4{$b::block}
+Comparison is true.</code></pre>
+<p>Which was one of the original use cases. See the “handling-arrays” guide for more tools for working with array data.</p>
+<h2 id="types-of-decompositions">Types of decompositions</h2>
+<p>gdb4hpc doesn’t yet try to handle every possible way a program might divvy up its data, but it does try to handle some common cases.</p>
+<h3 id="block-decomposition">Block decomposition</h3>
+<p>Indicated by <code>size / num_ranks</code> the array is broken into equal sized blocks. Mnemonically, <code>rank(idx) = idx / elems_per_rank</code>.</p>
+<table>
+<caption><strong>decomp $d 12 / 3</strong></caption>
+<thead>
+<tr class="header">
+<th>rank 0</th>
+<th>rank 1</th>
+<th>rank 2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>[0,1,2,3]</td>
+<td>[4,5,6,7]</td>
+<td>[8,9,10,11]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="cyclic-decomposition">Cyclic decomposition</h3>
+<p>In cyclic decomposition, the elements are assigned round-robin, so array[0] is on rank 0, array[1] on rank 1, etc. until array[num_ranks] is again on rank 0.</p>
+<p>This is indicated by the format <code>size % num_ranks</code>, with the mnemonic that <code>rank(idx) = idx % num_ranks</code>.</p>
+<table>
+<caption><strong>decomp $d 12 % 3</strong></caption>
+<thead>
+<tr class="header">
+<th>rank 0</th>
+<th>rank 1</th>
+<th>rank 2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>[0,3,6,9]</td>
+<td>[1,4,7,10]</td>
+<td>[2,5,8,11]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="block-cyclic-decomposition">Block cyclic decomposition</h3>
+<p>In this case, the data parceled out round-robin, but in chunks of a fixed size. It’s indicated by the form: <code>size / num_ranks % block_size</code>.</p>
+<p>Here’s an example: <code>decomp $bc 120/6%5</code> It cycles over the 6 ranks using chunks of 5 elements each. So rank 0 has the elements (0,1,2,3,4,30,31,32,33,34,60,61,62,63,64,90,91,92,93,94).</p>
+<p>So <code>rank(idx) = (idx / block_size) % num_ranks</code>.</p>
+<table>
+<caption><strong>decomp $d 12 / 3 % 2</strong></caption>
+<thead>
+<tr class="header">
+<th>rank 0</th>
+<th>rank 1</th>
+<th>rank 2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>[0,1,6,7]</td>
+<td>[2,3,8,9]</td>
+<td>[4,5,10,11]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="distributed">Distributed</h3>
+<p>This is just an array that is not split up, and is just represented by a simple integer. To anticipate the next sections, it’s used for multi-dimension data and for artificially shaping data.</p>
+<h2 id="multi-dimension-arrays">Multi-dimension arrays</h2>
+<p>The decomposition is not limited to a single dimension, a decomposition can cover a full n-dimensional array where each dimension is decomposed independently.</p>
+<p>Syntactically, this just means the decomposition definition is a comma separated list:</p>
+<pre><code>decomp $d2 1000/10, 1000</code></pre>
+<p>Defines a 1000x1000 array which is broken into 10 100 x 1000 arrays.</p>
+<p>Here’s the arrangement of data in a much smaller example:</p>
+<table>
+<caption><strong>decomp $d 6/3, 2</strong></caption>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">rank 0</th>
+<th style="text-align: center;">rank 1</th>
+<th style="text-align: center;">rank 2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">{[0][0],[0][1],[1][0],[1][1]}</td>
+<td style="text-align: center;">{[2][0],[2][1],[3][0],[3][1]}</td>
+<td style="text-align: center;">{[4][0],[4][1],[5][0],[5][1]}</td>
+</tr>
+</tbody>
+</table>
+<p>Which should be read that element [2][1] of the full array comes from the second element of rank 1; or in gdb4hpc notation: <code>$d{$a::x}[2][1] == $a{1}::x[1]</code>. You might note that this is showing the entries on each rank as a 1D array. If we’re working with doubles, the data can be stored as <code>double*, double[4], double[2][2], std:vector&lt;double&gt;, std::array&lt;double,4&gt;, Kokkos::View</code> and other variants.</p>
+<h2 id="index-ordering">Index ordering</h2>
+<p>Decompositions are defined assuming the natural ordering of the data, so the interpretation depends on its context. In more concrete terms:</p>
+<ul>
+<li>the <em>rightmost</em> index is the fastest varying for C/C++ arrays</li>
+<li>the <em>leftmost</em> index is the fastest varying for fortran arrays</li>
+</ul>
+<p>In each case, gdb4hpc is <em>trying</em> to make it intuitive for the user.</p>
+<h2 id="matrices-decomposed-in-multiple-directions">Matrices decomposed in multiple directions</h2>
+<p>A multi-d array may be tiled in more than one direction. For example, if you are computing using 120 ranks, you might give each rank a 100x100 array to work with:</p>
+<pre><code>decomp $tile 1200/12, 1000%10</code></pre>
+<p>Which gives you a 12x10 array of <em>processes</em>. Which begs the question if the layout is row major or column major. The default is is use the same ordering as the language. So if this is C/C++, rank 0 has the elements [0..99][{0,10,20..,990}], and rank 1 has the elements [0..99][{1,10,21,..,991}].</p>
+<p>The ordering of the <em>process grid</em> can be overridden by adding an explicit <code>order()</code> clause:</p>
+<pre><code>decomp $tile_T 1200/12 order(1), 1000%10 order(2)</code></pre>
+<p>Though to reduce strain to the brain, there no reason not to make it explicit:</p>
+<pre><code>decomp $tile 1200/12 order(2), 1000%10 order(1)</code></pre>
+<p>As a concrete example, here is a 4 x 6 C style array tiled over a 2 x 3 grid of processes.</p>
+<table>
+<caption><strong>decomp $d 4/2 order(2), 6/3 order(1)</strong></caption>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">rank 0</th>
+<th style="text-align: center;">rank 1</th>
+<th style="text-align: center;">rank 2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">{[0][0],[0][1],[1][0],[1][1]}</td>
+<td style="text-align: center;">{[0][2],[0][3],[1][2],[1][3]}</td>
+<td style="text-align: center;">{[0][4],[0][5],[1][4],[1][5]}</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><strong>rank 3</strong></td>
+<td style="text-align: center;"><strong>rank 4</strong></td>
+<td style="text-align: center;"><strong>rank 5</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">{[2][0],[3][1],[2][0],[3][1]}</td>
+<td style="text-align: center;">{[2][2],[3][3],[2][2],[3][3]}</td>
+<td style="text-align: center;">{[2][4],[3][5],[2][4],[3][5]}</td>
+</tr>
+</tbody>
+</table>
+<p>Which means each rank contributes four elements; the table show the location of each element.</p>
+<p>Or in fortran:</p>
+<table>
+<caption><strong>decomp $d 6/3 order(1), 4/2 order(2)</strong></caption>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">rank 0</th>
+<th style="text-align: center;">rank 1</th>
+<th style="text-align: center;">rank 2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">((1,1),(2,1),(1,2),(2,2))</td>
+<td style="text-align: center;">((3,1),(4,1),(3,2),(4,2))</td>
+<td style="text-align: center;">((5,1),(6,1),(5,2),(6,2))</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><strong>rank 3</strong></td>
+<td style="text-align: center;"><strong>rank 4</strong></td>
+<td style="text-align: center;"><strong>rank 5</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">((1,3),(2,3),(1,4),(2,4))</td>
+<td style="text-align: center;">((3,3),(4,3),(3,4),(4,4))</td>
+<td style="text-align: center;">((5,3),(6,3),(5,4),(6,4))</td>
+</tr>
+</tbody>
+</table>
+<h2 id="natural-ordering-within-each-data-block">Natural ordering within each data block</h2>
+<p>Note that the “order” clause <strong>only</strong> affects the tiling order of the ranks. Within each rank, it always follows the natural layout of the data. You can think of the debugger iterating over the elements of the combined array, and at each step it chooses only a rank and always takes the next available element on that rank.</p>
+<p>It does not support transposing an array or otherwise shuffling the access - at least not yet.</p>
+<h1 id="treating-multi-rank-data-as-an-array">Treating multi-rank data as an array</h1>
+<h2 id="adding-the-rank-as-an-additional-dimension-of-an-array">Adding the rank as an additional dimension of an array</h2>
+<p>The default behavior for printing values in gdb4hpc is to print results by rank.</p>
+<pre><code>dbg all&gt; p $a::block
+$a{0}: {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39}
+$a{1}: {40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79}
+$a{2}: {80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119}</code></pre>
+<p>Which, when aggregating identical values, is typically the most concise way to present the values. In some contexts it may be more convenient to handle it as a 2d array, say to output a comma separated table for graphing.</p>
+<p>A decomposition can turn an nD array into a (n+1)D array.</p>
+<p>Using the same <code>$a::block</code> array, we can define:</p>
+<pre><code>dbg all&gt; decomp $block1_3to2 3/3, 40
+dbg all&gt; p $block1_3to2{$a::block}
+{{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39},{40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79},{80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119}}
+dbg all&gt;</code></pre>
+<p>Alternatively, you might want it grouped by index instead:</p>
+<pre><code>dbg all&gt; decomp $block1_3to2T 40, 3/3
+dbg all&gt; p $block1_3to2T{$a::block}
+{{0,40,80},{1,41,81},{2,42,82},{3,43,83},{4,44,84},{5,45,85},{6,46,86},{7,47,87},{8,48,88},{9,49,89},{10,50,90},{11,51,91},{12,52,92},{13,53,93},{14,54,94},{15,55,95},{16,56,96},{17,57,97},{18,58,98},{19,59,99},{20,60,100},{21,61,101},{22,62,102},{23,63,103},{24,64,104},{25,65,105},{26,66,106},{27,67,107},{28,68,108},{29,69,109},{30,70,110},{31,71,111},{32,72,112},{33,73,113},{34,74,114},{35,75,115},{36,76,116},{37,77,117},{38,78,118},{39,79,119}}</code></pre>
+<p>Remember the order is reversed when working with fortran:</p>
+<pre><code>dbg all&gt; decomp $block1_3to2 40, 3/3
+dbg all&gt; p $block1_3to2{$a::block}
+((0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39),(40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79),(80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119))</code></pre>
+<h2 id="scalars">Scalars</h2>
+<p>The same tool can be used to turn a scalar value into a 1d array indexed by rank:</p>
+<pre><code>dbg all&gt; p x
+$a{0}: 1.0
+$a{1,3}: -1.0
+$a{2}: 2.0
+dbg all&gt; decomp $scalar 4/4
+dbg all&gt; p $scalar{x}
+{1.0, -1.0, 2.0, -1.0}
+dbg all&gt; pipe p/csv $scalar{x} | cat &gt; x.txt</code></pre>
+<h1 id="using-a-decomposition-to-define-a-size-and-shape">Using a decomposition to define a size and shape</h1>
+<p>The decomposition can also be used without tiling just to define the shape of an array, which can be particularly useful when working with allocated C/C++ arrays:</p>
+<pre><code>dbg all&gt; whatis localArray1
+a{0..2}: int *
+dbg all&gt; p localArray1
+a{0}: (int*) &lt;1&gt;
+  &lt;1&gt;:0
+a{1}: (int*) &lt;1&gt;
+  &lt;1&gt;:160
+a{2}: (int*) &lt;1&gt;
+  &lt;1&gt;:320
+dbg all&gt; decomp $d2 10,4
+dbg all&gt; p $d2{localArray1}
+a{0}: {{0,2,4,6},{8,10,12,14},{16,18,20,22},{24,26,28,30},{32,34,36,38},{40,42,44,46},{48,50,52,54},{56,58,60,62},{64,66,68,70},{72,74,76,78}}
+a{1}: {{160,162,164,166},{168,170,172,174},{176,178,180,182},{184,186,188,190},{192,194,196,198},{200,202,204,206},{208,210,212,214},{216,218,220,222},{224,226,228,230},{232,234,236,238}}
+a{2}: {{320,322,324,326},{328,330,332,334},{336,338,340,342},{344,346,348,350},{352,354,356,358},{360,362,364,366},{368,370,372,374},{376,378,380,382},{384,386,388,390},{392,394,396,398}}</code></pre>
+<p>Notice that since every dimension is distributed, the result is still shown by rank.</p>
+<p>Since <code>localArray1</code> is an <code>int*</code> the debugger has no way to know that it’s an array or what the length might be. You can use the gdb “@” operator to get the value: <code>p localArray1@40</code>, but using a decomposition allows you treat it as multi-dimension array.</p>
+<p>Since the debugging information doesn’t include any size information, there is no bounds checking. It will simply treat the pointer as an array of the necessary length.</p>
+<h1 id="miscellaneous">Miscellaneous</h1>
+<p>The <code>info decomp</code> or <code>i decomp</code> command print the available decompositions. Or you can print a single decomposition using <code>info decomp $name</code>.</p>
+<p>If you have decompositions you use frequently, you can save them in a text file and use the <code>source</code> command to define them in a new session, or save it ~/.gdb4hpc/gdb4hpc_init</p>
+<p>The actual name of the command is “decomposition”, but gdb4hpc lets you shorten it to anything unambiguous.</p>
+<p>The single line decomposition form is new to version 4.15.1, older versions used a multi-line form:</p>
+<pre><code>decomposition $block2_4
+dimension 10,12
+distribute *,block
+proc_grid *,4
+end</code></pre>
+<p>Which is equivalent to <code>decomp $block2_4 10, 12/4</code>. Use <code>help decomposition</code> for details.</p>
+</body>
+</html>

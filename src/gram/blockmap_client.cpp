@@ -133,7 +133,7 @@ std::string BlockMap::oldMsg() const {
     auto rank = getRank();
 
     sc<<m_name<<":\n";
-    sm<<"{decomp_name=\""<<m_name;
+    sm<<"{name=\""<<m_name;
 
     if (getRank() == 0) {
         SetError("Invalid decomposition.");

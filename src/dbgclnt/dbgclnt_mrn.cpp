@@ -350,7 +350,7 @@ int MRNClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
     }
 
     // first add gdb-guard to manifest
-    serverGdb = shipGdb(mid, opts.gdb);
+    serverGdb = shipGdb(mid, opts.gdb, opts.gdb_data_dir);
     if (!serverGdb) {
         PrintOutError("Error shipping gdb.\n");
         goto attach_error;
@@ -712,11 +712,7 @@ attach_error:
     return 1;
 }
 
-int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
-                        const char * const *argv, const char *arch, const char * const *arch_args,
-                        const char *arch_input, const char *backend, const char* gdb, const char * const *env,
-                        const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
-                        int early_entry_flag, bool isNonStop) {
+int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     char sn[80];
     char *root = nullptr;
     char *cfg_dir;
@@ -736,13 +732,21 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
     int prog_outp = -1;
     unsigned long int mrnet_timeout = GUARD_DEFAULT_TIMEOUT;
     char *env_var_str;
-    int dbg = debug_flag;
+    int dbg = opts.debug_flag;
     char **machine_hosts = nullptr;
     cti_manifest_id_t mid;
     cti_session_id_t sid;
     char **args = nullptr;
     char *env_base_dir = nullptr;
     std::optional<std::string> serverGdb = {};
+
+    auto arch = opts.arch_name;
+    auto backend = opts.backend_name;
+    auto prog = opts.app_argv[0];
+
+    const auto optStr = [](const std::string& str) {
+                            return str != "" ? str.c_str() : nullptr;
+                        };
 
 #ifdef DEBUG
     dbg = 1;
@@ -803,7 +807,9 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
     // the program name this is to address the fact that guard should be
     // ignorant of the starter applications real name.
     snprintf(sn, sizeof(sn), "%d", di->numRanks());
-    app_argv = ArgvStream("-n", sn, arch_args, prog, argv);
+
+    app_argv = ArgvStream("-n", sn, opts.launcher_argv.c_strs(1).data(), prog,
+                          opts.app_argv.c_strs(1).data());
 #ifdef DEBUG
     DPRINT("application launcher args: ");
     DPRINT("%s\n", app_argv.asString().c_str());
@@ -861,7 +867,9 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
         // launch the application using the tool interface
         // Note that the prog_outp is the WRITE END OF THE PIPE!!!!
         di->setAppId(cti_launchAppBarrier(app_argv.c_strs().data(), prog_outp, prog_outp,
-                                          arch_input, cwd, (const char* const*)env));
+                                          optStr(opts.input_file_path),
+                                          optStr(opts.cwd),
+                                          opts.env.c_strs().data()));
 
         // Notify the message thread that launch has completed and that it can exit its wait
         { auto guard = std::lock_guard<std::mutex>{waitMtx};
@@ -926,7 +934,7 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
     }
 
     // first add gdb-guard to manifest
-    serverGdb = shipGdb(mid, gdb);
+    serverGdb = shipGdb(mid, opts.gdb_path, opts.gdb_data_dir);
     if (!serverGdb) {
         PrintOutError("Error shipping gdb.\n");
         goto invoke_error;
@@ -934,13 +942,13 @@ int MRNClientProtocol::launch(DbgInvoke *di, const char *prog,
 
     // This checks the setting of gpu_flag to figure out if cuda-gdb should be
     // sent over
-    if (gpu_flag && !gdb) {
+    if (opts.gpu_flag && opts.gdb_path.empty()) {
         if (!shipGpuGdbs(mid)) {
             goto invoke_error;
         }
     }
 
-    if (!shipCommonFiles(mid, gpu_flag)) {
+    if (!shipCommonFiles(mid, opts.gpu_flag)) {
         PrintOutError("Error shipping common files.\n");
         goto invoke_error;
     }
@@ -1086,13 +1094,13 @@ OMPD support will not be available.\n");
     // gpu_flag This now adds the early entry flag...
 
     dbgsrv_alps_argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
-                 di->proto().name(), "-e", backend);
-    if (gpu_flag)         dbgsrv_alps_argv << "--gpu";
+                                  di->proto().name(), "-e", backend);
+    if (opts.gpu_flag)    dbgsrv_alps_argv << "--gpu";
     if (dbg)              dbgsrv_alps_argv << "--debug";
-    if (non_mpi_flag)     dbgsrv_alps_argv << "--non-mpi";
-    if (early_entry_flag) dbgsrv_alps_argv << "--early-entry";
-    if (isNonStop)        dbgsrv_alps_argv << "--non-stop";
-    if (gdb && serverGdb) dbgsrv_alps_argv << "--gdb" << *serverGdb;
+    if (opts.non_mpi_flag)     dbgsrv_alps_argv << "--non-mpi";
+    if (opts.early_entry_flag) dbgsrv_alps_argv << "--early-entry";
+    if (opts.non_stop_flag)        dbgsrv_alps_argv << "--non-stop";
+    if (!opts.gdb_path.empty() && serverGdb) dbgsrv_alps_argv << "--gdb" << *serverGdb;
     dbgsrv_alps_argv << "-f" << prog;
 
 #ifdef DEBUG

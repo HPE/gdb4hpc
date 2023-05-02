@@ -33,6 +33,7 @@ class LaunchOpts {
   // command. argv[0] should never change.
   //
   std::string gdb_path = "";         // "--gdb /path/to/custom/gdb" or "--gdb my_gdb" to be found in PATH
+  std::string gdb_data_dir;          // --gdb-data-dir
   std::string input_file_path = "";  // --launcher-input /path/to/input/file
   std::string cwd = "";              // --workdir /path/to/workdir
   bool set_default_cwd = false;      // true if --workdir is passed with no argument. if true,
@@ -61,6 +62,7 @@ struct AttachOpts {
   std::string arch;
   std::string backend;
   std::string gdb;
+  std::string gdb_data_dir;
   std::string vgdb_file;
   bool gpu_flag = false;
   bool debug_flag = false;

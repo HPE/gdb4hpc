@@ -9,40 +9,31 @@
 #include <filesystem>
 
 std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
-                                   const std::string& gdb) {
+                                   const std::string& gdb,
+                                   const std::string& gdbDataDir) {
     auto serverGdb = std::string{"gdb-guard"};
 
     // user can specify a custom gdb binary and a (full path) datadir
     if (!gdb.empty()) {
-        auto gdbBin = gdb;
-        auto colon = gdbBin.find(':');
-        auto dataDir = std::string{};
-        if (colon != std::string::npos) {
-            dataDir = gdbBin.substr(colon+1);
-            gdbBin = gdbBin.substr(0,colon);
-            if (!dataDir.empty() && dataDir[0] != '/') {
-                PrintOutError("adding a dataDir to the manifest is not supported.\n");
-                return {};
-            }
+        if (!gdbDataDir.empty() && gdbDataDir[0] != '/') {
+            PrintOutError("adding a dataDir to the manifest is not supported.\n");
+            return {};
         }
 
-        if (gdbBin.empty()) {
-            PrintOutError("--gdb executable name is empty\n");
-            return {};
-        } else if (gdbBin[0] == '/') {
-            serverGdb = gdbBin;
+        if (gdb[0] == '/') {
+            serverGdb = gdb;
         } else {
-            if (cti_addManifestBinary(manifest, gdbBin.c_str())) {
-                PrintOutError("Failed to add %s to manifest.\n", gdbBin.c_str());
+            if (cti_addManifestBinary(manifest, gdb.c_str())) {
+                PrintOutError("Failed to add %s to manifest.\n", gdb.c_str());
                 PrintOutError("CTI error: %s\n", cti_error_str());
                 return {};
             }
-            serverGdb = std::filesystem::path(gdbBin).filename();
+            serverGdb = std::filesystem::path(gdb).filename();
         }
 
-        if (!dataDir.empty()) {
+        if (!gdbDataDir.empty()) {
             serverGdb += ":";
-            serverGdb += dataDir;
+            serverGdb += gdbDataDir;
         }
     } else if (cti_addManifestBinary(manifest, serverGdb.c_str())) {
         PrintOutError("Failed to add gdb-guard to manifest.\n");

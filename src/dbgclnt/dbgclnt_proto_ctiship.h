@@ -13,7 +13,8 @@
 
 // ship gdb-guard, or custom gdb-guard if *gdb is not nullptr
 // returns name of binary to give to dbgsrv as --gdb option, or std::nullopt on error
-std::optional<std::string> shipGdb(cti_manifest_id_t manifest, const std::string& gdb);
+std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
+                                   const std::string& gdb, const std::string& gdbDataDir);
 // ship gpu specific gdbs
 bool shipGpuGdbs(cti_manifest_id_t manifest);
 // ship ompd related files

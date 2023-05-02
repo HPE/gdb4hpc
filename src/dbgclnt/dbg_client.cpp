@@ -1598,18 +1598,7 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
         }
     }
 
-    const auto optStr = [](const std::string& str) {
-        return str != "" ? str.c_str() : nullptr;
-    };
-
-    if (ptab->launch(
-        di.get(), args.app_argv[0].c_str(), args.app_argv.c_strs(1).data(),
-        args.arch_name.c_str(), args.launcher_argv.c_strs(1).data(), 
-        optStr(args.input_file_path), args.backend_name.c_str(), 
-        optStr(args.gdb_path), args.env.c_strs().data(), 
-        optStr(args.cwd), args.gpu_flag, args.debug_flag,
-        args.non_mpi_flag, args.early_entry_flag, args.non_stop_flag)
-    ) {
+    if (ptab->launch(di.get(), args)) {
         return nullptr;
     }
 

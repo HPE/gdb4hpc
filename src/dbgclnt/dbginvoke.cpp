@@ -678,6 +678,7 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
         {"non-mpi", no_argument, &parsed_non_mpi_flag, 1},
         {"launcher", required_argument, 0, 'l'},
         {"gdb", required_argument, 0, 'b'},
+        {"gdb-data-dir", required_argument, 0, 'B'},
         {0, 0, 0, 0}
     };
 
@@ -780,6 +781,15 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
                 }
                 gdb_path = withoutQuotes(optarg);
                 break;
+
+            case 'B':
+                if (std::filesystem::is_directory(optarg)) {
+                    gdb_data_dir = optarg;
+                } else {
+                    throw std::runtime_error("--gdb-data-dir is not a directory.");
+                }
+                break;
+                    
 
             case 'q':
                 if (optarg == nullptr) {

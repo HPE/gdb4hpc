@@ -76,6 +76,10 @@ public:
         return m_argv[idx];
     }
 
+    const std::string& operator[](size_t idx) const {
+        return m_argv[idx];
+    }
+
     ArgvStream& operator<<(const ArgvStream &b) {
         for (const auto &arg : b.m_argv) {
             *this << arg;

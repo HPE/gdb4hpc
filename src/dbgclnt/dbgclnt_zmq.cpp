@@ -233,7 +233,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
         return 1;
     }
 
-    auto serverGdb = shipGdb(manifest_id, opts.gdb);
+    auto serverGdb = shipGdb(manifest_id, opts.gdb, opts.gdb_data_dir);
     if (!serverGdb) {
         PrintOutError("Error shipping gdb.\n");
         return 1;
@@ -328,11 +328,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     return 0;
 }
 
-int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
-                        const char * const *argv, const char *arch, const char * const *arch_args,
-                        const char *arch_input, const char *backend, const char* gdb, const char * const *env,
-                        const char *cwd, int gpu_flag, int debug_flag, int non_mpi_flag,
-                        int early_entry_flag, bool isNonStop) {
+int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (!di) {
@@ -348,7 +344,16 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
     // this will eventually be given to the ZMQNetNetwork object.
     auto output = ZMQNetNetwork::OutputPtr(DbgCreateGenericProgOutp(), DbgFreeGenericProgOutp);
 
-    auto launcherArgs = ArgvStream("-n", di->numRanks(), arch_args, prog, argv);
+    const auto optStr = [](const std::string& str) {
+                            return str.empty() ? nullptr : str.c_str();
+                        };
+
+    auto arch_args = opts.launcher_argv.c_strs(1);
+    const auto prog = opts.app_argv[0];
+    auto argv = opts.app_argv.c_strs(1);
+
+    auto launcherArgs = ArgvStream("-n", di->numRanks(), arch_args.data(),
+                                   prog.c_str(), argv.data());
 
     // Print an informational message that launch is still pending if WLM hasn't
     // launched job within a few seconds.
@@ -369,8 +374,12 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
             }
         });
 
+        auto arch_input = optStr(opts.input_file_path);
+        auto cwd = optStr(opts.cwd);
+        auto env = opts.env.c_strs();
+
         di->setAppId(cti_launchAppBarrier(launcherArgs.c_strs().data(), output->p_o_wfd,
-                                      output->p_o_wfd, arch_input, cwd, env));
+                                          output->p_o_wfd, arch_input, cwd, env.data()));
 
         // Notify the message thread that launch has completed and that it can exit its wait
         { auto guard = std::lock_guard<std::mutex>{waitMtx};
@@ -388,16 +397,16 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const char *prog,
 
     PrintOutMsg("Launched application...\n");
 
-    auto opts = AttachOpts{.arch = arch,
-                           .backend = backend,
-                           .gdb = (gdb ? gdb : ""),
-                           .gpu_flag = bool(gpu_flag),
-                           .debug_flag = bool(debug_flag) };
+    auto attachOpts = AttachOpts{.arch = opts.arch_name,
+                                 .backend = opts.backend_name,
+                                 .gdb = opts.gdb_path,
+                                 .gpu_flag = bool(opts.gpu_flag),
+                                 .debug_flag = bool(opts.debug_flag) };
                             
 
     // attach to launched application
-    if (internalAttach(di, prog, di->appId(), std::move(output), opts,
-                       early_entry_flag, isNonStop, non_mpi_flag)) {
+    if (internalAttach(di, prog.c_str(), di->appId(), std::move(output), attachOpts,
+                       opts.early_entry_flag, opts.non_stop_flag, opts.non_mpi_flag)) {
         PrintOutError("Failed to attach to application. Cleaning up...\n");
 
         if (di->appId() != 0) {

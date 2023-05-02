@@ -43,7 +43,8 @@ RAJA_TESTS = \
 	./bin/CRAY/raja/view-layout_solution.x \
 	./bin/CRAY/raja/kernel-matrix-transpose-local-array_solution.x \
 	./bin/CRAY/raja/launch-matrix-transpose-local-array_solution.x \
-	./bin/CRAY/raja/reductions_solution.x
+	./bin/CRAY/raja/reductions_solution.x \
+	./bin/CRAY/raja/view-layout-decomp_solution.x
 
 # you shouldn't have to have cti devel installed to test gdb4hpc, so only build
 # tests which require it if we happen to have it
@@ -200,6 +201,10 @@ clean:
 
 ./bin/${PE_ENV}/cti_launch.x : ./bin/${PE_ENV}/cti_launch.o
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(CTI_LD)
+
+./bin/${PE_ENV}/raja/view-layout-decomp_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./src/raja/view-layout-decomp_solution.cpp
+	mkdir -p ./bin/${PE_ENV}/raja
+	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/view-layout-decomp_solution.cpp ./raja_installation/lib/libRAJA.a -o $@
 
 ./bin/${PE_ENV}/raja/view-layout_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./src/raja/view-layout_solution.cpp
 	mkdir -p ./bin/${PE_ENV}/raja

@@ -17,6 +17,7 @@ BlockMap::BlockMap(const std::string& name)
 BlockMap::BlockMap(const std::string& name, const std::string& definition)
     : m_name(name), m_oldStyle(false)
 {
+    if (name.size() && name[0] != '$') m_name = '$' + m_name;
     parseDefinition(definition);
 }
 

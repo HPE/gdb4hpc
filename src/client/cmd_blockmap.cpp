@@ -84,7 +84,7 @@ static int cmd_info_decomposition_cmd(rec_set_t *rec_set, int argc,
             }
             ss<<printed_blockmap;
         }else{
-            PrintOutMsg(printed_blockmap.c_str());
+            PrintOutMsg("%s", printed_blockmap.c_str());
         }
     }
     if (Client.MI_mode){

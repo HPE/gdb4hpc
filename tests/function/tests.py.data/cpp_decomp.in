@@ -218,15 +218,14 @@ Comparison is false. The difference delta is:
 131: info decomp
 Defined decompositions:
 $block1_3: 120/3
+$block1_3to2: 3/3, 40
+$block1_3to2T: 40, 3/3
+$block1_3to3: 3/3, 4, 10
 $block1_4: 120/4
-$cyclic1_3: 120%3
-$cyclic1_4: 120%4
-$blockCyclic1_3: 120/3%5
-$blockCyclic1_4: 120/4%5
 $block2_3: 12/3, 10
 $block2_4: 12/4, 10
-$cyclic2_3: 12%3, 10
-$cyclic2_4: 12%4, 10
+$blockCyclic1_3: 120/3%5
+$blockCyclic1_4: 120/4%5
 $blockCyclic2_3: 24/3%2, 5
 $blockCyclic2_4: 24/4%2, 5
 $blockT_3: 10, 12/3
@@ -236,9 +235,10 @@ $blockT_4:
 	proc_grid *,4
 	dim_order *,1
 
-$block1_3to2: 3/3, 40
-$block1_3to2T: 40, 3/3
-$block1_3to3: 3/3, 4, 10
+$cyclic1_3: 120%3
+$cyclic1_4: 120%4
+$cyclic2_3: 12%3, 10
+$cyclic2_4: 12%4, 10
 $scalar: 3/3
 132: info decomp $block1_3to2
 $block1_3to2: 3/3, 40

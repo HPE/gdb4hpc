@@ -32,7 +32,6 @@
 #include "blockmap_client.h"
 
 static std::map<std::string, std::shared_ptr<BlockMap>> block_map_table;
-static std::vector<std::shared_ptr<BlockMap>> block_map_list;
 
 /*
 ** Find a map.
@@ -45,7 +44,10 @@ BlockMap *FindBlockMap(const std::string& blockmap) {
 }
 
 const std::vector<std::shared_ptr<BlockMap>> GetBlockMapList() {
-    return block_map_list;
+    auto list = std::vector<std::shared_ptr<BlockMap>>{};
+    std::transform(block_map_table.begin(), block_map_table.end(),
+                   std::back_inserter(list), [](auto &pair) { return pair.second; });
+    return list;
 }
 
 // TODO: When I wrote this (andrewg) I am still not 100% confident on how
@@ -114,14 +116,11 @@ bool BlockMap::verify() {
 
 void RegisterBlockMap(std::shared_ptr<BlockMap> bm) {
     block_map_table[bm->getName()] = bm;
-    block_map_list.push_back(bm);
 }
 
 void UnregisterBlockMap(const std::string& name) {
     if (auto loc = block_map_table.find(name); loc != block_map_table.end()) {
         block_map_table.erase(loc);
-        block_map_list.erase( std::remove(block_map_list.begin(), block_map_list.end(),
-                                          loc->second), block_map_list.end());
     }
 }
 
@@ -233,7 +232,6 @@ std::string BlockMap::msg() const {
 
 void FinishBlockMap(void) {
     block_map_table.clear();
-    block_map_list.clear();
 }
 
 bool BlockMap::isDegen() const {

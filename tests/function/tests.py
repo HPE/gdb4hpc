@@ -840,6 +840,12 @@ class FunctionTests(Gdb4hpcTest):
         if not os.path.exists(f"./bin/{self.penv}/raja/reductions_solution.x"):
             self.cancel("RAJA reductions_solution.x not built")
         self.base_name = "raja_reductions"
+
+    # this binary *is* an mpi app so we can run it on any wlm
+    def test_raja_decomp(self):
+        if not os.path.exists(f"./bin/{self.penv}/raja/view-layout-decomp_solution.x"):
+            self.cancel("RAJA view-layout-decomp_solution.x not built")
+        self.base_name = "raja_decomp"
         runTest(self)
 
 class c_commnode_fanout(Gdb4hpcTest):

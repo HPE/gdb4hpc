@@ -13,11 +13,13 @@ std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
                                    const std::string& gdbDataDir) {
     auto serverGdb = std::string{"gdb-guard"};
 
-    // user can specify a custom gdb binary and a (full path) datadir
+    // user can specify a custom gdb binary and a datadir
     if (!gdb.empty()) {
-        if (!gdbDataDir.empty() && gdbDataDir[0] != '/') {
-            PrintOutError("adding a dataDir to the manifest is not supported.\n");
-            return {};
+        auto dataDir = gdbDataDir;
+        
+        if (!dataDir.empty() && dataDir[0] != '/') {
+            auto dataPath = std::filesystem::current_path() / dataDir;
+            dataDir = dataPath;
         }
 
         if (gdb[0] == '/') {
@@ -31,9 +33,9 @@ std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
             serverGdb = std::filesystem::path(gdb).filename();
         }
 
-        if (!gdbDataDir.empty()) {
+        if (!dataDir.empty()) {
             serverGdb += ":";
-            serverGdb += gdbDataDir;
+            serverGdb += dataDir;
         }
     } else if (cti_addManifestBinary(manifest, serverGdb.c_str())) {
         PrintOutError("Failed to add gdb-guard to manifest.\n");

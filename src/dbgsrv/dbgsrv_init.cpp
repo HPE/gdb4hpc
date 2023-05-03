@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <fstream>
 #include <regex>
+#include <filesystem>
 
 extern std::function<void(void)> AtServerExit;
 
@@ -113,6 +114,8 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
         gdb_vers = GdbVersion::CUSTOM;
         if (custom_gdb_data) {
             MISessionSetGDBDataDirectory(m_session, custom_gdb_data);
+        } else {
+            setDataDir(custom_gdb);
         }
     } else if (gpu_flag) {
         // try to initialize a gpu back-end, if this fails, gdb_vers will
@@ -122,7 +125,7 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
 
     if (gdb_vers == GdbVersion::GDB_100) {
         MISessionSetGDBPath(m_session, "gdb-guard");
-        setDataDir("gdb");
+        setDataDir(nullptr);
     }
 
     // Ensure PYTHONSTARTUP isn't set
@@ -1721,10 +1724,42 @@ dbgevent_t *DbgGdbMI::Initializer::interrupt(bool all) {
     return e;
 }
 
-void DbgGdbMI::Initializer::setDataDir(const char* gdbType) {
-    if (auto baseDir = getenv(GUARD_INST_DIRECTORY)) {
-        auto dataDir = std::string{baseDir} + "/share/" + gdbType;
-        MISessionSetGDBDataDirectory(m_session, dataDir.c_str());
+void DbgGdbMI::Initializer::setDataDir(const char* gdb) {
+    DVPRINT("In setDataDir, gdb = %s\n", gdb ? gdb : "nullptr");
+    
+    auto dataDir = std::string{};
+    if (!gdb) {
+        // use the version installed with our package
+        if (auto baseDir = getenv(GUARD_INST_DIRECTORY)) {
+            dataDir = std::string{baseDir} + "/share/gdb";
+        }
+    } else if (auto exec = pathFind(gdb, nullptr)) {
+        // try to infer the location from the binary
+        dataDir = exec;
+        free(exec);
+
+        if (auto loc = dataDir.find("/bin/")) {
+            dataDir.replace(loc, std::string::npos, "/share/gdb");
+        } else {
+            dataDir.clear();
+        }
+    }
+
+    // fall back to the package version if one isn't found
+    if (!dataDir.empty()) {
+        if (std::filesystem::is_directory(dataDir)) {
+            DVPRINT("Setting data dir to %s\n", dataDir.c_str());
+            MISessionSetGDBDataDirectory(m_session, dataDir.c_str());
+            return;
+        } else {
+            DVPRINT("setDataDir: %s is not a directory.\n", dataDir.c_str());
+        }
+    }
+
+    if (gdb) {
+        // we didn't find a data directory based on the path, use the one
+        // installed in the package as a back-up
+        setDataDir(nullptr);
     }
 }
 

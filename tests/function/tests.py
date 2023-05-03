@@ -389,9 +389,11 @@ class FunctionTests(Gdb4hpcTest):
 
         shutil.copy2(guard, "./tmp/custom_gdb")
 
-        substitutions = ( ("$$GDB4HPC_INSTALL_DIR$$", gdb4_root), )
+        data_dir = './tmp/custom_data_dir'
+        shutil.rmtree(data_dir, ignore_errors=True)
+        shutil.copytree(os.environ['GDB4HPC_INSTALL_DIR'] + '/share/gdb', data_dir)
 
-        runTest(self, substitutions)
+        runTest(self)
         
     def test_c_help(self):
         self.base_name = "c_help"

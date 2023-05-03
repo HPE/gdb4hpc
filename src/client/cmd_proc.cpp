@@ -678,6 +678,7 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         {"gpu", no_argument, &gpu_flag, 1},
         {"debug", no_argument, &debug_flag, 1},
         {"gdb", required_argument, 0, 'b'},
+        {"gdb-data-dir", required_argument, 0, 'd'},
         {"vgdb", required_argument, 0, 'v'},
         {0, 0, 0, 0}
     };
@@ -704,6 +705,15 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
                     free(custom_gdb);
                 } else {
                     PrintOutError("Could not find %s in $PATH.\n", optarg);
+                    return 0;
+                }
+                break;
+
+            case 'd':
+                if (std::filesystem::is_directory(optarg)) {
+                    opts.gdb_data_dir = optarg;
+                } else {
+                    PrintOutError("gdb-data-dir %s is not a directory.\n", optarg);
                     return 0;
                 }
                 break;

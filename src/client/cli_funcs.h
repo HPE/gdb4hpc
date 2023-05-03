@@ -186,7 +186,7 @@ struct cli_stream_t {
     int cs_seq = 0;          /* current command sequence number */
     int cs_in_cmd = 0;       /* currently processing command */
     int cs_num = 0;          // stream number
-    list_t *cs_deferred = NewList(); /* list of deferred lines to print after command
+    std::vector<std::string> cs_deferred; /* list of deferred lines to print after command
                                        completes */
     struct cli_externals
         *cs_ext_funcs = nullptr;          /* cli externals associated with stream */
@@ -257,8 +257,6 @@ extern cli_externals_t *cli_get_readline_funcs(void);
 extern cli_externals_t *cli_get_socket_funcs(void);
 extern cli_externals_t *cli_get_file_funcs(void);
 
-
-extern list_t * InputCBList;
 /*
 ** CLI stream init functions
 */

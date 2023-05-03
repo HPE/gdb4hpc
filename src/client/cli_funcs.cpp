@@ -262,9 +262,6 @@ cli_stream_t::~cli_stream_t() {
         free(cs_ext_funcs);
     }
 
-    // Destroy the deferred list
-    DestroyList(cs_deferred, free);
-
     DestroyCLIArgs(cs_type, cs_args);
 }
 
@@ -642,8 +639,6 @@ int cli_start_response(int seq) {
 }
 
 void cli_end_response(void) {
-    char *xml_msg;
-
     if (CurrentStream == NULL) return;
 
     // Reset the in_cmd
@@ -656,11 +651,10 @@ void cli_end_response(void) {
     CurrentStream->cs_out.flush();
 
     // Print any deferred messages
-    while ((xml_msg = (char *)RemoveFirst(CurrentStream->cs_deferred)) !=
-           NULL) {
-        PrintOutMsg("%s", xml_msg);
-        Free(xml_msg);
+    for (const auto& xml_msg : CurrentStream->cs_deferred) {
+        PrintOutMsg("%s", xml_msg.c_str());
     }
+    CurrentStream->cs_deferred.clear();
 }
 
 char *XMLStartStatusBlock(const char *set_name) {
@@ -675,24 +669,19 @@ char *XMLStartStatusBlock(const char *set_name) {
 }
 
 void XMLPrintStatusBlock(char *status_block) {
-    char *full_status_block = NULL;
-
     if (!Client.XML_mode || status_block == NULL || CurrentStream == NULL)
         return;
 
     // Add the closing tag to the block
-    Asprintf(&full_status_block, "%s%s", status_block, XML_STATUS_END);
-
-    // Cleanup
+    auto full_status_block = std::string{status_block} + XML_STATUS_END;
     Free(status_block);
 
     // Make sure we are not inside a command, otherwise register this as a
     // deferred line to print.
     if (CurrentStream->cs_in_cmd) {
-        AddToList(CurrentStream->cs_deferred, (void *)full_status_block);
+        CurrentStream->cs_deferred.push_back(std::move(full_status_block));
     } else {
-        PrintOutMsg("%s", full_status_block);
-        Free(full_status_block);
+        PrintOutMsg("%s", full_status_block.c_str());
     }
 }
 
@@ -792,11 +781,11 @@ void XMLPrintRemovedMsg(const char *set_name) {
     // Make sure we are not inside a command, otherwise register this as a
     // deferred line to print.
     if (CurrentStream->cs_in_cmd) {
-        AddToList(CurrentStream->cs_deferred, (void *)removed_str);
+        CurrentStream->cs_deferred.push_back(std::string{removed_str});
     } else {
         PrintOutMsg("%s", removed_str);
-        Free(removed_str);
     }
+    Free(removed_str);
 }
 
 void XMLPrintStartGraphMsg(const char *set_name, const char *set_str) {
@@ -826,11 +815,11 @@ void XMLPrintStartGraphMsg(const char *set_name, const char *set_str) {
     // Make sure we are not inside a command, otherwise register this as a
     // deferred line to print.
     if (CurrentStream->cs_in_cmd) {
-        AddToList(CurrentStream->cs_deferred, (void *)s1);
+        CurrentStream->cs_deferred.push_back(std::string{s1});
     } else {
         PrintOutMsg("%s", s1);
-        Free(s1);
     }
+    free(s1);
 }
 
 static void ProgOutMITarget(DbgInvoke *di, const char* line) {

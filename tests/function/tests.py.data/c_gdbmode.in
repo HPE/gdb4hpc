@@ -1,5 +1,5 @@
 16: maint set sync on
-19: launch $a{1} bin/CRAY/c/c_type_test.x --gdb=./tmp/custom_gdb:$$GDB4HPC_INSTALL_DIR$$/share/gdb???
+19: launch $a{1} bin/CRAY/c/c_type_test.x --gdb=./tmp/custom_gdb --gdb-data-dir=./tmp/custom_data_dir???
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -54,6 +54,8 @@ a{0}: 0x200aec:	0x31	0x32	0x33	0x34
 14: # verify --gdb argument from the launch
 14: gdb python print(open(\"/proc/self/cmdline\", \"rb\").read())
 a{0}: %.*/tmp/custom_gdb.*%
+15: gdb show data-dir
+a{0}: %.*/tmp/custom_data_dir.*%
 15: p one_d_l
 a{0}: {0,1,2,3,4...}
 16: gdb show print elements

@@ -400,6 +400,7 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     auto attachOpts = AttachOpts{.arch = opts.arch_name,
                                  .backend = opts.backend_name,
                                  .gdb = opts.gdb_path,
+                                 .gdb_data_dir = opts.gdb_data_dir,
                                  .gpu_flag = bool(opts.gpu_flag),
                                  .debug_flag = bool(opts.debug_flag) };
                             

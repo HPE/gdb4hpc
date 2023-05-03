@@ -39,7 +39,6 @@
 #include "dbg_client.h"
 #include "dbg_mrn_network.h"
 #include "defs.h"
-#include "list.h"
 #include "useful.h"
 #include "dbgclnt_mrn.h"
 #include "dbgclnt_proto_ctiship.h"
@@ -134,10 +133,7 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(DbgInvoke *di, const Bits
 
     if (newEventStream) {
         int eventFd = newEventStream->get_DataNotificationFd();
-
-        int *eventFdPtr = (int *)Alloc(sizeof(int));
-        *eventFdPtr = eventFd;
-        AddToList(di->eventFds(), eventFdPtr);
+        di->addEventFd(eventFd);
     }
 
     return received;
@@ -251,7 +247,6 @@ int MRNClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
     unsigned long int mrnet_timeout = GUARD_DEFAULT_TIMEOUT;
     auto argv = ArgvStream{};
     int event_fd;
-    int *ev_fd_ptr;
     int dbg = opts.debug_flag;
     char **machine_hosts = nullptr;
     char **tmp;
@@ -628,25 +623,16 @@ OMPD support will not be available.\n");
     // setup the event notification fd for the io stream
     event_fd = network->get_io_notificationfd();
 
-    // create an int to hold the io stream fd. Note that this will get free'ed
-    // later on when the dbg invoke gets cleaned up.
-    ev_fd_ptr = (int *)Alloc(sizeof(int));
-    *ev_fd_ptr = event_fd;
-
     // Add the io_stream fd to the d_evfds list
     // This allows DbgCheckEvents to select on MRNet protocol events
-    AddToList(di->eventFds(), (void *)ev_fd_ptr);
+    di->addEventFd(event_fd);
 
     // setup the event notification fd for the event stream
     event_fd = network->get_event_notificationfd();
 
-    // create an int to hold the event stream fd.
-    ev_fd_ptr = (int *)Alloc(sizeof(int));
-    *ev_fd_ptr = event_fd;
-
     // Add the event_stream fd to the d_evfds list
     // This allows DbgCheckEvents to select on MRNet protocol events
-    AddToList(di->eventFds(), (void *)ev_fd_ptr);
+    di->addEventFd(event_fd);
 
     /*broadcast an INVOKE command to complete the attach callback*/
     request = CommandToSocProto(DBGCMD_INVOKE, num_be);
@@ -727,7 +713,6 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     char **tmp;
     std::string request;
     int event_fd;
-    int *ev_fd_ptr;
     g_progoutp_t *po = nullptr;
     int prog_outp = -1;
     unsigned long int mrnet_timeout = GUARD_DEFAULT_TIMEOUT;
@@ -1202,25 +1187,16 @@ OMPD support will not be available.\n");
     // setup the event notification fd for the io stream
     event_fd = network->get_io_notificationfd();
 
-    // create an int to hold the io stream fd. Note that this will get free'ed
-    // later on when the dbg invoke gets cleaned up.
-    ev_fd_ptr = (int *)Alloc(sizeof(int));
-    *ev_fd_ptr = event_fd;
-
     // Add the io_stream fd to the d_evfds list
     // This allows DbgCheckEvents to select on MRNet protocol events
-    AddToList(di->eventFds(), (void *)ev_fd_ptr);
+    di->addEventFd(event_fd);
 
     // setup the event notification fd for the event stream
     event_fd = network->get_event_notificationfd();
 
-    // create an int to hold the event stream fd.
-    ev_fd_ptr = (int *)Alloc(sizeof(int));
-    *ev_fd_ptr = event_fd;
-
     // Add the event_stream fd to the d_evfds list
     // This allows DbgCheckEvents to select on MRNet protocol events
-    AddToList(di->eventFds(), (void *)ev_fd_ptr);
+    di->addEventFd(event_fd);
 
     // broadcast an INVOKE command to complete the invoke callback
     request = CommandToSocProto(DBGCMD_INVOKE, num_be);
@@ -1257,12 +1233,9 @@ OMPD support will not be available.\n");
 
     // setup the program output stream handler if we are handling output
     if (po != nullptr) {
-        ev_fd_ptr = (int *)Alloc(sizeof(int));
-        *ev_fd_ptr = po->p_o_rfd;
-
         // Add the p_o_rfd to the d_evfds list
         // This allows DbgCheckEvents to select on application output events
-        AddToList(di->eventFds(), (void *)ev_fd_ptr);
+        di->addEventFd(po->p_o_rfd);
     }
 
     // All done. Everything is ready to go at this point.

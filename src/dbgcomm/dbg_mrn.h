@@ -20,7 +20,6 @@
 #define _GUARD_MRNET_TYPES_H
 
 #include "bitset.h"
-#include "list.h"
 #include "mrn_cfg.h"
 #include "mrnet/Types.h"
 

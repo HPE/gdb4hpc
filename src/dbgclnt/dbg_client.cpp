@@ -897,7 +897,6 @@ static void RemoveGroupFromAsyncSet(DbgInvoke *di, const Bitset *group) {
 int DbgCheckEvents(void) {
     int status;
     int res = 0;
-    int *ev_fd;
     struct timeval tv = {0, 10000};
 
     // reset the fd_set
@@ -934,15 +933,11 @@ int DbgCheckEvents(void) {
         *select on.
         ** This enables protocol events.
         */
-        if (di->eventFds() != nullptr) {
-            SetList(di->eventFds());
-
-            while ((ev_fd = (int *)GetListElement(di->eventFds())) != nullptr) {
-                if (high_fd < *ev_fd) {
-                    high_fd = *ev_fd;
-                }
-                FD_SET(*ev_fd, &dispatch_fds);
+        for (auto ev_fd : di->eventFds()) {
+            if (high_fd < ev_fd) {
+                high_fd = ev_fd;
             }
+            FD_SET(ev_fd, &dispatch_fds);
         }
     }
 
@@ -1022,8 +1017,6 @@ int DbgCheckEvents(void) {
 ** Dispactch pending debugger events.
 */
 void DbgDispatchEvents(void) {
-    int *ev_fd;
-
     // DPRINT("*** In DbgDispatchEvents\n");
 
     /*
@@ -1044,18 +1037,16 @@ void DbgDispatchEvents(void) {
         // event notification fd's. We should try to check to see if
         // each one is set, and if so call the protocol specific
         // dispatch function with the event fd as an argument
-        if (di->eventFds() != nullptr) {
-            SetList(di->eventFds());
-
-            while ((ev_fd = (int *)GetListElement(di->eventFds())) != nullptr) {
+        if (!di->eventFds().empty()) {
+            for (auto ev_fd : di->eventFds()) {
                 // if the previous event caused a shutdown, don't
                 // continue processing events
                 if (di->isShutdown()) break;
 
-                if (FD_ISSET(*ev_fd, &dispatch_fds)) {
+                if (FD_ISSET(ev_fd, &dispatch_fds)) {
                     // dispatch each of the set notification fds one at
                     // a time.
-                    di->proto().dispatchEvents(di, *ev_fd);
+                    di->proto().dispatchEvents(di, ev_fd);
                 }
             }
         } else {

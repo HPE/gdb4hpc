@@ -18,6 +18,7 @@
 #include "mrnet/Stream.h"
 #include "sparse_bitset.h"
 #include "dbgsrv_cmds.h"
+#include "list.h"
 
 class dbgcomm_info;
 

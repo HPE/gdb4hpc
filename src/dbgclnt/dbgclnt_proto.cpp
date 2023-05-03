@@ -30,7 +30,6 @@
 #include "dbgclnt_proto.h"
 #include "dbgevent.h"
 #include "defs.h"
-#include "list.h"
 #include "useful.h"
 
 #include "common_tools_fe.h"
@@ -85,7 +84,6 @@ void DebugClientProtocol::registerProtocol() {
 
 // Used during launch/attach to wait for the initial setup to complete
 static int CheckForProtoStartupEvent(DbgInvoke *di) {
-    int *ev_fd;
     int status;
 
     if (di == NULL) return -1;
@@ -109,15 +107,11 @@ static int CheckForProtoStartupEvent(DbgInvoke *di) {
     *on.
     ** This enables protocol events.
     */
-    if (di->eventFds() != NULL) {
-        SetList(di->eventFds());
-
-        while ((ev_fd = (int *)GetListElement(di->eventFds())) != (int *)NULL) {
-            if (proto_high_fd < *ev_fd) {
-                proto_high_fd = *ev_fd;
-            }
-            FD_SET(*ev_fd, &proto_dispatch_fds);
+    for (auto ev_fd : di->eventFds()) {
+        if (proto_high_fd < ev_fd) {
+            proto_high_fd = ev_fd;
         }
+        FD_SET(ev_fd, &proto_dispatch_fds);
     }
 
     /*
@@ -165,22 +159,17 @@ static int CheckForProtoStartupEvent(DbgInvoke *di) {
 }
 
 static void DispatchProtoStartupEvent(DbgInvoke *di) {
-    int *ev_fd;
-
     if (di == NULL) return;
 
     // If there is an d_evfds list, then the protol layer is using event
     // notification fd's. We should try to check to see if each one is set,
     // and if so call the protocol specific dispatch function with the event
     // fd as an argument
-    if (di->eventFds() != NULL) {
-        SetList(di->eventFds());
-
-        while ((ev_fd = (int *)GetListElement(di->eventFds())) !=
-                (int *)NULL) {
-            if (FD_ISSET(*ev_fd, &proto_dispatch_fds)) {
+    if (!di->eventFds().empty()) {
+        for (auto ev_fd : di->eventFds()) {
+            if (FD_ISSET(ev_fd, &proto_dispatch_fds)) {
                 // dispatch each of the set notification fds one at a time.
-                di->proto().dispatchEvents(di, *ev_fd);
+                di->proto().dispatchEvents(di, ev_fd);
             }
         }
     } else {

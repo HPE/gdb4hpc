@@ -17,7 +17,6 @@
 #define _DBGBP_H
 
 #include "dbgloc.h"
-#include "list.h"
 #include <string>
 
 enum dbgbp_type {

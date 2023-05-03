@@ -21,7 +21,6 @@
 #ifndef _VAR_H
 #define _VAR_H
 
-#include "list.h"
 #include "slice.h"
 
 struct var_t {

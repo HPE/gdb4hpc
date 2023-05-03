@@ -23,7 +23,6 @@
 #include <stdio.h>
 
 #include "dbgevent.h"
-#include "list.h"
 
 /*
 ** Types of cli streams

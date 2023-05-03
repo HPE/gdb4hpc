@@ -167,7 +167,8 @@ public:
     //
     // TODO change to std::list or std::vector
     // TODO export a more fine-grained API for this
-    list_t* eventFds();
+    void addEventFd(int fd);
+    const std::vector<int>& eventFds() const;
 
     // Initilize the inner list of fds to an empty list. If there already exists a list,
     // it is destroyed along with its contents.
@@ -302,7 +303,7 @@ private:
     LaunchOpts m_launch_opts;
 
     int m_nproc;
-    list_t *m_evfds = nullptr;
+    std::vector<int> m_evfds;
     g_progoutp_t* m_proto_outp = nullptr;
 
     std::unique_ptr<Bitset> m_bitset_full;

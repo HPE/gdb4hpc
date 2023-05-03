@@ -4,7 +4,6 @@
 #pragma once
 
 #include "dbgevent.h"
-#include "list.h"
 
 extern std::string convertMiToCli(const std::string& cmd);
 

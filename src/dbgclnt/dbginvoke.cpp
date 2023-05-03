@@ -471,7 +471,6 @@ DbgInvoke::DbgInvoke(DbgInvoke&& o)
     o.m_started_flag = false;
     o.m_shutdown_flag = true;
     o.m_nproc = 0;
-    o.m_evfds = nullptr;
     o.m_proto_outp = nullptr;
     o.m_frontend_gdb = nullptr;
 }
@@ -484,9 +483,6 @@ DbgInvoke::~DbgInvoke() {
         auto e = DbgDestroyFE(m_frontend_gdb);
         FreeEvent(e);
     }
-
-    // remove any event fds from the proto
-    DestroyList(m_evfds, free);
 
     ReleaseSignals();
 }
@@ -529,10 +525,10 @@ void DbgInvoke::setShutdown() { m_shutdown_flag = true; }
 int DbgInvoke::numRanks() const { return m_nproc; }
 void DbgInvoke::setNumRanks(int n) { m_nproc = n; }
 
-list_t* DbgInvoke::eventFds() { return m_evfds; }
+const std::vector<int>& DbgInvoke::eventFds() const { return m_evfds; }
+void DbgInvoke::addEventFd(int fd) { m_evfds.push_back(fd); }
 void DbgInvoke::initializeEventFds() {
-    DestroyList(m_evfds, free); // nullptr is OK
-    m_evfds = NewList();
+    m_evfds.clear();
 }
 
 const Bitset* DbgInvoke::fullBitset() const { return m_bitset_full.get(); }

@@ -101,14 +101,7 @@ def makeRunFile(test, substitutions = ()):
     penv = "" if test.penv == "CRAY" else ("." + test.penv)
     runfile = tmpdir + '/' + test.base_name + penv + ".rc"
 
-    launch_re = None
-    launch_args = os.environ.get("CDST_TESTS_LAUNCHER_ARGS")
-
-    if launch_args:
-        launch_args = '--launcher-args="' + launch_args + '" '
-
-    if launch_args:
-        launch_re = re.compile(r"(launch [^}]+} *)")
+    launch_re = re.compile(r"(launch .+?{(\d+)} *)")
 
     rcline = re.compile(r"^\d+: ?(.*)")
 
@@ -123,8 +116,37 @@ def makeRunFile(test, substitutions = ()):
                 line = line[0:qloc]
             line += '\n'
 
-            if launch_re:
-                line = launch_re.sub(r"\1" + launch_args, line)
+            launch_m = launch_re.match(line)
+            if launch_m:
+                # build up launcher args from 3 sources:
+                # 1. CDST_TESTS_LAUNCHER_ARGS
+                # 2. --launcher-args in .in file
+                # 3. -g in .in file
+                launch_args_list = []
+
+                env_launch_args = os.environ.get("CDST_TESTS_LAUNCHER_ARGS")
+                if env_launch_args:
+                    launch_args_list.append(env_launch_args)
+
+                in_launch_args_m = re.search('--launcher-args="(.+?)"', line)
+                if in_launch_args_m:
+                    in_launch_args = in_launch_args_m.group(1)
+                    line = line.replace(in_launch_args_m.group(0), "")
+                    launch_args_list.append(in_launch_args)
+
+                in_g_launch_args_m = re.search('-g "(.+?)"', line)
+                if in_g_launch_args_m:
+                    in_g_launch_args = in_g_launch_args_m.group(1)
+                    line = line.replace(in_g_launch_args_m.group(0), "")
+                    launch_args_list.append(in_g_launch_args)
+
+                all_launch_args = " ".join(launch_args_list)
+                if all_launch_args:
+                    num_ranks = int(launch_m.group(2))
+                    # if not on a slurm machine, translate launch args
+                    local_launch_args = lt.convert_slurm_launcher_args(num_ranks, all_launch_args, detect_wlm())
+                    line = launch_re.sub(r"\1" + '--launcher-args="' + local_launch_args + '" ', line)
+
             # launch binary from current programming environment
             line = re.sub(r"bin/CRAY/", f"bin/{test.penv}/", line)
             for repl, substitution in substitutions:

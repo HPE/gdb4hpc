@@ -1,6 +1,6 @@
 1: maint set sync on
 2: # launch 2 instances of the application
-3: launch $a{3} --args="0 6" bin/CRAY/fortran/ftn_arrays.x
+3: launch $a{3} --args="0 6" bin/CRAY/fortran/ftn_arrays.x -g "-N2"
 Starting application, please wait...
 Launch complete.
 a{0..2}: Initial breakpoint, %(ftn_arrays|(in )?main)( at .*?/ftn_arrays.f90:<start-line>)?%
@@ -12,7 +12,7 @@ a{0..2}: Initial breakpoint, %(ftn_arrays|(in )?main)( at .*?/ftn_arrays.f90:<st
 4: # Initial breakpoint, in main
 4: # 
 4: # <start-line> needs to be inserted so the regex matches after the line is anonymized.
-4: launch $b{3} --args="1 6" bin/CRAY/fortran/ftn_arrays.x
+4: launch $b{3} --args="1 6" bin/CRAY/fortran/ftn_arrays.x -g "-N2"
 Starting application, please wait...
 Launch complete.
 b{0..2}: Initial breakpoint, %(ftn_arrays|(in )?main)( at .*?/ftn_arrays.f90:<start-line>)?% 

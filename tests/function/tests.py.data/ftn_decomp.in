@@ -1,10 +1,10 @@
 1: maint set sync on
 2: # launch 3 instances of one application and 4 of another to test decomp
-3: launch $a{3} --args="0" bin/CRAY/fortran/ftn_decomp.x
+3: launch $a{3} --args="0" bin/CRAY/fortran/ftn_decomp.x -g "-N2"
 Starting application, please wait...
 Launch complete.
 a{0..2}: Initial breakpoint, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90:2
-4: launch $b{4} --args="1" bin/CRAY/fortran/ftn_decomp.x
+4: launch $b{4} --args="1" bin/CRAY/fortran/ftn_decomp.x -g "-N2"
 Starting application, please wait...
 Launch complete.
 b{0..3}: Initial breakpoint, ftn_decomp at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/fortran/ftn_decomp.f90:2

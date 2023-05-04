@@ -57,3 +57,51 @@ a{0..2}: Version %[\d.]+%
 - in desperate circumstances, the function output can me marked as
 indeterminate by adding three question marks, e.g.:
 34:info thread -v???
+
+## Test Sizes
+
+Each individual test should be designed so that it can be run in a 4 node
+allocation. A 4 node limit was chosen because it is a requirement that is easy
+to meet by any small machine, and it allows big machines to assume each test
+will use 4 nodes for easy scaling math to run tests in parallel.
+
+Specify the node count in the test's launcher args such that the total amount
+of nodes in use never exceeds 4. Even single job launches should specify a node
+count if they launch more than 4 ranks so that they can be assumed to only use
+4 nodes. This makes for easy parallel test math (`num_parallel_tests =
+total_allocation_nodes / 4`).
+
+For example, the following launch would likely fail on a 4 node allocation
+because the default action in a launch is to use as many nodes as possible.
+Combined, these two launches require 6 nodes.
+
+```
+launch $a{3} ./bin/CRAY/c/c_inc.x
+launch $b{3} ./bin/CRAY/c/c_inc.x
+```
+
+Replace it with the following to keep it under the 4 node limit.
+
+```
+launch $a{3} ./bin/CRAY/c/c_inc.x --launcher-args="-N2"
+launch $b{3} ./bin/CRAY/c/c_inc.x --launcher-args="-N2"
+```
+
+## Launcher arguments in .in files
+
+Some .in files have launcher arguments in their launch line:
+
+> `launch $a{3} ./bin/CRAY/c/c_inc.x --launcher-args="-N2"`
+
+This can be problematic. We only maintain one .in file for each test, but we
+test across multiple WLMs. `-N4` in slurm means something different than `-N4`
+on ALPS, and another wlm might not even support a `-N` option.
+
+To deal with this, the test harness makes the assumption that .in files are
+written with slurm launcher arguments. This is the most common kind of internal
+system and thus the easiest to support the "run gdb4hpc with -e -> paste into
+.in file" test creation workflow.
+
+The translation implementation if not complete and only supports the cases
+needed by current tests. Check libtest.py and the unit tests in libtest.py to
+see how much is implemented.

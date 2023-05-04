@@ -1,7 +1,8 @@
-1: launch $a{2} bin/CRAY/c/c_type_test.x
+1: # use only 1 node per launch since we are re-launching below
+1: launch $a{2} bin/CRAY/c/c_type_test.x -g "-N1"
 Launch complete.
 a{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
-2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
+2: launch $b{2} bin/CRAY/c/c_cmp_diff.x -g "-N1"
 Launch complete.
 b{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
 3: build $twice

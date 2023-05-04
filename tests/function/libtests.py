@@ -8,6 +8,7 @@
 import re
 import os
 import sys
+import math
 
 try:
     from cdst_test.textcheck import make_regex
@@ -175,7 +176,11 @@ def compare_batch_lines(ref_line, out_line):
 
     # XXX: no make_regex here like in compare_lines because fortran uses % for struct
     # member access, so % might be in the batch line and we can't assume it's a regex.
-    if not ref_batch_line == out_line:
+    #
+    # we make an exception for launch lines since those are often changed at
+    # .in -> .rc file build time (substitutions/launcher args) and would throw
+    # an error for a mismatch here
+    if not ref_batch_line == out_line and not "launch" in out_line:
         return "batch lines do not match"
 
     return None
@@ -345,6 +350,38 @@ def all_launches_successful(outfile):
 
     # shouldn't ever get here? failed to open the file?
     return False
+
+def convert_slurm_launcher_args(num_ranks: int, slurm_args: str, output_wlm: str):
+    """
+    convert `slurm_args` launcher args to launcher args of the same meaning for
+    `output_wlm`. `output_wlm` should be a string returned from detect_wlm.
+
+    for example, in slurm, "-n4 -N1" means "four ranks on one node", but on
+    alps it means "four ranks, one on each node, totaling four nodes".
+    convert_slurm_launcher_args(4, "-N1", "ALPS") would output "-N4".
+
+    this function is not fully featured and only converts *some* arguments to
+    *some* wlms.  conversions are implemented based on needs of existing tests.
+    see the unit test for an idea of what's implemented.
+    """
+
+    if output_wlm == "SLURM":
+        return slurm_args
+
+    args = slurm_args.split()
+
+    if output_wlm == "ALPS":
+        # convert -n4 -N1 combo to -n4 -N4
+        nodes = None # (idx, value)
+        for i, arg in enumerate(args):
+            if arg.startswith("-N"):
+                # this does not support the form with spaces ("-N 4")
+                nodes = (i, int(arg[2:]))
+
+        if nodes:
+            args[nodes[0]] = f"-N{math.ceil(num_ranks / nodes[1])}"
+
+    return " ".join(args)
 
 import unittest
 
@@ -589,6 +626,19 @@ class TestLibTest(unittest.TestCase):
 
     def test_regression_lgdb_ftn_t3(self):
         self.regression_test("lgdb_ftn_t3")
+
+    def test_convert_slurm_launcher_args(self):
+        self.assertEqual(convert_slurm_launcher_args(4, "-N1", "SLURM"), "-N1")
+
+        # alps rank conversions
+        self.assertEqual(convert_slurm_launcher_args(4, "-N1", "ALPS"), "-N4")
+        self.assertEqual(convert_slurm_launcher_args(4, "-N2", "ALPS"), "-N2")
+        self.assertEqual(convert_slurm_launcher_args(2, "-N1", "ALPS"), "-N2")
+        self.assertEqual(convert_slurm_launcher_args(3, "-N2", "ALPS"), "-N2")
+        self.assertEqual(convert_slurm_launcher_args(6, "-N2", "ALPS"), "-N3")
+        self.assertEqual(convert_slurm_launcher_args(10, "-N2", "ALPS"), "-N5")
+        self.assertEqual(convert_slurm_launcher_args(5, "-N2", "ALPS"), "-N3")
+        self.assertEqual(convert_slurm_launcher_args(4, "-N1 leave_this_part_unchanged", "ALPS"), "-N4 leave_this_part_unchanged")
 
 if __name__ == "__main__":
     unittest.main()

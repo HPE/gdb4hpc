@@ -27,7 +27,6 @@
 #include "dbg_mrn.h"
 #include "dbg_mrn_network.h"
 #include "defs.h"
-#include "list.h"
 #include "mrn_topgen.h"
 #include "mrnet/Communicator.h"
 #include "mrnet/Event.h"
@@ -39,13 +38,6 @@
 #include "sparse_bitset.h"
 #include "bitset_convert.h"
 
-struct MulticastType {
-    MulticastType(MRN::Communicator *comm, MRN::Stream *stream, const Bitset *target);
-
-    std::unique_ptr<Bitset> target;
-    MRN::Communicator *comm;
-    MRN::Stream *stream;
-};
 
 class LaunchCallbackCounter {
 public:
@@ -116,8 +108,9 @@ static LaunchCallbackCounter callback_handler;
 // failure.
 static FailureHandler failure_handler;
 
-MulticastType::MulticastType(MRN::Communicator *comm, MRN::Stream *stream,
-                             const Bitset *target_)
+MRNetNetwork::MulticastType::MulticastType(
+    MRN::Communicator *comm, MRN::Stream* stream,
+    const Bitset *target_)
     : comm{comm}, stream{stream} 
 {
     target = target_->clone();
@@ -129,8 +122,8 @@ static inline void *int_to_ptr(int i) { return (char *)0 + i; }
 void MRNetNetwork::add_event_stream(MRN::Stream *event_stream) {
     if (event_stream != nullptr) {
         int eventFd = event_stream->get_DataNotificationFd();
-        AddToList(m_event_streams, event_stream);
-        AddToList(m_event_nfds, int_to_ptr(eventFd));
+        m_event_streams.push_back(event_stream);
+        m_event_nfds.push_back(eventFd);
     }
 }
 
@@ -139,9 +132,6 @@ MRNetNetwork::MRNetNetwork(MRN::Network *network, MRN::Stream *cmd, MRN::Stream 
     : m_network{network},
       m_cmd_stream{cmd},
       m_io_stream{io},
-      m_event_streams{NewList()},
-      m_mc_streams{NewList()},
-      m_event_nfds{NewList()},
       m_io_nfd{-1},
       m_filter_id{filter},
       m_num_be{num_be}
@@ -161,21 +151,13 @@ MRNetNetwork::~MRNetNetwork() {
 
     // DestroyList is safe to call with nullptr, no need to check if
     // m_event_streams is null
-    DestroyList(m_event_streams, [](void *stream) {
-        delete static_cast<MRN::Stream *>(stream);
+    std::ranges::for_each(m_event_streams, [](auto stream) {
+        delete stream;
     });
 
-    DestroyList(m_mc_streams, [](void *voidMulti) {
-        if (auto *multi = static_cast<MulticastType *>(voidMulti)) {
-            delete multi->stream;
-            delete multi;
-        }
+    std::ranges::for_each(m_mc_streams, [](auto& multi) {
+        delete multi.stream;
     });
-
-    // for this list we are cheeky and store the fds directly as void
-    // pointers and cast them to ints to use them. so there is no need to pass a
-    // deletion function here. see the ptr_to_int and int_to_ptr functions.
-    DestroyList(m_event_nfds, nullptr);
 
     delete m_network; // needs to be deleted last
 }
@@ -190,21 +172,17 @@ MRN::Stream *MRNetNetwork::get_stream(DBG_MRNet_PROTOCOL proto, const Bitset *ta
                 stream = m_cmd_stream;
             } else {
                 // look for multicast stream
-                SetList(m_mc_streams);
-                while (auto *mc_type = static_cast<MulticastType *>(GetListElement(m_mc_streams))) {
-                    if (*mc_type->target == *target) {
+                for (const auto& mc_type : m_mc_streams) {
+                    if (*mc_type.target == *target) {
                         // found multicast stream
-                        stream = mc_type->stream;
+                        stream = mc_type.stream;
                         break;
                     }
                 }
             }
             break;
         case DBG_MRNet_PRO_EVENT:
-            stream = static_cast<MRN::Stream *>(
-                EmptyList(m_event_streams)
-                    ? nullptr
-                    : GetListNumElement(m_event_streams, 0));
+            stream = m_event_streams.empty() ? nullptr : m_event_streams.front();
             break;
         case DBG_MRNet_PRO_IO:
             stream = m_io_stream;
@@ -230,11 +208,10 @@ MRN::Stream *MRNetNetwork::create_stream(const Bitset *target, MRN::Stream *&eve
     auto *comm = m_network->new_Communicator(endpointers);
 
     // Create the broadcast stream
-    auto stream =
-        m_network->new_Stream(comm, m_filter_id, MRN::SFILTER_WAITFORALL);
+    auto stream = 
+         m_network->new_Stream(comm, m_filter_id, MRN::SFILTER_WAITFORALL);
 
-    auto mc_type = new MulticastType(comm, stream, target);
-    AddToList(m_mc_streams, mc_type);
+    m_mc_streams.emplace_back(comm, stream, target);
 
     // Create the event stream for handling asynchronous output from the
     // debugger
@@ -621,7 +598,7 @@ int MRNetNetwork::get_io_notificationfd() {
 }
 
 int MRNetNetwork::get_event_notificationfd() const {
-    return ptr_to_int(GetListNumElement(m_event_nfds, 0));
+    return m_event_nfds.front();
 }
 
 std::optional<ProtoMessageSet> MRNetNetwork::dispatch_io(int notification_fd) {
@@ -691,18 +668,18 @@ std::optional<ProtoMessageSet> MRNetNetwork::dispatch_io(int notification_fd) {
 std::optional<ProtoMessageSet> MRNetNetwork::dispatch_event(int notification_fd) {
     std::optional<ProtoMessageSet> result{};
 
-    void *notification_fdptr = int_to_ptr(notification_fd);
-    if (InList(m_event_nfds, notification_fdptr)) {
+    if (std::ranges::find(m_event_nfds, notification_fd) != m_event_nfds.end()) {
         DPRINT("mrn_fe_check_io_and_event: handle EVENT_MESSAGE.\n");
 
         // find the event_stream corresponding to the event_fd
-        SetList(m_event_nfds);
-        SetList(m_event_streams);
         MRN::Stream *event_stream = nullptr;
-        while (event_stream = static_cast<MRN::Stream *>(GetListElement(m_event_streams)),
-               GetListElement(m_event_nfds) != notification_fdptr) {
+        if (auto loc = std::ranges::find(m_event_nfds, notification_fd);
+            loc != m_event_nfds.end()) {
+            event_stream = m_event_streams[loc - m_event_nfds.begin()];
+        } else {
+            return result;
         }
-
+        
         // clear the event_stream notification fd
         event_stream->clear_DataNotificationFd();
 

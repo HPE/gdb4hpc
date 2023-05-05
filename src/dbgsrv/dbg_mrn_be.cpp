@@ -56,16 +56,10 @@ MRNetBackEnd::MRNetBackEnd(int argc, char* argv[])
       m_stream_single{nullptr},
       m_event_fd{0},
       m_rank_bs{nullptr},
-      m_rank_bs_str(nullptr, std::free),
-      m_cmd_streams{NewList()},
-      m_event_streams{NewList()},
-      m_msg_list{NewList()}
+      m_rank_bs_str(nullptr, std::free)
 {
     if (m_network == nullptr) {
         DVPRINT("ERROR: mrn_initialize_backend_node cannot create BE! (missing network)\n");
-        DestroyList(m_cmd_streams, nullptr);
-        DestroyList(m_event_streams, nullptr);
-        DestroyList(m_msg_list, nullptr);
         throw std::runtime_error("ERROR: mrn_initialize_backend_node cannot create BE! (missing network)");
     }
 
@@ -79,11 +73,8 @@ MRNetBackEnd::MRNetBackEnd(int argc, char* argv[])
 MRNetBackEnd::~MRNetBackEnd() {
     m_network->close_EventNotificationFd(MRN::Event::DATA_EVENT);
     delete m_network;
-
-    // XXX: Memory leak?
-    DestroyList(m_cmd_streams, nullptr);
-    DestroyList(m_event_streams, nullptr);
-    DestroyList(m_msg_list, nullptr);
+    // the ownership of the string in m_msg_list is unclear
+    // but the backend is exiting anyway
 }
 
 int MRNetBackEnd::is_shutdown() { return m_network->is_ShutDown(); }
@@ -124,17 +115,9 @@ void MRNetBackEnd::set_cmd_stream(MRN::Stream* stream) {
             "stream\n");
         event_stream = m_bc_stream_event;
     } else {
-        list_t* cs = m_cmd_streams;
-        list_t* es = m_event_streams;
-        SetList(cs);
-        SetList(es);
-        for (MRN::Stream *cmd, *event;
-             (cmd = static_cast<MRN::Stream *>(GetListElement(cs))) &&
-             (event = static_cast<MRN::Stream *>(GetListElement(es)));) {
-            if (cmd == stream) {
-                event_stream = event;
-                break;
-            }
+        if (auto loc = std::ranges::find(m_cmd_streams,stream);
+            loc != m_cmd_streams.end()) {
+            event_stream = m_event_streams[loc - m_cmd_streams.begin()];
         }
 
         if (event_stream == nullptr) {
@@ -168,12 +151,13 @@ void MRNetBackEnd::set_event_stream(MRN::Stream* stream) {
         DVPRINT("INFO: [dbgsrv] m_event_stream is set %u.\n",
                 stream->get_Id());
 
-    } else if (m_stream_cmd && !InList(m_cmd_streams, (void*)m_stream_cmd)) {
+    } else if (m_stream_cmd &&
+               std::ranges::find(m_cmd_streams, m_stream_cmd) == m_cmd_streams.end()) {
         DVPRINT("INFO: [dbgsrv] creating cmd/event stream pair %d, %d\n",
                 m_stream_cmd->get_Id(), stream->get_Id());
 
-        AddToList(m_cmd_streams, m_stream_cmd);
-        AddToList(m_event_streams, stream);
+        m_cmd_streams.push_back(m_stream_cmd);
+        m_event_streams.push_back(stream);
     }
     m_stream_event = stream;
 }
@@ -238,7 +222,7 @@ int MRNetBackEnd::recv(MRN::Stream** stream, int* tag, bool blocking) {
 #endif
 
     if (msg != nullptr) {
-        AddToList(m_msg_list, msg);
+        m_msg_list.push_back(msg);
         *stream = stream_be;
         *tag = tag_be;
         return 1;
@@ -342,28 +326,31 @@ void MRNetBackEnd::set_callback(MRNetBackEndCallback callback) {
 }
 
 void MRNetBackEnd::handle_msg(MRN::Stream *stream) {
-    char* msg = (char*)RemoveFirst(m_msg_list);
+    if (m_msg_list.empty()) return;
+    
+    char* msg = m_msg_list.front();
+    m_msg_list.erase(m_msg_list.begin());
 
-    if (msg != nullptr) {
-        int cmdIdx = 0;
-        if (sscanf(msg, "%d", &cmdIdx) == 1 && cmdIdx == DBGCMD_SETCOMMPARAM) {
-            // strip off the command number and toss it back into the mrn
-            // specific processing.  I don't think we need to fire up
-            // regex or strtok to pull of one number.
-            char* submsg = msg;
-            for (; *submsg && isspace(*submsg); ++submsg) {
-            }
-            for (; *submsg && isdigit(*submsg); ++submsg) {
-            }
-            for (; *submsg && isspace(*submsg); ++submsg) {
-            }
-            set_param(stream, submsg);
-        } else {
-            // push all other commands to the back-end.
-            mrncomm_info ci(m_stream_event);
-            m_dbgsrv_callback(msg, &ci);
-            free(msg);
+    if (!msg) return;
+
+    int cmdIdx = 0;
+    if (sscanf(msg, "%d", &cmdIdx) == 1 && cmdIdx == DBGCMD_SETCOMMPARAM) {
+        // strip off the command number and toss it back into the mrn
+        // specific processing.  I don't think we need to fire up
+        // regex or strtok to pull of one number.
+        char* submsg = msg;
+        for (; *submsg && isspace(*submsg); ++submsg) {
         }
+        for (; *submsg && isdigit(*submsg); ++submsg) {
+        }
+        for (; *submsg && isspace(*submsg); ++submsg) {
+        }
+        set_param(stream, submsg);
+    } else {
+        // push all other commands to the back-end.
+        mrncomm_info ci(m_stream_event);
+        m_dbgsrv_callback(msg, &ci);
+        free(msg);
     }
 
     return;

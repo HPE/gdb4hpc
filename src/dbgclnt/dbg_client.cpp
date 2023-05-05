@@ -3226,16 +3226,16 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 // location state data
 
                 // loop over every set_location
-                SetListStateLocation(dbg_fe);
-                for (set_location *set_loc; (set_loc = GetListStateLocation(dbg_fe));) {
+                for (auto& set_loc : GetListStateLocations(*dbg_fe)) {
                     // Call the list command using the saved location string to
                     // set things up
-                    auto e = DbgFEList(dbg_fe, set_loc->threads, set_loc->loc_str);
+                    auto e = DbgFEList(dbg_fe, set_loc.threads.get(),
+                                       set_loc.loc_str.get());
 
                     // handle the error case
                     if (e->ev_event == DBGEV_ERROR) {
                         auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
-                                                       set_loc->set->clone(), e);
+                                                       set_loc.set->clone(), e);
                         AddErrToSet(result, group_rep);
                         continue;
                     }
@@ -3245,18 +3245,18 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                     // Now we need to call list count times with direction
                     // depending on its sign.
-                    if (set_loc->count < 0) {
+                    if (set_loc.count < 0) {
                         cont = 0;
 
                         // We need to go in the reverse direction
-                        for (i = set_loc->count; i < 0; ++i) {
-                            e = DbgFEList(dbg_fe, set_loc->threads, "-");
+                        for (i = set_loc.count; i < 0; ++i) {
+                            e = DbgFEList(dbg_fe, set_loc.threads.get(), "-");
 
                             // handle the error case
                             if (e->ev_event == DBGEV_ERROR) {
                                 auto group_rep =
                                     NewGroupReply(recv_ptr->rec_di.handle(),
-                                                  set_loc->set->clone(), e);
+                                                  set_loc.set->clone(), e);
                                 AddErrToSet(result, group_rep);
                                 ++cont;
                                 break;
@@ -3267,18 +3267,18 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         if (cont) {
                             continue;
                         }
-                    } else if (set_loc->count > 0) {
+                    } else if (set_loc.count > 0) {
                         cont = 0;
 
                         // We need to go in the forward direction
-                        for (i = 0; i < set_loc->count; ++i) {
-                            e = DbgFEList(dbg_fe, set_loc->threads, "");
+                        for (i = 0; i < set_loc.count; ++i) {
+                            e = DbgFEList(dbg_fe, set_loc.threads.get(), "");
 
                             // handle the error case
                             if (e->ev_event == DBGEV_ERROR) {
                                 auto group_rep =
                                     NewGroupReply(recv_ptr->rec_di.handle(),
-                                                  set_loc->set->clone(), e);
+                                                  set_loc.set->clone(), e);
                                 AddErrToSet(result, group_rep);
                                 ++cont;
                                 break;
@@ -3296,11 +3296,11 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     // isReverse value. We also increment or decrement the saved
                     // count here
                     if (isReverse) {
-                        e = DbgFEList(dbg_fe, set_loc->threads, "-");
-                        set_loc->count--;
+                        e = DbgFEList(dbg_fe, set_loc.threads.get(), "-");
+                        set_loc.count--;
                     } else {
-                        e = DbgFEList(dbg_fe, set_loc->threads, "");
-                        set_loc->count++;
+                        e = DbgFEList(dbg_fe, set_loc.threads.get(), "");
+                        set_loc.count++;
                     }
 
                     // Make sure we got a DBGEV_LIST back, otherwise create an
@@ -3317,7 +3317,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                     // Add the event to the result based on its type
                     auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
-                                                   set_loc->set->clone(), e);
+                                                   set_loc.set->clone(), e);
 
                     if (e->ev_event == DBGEV_ERROR) {
                         AddErrToSet(result, group_rep);

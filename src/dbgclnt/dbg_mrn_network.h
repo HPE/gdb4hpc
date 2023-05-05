@@ -62,7 +62,16 @@ public:
 private:
     MRNetNetwork(MRN::Network *network, MRN::Stream *cmd,
           MRN::Stream *event, MRN::Stream *io, int num_be, int filter);
-    
+
+    struct MulticastType {
+        MulticastType(MRN::Communicator *comm, MRN::Stream* stream,
+                      const Bitset *target);
+
+        std::unique_ptr<Bitset> target;
+        MRN::Communicator *comm;
+        MRN::Stream* stream;
+    };
+
     void add_event_stream(MRN::Stream *event_stream);
     MRN::Stream *get_stream(DBG_MRNet_PROTOCOL proto, const Bitset *target) const;
     MRN::Stream *create_stream(const Bitset *target, MRN::Stream *&event_stream);
@@ -71,9 +80,9 @@ private:
     MRN::Network *m_network;
     MRN::Stream *m_cmd_stream;
     MRN::Stream *m_io_stream;
-    list_t *m_event_streams;
-    list_t *m_mc_streams;  // list of multicast streams
-    list_t *m_event_nfds;
+    std::vector<MRN::Stream *> m_event_streams;
+    std::vector<MulticastType> m_mc_streams; // list of multicast streams
+    std::vector<int> m_event_nfds;
     int m_io_nfd;
     int m_filter_id;
     int m_num_be;  // number of dbgsrvs

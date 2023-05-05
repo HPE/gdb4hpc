@@ -25,21 +25,20 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <vector>
+#include <algorithm>
 
 #include "alloc.h"
 #include "debug.h"
 #include "defs.h"
 
-#ifdef PERFLOG
-#include "list.h"
-#endif /*PERFLOG*/
-
 // external error printing function
 extern void PrintOutError(const char*, ...);
 
+
 #ifdef PERFLOG
 static FILE* _timer_log = NULL;
-static list_t* timer_list = (list_t*)NULL;
+static std::vector<guard_timer_t*> timer_list;
 
 guard_timer_t* CreateTimer(char* name) {
     guard_timer_t* timer;
@@ -54,17 +53,10 @@ void ReleaseTimer(guard_timer_t* timer) {
     Free(timer);
 }
 
-list_t* CreateTimerList() {
-    timer_list = NewList();
-
-    return timer_list;
-}
-
 void ReleaseTimerList() {
-    if (timer_list != (list_t*)NULL) {
-        DestroyList(timer_list, ReleaseTimer);
-        timer_list = NULL;
-    }
+    std::ranges::for_each(timer_list, ReleaseTimer);
+    timer_list.clear();
+
 }
 
 double CalElapsedTime(struct timeval* tv_begin, struct timeval* tv_end)
@@ -128,25 +120,20 @@ int CloseTimerLog() {
 void ReleaseTimers() { ReleaseTimerList(); }
 
 guard_timer_t* FindTimerByName(char* name) {
-    guard_timer_t* timer = NULL;
-
-    if (timer_list == (list_t*)NULL) return (guard_timer_t*)NULL;
-
-    SetList(timer_list);
-    while ((timer = (guard_timer_t*)GetListElement(timer_list)) !=
-           (guard_timer_t*)NULL) {
-        if (!strcmp(timer->name, name)) break;
+    if (auto loc =
+        std::ranges::find_if(timer_list,
+                             [name](auto t) { return strcmp(t->name,name)==0; });
+        loc != timer_list.end()) {
+        return *loc;
+    } else {
+        return nullptr;
     }
-
-    return timer;
 }
 
 guard_timer_t* SetTimerStart(char* name) {
     guard_timer_t* timer = NULL;
 
     if (name == NULL) return (guard_timer_t*)NULL;
-
-    if (timer_list == (list_t*)NULL) timer_list = CreateTimerList();
 
     timer = FindTimerByName(name);
     if (timer != (guard_timer_t*)NULL) return (guard_timer_t*)NULL;
@@ -156,7 +143,7 @@ guard_timer_t* SetTimerStart(char* name) {
 
     gettimeofday(&timer->tv_begin, NULL);
 
-    AddToList(timer_list, (void*)timer);
+    timer_list.push_back(timer);
 
     return timer;
 }
@@ -194,7 +181,7 @@ void SetTimerStopAndLog(char* name) {
         PrintOutError("%s: %f\n", name, ela_time);
     }
 
-    RemoveFromList(timer_list, timer);
+    std::erase(timer_list, timer);
     Free(timer);
 }
 

@@ -21,9 +21,6 @@
 #include "defs.h"
 #include "useful.h"
 
-// Static prototypes
-static void FreeSetLocation(set_location *);
-
 /*
 ** Setup debug frontend defs
 */
@@ -42,19 +39,10 @@ static frontend_tab DbgFrontendTab[] = {
     {NULL, (dbgfrontend_sw_create *)NULL}};
 
 dbgfrontend_sw *DbgInstantiateFE(const char *debug_def, const char* gdbPath) {
-    frontend_tab *p;
-    dbgfrontend_sw *fe_obj;
-
-    for (p = DbgFrontendTab; p->frontend_name != NULL; ++p) {
+    for (auto p = DbgFrontendTab; p->frontend_name != NULL; ++p) {
         if (strcmp(p->frontend_name, debug_def) == 0) {
             // allocate a new object
-            fe_obj = (dbgfrontend_sw *)Alloc(sizeof(dbgfrontend_sw));
-            memset(fe_obj, 0, sizeof(dbgfrontend_sw));
-
-            // Set the stuff we are responsible for
-            fe_obj->dbg_name = p->frontend_name;
-            fe_obj->dbg_status = DBGSTAT_INITIALISING;
-            fe_obj->dbg_list_locs = NewList();
+            auto fe_obj = new dbgfrontend_sw{ .dbg_name = p->frontend_name };
 
             // instantiate the object usings its create function, this function
             // *MUST* be provided
@@ -87,11 +75,8 @@ dbgevent_t *DbgDestroyFE(dbgfrontend_sw *fe_obj) {
         e = NewEvent(DBGEV_OK);
     }
 
-    // Free the list state
-    DestroyList(fe_obj->dbg_list_locs, (void (*)(void *))FreeSetLocation);
-
     // cleanup memory
-    Free(fe_obj);
+    delete fe_obj;
 
     return e;
 }
@@ -102,18 +87,18 @@ dbgevent_t *DbgDestroyFE(dbgfrontend_sw *fe_obj) {
 */
 
 int AddListStateLocation(dbgfrontend_sw *fe_obj, const Bitset *set, const char* threads, const char *str) {
-    if (fe_obj == NULL || fe_obj->dbg_list_locs == NULL || set == NULL ||
-        str == NULL) {
+    if (!fe_obj || !set || !str) {
         return -1;
     }
 
-    auto new_loc = new set_location;
-    new_loc->set = set->clone();
-    new_loc->loc_str = strdup(str);
-    new_loc->threads = StrdupOpt(threads);
-    new_loc->count = 0;
 
-    AddToList(fe_obj->dbg_list_locs, new_loc);
+    set_location new_loc = {
+        .set = set->clone(),
+        .threads = std::unique_ptr<char,decltype(&std::free)>(StrdupOpt(threads), &std::free),
+        .loc_str = std::unique_ptr<char,decltype(&std::free)>(strdup(str), &std::free),
+        .count = 0};
+
+    fe_obj->dbg_list_locs.push_back(std::move(new_loc));
 
     // Set dbg_list_isPending to 1
     fe_obj->dbg_list_isPending = 1;
@@ -121,36 +106,18 @@ int AddListStateLocation(dbgfrontend_sw *fe_obj, const Bitset *set, const char* 
     return 0;
 }
 
-set_location *GetListStateLocation(dbgfrontend_sw *fe_obj) {
-    if (fe_obj == NULL || fe_obj->dbg_list_locs == NULL) return NULL;
-
-    return (set_location *)GetListElement(fe_obj->dbg_list_locs);
+std::vector<set_location>& GetListStateLocations(dbgfrontend_sw& fe_obj) {
+    return fe_obj.dbg_list_locs;
 }
 
-void SetListStateLocation(dbgfrontend_sw *fe_obj) {
-    if (fe_obj == NULL || fe_obj->dbg_list_locs == NULL) return;
-
-    SetList(fe_obj->dbg_list_locs);
-}
 
 void ClearListState(dbgfrontend_sw *fe_obj) {
-    set_location *loc;
-
-    if (fe_obj == NULL || fe_obj->dbg_list_locs == NULL) return;
+    if (!fe_obj) return;
 
     // set dbg_list_isPending to 0
     fe_obj->dbg_list_isPending = 0;
 
-    // free the list locations
-    while ((loc = (set_location *)RemoveFirst(fe_obj->dbg_list_locs)) != NULL) {
-        FreeSetLocation(loc);
-    }
-}
-
-static void FreeSetLocation(set_location *set_loc) {
-    free(set_loc->loc_str);
-    free(set_loc->threads);
-    delete set_loc;
+    fe_obj->dbg_list_locs.clear();
 }
 
 // Used to ensure the function is implemented

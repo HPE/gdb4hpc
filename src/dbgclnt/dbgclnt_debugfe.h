@@ -22,24 +22,22 @@
 
 #include "dense_bitset.h"
 #include "dbgevent.h"
-#include "list.h"
 
 typedef void *dbgfrontend_sess;
 
 struct set_location {
     std::unique_ptr<Bitset> set;
-    char *threads;
-    char *loc_str;
+    std::unique_ptr<char, decltype(&std::free)> threads;
+    std::unique_ptr<char, decltype(&std::free)> loc_str;
     int count;
 };
-typedef struct set_location set_location;
 
 struct dbgfrontend_sw {
-    const char *dbg_name;
-    dbgfrontend_sess dbg_session;
-    dbgstat dbg_status;
-    int dbg_list_isPending;
-    list_t *dbg_list_locs;
+    const char *dbg_name = nullptr;
+    dbgfrontend_sess dbg_session = nullptr;
+    dbgstat dbg_status = DBGSTAT_INITIALISING;
+    int dbg_list_isPending = 0;
+    std::vector<set_location> dbg_list_locs;
 
     dbgevent_t *(*dbg_init)(struct dbgfrontend_sw *, const char* gdbPath);
     dbgevent_t *(*dbg_quit)(struct dbgfrontend_sw *);
@@ -61,8 +59,8 @@ typedef struct dbgfrontend_sw_create dbgfrontend_sw_create;
 
 // Functions used for managing state information for DbgList commands
 extern int AddListStateLocation(dbgfrontend_sw *, const Bitset*, const char*, const char *);
-extern set_location *GetListStateLocation(dbgfrontend_sw *);
-extern void SetListStateLocation(dbgfrontend_sw *);
+
+extern std::vector<set_location>& GetListStateLocations(dbgfrontend_sw&);
 extern void ClearListState(dbgfrontend_sw *);
 
 // Interface functions

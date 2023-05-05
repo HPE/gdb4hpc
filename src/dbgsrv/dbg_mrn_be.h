@@ -18,7 +18,6 @@
 #include "mrnet/Stream.h"
 #include "sparse_bitset.h"
 #include "dbgsrv_cmds.h"
-#include "list.h"
 
 class dbgcomm_info;
 
@@ -79,9 +78,9 @@ private:
 
     int m_network_size;
 
-    list_t* m_cmd_streams;    // procset streams created for working with subset
-    list_t* m_event_streams;  // asynch return streams for each of cmd_streams
-    list_t* m_msg_list;
+    std::vector<MRN::Stream*> m_cmd_streams;    // procset streams created for working with subset
+    std::vector<MRN::Stream*> m_event_streams;  // asynch return streams for each of cmd_streams
+    std::vector<char*> m_msg_list;
 
     MRNetBackEndCallback *m_dbgsrv_callback;
 };

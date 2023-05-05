@@ -77,7 +77,8 @@ endif
 IN_YELLOW = \033[1;33m
 NO_COLOR = \033[0m
 
-all: dirs $(TESTS)
+all: dirs $(TESTS) kokkosTest
+
 ifeq (${CTI_INSTALL_DIR}no,no)
 	@echo -e "$(IN_YELLOW)CTI development libraries not found, skipping tests that require them."
 	@echo -e "$(IN_YELLOW)To build these tests, load CTI development libraries such that pkg-config can find them."
@@ -98,6 +99,7 @@ dirs:
 	mkdir -p ./bin/${PE_ENV}/c
 	mkdir -p ./bin/${PE_ENV}/C++
 	mkdir -p ./bin/${PE_ENV}/fortran
+	mkdir -p ./bin/${PE_ENV}/kokkos
 
 clean:
 	rm -rf ./bin
@@ -242,3 +244,25 @@ get_raja:
 		wget https://arti.dev.cray.com:443/artifactory/pe-internal-third-party-generic-local/raja/raja_installation.tar.gz && \
 		tar -xf ./raja_installation.tar.gz; \
 	fi
+
+kokkosTest:
+	$(MAKE) -i kokkosCanFail
+
+kokkosCanFail: ./bin/${PE_ENV}/kokkos/TeamVectorLoop.host
+
+Kokkos:
+	git clone --depth=1 --branch=master https://github.com/kokkos/kokkos.git Kokkos
+
+Kokkos/kokkos: Kokkos
+	mkdir Kokkos/kokkos
+
+Kokkos/kokkos/Makefile: Kokkos/kokkos
+	( cd Kokkos/kokkos; cmake .. )
+
+Kokkos/kokkos/core/src/libcokkoscore.a: Kokkos/kokkos/Makefile
+	$(MAKE) -C Kokkos/kokkos
+
+./bin/${PE_ENV}/kokkos/TeamVectorLoop.host : src/kokkos/team_vector_loop.cpp Kokkos/kokkos/core/src/libcokkoscore.a
+	$(MAKE) -C src/kokkos
+	mv src/kokkos/TeamVectorLoop.host ./bin/${PE_ENV}/kokkos/TeamVectorLoop.host
+

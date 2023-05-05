@@ -190,6 +190,7 @@ tests/function/bd_dt/C++/*.x
 tests/function/bd_dt/c/*.x
 tests/function/bd_dt/fortran/*.x
 tests/function/tmp
+tests/function/runme
 tests/missing
 
 tests/function/avocado
@@ -197,6 +198,12 @@ tests/function/hello_mpi
 tests/function/hello_mpi.c
 tests/function/results
 tests/function/localMPI/mpi.mod
+tests/function/Kokkos
+tests/function/src/kokkos/*.hpp
+tests/function/src/kokkos/*.tmp
+tests/function/src/kokkos/desul
+tests/function/src/kokkos/KokkosCore_config.h
 
 rpmbuild/SOURCES/release_info.template
 rpmbuild/BUILDROOT
+

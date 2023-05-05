@@ -1,5 +1,5 @@
 '''
- * Copyright 2020-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2020-2023 Hewlett Packard Enterprise Development LP.
 '''
 
 ###########################################################################################
@@ -58,6 +58,10 @@ def should_skip_fortran_tests():
     else:
         # assume anything else has correct symbols
         return False
+
+def onlyMpiSupported():
+    wlm = detect_wlm()
+    return wlm != "SLURM" and wlm != "LOCALHOST"
 
 ######################################################
 # Functions for creating a script file and verifying
@@ -835,21 +839,21 @@ class FunctionTests(Gdb4hpcTest):
     # these skip comments on the raja tests about "non-slurm" systems might really only
     # mean "ALPS" systems, but these tests haven't been run on HPCM or PALS yet, so
     # they'll stay slurm-only for now.
-    @avocado.skipIf(detect_wlm() != "SLURM", "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
+    @avocado.skipIf(onlyMpiSupported(), "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
     def test_raja_views(self):
         if not os.path.exists(f"./bin/{self.penv}/raja/view-layout_solution.x"):
             self.cancel("RAJA view-layout_solution.x not built")
         self.base_name = "raja_views"
         runTest(self)
 
-    @avocado.skipIf(detect_wlm() != "SLURM", "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
+    @avocado.skipIf(onlyMpiSupported(), "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
     def test_raja_tile(self):
         if not os.path.exists(f"./bin/{self.penv}/raja/kernel-matrix-transpose-local-array_solution.x"):
             self.cancel("RAJA kernel-matrix-transpose-local-array_solution.x not built")
         self.base_name = "raja_tile"
         runTest(self)
 
-    @avocado.skipIf(detect_wlm() != "SLURM", "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
+    @avocado.skipIf(onlyMpiSupported(), "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
     def test_raja_tile2(self):
         # the tile method in launch-matrix-transpose-local-array_solution is blocked by
         # PE-47549.
@@ -859,7 +863,7 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "raja_tile2"
         runTest(self)
 
-    @avocado.skipIf(detect_wlm() != "SLURM", "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
+    @avocado.skipIf(onlyMpiSupported(), "RAJA test programs are not MPI programs. Non-MPI launches are unsupported on non-slurm systems")
     def test_raja_reductions(self):
         if not os.path.exists(f"./bin/{self.penv}/raja/reductions_solution.x"):
             self.cancel("RAJA reductions_solution.x not built")
@@ -870,6 +874,14 @@ class FunctionTests(Gdb4hpcTest):
         if not os.path.exists(f"./bin/{self.penv}/raja/view-layout-decomp_solution.x"):
             self.cancel("RAJA view-layout-decomp_solution.x not built")
         self.base_name = "raja_decomp"
+        runTest(self)
+
+    @avocado.skipIf(onlyMpiSupported(), "non-mpi not supported on wlm")
+    def test_kokkos(self):
+        self.base_name = "kokkos"
+        if not os.path.exists(f"./bin/{self.penv}/kokkos/TeamVectorLoop.host"):
+            self.cancel("kokkos executable is not available")
+
         runTest(self)
 
 class c_commnode_fanout(Gdb4hpcTest):

@@ -54,24 +54,33 @@ dbg all>
 
 gdb4hpc also lets you treat the result on each rank as a piece of a single much larger array.   Again, this applies to any array; see the tutorial for other examples.   
 
-So here we'll just show a simple example that combines this value on two ranks into a single 2048x255 array:
+So here we'll just show a simple example that combines this value on two ranks into a single 2048x256 array:
 
 ```
-dbg all> decomposition $d
-> dimension 2048,255
-> distribute block,*
-> proc_grid 2,*
-> end
-dbg all> p $d{y(0..1023,0..255)}(0..2047,16)
+dbg all> decomposition $d 2048/2, 256
+dbg all> p $d{y}(0..2047,16)
 (60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, ..., 60, 61, 62)
 dbg all>
 ```
 
 In this case, the "..." in the output is for the purpose of this document, gdb4hpc would print 2048 values.
 
-If you're not familiar with gdb4hpc decomposition, the from ```$d{<expression}``` applies the decomposition to whatever is in the expression.   
+If you're not familiar with gdb4hpc decompositions, the form ```$d{<expression>}``` applies the decomposition to whatever is in the expression, creating a value that treats the results from multiple ranks like one single array.  See the "multi-rank-arrays" tutorial for more information.
 
-The special note for this release, to get at the contents of the view, as opposed to the just the header, you need to use the full range expression ```y(0..1023,0..255)```.    The same requirement applies for the comparative debugging operations ```compare``` or ```assert```.   ```$d{y}``` is expected to be available in the future. 
+## A special note for compare and assert
+
+As a special note for this release, to get at the contents of the view, as opposed to the just the header information, you need to use the full range expression for compare and assert, as in:
+
+```compare $a::y(0..1023,0..255) == $b::y(0..1023,0..255)```
+
+Or you could define a decomposition:
+
+```
+decomp $y 1024,256
+compare $y{$a::y} == $y{$b::y}
+````
+
+```compare $a::y == $b::y``` is expected to be available in a future release.
 
 ## Sending the results to a file
 

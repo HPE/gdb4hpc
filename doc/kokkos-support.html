@@ -187,18 +187,20 @@ dbg all&gt; </code></pre>
 <p>(<em>note that team_vector_loop_solution.cpp has been modified to set each element to <code>i%10 + 10 * (j%10)</code>; in the original program it would have been all zeros at this point</em>)</p>
 <h2 id="decompositions">Decompositions</h2>
 <p>gdb4hpc also lets you treat the result on each rank as a piece of a single much larger array. Again, this applies to any array; see the tutorial for other examples.</p>
-<p>So here we’ll just show a simple example that combines this value on two ranks into a single 2048x255 array:</p>
-<pre><code>dbg all&gt; decomposition $d
-&gt; dimension 2048,255
-&gt; distribute block,*
-&gt; proc_grid 2,*
-&gt; end
-dbg all&gt; p $d{y(0..1023,0..255)}(0..2047,16)
+<p>So here we’ll just show a simple example that combines this value on two ranks into a single 2048x256 array:</p>
+<pre><code>dbg all&gt; decomposition $d 2048/2, 256
+dbg all&gt; p $d{y}(0..2047,16)
 (60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 60, 61, 62, 63, ..., 60, 61, 62)
 dbg all&gt;</code></pre>
 <p>In this case, the “…” in the output is for the purpose of this document, gdb4hpc would print 2048 values.</p>
-<p>If you’re not familiar with gdb4hpc decomposition, the from <code>$d{&lt;expression}</code> applies the decomposition to whatever is in the expression.</p>
-<p>The special note for this release, to get at the contents of the view, as opposed to the just the header, you need to use the full range expression <code>y(0..1023,0..255)</code>. The same requirement applies for the comparative debugging operations <code>compare</code> or <code>assert</code>. <code>$d{y}</code> is expected to be available in the future.</p>
+<p>If you’re not familiar with gdb4hpc decompositions, the form <code>$d{&lt;expression&gt;}</code> applies the decomposition to whatever is in the expression, creating a value that treats the results from multiple ranks like one single array. See the “multi-rank-arrays” tutorial for more information.</p>
+<h2 id="a-special-note-for-compare-and-assert">A special note for compare and assert</h2>
+<p>As a special note for this release, to get at the contents of the view, as opposed to the just the header information, you need to use the full range expression for compare and assert, as in:</p>
+<p><code>compare $a::y(0..1023,0..255) == $b::y(0..1023,0..255)</code></p>
+<p>Or you could define a decomposition:</p>
+<pre><code>decomp $y 1024,256
+compare $y{$a::y} == $y{$b::y}</code></pre>
+<p><code>compare $a::y == $b::y</code> is expected to be available in a future release.</p>
 <h2 id="sending-the-results-to-a-file">Sending the results to a file</h2>
 <p>To write the contents of a kokkos::View to a file use this:</p>
 <p><code>dbg all&gt; pipe p y(0..1023,0..255) | cat &gt; myfile.txt</code></p>

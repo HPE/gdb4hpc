@@ -103,6 +103,7 @@ private:
 class KokkosSubArray : public SubArray {
 public:
     static std::unique_ptr<KokkosSubArray> get(Mi2Aif& mi, const std::string& expr,
+                                               const std::string& metaInfo,
                                                std::shared_ptr<ais::KokkosView> view);
     char* getArrayDataString() override;
 
@@ -421,7 +422,7 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
         try {
             if (auto kv = std::dynamic_pointer_cast<ais::KokkosView>(m_type)) {
                 // this sets kv's view lengths even in the non-slice case
-                m_subArray = KokkosSubArray::get(m_mi, expr1, kv);
+                m_subArray = KokkosSubArray::get(m_mi, expr1, metaInfo, kv);
             } else if (auto rv = std::dynamic_pointer_cast<ais::RajaView>(m_type)) {
                 // get view bounds from gdb
                 auto paren = expr1.find_last_of('('); // npos is ok
@@ -842,19 +843,28 @@ char* CSubArray::getArrayDataString() {
 
 std::unique_ptr<KokkosSubArray>
 KokkosSubArray::get(Mi2Aif& mi, const std::string& expr,
+                    const std::string& metaInfo,
                     std::shared_ptr<ais::KokkosView> view) {
 
     auto retVal = std::unique_ptr<KokkosSubArray>{};
 
-    if (expr.back() != ')') {
-        getViewLens(mi, expr, *view);
-    } else {
+    if (expr.back() == ')') {
+        // range view
         auto loc = findExprMatchT(expr.rbegin(), expr.rend());
         auto baseExpr = std::string{expr.begin(), loc.base()-1};
         if (getViewLens(mi, baseExpr, *view)) {
             retVal.reset(new KokkosSubArray{mi, view, expr, baseExpr});
         }
+    } else if (getViewLens(mi, expr, *view) && !metaInfo.empty()) {
+        // decomposition, assume the entire contents
+        auto os = std::ostringstream{};
+        os << expr;
+        auto i = 0;
+        for (auto len : view->lens()) os << (i++ ? ',' : '(') << "0.." << len-1;
+        os << ')';
+        retVal.reset(new KokkosSubArray{mi, view, os.str(), expr});
     }
+
     return retVal;
 }
 
@@ -868,7 +878,7 @@ void KokkosSubArray::makeArrayType(std::shared_ptr<ais::Type> baseType,
     for (auto rit = rngs.rbegin(); rit != rngs.rend(); ++rit) {
         auto [lower, upper] = *rit;
         if (upper > lower) {
-            auto arr = std::make_shared<ais::FtnArray>(m_type, upper-lower+1);
+            auto arr = std::make_shared<ais::Array>(m_type, upper-lower+1);
             arr->setBounds(upper-lower+1, 0);
             m_type = arr;
         }
@@ -944,9 +954,7 @@ KokkosSubArray::KokkosSubArray(Mi2Aif& mi, std::shared_ptr<ais::KokkosView> type
 {
     m_baseExpr = baseExpr;
     parse(expr);
-    auto crngs = m_rngs;
-    std::reverse(crngs.begin(), crngs.end());
-    makeArrayType(type->elemType(), crngs);
+    makeArrayType(type->elemType(), m_rngs);
 }
 
 void KokkosSubArray::parse(const std::string& expr) {
@@ -1012,8 +1020,8 @@ char* KokkosSubArray::getArrayDataString()
     std::sort(strideMap.begin(), strideMap.end());
     std::reverse(strideMap.begin(), strideMap.end());
 
-    std::vector<size_t> rngMap;
-    for (size_t i=0; i<dim; ++i) rngMap.push_back(i ? rngMap[i-1]*rngLens[i-1] : 1);
+    std::vector<size_t> rngMap(dim,1);
+    for (auto i=dim; --i; ) rngMap[i-1] = rngMap[i] * rngLens[i];
 
     auto numFound = size_t{0};
     auto elems = std::vector<const char*>{totalLen};
@@ -1052,9 +1060,10 @@ char* KokkosSubArray::getArrayDataString()
         return nullptr;
     }
 
-    // these are from fastest to slowest
+    // these are from slowest to fastest
     auto outLens = rngLens;
-    outLens.erase(std::remove(outLens.begin(), outLens.end(), 1), outLens.end());
+    std::erase(outLens,1);
+    std::ranges::reverse(outLens); // not fastest to slowest
 
     // and put the results into a string.   
     auto open = "{", sep = ",", close = "}";

@@ -522,7 +522,7 @@ void ais::String::parseL(InterpretStream& in, Writer& out) const {
             else if (*s == '{') ++brace;
             else if (*s == '}') --brace;
         }
-        if (beg) end = strchr(beg, '"');
+        if (beg) end = findExprMatch(beg-1);
         if (end) {
             for (s=end+1; *s && brace > 0; ++s) {
                 if (*s == '{') ++brace;

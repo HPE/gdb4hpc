@@ -112,6 +112,10 @@ b{0..1}: {val = 0, next = (LinkedList*) <2>}
   <9>:{val = 4, next = (LinkedList*) <10>}
   <10>:{val = 1, next = (LinkedList*) <11>}
   <11>:{val = 3, next = (LinkedList*) <1>}
+38: p ss.c_str()
+b{0..1}: "So this grasshopper walks into a bar.."
+39: p ss2.c_str()
+b{0..1}: "hey: \"embedded quotes\""
 35: p my_null
 b{0..1}: (void*) 0x0
 36: p func1(l_tail)

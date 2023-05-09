@@ -75,7 +75,7 @@ int main(int argc, char ** argv){
 	std::vector<int *> ip;
 	std::vector<Rectangle > vv;
     LinkedList* ll = new LinkedList;
-    std::string ss{"So this grasshopper walks into a bar.."};
+    std::string ss{"So this grasshopper walks into a bar.."}, ss2{"hey: \"embedded quotes\""};
 	while(i < 10 ){
 		vv.push_back(rect);
 		ip.push_back((int*)0x1234);

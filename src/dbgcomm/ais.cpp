@@ -758,6 +758,10 @@ std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
     std::make_shared<ais::MultiThreadResult>(),
     std::make_shared<ais::KokkosView>(),
     std::make_shared<ais::RajaView>(),
+    std::make_shared<ais::Map>(),
+    std::make_shared<ais::UnorderedMap>(),
+    std::make_shared<ais::Multimap>(),
+    std::make_shared<ais::UnorderedMultimap>()
 };
 
 std::vector<std::shared_ptr<ais::Array>> ais::Reader::m_arrayTypes =
@@ -1604,6 +1608,139 @@ int ais::PriorityQueue::getTypeId(Writer& writer) const {
     return writer.getTypeId(name);
 }
 
+//===========================================================================
+
+ais::Map::Map() {}
+
+ais::Map::Map(std::shared_ptr<Type> keyType, std::shared_ptr<Type> valType)
+    : m_keyType(keyType), m_valType(valType) {}
+
+void ais::Map::parseL(InterpretStream& in, Writer& out) const {
+    const char* s = in.get();
+
+    // expecting:
+    // std::map with 3 elements = {[0] = 0, [2] = 7, [3] = 4}
+
+    static auto elemRE = std::regex{R"(with\s+(\d+)\s+elements?)"};
+    auto match = std::cmatch{};
+    if (!regex_search(s, match, elemRE)) throw ais::Error("could not parse map size");
+
+    auto n = std::stoi(match[1].str());
+    s = match.suffix().first;
+
+    const char* s2 = s;
+    if (n > 0) {
+        if ((s2 = strchr(s, '{'))) s = s2+1;
+        else throw ais::Error("could not parse std::map contents");
+    }
+
+    out.writeInt(m_keyType->getTypeId(out));
+    out.writeInt(m_valType->getTypeId(out));
+    out.writeInt(n);
+
+    int i = 0;
+    for (int i=0; i<n; ++i) {
+        if ((s2=strchr(s,'['))) s=s2+1; else break;
+        in.setPos(s);
+        m_keyType->parse(in, out);
+        s = in.get();
+
+        if ((s2=strchr(s,']'))) s=s2+1; else break;
+        if ((s2=strchr(s,'='))) s=s2+1; else break;
+
+        in.setPos(s);
+        m_valType->parse(in,out);
+        s = in.get();
+
+        s += strspn(s," ,}");
+    }
+
+    if (i != n) throw ais::Error("could not parse std::map contents");
+    
+    in.setPos(s);
+}
+
+void ais::Map::applyL(Reader& reader, Visitor& f) const {
+    auto keyTypeIdx = reader.readInt();
+    auto valueTypeIdx = reader.readInt();
+    auto n = reader.readInt();
+
+    auto keyType = reader.getType(keyTypeIdx);
+    auto valueType = reader.getType(valueTypeIdx);
+
+    if (!n) f.nest(keyType.get());
+
+    for (int i=0; i<n; ++i) {
+        f.nest(keyType.get());
+        f.start(keyType.get());
+        keyType->apply(reader, f);
+        f.end();
+        f.unnest();
+
+        f.nest(valueType.get());
+        f.start(valueType.get());
+        valueType->apply(reader, f);
+        f.end();
+        f.unnest();
+    }
+
+    if (!n) f.unnest();
+}
+
+std::string ais::Map::getTypeName() const {
+    return "std::map";
+}
+
+int ais::Map::getTypeId(Writer& writer) const {
+    m_keyType->getTypeId(writer);
+    m_valType->getTypeId(writer);
+    return ais::Type::getTypeId(writer);
+}
+
+std::unique_ptr<ais::Printer> ais::Map::makePrinter(Printer& parent) const {
+    struct TPrinter : public Printer {
+        TPrinter(Printer& parent, std::string&& mapType) :
+            Printer(parent), m_type(std::move(mapType)) {}
+        void start(const Type* t) override {
+            Printer::start(t);
+            out << m_type << " = {"; }
+        void startChild() override {
+            // values are written as [key] = value
+            if (m_idx % 2) out << "] = ";
+            else if (m_idx) out << ", [";
+            else out << "[";
+            ++m_idx;
+        }
+        void end() override { Printer::end(); out << "}"; }
+        int m_idx = 0;
+        std::string m_type;
+    };
+    return std::make_unique<TPrinter>(parent, getTypeName());
+}
+
+ais::UnorderedMap::UnorderedMap() {}
+ais::UnorderedMap::UnorderedMap(std::shared_ptr<Type> keyType,
+                                std::shared_ptr<Type> valType) : Map(keyType, valType) {}
+
+std::string ais::UnorderedMap::getTypeName() const {
+    return "std::unordered_map";
+}
+
+ais::Multimap::Multimap() {}
+ais::Multimap::Multimap(std::shared_ptr<Type> keyType,
+                        std::shared_ptr<Type> valType) : Map(keyType, valType) {}
+
+std::string ais::Multimap::getTypeName() const {
+    return "std::multimap";
+}
+
+ais::UnorderedMultimap::UnorderedMultimap() {}
+ais::UnorderedMultimap::UnorderedMultimap(std::shared_ptr<Type> keyType,
+                        std::shared_ptr<Type> valType) : Map(keyType, valType) {}
+
+std::string ais::UnorderedMultimap::getTypeName() const {
+    return "std::unordered_multimap";
+}
 
 //===========================================================================
 

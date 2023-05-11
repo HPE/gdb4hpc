@@ -462,5 +462,19 @@ b{0..1}: (AnonDerivedClass*) <1>
 176: p dsp
 b{0..1}: std::shared_ptr<AnonDerivedClass>(<2>)
   <2>:{(anonymous namespace)::AnonBaseClass = {m_a = 116}, m_x = 66.5}
-177: q
+177: c
+b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:33
+178: up
+b{0..1}: #1  mapsTest at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:459
+179: p m
+b{0..1}: std::map = {[-4] = 16, [0] = 7, [10] = -1, [101] = 0}
+180: p mm
+b{0..1}: std::multimap = {["host"] = {std::__pair_base<int, int> = {}, first = 1, second = 2}, ["most"] = {std::__pair_base<int, int> = {}, first = 0, second = 0}, ["most"] = {std::__pair_base<int, int> = {}, first = 2, second = 3}, ["the"] = {std::__pair_base<int, int> = {}, first = 7, second = -4}, ["with"] = {std::__pair_base<int, int> = {}, first = 3, second = 4}}
+181: p um
+b{0..1}: std::unordered_map = {[16] = -8, [-4] = 1.2221}
+182: p umm
+b{0..1}: std::unordered_multimap = {[16] = "puts Baby", [16] = "corner", [0] = "the", [0] = "in"}
+183: p em
+b{0..1}: std::map = {}
+184: q
 Shutting down debugger and killing application for 'b'.

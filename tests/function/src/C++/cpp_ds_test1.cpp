@@ -26,7 +26,7 @@ static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes(), virtualFuncTest();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
-static void anonymousNamespace();
+static void anonymousNamespace(); static void mapsTest();
 
 
 static void trap() {
@@ -85,7 +85,7 @@ int main(int argc, char ** argv){
 		d.push_back(i);
 		s.push(i);
 		q.push(i);
-		pq.push(i);
+		pq.push(i);  m.insert(std::make_pair((17*i)%13,i));
 		rect.width++;
 		rect.height++;
 		rect.vec.push_back(++i);
@@ -117,7 +117,7 @@ int main(int argc, char ** argv){
     anonymousClass();
     virtualFuncTest();
     anonymousNamespace();
-
+    mapsTest();
     
 
     
@@ -442,4 +442,19 @@ static void anonymousNamespace()
 
     delete dp;
 }
+
+#include <unordered_map>
+
+static void mapsTest()
+{
+    auto m = std::map<int, int>{ {0,7},{10,-1},{-4,16},{101,0}};
+    auto mm = std::multimap<std::string, std::pair<int,int>>
+        {
+         {"host",{1,2}}, {"with",{3,4}}, {"the",{7,-4}}, {"most",{0,0}}, {"most",{2,3}}};
+    auto um = std::unordered_map<int,double>{ {-4,1.2221}, {16,-8.0} };
+    auto umm = std::unordered_multimap<int, std::string>{ {0,"in"}, {0,"the"},
+                                                          {16,"corner"}, {16,"puts Baby"}};
+    auto em = std::map<int,int>{};
     
+    trap();
+}

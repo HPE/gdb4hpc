@@ -892,6 +892,46 @@ public:
     std::string getTypeName() const override;
     int getTypeId(Writer& writer) const override;
 };
+
+// C++ std::map
+class Map : public Type {
+public:
+    Map();
+    Map(std::shared_ptr<Type> keyType, std::shared_ptr<Type> valType);
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
+    std::string getTypeName() const override;
+    int getTypeId(Writer& writer) const override;
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
+private:
+    std::shared_ptr<Type> m_keyType;
+    std::shared_ptr<Type> m_valType;
+        
+};
+
+// C++ std::multimap
+class Multimap : public Map {
+public:
+    Multimap();
+    Multimap(std::shared_ptr<Type> keyType, std::shared_ptr<Type> valType);
+    std::string getTypeName() const override;
+};
+
+// C++ std::unordered_map    
+class UnorderedMap : public Map {
+public:
+    UnorderedMap();
+    UnorderedMap(std::shared_ptr<Type> keyType, std::shared_ptr<Type> valType);
+    std::string getTypeName() const override;
+};
+
+// C++ std::unordered_multimap        
+class UnorderedMultimap : public Map {
+public:
+    UnorderedMultimap();
+    UnorderedMultimap(std::shared_ptr<Type> keyType, std::shared_ptr<Type> valType);
+    std::string getTypeName() const override;
+};
     
 // special handlig for char[] in C/C++
 class CharArray : public Type {

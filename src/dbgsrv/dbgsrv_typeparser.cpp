@@ -93,6 +93,38 @@ template<class T>
 Func ContainerWrap() {
     return [](Mi2Aif& mi, TypeName t) { return stlContainer(mi, T(), std::move(t)); }; }
 
+static auto //std::tuple<TypeName, std::shared_ptr<ais::Type>, std::shared_ptr<ais::Type>>
+getMapTypes(Mi2Aif& mi, TypeName t) {
+    auto [keyTypeName, templateArgs, decoration] = getContainerTypes(t);
+
+    auto comma = templateArgs.find(','), lt = templateArgs.find('<');
+    if (lt != std::string::npos && lt < comma) {
+        comma = templateArgs.find(',', findExprMatch(templateArgs,lt));
+    }
+    auto beg = size_t{0};
+    while (beg < comma && std::isspace(templateArgs[beg])) ++beg;
+    auto valueTypeName = templateArgs.substr(0, comma);
+    DVPRINT("have std::map with key \"%s\" and value \"%s\"\n", keyTypeName.c_str(),
+            valueTypeName.c_str());
+
+    auto t2 = TypeName{t.type + "<" + keyTypeName + "," + valueTypeName + ">",
+                       std::move(decoration)};
+    auto keyType = getType(mi, nullptr, keyTypeName.c_str());
+    auto valueType = getType(mi, nullptr, valueTypeName.c_str());
+
+    return std::make_tuple(t2, keyType, valueType);
+}
+    
+
+template<class T>
+Func MapWrap() {
+    return [](Mi2Aif& mi, TypeName t) {
+               auto [t2, keyType, valueType] = getMapTypes(mi, t);
+               auto vtype = std::make_shared<T>(keyType, valueType);
+               return cppWrap(vtype, t2);
+           };
+}
+        
 Func SmartPointerWrap() {
     return [](Mi2Aif& mi, TypeName t) { return smartPointer(mi, std::move(t)); }; }
 
@@ -158,6 +190,10 @@ std::vector<Prim> m_cppStlPrims =
  {"std::queue", ContainerWrap<ais::Queue>()},
  {"std::shared_ptr", SmartPointerWrap()},
  {"std::unique_ptr", SmartPointerWrap()},
+ {"std::map", MapWrap<ais::Map>()},
+ {"std::multimap", MapWrap<ais::Multimap>()},
+ {"std::unordered_map", MapWrap<ais::UnorderedMap>()},
+ {"std::unordered_multimap", MapWrap<ais::UnorderedMultimap>()},
  {"Kokkos::View", kokkosView},
  {"RAJA::internal::ViewBase", rajaView},      // "ptype RAJA::View<...>" will turn into this
  {"RAJA::internal::TypedViewBase", rajaView}, // or this

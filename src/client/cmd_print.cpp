@@ -205,31 +205,34 @@ static int cmd_show_print_pretty_cmd(rec_set_t *rec_set, int argc,
 std::string FormatMIValue(std::string origValue) {
     auto value = std::move(origValue);
     while (!value.empty() && value.back() == '\n') value.pop_back();
-    std::replace(value.begin(), value.end(), '\n', ' ');
-    for (std::size_t pos=0;
-         (pos=value.find_first_of("\"\'\\",pos)) != std::string::npos; ) {
-        value.insert(pos,"\\");
-        pos=pos+2;
+    for (std::size_t pos=0;(pos=value.find_first_of("\"\'\\\n",pos)) != std::string::npos; ) {
+        if(value[pos]=='\n'){
+            value.replace(pos, 1, "\\n");
+            pos=pos+2;
+        }else{
+            value.insert(pos,"\\");
+            pos=pos+2;
+        }
     }
     return value;
 }
     
 // retrieve the value of an expresison for the MI context.
 // return an empty string if it fails (typically a variable out of scope)
-std::string GetMiValue(const std::string& expression)
+std::string GetMiValue(const std::string& expression, const std::string& ps_str)
 {
     SuppressPrintOutError suppressor;
 
     try {
         auto expr = ParseString(expression);
-
-        auto ps = CurrentProcSet();
+        auto ps = FindProcSet(ps_str.c_str());
         auto rec_set = std::unique_ptr<rec_set_t>{CreateRecSetForProcset(ps)};
 
         auto val = expr->evalTop(rec_set.get());
 
         auto os = std::ostringstream{};
-        val->print(os, rec_set.get(), "");
+        
+        val->print(os, rec_set.get(), (Client.print_pretty?"p":""));
 
         return FormatMIValue(os.str());
     } catch (std::exception& err) {}

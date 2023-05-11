@@ -170,7 +170,7 @@ namespace {
 // variable
 class Var {
 public:
-    Var(const std::string& name, const std::string& frame, const std::string& expression,
+    Var(const std::string& name, const std::string& frame, const std::string& expression, const std::string& procset,
         std::string&& value);
 
     void update(bool allValues, bool& isFirst, std::ostream& os);
@@ -179,6 +179,7 @@ private:
     std::string m_name;
     std::string m_frame;
     std::string m_expression;
+    std::string m_procset;
     std::string m_value;
 };
 
@@ -200,28 +201,37 @@ private:
 // singleton for managing the MI vars
 Vars miVars;    
 
-extern std::string GetMiValue(const std::string& expression);
+extern std::string GetMiValue(const std::string& expression, const std::string& ps);
 
 // The frame part of the MI variables it no implemented
-Var::Var(const std::string& name, const std::string& frame, const std::string& expression,
+Var::Var(const std::string& name, const std::string& frame, const std::string& expression, const std::string& procset,
          std::string&& value) :
-    m_name(name), m_frame(frame), m_expression(expression), m_value(std::move(value))
+    m_name(name), m_frame(frame), m_expression(expression), m_procset(procset), m_value(std::move(value))
 {}
 
 // Determine if the value of a program variable has changed
 // If the value has changed, send the MI formatted result to "os"
 void Var::update(bool allValues, bool& isFirst, std::ostream& os)
 {
-    auto newValue = GetMiValue(m_expression);
-    if (newValue == m_value) return;
+    auto newValue = GetMiValue(m_expression, m_procset);
 
-    m_value = std::move(newValue);
+    //remove procset info from value string
+    std::string val="";
+    static std::regex value_regex(R"(\w+\{?[\s\S]*\}?\:([\s\S]*))"); 
+    std::smatch match;
+    if (std::regex_match(newValue, match, value_regex)) {
+        val = match[1].str();
+    }
+
+    if (val == m_value) return;
+
+    m_value = std::move(val);
     auto inScope = !m_value.empty();
 
     if (isFirst) isFirst = false;
     else os << ",";
 
-    os << "{name=\"" << m_name << "\",";
+    os << "{name=\"" << m_name << "\", proc_set=\"" << m_procset <<"\",";
     if (allValues && inScope) {
         os << "value=\"" << m_value << "\",";
     }
@@ -243,23 +253,27 @@ std::string Vars::create(const std::string& inname, const std::string& frame,
         nm << "var" << std::setfill('0') << std::setw(6) << m_nextVar++;
         name = nm.str();
     }
+    //create variable for current procset
+    auto ps = CurrentProcSet();
 
     // get the new current value
-    auto value = GetMiValue(expression);
+    auto value = GetMiValue(expression, ps->s_name);
 
     if (value.empty()) return "error,unable to evaluate\n";
 
-    //get procset from value
-    std::string proc_set="";
-    static std::regex value_regex(R"((\w+)\{?[\s\S]*\}?\:[\s\S]*)"); 
+    //get procset and remove it from value string
+    std::string procset="";
+    std::string val="";
+    static std::regex value_regex(R"((\w+)\{?[\s\S]*\}?\:([\s\S]*))"); 
     std::smatch match;
     if (std::regex_match(value, match, value_regex)) {
-        proc_set = match[1].str();
+        procset = match[1].str();
+        val = match[2].str();
     }
-    os << "ok,name=\"" << name << "\", proc_set=\"" << proc_set << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
-
+    
+    os << "ok,name=\"" << name << "\", proc_set=\"" << procset << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< val << "\"";
     // and store it
-    m_vars.insert( std::make_pair(name, Var{name, frame, expression, std::move(value)}));
+    m_vars.insert( std::make_pair(name, Var{name, frame, expression, procset, std::move(val)}));
 
     return os.str();
 }

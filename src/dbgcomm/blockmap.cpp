@@ -387,3 +387,32 @@ BlockMap::Dimension::printConcise(std::ostream& os, bool explicitOrder) const {
     return os;        
 
 }
+
+bool mdspan::isValid() const {
+    auto n = m_sizes.size();
+    return (n && n == m_strides.size() && n == m_offsets.size());
+}
+
+mdspan::mdspan(const std::vector<size_t>& sizes, const std::vector<size_t>& strides)
+    : m_sizes{sizes}, m_strides{strides}
+{
+    m_offsets.resize(sizes.size());
+}
+
+mdspan::mdspan(const std::vector<size_t>& sizes, const std::vector<size_t>& strides,
+               const std::vector<int>& offsets) :
+    m_sizes{sizes}, m_strides{strides}, m_offsets{offsets}
+{
+    m_offsets.resize(m_sizes.size());
+}
+
+
+void mdspan::setSizes(const std::vector<size_t>& sizes,
+                      const std::vector<size_t>& strides)
+{
+    m_sizes = sizes;
+    m_strides = strides;
+    m_offsets.resize(m_sizes.size());
+}
+
+    

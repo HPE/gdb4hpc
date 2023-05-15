@@ -9,6 +9,7 @@
 #include <functional>
 #include <variant>
 #include <bitset>
+#include "mdspan.h"
 
 //===========================================================================
 // The AIS (abstract information stream) is a means for taking an arbitrary
@@ -1064,17 +1065,15 @@ public:
     std::string getTypeName() const override;
 
     int dim() const { return m_dim; }
-    const std::vector<size_t>& lens() const { return m_lens; }
-    const std::vector<size_t>& strides() const { return m_strides; }
     std::shared_ptr<ais::Type> elemType() const { return m_elemType; }
 
-    void setLens(std::vector<size_t> lens, std::vector<size_t> strides);
+    mdspan& getSpan() { return m_span; }
+    const mdspan& getSpan() const { return m_span; }
 
 private:
     std::shared_ptr<ais::Type> m_elemType;
-    std::vector<size_t> m_lens;
-    std::vector<size_t> m_strides;
     int m_dim;
+    mdspan m_span;
 };
 
 class RajaView : public Literal {
@@ -1082,28 +1081,8 @@ class RajaView : public Literal {
     // behaves like a string literal which tells the user how to access array data. Array
     // data is fetched when the user uses "my_view(0..1, 2..3)" syntax, which creates a
     // RajaSubArray.
+
 public:
-    struct Bounds {
-        // Construct a Bounds struct from the result of a "p my_raja_view" gdb command.
-        // fromMembers will try to fill in the bounds information by looking for member
-        // variables like "sizes = {2, 4}", "strides = {4, 1}", etc.
-        static Bounds fromMembers(const std::string_view& input);
-
-        // Construct a Bounds struct from the result of a "p my_raja_view" gdb command.
-        // fromTemplateArgs will try to fill in the bounds information by looking for
-        // RAJA::View template argument patterns like "camp::int_seq<long, 16l, 16l>".
-        static Bounds fromTemplateArgs(const std::string_view& input);
-
-        Bounds() = default;
-
-        // return true if the combinations of sizes, strides, and offsets makes sense.
-        bool isValid() const;
-
-        std::vector<int> sizes;
-        std::vector<int> strides;
-        std::vector<int> offsets;
-    };
-
     // noisy raja debug messages should check this flag before dumping hundreds of lines to a log
     static bool verboseDebug();
 
@@ -1111,15 +1090,25 @@ public:
     RajaView();
 
     std::string getTypeName() const override;
-    void setBounds(Bounds&& bounds);
-    const Bounds& getBounds() const;
-    std::shared_ptr<ais::Type> getElemTypePtr() const;
+    void setSpan(mdspan&& span);
+    const mdspan& getSpan() const { return m_span; }
+    std::shared_ptr<ais::Type> getElemType() const { return m_elem_type; }
     void parseL(InterpretStream& in, Writer& out) const override;
+
+    // Construct a Bounds struct from the result of a "p my_raja_view" gdb command.
+    // fromMembers will try to fill in the bounds information by looking for member
+    // variables like "sizes = {2, 4}", "strides = {4, 1}", etc.
+    static mdspan spanFromMembers(const std::string_view& input);
+
+    // Construct a Bounds struct from the result of a "p my_raja_view" gdb command.
+    // fromTemplateArgs will try to fill in the bounds information by looking for
+    // RAJA::View template argument patterns like "camp::int_seq<long, 16l, 16l>".
+    static mdspan spanFromTemplateArgs(const std::string_view& input);
 
     int dim() const;
 
 private:
-    Bounds m_bounds;
+    mdspan m_span;
     std::shared_ptr<ais::Type> m_elem_type;
     int m_dim;
 };

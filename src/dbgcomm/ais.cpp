@@ -2112,12 +2112,6 @@ ais::KokkosView::KokkosView(std::shared_ptr<ais::Type> elemType, int dim)
 
 ais::KokkosView::KokkosView() {}
 
-void ais::KokkosView::setLens(std::vector<size_t> lens, std::vector<size_t> strides) {
-    m_dim = lens.size();
-    m_lens = std::move(lens);
-    m_strides = std::move(strides);
-}
-
 std::string ais::KokkosView::getTypeName() const {
     return "Kokkos::View";
 }
@@ -2131,8 +2125,10 @@ void ais::KokkosView::parseL(InterpretStream& in, Writer& out) const {
     in.setPos(s);
 
     auto desc = std::ostringstream{};
+    const auto& lens = m_span.sizes();
+
     desc << "Kokkos::View use ";
-    for (size_t i=0; i<m_lens.size(); ++i) desc << (!i ? '(' : ',') << "0.." << m_lens[i]-1;
+    for (size_t i=0; i<lens.size(); ++i) desc << (!i ? '(' : ',') << "0.." << lens[i]-1;
     desc << ") for full contents";
 
     out.writeString(desc.str());
@@ -2164,16 +2160,8 @@ int ais::RajaView::dim() const {
     return m_dim;
 }
 
-std::shared_ptr<ais::Type> ais::RajaView::getElemTypePtr() const {
-    return m_elem_type;
-}
-
-const ais::RajaView::Bounds& ais::RajaView::getBounds() const {
-    return m_bounds;
-}
-
-void ais::RajaView::setBounds(ais::RajaView::Bounds&& bounds) {
-    m_bounds = bounds;
+void ais::RajaView::setSpan(mdspan&& span) {
+    m_span = span;
 }
 
 void ais::RajaView::parseL(InterpretStream& in, Writer& out) const {
@@ -2182,13 +2170,13 @@ void ais::RajaView::parseL(InterpretStream& in, Writer& out) const {
     in.setPos(s);
 
     auto msg = std::ostringstream{};
-    if (m_bounds.isValid()) {
+    if (m_span.isValid()) {
         msg << "RAJA::View; Use ";
         for (int i = 0; i < dim(); i++) {
             msg << (!i ? "(" : ", ")
-                << 0 + m_bounds.offsets[i]
+                << 0 + m_span.offsets()[i]
                 << ".."
-                << (m_bounds.sizes[i] - 1) + m_bounds.offsets[i]
+                << (m_span.sizes()[i] - 1) + m_span.offsets()[i]
             ;
         }
         msg << ") for full contents.";
@@ -2206,7 +2194,7 @@ bool ais::RajaView::verboseDebug() {
     return _enabled;
 }
 
-ais::RajaView::Bounds ais::RajaView::Bounds::fromMembers(const std::string_view& input) {
+mdspan ais::RajaView::spanFromMembers(const std::string_view& input) {
     // expecting an input like the following (ellipses are abbreviations, not actually expected):
     // {m_data = 0x7ff102500000, m_layout = ... = {..., sizes = {7, 6}, strides = {6, 1}, ..., offsets = {-1, -1}}, ... }}
     //
@@ -2214,7 +2202,7 @@ ais::RajaView::Bounds ais::RajaView::Bounds::fromMembers(const std::string_view&
     // interesting numbers as we see them come up in the stream. we know sizes, strides,
     // and offsets will always be 1D lists, so we don't need any special handling for {.
 
-    auto result = ais::RajaView::Bounds{};
+    std::vector<int> sizes, strides, offsets;
 
     std::vector<int>* current_number_bucket = nullptr;
     const char* delims = "{=, <>}";
@@ -2226,9 +2214,9 @@ ais::RajaView::Bounds ais::RajaView::Bounds::fromMembers(const std::string_view&
 
         if (!std::isdigit(token.front()) && token.front() != '-') {
             // found a key, switch bucket
-            if (token == "sizes") current_number_bucket = &result.sizes;
-            else if (token == "strides") current_number_bucket = &result.strides;
-            else if (token == "offsets") current_number_bucket = &result.offsets;
+            if (token == "sizes") current_number_bucket = &sizes;
+            else if (token == "strides") current_number_bucket = &strides;
+            else if (token == "offsets") current_number_bucket = &offsets;
             else current_number_bucket = nullptr;
         } else if (current_number_bucket) {
             // found a number, add to current bucket
@@ -2237,22 +2225,18 @@ ais::RajaView::Bounds ais::RajaView::Bounds::fromMembers(const std::string_view&
             if (error != std::errc())
                 throw std::runtime_error(std::string{"Failed to parse number: "} + std::string{token});
 
-            current_number_bucket->emplace_back(num);
+            current_number_bucket->push_back(num);
         }
 
         token_idx = input.find_first_not_of(delims, end_idx);
     }
 
-    // we should always have the same number of sizes and strides. offsets only appear in
-    // certain types of RAJA views. if offsets aren't present, we fill them in with zeros
-    // to make future math easier.
-    if (result.offsets.empty())
-        result.offsets = std::vector<int>(result.sizes.size(), 0);
-
-    return result;
+    auto ssizes = std::vector<size_t>{sizes.begin(), sizes.end()};
+    auto sstrides = std::vector<size_t>{strides.begin(), strides.end()};
+    return mdspan{ssizes, sstrides, offsets};
 }
 
-ais::RajaView::Bounds ais::RajaView::Bounds::fromTemplateArgs(const std::string_view& input) {
+mdspan ais::RajaView::spanFromTemplateArgs(const std::string_view& input) {
     // expecting an input where the sizes and strides are in template arguments. the
     // template arguments will contain multiple camp::int_seq types describing the sizes
     // and strides of the view. these aren't labled in any way, so we have to assume an
@@ -2265,8 +2249,6 @@ ais::RajaView::Bounds ais::RajaView::Bounds::fromTemplateArgs(const std::string_
     //   RAJA::internal::TypedViewBase<int, int*, RAJA::detail::StaticLayoutBase_impl<long, camp::int_seq<long, 0l, 1l>, camp::int_seq<long, 16l, 16l>, camp::int_seq<long, 16l, 1l>, void>, camp::list<long, long> >
     // this is a 16x16 view.
 
-    auto result = ais::RajaView::Bounds{};
-
     auto int_seq_token = "camp::int_seq";
     auto int_seq_idxs = std::vector<size_t>{};
     for (auto found = input.find(int_seq_token); found < input.size(); found = input.find(int_seq_token, found + strlen(int_seq_token))) {
@@ -2275,13 +2257,13 @@ ais::RajaView::Bounds ais::RajaView::Bounds::fromTemplateArgs(const std::string_
 
     // assert 3 int_seqs
     if (int_seq_idxs.size() != 3) {
-        return result;
+        return mdspan{};
     }
 
-    auto parseIntSeq =
-    [](const std::string_view& full_input, size_t int_seq_start, std::vector<int>& output) {
+    auto parseIntSeq = [](const std::string_view& full_input, size_t int_seq_start) {
         // input is camp::int_seq<IdxType, size0, ..., sizen>.
         // extract <...>
+        auto output = std::vector<size_t>{};
         auto int_seq_end = findExprMatch(full_input, int_seq_start + strlen("camp::int_seq")) + 1;
         auto int_seq = full_input.substr(int_seq_start, int_seq_end - int_seq_start);
 
@@ -2297,29 +2279,18 @@ ais::RajaView::Bounds ais::RajaView::Bounds::fromTemplateArgs(const std::string_
             auto [_, error] = std::from_chars(&int_seq[cursor], &int_seq[cursor_end], num);
             // default constructed errc means "no error"
             if (error != std::errc())
-                return;
+                return output;
 
             output.push_back(num);
             cursor = cursor_end;
         }
+        return output;
     };
 
     // first int_seq is not related to bounds so it's skipped.
-    parseIntSeq(input, int_seq_idxs[1], result.sizes);
-    parseIntSeq(input, int_seq_idxs[2], result.strides);
-
-    // we don't expect to see offsets in this input format
-    result.offsets = std::vector<int>(result.sizes.size(), 0);
-
-    return result;
-}
-
-bool ais::RajaView::Bounds::isValid() const {
-    if (this->sizes.empty() || this->strides.empty() || this->offsets.empty())
-        return false;
-    if (!(this->sizes.size() == this->strides.size() && this->strides.size() == this->offsets.size()))
-        return false;
-    return true;
+    auto sizes = parseIntSeq(input, int_seq_idxs[1]);
+    auto strides = parseIntSeq(input, int_seq_idxs[2]);
+    return mdspan{sizes, strides};
 }
 
 //===========================================================================
@@ -3093,21 +3064,21 @@ TEST_CASE("RajaView::Bounds: Standard view") {
         "}"
     ;
 
-    auto bounds = ais::RajaView::Bounds::fromMembers(to_parse);
+    auto bounds = ais::RajaView::spanFromMembers(to_parse);
 
     CHECK(bounds.isValid());
 
-    REQUIRE(bounds.sizes.size() == 2);
-    CHECK(bounds.sizes[0] == 4);
-    CHECK(bounds.sizes[1] == 4);
+    REQUIRE(bounds.sizes().size() == 2);
+    CHECK(bounds.sizes()[0] == 4);
+    CHECK(bounds.sizes()[1] == 4);
 
-    REQUIRE(bounds.strides.size() == 2);
-    CHECK(bounds.strides[0] == 4);
-    CHECK(bounds.strides[1] == 1);
+    REQUIRE(bounds.strides().size() == 2);
+    CHECK(bounds.strides()[0] == 4);
+    CHECK(bounds.strides()[1] == 1);
 
-    CHECK(bounds.offsets.size() == 2);
-    CHECK(bounds.offsets[0] == 0);
-    CHECK(bounds.offsets[1] == 0);
+    CHECK(bounds.offsets().size() == 2);
+    CHECK(bounds.offsets()[0] == 0);
+    CHECK(bounds.offsets()[1] == 0);
 }
 
 TEST_CASE("RajaView::Bounds: Offset view") {
@@ -3130,21 +3101,21 @@ TEST_CASE("RajaView::Bounds: Offset view") {
         "}, <No data fields>}}"
     ;
 
-    auto bounds = ais::RajaView::Bounds::fromMembers(to_parse);
+    auto bounds = ais::RajaView::spanFromMembers(to_parse);
 
     CHECK(bounds.isValid());
 
-    REQUIRE(bounds.sizes.size() == 2);
-    CHECK(bounds.sizes[0] == 7);
-    CHECK(bounds.sizes[1] == 6);
+    REQUIRE(bounds.sizes().size() == 2);
+    CHECK(bounds.size(0) == 7);
+    CHECK(bounds.size(1) == 6);
 
-    REQUIRE(bounds.strides.size() == 2);
-    CHECK(bounds.strides[0] == 6);
-    CHECK(bounds.strides[1] == 1);
+    REQUIRE(bounds.strides().size() == 2);
+    CHECK(bounds.stride(0) == 6);
+    CHECK(bounds.stride(1) == 1);
 
-    REQUIRE(bounds.offsets.size() == 2);
-    CHECK(bounds.offsets[0] == -1);
-    CHECK(bounds.offsets[1] == -1);
+    REQUIRE(bounds.offsets().size() == 2);
+    CHECK(bounds.offset(0) == -1);
+    CHECK(bounds.offset(1) == -1);
 }
 
 TEST_CASE("RajaView::Bounds: Permuted view") {
@@ -3160,21 +3131,21 @@ TEST_CASE("RajaView::Bounds: Permuted view") {
         "}"
     ;
 
-    auto bounds = ais::RajaView::Bounds::fromMembers(to_parse);
+    auto bounds = ais::RajaView::spanFromMembers(to_parse);
 
     CHECK(bounds.isValid());
 
-    REQUIRE(bounds.sizes.size() == 2);
-    CHECK(bounds.sizes[0] == 3);
-    CHECK(bounds.sizes[1] == 5);
+    REQUIRE(bounds.sizes().size() == 2);
+    CHECK(bounds.size(0) == 3);
+    CHECK(bounds.size(1) == 5);
 
-    REQUIRE(bounds.strides.size() == 2);
-    CHECK(bounds.strides[0] == 1);
-    CHECK(bounds.strides[1] == 3);
+    REQUIRE(bounds.strides().size() == 2);
+    CHECK(bounds.stride(0) == 1);
+    CHECK(bounds.stride(1) == 3);
 
-    REQUIRE(bounds.offsets.size() == 2);
-    CHECK(bounds.offsets[0] == 0);
-    CHECK(bounds.offsets[1] == 0);
+    REQUIRE(bounds.offsets().size() == 2);
+    CHECK(bounds.offset(0) == 0);
+    CHECK(bounds.offset(1) == 0);
 }
 
 TEST_CASE("RajaView::Bounds: TypedViewBase") {
@@ -3195,19 +3166,19 @@ TEST_CASE("RajaView::Bounds: TypedViewBase") {
       "}"
     ;
 
-    auto bounds = ais::RajaView::Bounds::fromTemplateArgs(to_parse);
+    auto bounds = ais::RajaView::spanFromTemplateArgs(to_parse);
 
     CHECK(bounds.isValid());
 
-    REQUIRE(bounds.sizes.size() == 2);
-    CHECK(bounds.sizes[0] == 16);
-    CHECK(bounds.sizes[1] == 16);
+    REQUIRE(bounds.sizes().size() == 2);
+    CHECK(bounds.size(0) == 16);
+    CHECK(bounds.size(1) == 16);
 
-    REQUIRE(bounds.strides.size() == 2);
-    CHECK(bounds.strides[0] == 16);
-    CHECK(bounds.strides[1] == 1);
+    REQUIRE(bounds.strides().size() == 2);
+    CHECK(bounds.stride(0) == 16);
+    CHECK(bounds.stride(1) == 1);
 
-    REQUIRE(bounds.offsets.size() == 2);
-    CHECK(bounds.offsets[0] == 0);
-    CHECK(bounds.offsets[1] == 0);
+    REQUIRE(bounds.offsets().size() == 2);
+    CHECK(bounds.offset(0) == 0);
+    CHECK(bounds.offset(1) == 0);
 }

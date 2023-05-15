@@ -1393,8 +1393,8 @@ TEST_CASE("TypeParser::getType: RAJA::View") {
         REQUIRE(raja_view != nullptr);
         CHECK(raja_view->dim() == 2);
 
-        auto inner = std::dynamic_pointer_cast<ais::Double>(raja_view->getElemTypePtr());
-        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
+        auto inner = std::dynamic_pointer_cast<ais::Double>(raja_view->getElemType());
+        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemType()->getTypeName());
     }
 
     SUBCASE("Basic 3D view") {
@@ -1407,8 +1407,8 @@ TEST_CASE("TypeParser::getType: RAJA::View") {
         REQUIRE(raja_view != nullptr);
         CHECK(raja_view->dim() == 3);
 
-        auto inner = std::dynamic_pointer_cast<ais::Int>(raja_view->getElemTypePtr());
-        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
+        auto inner = std::dynamic_pointer_cast<ais::Int>(raja_view->getElemType());
+        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemType()->getTypeName());
     }
 
     SUBCASE("Offset view") {
@@ -1421,8 +1421,8 @@ TEST_CASE("TypeParser::getType: RAJA::View") {
         REQUIRE(raja_view != nullptr);
         CHECK(raja_view->dim() == 2);
 
-        auto inner = std::dynamic_pointer_cast<ais::Int>(raja_view->getElemTypePtr());
-        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
+        auto inner = std::dynamic_pointer_cast<ais::Int>(raja_view->getElemType());
+        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemType()->getTypeName());
     }
 
     SUBCASE("Static layout view") {
@@ -1435,8 +1435,8 @@ TEST_CASE("TypeParser::getType: RAJA::View") {
         REQUIRE(raja_view != nullptr);
         CHECK(raja_view->dim() == 2);
 
-        auto inner = std::dynamic_pointer_cast<ais::Float>(raja_view->getElemTypePtr());
-        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemTypePtr()->getTypeName());
+        auto inner = std::dynamic_pointer_cast<ais::Float>(raja_view->getElemType());
+        CHECK_MESSAGE(inner != nullptr, "Incorrect inner type: ", raja_view->getElemType()->getTypeName());
     }
 }
 

@@ -165,6 +165,12 @@ expr : expr "%" expr { $$ = new gram::Binop($1, "%", $3); }
 
 expr : expr ".." expr { $$ = new gram::Range($1, $3); }
 
+expr : ".." { $$ = new gram::Range(nullptr, nullptr); }
+
+expr : expr ".." { $$ = new gram::Range($1, nullptr); }
+
+expr : ".." expr { $$ = new gram::Range(nullptr, $2); }
+
 expr : expr "." expr { $$ = new gram::Binop($1, ".", $3); }
 
 expr : expr "->" SYM { $$ = new gram::Binop($1, "->", new gram::Sym{*$3}); delete $3; }

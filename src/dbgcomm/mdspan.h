@@ -26,9 +26,9 @@ public:
     const std::vector<size_t>& strides() const { return m_strides; }
     const std::vector<int>& offsets() const { return m_offsets; }
 
-    size_t size(int n) { return m_sizes[n]; }
-    size_t stride(int n) { return m_strides[n]; }
-    int offset(int n) { return m_offsets[n]; }
+    size_t size(int n) const { return m_sizes[n]; }
+    size_t stride(int n) const { return m_strides[n]; }
+    int offset(int n) const { return m_offsets[n]; }
 
     void setSizes(const std::vector<size_t>& sizes,
                   const std::vector<size_t>& strides);

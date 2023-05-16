@@ -75,29 +75,37 @@ public:
     static std::pair<std::string,bool> removeRngs(Mi2Aif& mi, const std::string& expr);
     std::shared_ptr<ais::Type> getType() { return m_type; }
     virtual char* getArrayDataString() = 0;
+    virtual const  mdspan& getSpan() = 0;
+    virtual bool mayHaveOffset() const { return false; };
     
 protected:
     SubArray(Mi2Aif& mi, const std::string& expr);
+    const static int UNDEFINED = INT_MIN;
 
     void getRngs(const std::vector<std::string>& idcs);
-    int getIdx(const std::string& s) const;
+    int getIdx(const std::string& s, int defVal) const;
+    void resolveOpenRngs();
+
 
     Mi2Aif& m_mi;
     std::string m_baseExpr;
     std::vector<std::pair<int,int>> m_rngs;
     std::shared_ptr<ais::Type> m_type;
+    std::unique_ptr<mdspan> m_span;
 };
 
 class CSubArray : public SubArray {
 public:
     CSubArray(Mi2Aif& mi, const std::string& expr);
     char* getArrayDataString() override;
+    const mdspan& getSpan() override;
 
 private:
     void makeArrayType(std::shared_ptr<ais::Type> baseType,
                        const std::vector<std::pair<int,int>>& rngs);
 
     std::vector<std::string> parse(const std::string& type);
+
 };
 
 class KokkosSubArray : public SubArray {
@@ -106,6 +114,7 @@ public:
                                                const std::string& metaInfo,
                                                std::shared_ptr<ais::KokkosView> view);
     char* getArrayDataString() override;
+    const mdspan& getSpan() override;
 
 private:
     KokkosSubArray(Mi2Aif& mi, std::shared_ptr<ais::KokkosView> type, const std::string& expr, const std::string& baseExpr);
@@ -123,6 +132,8 @@ public:
                                              const std::shared_ptr<ais::RajaView> raja_view);
                                          
     char* getArrayDataString() override;
+    const mdspan& getSpan() override;
+    bool mayHaveOffset() const override;
 
     struct Tester;
     friend Tester;
@@ -635,9 +646,14 @@ std::pair<std::string,bool> SubArray::removeRngs(Mi2Aif& mi, const std::string& 
         return std::make_pair(s,true);
     }
 
+    // fix open ended ranges, i.e. replace .. with 0..
+    auto openRngRE = std::regex{R"(([[(])\s*\.\.)"};
+    s = std::regex_replace(s, openRngRE, "$010..");
+
     // For C/C++ arrays, reduce the expression to single elements by removing the
     // "..endIdx" portion
     auto loc = size_t{0};
+    
     while ((loc = s.find("..",loc)) != std::string::npos) {
         auto end = loc;
         for ( ; end < s.size() && s[end] != ',' && s[end] != ')' && s[end] != ']'; ++end) {
@@ -657,9 +673,12 @@ CSubArray::CSubArray(Mi2Aif& mi, const std::string& expr) : SubArray(mi, expr) {
     auto idcs = parse(expr);
     auto baseTypeStr = m_baseExpr;
     for (size_t i=0, n=idcs.size(); i<n; ++i) baseTypeStr += "[0]";
+
     auto baseVar = LazyMIVar(mi, baseTypeStr);
     getRngs(idcs);
+    resolveOpenRngs();
     makeArrayType(baseVar.getType(), m_rngs);
+
     DVPRINT("Got SubArray type: %s\n", m_type->getTypeName().c_str());
 }
 
@@ -684,6 +703,49 @@ std::vector<std::string> CSubArray::parse(const std::string& expr) {
     return idcs;
 }
 
+const mdspan& CSubArray::getSpan() {
+    if (m_span) return *m_span;
+
+    auto arrVar = LazyMIVar(m_mi, m_baseExpr);
+    auto arrType = arrVar.getType();
+
+    auto sizes = std::vector<size_t>{};
+    while (auto atype = dynamic_cast<ais::Array*>(arrType.get())) {
+        sizes.push_back(atype->getLen());
+        arrType = atype->getElemTypePtr();
+    }
+
+    auto n = sizes.size();
+    auto strides = std::vector<size_t>{n, 1};
+    if (n) {
+        for (int i=n-1; i--; ) strides[i] = strides[i+1]*sizes[i+1];
+    }
+
+    m_span.reset(new mdspan{sizes, strides});
+    return *m_span;
+}
+
+void SubArray::resolveOpenRngs() {
+    // m_rngs are listed from slowest to fastest
+    // note that we're putting off getting the span if we don't need it.
+    auto i = size_t{0};
+    for (auto& [lo,hi] : m_rngs) {
+        if (lo == UNDEFINED) {
+            if (mayHaveOffset()) {
+                const auto& span = getSpan();
+                lo = span.offset(i);
+            } else {
+                lo = 0;
+            }
+        }
+        if (hi == UNDEFINED) {
+            const auto& span = getSpan();
+            hi = span.size(i) - 1 + span.offset(i);
+        }
+        ++i;
+    }
+}
+
 void CSubArray::makeArrayType(std::shared_ptr<ais::Type> baseType,
                              const std::vector<std::pair<int,int>>& rngs) {
     m_type = baseType;
@@ -704,22 +766,29 @@ void CSubArray::makeArrayType(std::shared_ptr<ais::Type> baseType,
 }
 
 void SubArray::getRngs(const std::vector<std::string>& idcs) {
+
     for (const auto& idx : idcs) {
         auto rng = std::pair<int,int>{};
         if (auto dot = idx.find(".."); dot == std::string::npos) {
-            rng.first = rng.second = getIdx(idx);
+            rng.first = rng.second = getIdx(idx, 0);
         } else {
-            rng.first = getIdx(idx.substr(0,dot));
-            rng.second = getIdx(idx.substr(dot+2));
-            rng.second = std::max(rng.second,rng.first);
+            auto defaultLower = (mayHaveOffset() ? UNDEFINED : 0);
+            rng.first = getIdx(idx.substr(0,dot), defaultLower);
+            rng.second = getIdx(idx.substr(dot+2),UNDEFINED);
+            if (rng.second >= 0 && rng.second < rng.first)
+                rng.second = rng.first;
         }
         DVPRINT("Got range %d %d\n", rng.first, rng.second);
         m_rngs.push_back(rng);
     }
+
+    resolveOpenRngs();
 }
 
-int SubArray::getIdx(const std::string& expr) const {
-    if (std::all_of(expr.begin(), expr.end(), [](char c) {return std::isdigit(c);})) {
+int SubArray::getIdx(const std::string& expr, int defVal) const {
+    if (std::ranges::all_of(expr, [](char c) { return std::isspace(c); })) {
+        return defVal;
+    } else if (std::ranges::all_of(expr.begin(), expr.end(), [](char c) {return std::isdigit(c);})) {
         return std::stoi(expr);
     } else if (auto res = EvalExpression(m_mi.getSession(), expr.c_str())) {
         auto resStr = std::string{res};
@@ -899,6 +968,7 @@ KokkosSubArray::KokkosSubArray(Mi2Aif& mi, std::shared_ptr<ais::KokkosView> type
                                const std::string& expr, const std::string& baseExpr) :
     SubArray(mi, expr), m_kv(type)
 {
+    m_span.reset(new mdspan{type->getSpan()});
     m_baseExpr = baseExpr;
     parse(expr);
     makeArrayType(type->elemType(), m_rngs);
@@ -917,6 +987,8 @@ void KokkosSubArray::parse(const std::string& expr) {
     }
     getRngs(idcs);
 }
+
+const mdspan& KokkosSubArray::getSpan() { return *m_span; }
 
 // extract the data values from a kokkos view and form into a single
 // array with the output ordering
@@ -1112,11 +1184,18 @@ RajaSubArray::get(Mi2Aif& mi, const std::string& expr,
     return std::unique_ptr<RajaSubArray>(new RajaSubArray(mi, base_expr, expr, raja_view));
 }
 
+const mdspan& RajaSubArray::getSpan() { return *m_span; }
+bool RajaSubArray::mayHaveOffset() const { return true; }
+
 RajaSubArray::RajaSubArray(Mi2Aif& mi, const std::string& base_expr, const std::string& expr, const std::shared_ptr<ais::RajaView> view)
     : SubArray(mi, expr)
     , m_base_expr{base_expr}
     , m_view{view}
 {
+    m_span.reset(new mdspan{view->getSpan()});
+
+    DVPRINT("In RajaSubArray::RajaSubArray\n");
+    
     {   // extract m_rngs from expr
         auto paren = expr.find_last_of('(');
         if (paren == std::string::npos) throw std::runtime_error("no parenthesis");
@@ -1135,7 +1214,7 @@ RajaSubArray::RajaSubArray(Mi2Aif& mi, const std::string& base_expr, const std::
 
     {   // fit the user specified ranges into the actual ranges of the view. with offset
         // views, negative indices can be valid.
-        if (m_rngs.size() != view->getSpan().sizes().size())
+        if (m_rngs.size() != view->getSpan().dim())
             throw std::runtime_error("Specified slice doesn't match dimension of underlying RAJA::View");
 
         const auto& offsets = view->getSpan().offsets();
@@ -1149,6 +1228,8 @@ RajaSubArray::RajaSubArray(Mi2Aif& mi, const std::string& base_expr, const std::
             m_rngs[i].second = std::max(0 + offsets[i], m_rngs[i].second);
             m_rngs[i].second = std::min(int(sizes[i] - 1) + offsets[i], m_rngs[i].second);
         }
+
+        for (auto [lo,hi] : m_rngs) DVPRINT("postRng, %d %d\n", lo, hi);
     }
 
     {   // generate m_type as properly sized and nested ais array

@@ -2161,7 +2161,7 @@ int ais::RajaView::dim() const {
 }
 
 void ais::RajaView::setSpan(mdspan&& span) {
-    m_span = span;
+    m_span = std::move(span);
 }
 
 void ais::RajaView::parseL(InterpretStream& in, Writer& out) const {

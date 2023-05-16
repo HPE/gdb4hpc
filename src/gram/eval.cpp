@@ -159,13 +159,16 @@ std::unique_ptr<ComparisonValue> gram::Binop::evalCompare(rec_set_t* rec_set) co
 
 
 std::unique_ptr<Value> gram::Range::eval(rec_set_t* rec_set) const {
-    auto A = m_a->eval(rec_set);
-    auto B = m_b->eval(rec_set);
-    if (A->getRecSet() != rec_set || B->getRecSet() != rec_set) {
+    auto A = (m_a ? m_a->eval(rec_set) : nullptr);
+    auto B = (m_b ? m_b->eval(rec_set) : nullptr);;
+    if ((A && A->getRecSet() != rec_set) || (B && B->getRecSet() != rec_set)) {
         throw EvalError("evaluating an range with procset indices");
     }
 
-    return std::make_unique<ReplyValue>(rec_set, A->getExpr() + ".." + B->getExpr());
+    auto aexpr = (A ? A->getExpr() : "");
+    auto bexpr = (B ? B->getExpr() : "");
+
+    return std::make_unique<ReplyValue>(rec_set, aexpr + ".." + bexpr);
 }
 
 std::unique_ptr<Value> gram::Conditional::eval(rec_set_t* rec_set) const {

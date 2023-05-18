@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -89,6 +89,7 @@ static const struct option long_opts[] = {
     {"attach", required_argument, 0, 'j'},
     {"exec", required_argument, 0, 'x'},
     {"command-timeout", required_argument, 0, 't'},
+    {"tty", required_argument, 0, 'T'},
     {0, 0, 0, 0}};
 
 static void usage(char *name) {
@@ -489,6 +490,10 @@ int main(int argc, char *argv[]) {
 
                 break;
             }
+
+            case 'T': 
+                QueueCommand(std::string{"set inferior-tty "} + optarg);
+                break; 
 
             case 's':
                 // Set silent to 1, we don't want to print out banner

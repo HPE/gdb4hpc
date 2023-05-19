@@ -2969,7 +2969,7 @@ dbgevent_t *DbgGdbMI::setDebuggerVar(const char *var, const char *val) {
     return NewEvent(DBGEV_OK);
 }
 
-dbgevent_t *DbgGdbMI::setSourcePath(const char *path) {
+dbgevent_t *DbgGdbMI::setSourcePath(DbgDirOp op, const char *path) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     char *pathdirs[2];
     MICommand *cmd;

@@ -40,9 +40,8 @@ endif
 # Build debug client library #
 ##############################
 
-noinst_LIBRARIES	= libdbgclnt.a libdbgproto.a
-libdbgclnt_a_SOURCES	= dbg_client.cpp dbgclnt_debugfe.cpp\
-						  $(FRONTEND)
-libdbgproto_a_SOURCES	= dbgclnt_proto.cpp dbgclnt_proto_ctiship.cpp dbgclnt_network.cpp proto_message.cpp \
-						  dbgclnt_breakpoints.cpp dbginvoke.cpp dbgoutp.cpp \
-						  $(MRN_PROTO) $(ZMQNET_PROTO)
+noinst_LIBRARIES	= libdbgclnt.a
+libdbgclnt_a_SOURCES	= dbg_client.cpp $(FRONTEND) \
+                          dbgclnt_proto.cpp dbgclnt_proto_ctiship.cpp dbgclnt_network.cpp \
+			  proto_message.cpp dbgclnt_breakpoints.cpp dbginvoke.cpp dbgoutp.cpp \
+			  $(MRN_PROTO) $(ZMQNET_PROTO)

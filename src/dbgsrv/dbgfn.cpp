@@ -265,9 +265,9 @@ dbgevent_t *DbgSetDebuggerVar(const char *var, const char *val) {
     return DbgBackendSW->setDebuggerVar(var, val);
 }
 
-dbgevent_t *DbgSetSourcePath(const char *path) {
+dbgevent_t *DbgSetSourcePath(DbgDirOp op, const char *path) {
     DBG_READY();
-    return DbgBackendSW->setSourcePath(path);
+    return DbgBackendSW->setSourcePath(op, path);
 }
 
 dbgevent_t *DbgGetSourcePath() {

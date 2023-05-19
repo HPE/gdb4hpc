@@ -1456,10 +1456,10 @@ const char* const cmd_set_cuda_help[] = {
 };
 
 
-const char* const cmd_set_directory_help[] = {
+const char* const cmd_directory_help[] = {
     "Summary: Directory search source path.",
-    "Usage: set directory <path>",
-    "Example command: set directory /path/to/source",
+    "Usage: dir <path> [<path>]..",
+    "Example command: dir /path/to/source",
     "",
     "Arguments: path (directory containing source)",
     "",

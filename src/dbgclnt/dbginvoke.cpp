@@ -53,22 +53,11 @@ TEST_CASE("DbgInvoke: set/get/unset frontendGdb") {
     REQUIRE(di.frontendGdb() == nullptr);
 
     SUBCASE("Instantiate, deinstantiate with nullptr") {
-        auto r = di.instantiateFrontendGdb("gdbmi", nullptr);
+        auto r = di.instantiateFrontendGdb(nullptr);
         CHECK(r != nullptr);
         REQUIRE(di.frontendGdb() != nullptr);
 
-        auto r2 = di.instantiateFrontendGdb(nullptr, nullptr);
-        CHECK(di.frontendGdb() == nullptr);
-        CHECK(r2 == nullptr);
-    }
-
-    SUBCASE("Instantiate, deinstantiate with invalid impl") {
-        auto r = di.instantiateFrontendGdb("gdbmi", nullptr);
-        CHECK(r != nullptr);
-        REQUIRE(di.frontendGdb() != nullptr);
-
-        auto r2 = di.instantiateFrontendGdb("not real", nullptr);
-        CHECK(r2 == nullptr);
+        di.resetFrontendGdb();
         CHECK(di.frontendGdb() == nullptr);
     }
 }
@@ -459,7 +448,7 @@ DbgInvoke::DbgInvoke(DbgInvoke&& o)
     , m_bitset_launched{std::move(o.m_bitset_launched)}
     , m_proto{o.m_proto}
     , m_proto_net{std::move(o.m_proto_net)}
-    , m_frontend_gdb{o.m_frontend_gdb}
+    , m_frontend_gdb{std::move(o.m_frontend_gdb)}
     , m_clnt_ev_callback{std::move(o.m_clnt_ev_callback)}
     , m_source_paths{std::move(o.m_source_paths)}
     , m_breakpoints{std::move(o.m_breakpoints)}
@@ -472,18 +461,10 @@ DbgInvoke::DbgInvoke(DbgInvoke&& o)
     o.m_shutdown_flag = true;
     o.m_nproc = 0;
     o.m_proto_outp = nullptr;
-    o.m_frontend_gdb = nullptr;
 }
 
 DbgInvoke::~DbgInvoke() {
     HoldSignals();
-
-    // Quit the debug frontend if there is one
-    if (m_frontend_gdb) {
-        auto e = DbgDestroyFE(m_frontend_gdb);
-        FreeEvent(e);
-    }
-
     ReleaseSignals();
 }
 
@@ -566,22 +547,17 @@ void DbgInvoke::setNetwork(std::unique_ptr<DebugClientNetwork>&& net) {
     m_proto_net = std::move(net);
 }
 
-dbgfrontend_sw* DbgInvoke::instantiateFrontendGdb(const char* impl, const char* gdbPath) {
-    if (m_frontend_gdb) {
-        auto e = DbgDestroyFE(m_frontend_gdb);
-        FreeEvent(e);
-    }
-
-    if (impl) {
-        m_frontend_gdb = DbgInstantiateFE(impl, gdbPath);
-    } else {
-        m_frontend_gdb = nullptr;
-    }
-
-    return m_frontend_gdb;
+DbgFE* DbgInvoke::instantiateFrontendGdb(const char* gdbPath) {
+    m_frontend_gdb.reset(new DbgFE(gdbPath));
+    return m_frontend_gdb.get();
 }
+void DbgInvoke::resetFrontendGdb() { m_frontend_gdb.reset(); }
 
-dbgfrontend_sw* DbgInvoke::frontendGdb() const { return m_frontend_gdb; }
+DbgFE* DbgInvoke::frontendGdb() const { return m_frontend_gdb.get(); }
+
+void DbgInvoke::clearFrontendGdb() {
+    if (m_frontend_gdb) m_frontend_gdb->clearListState();
+}
 
 DbgInvoke::AsyncEventCallback DbgInvoke::getAsyncEventCallback() const {
     return m_clnt_ev_callback;

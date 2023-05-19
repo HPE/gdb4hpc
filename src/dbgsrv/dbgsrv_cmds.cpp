@@ -213,9 +213,9 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_SETSOURCEPATH: {
-            std::string path;
-            is.get(path);
-            e = DbgSetSourcePath(path.c_str());
+            int op; std::string path;
+            is.get(op, path);
+            e = DbgSetSourcePath(DbgDirOp{op}, path.c_str());
             break;
         }
 

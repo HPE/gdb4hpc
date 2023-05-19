@@ -30,6 +30,7 @@ extern const char* const cmd_run_help[];
 extern const char* const cmd_defset_help[];
 extern const char* const cmd_delete_help[];
 extern const char* const cmd_directmode_help[];
+extern const char* const cmd_directory_help[];
 extern const char* const cmd_disable_help[];
 extern const char* const cmd_down_help[];
 extern const char* const cmd_enable_help[];
@@ -127,7 +128,6 @@ extern const char* const cmd_maint_system_help[];
  * Class set subcommands
  */
 extern const char* const cmd_set_cuda_help[];
-extern const char* const cmd_set_directory_help[];
 extern const char* const cmd_set_error_help[];
 extern const char* const cmd_set_environment_help[];
 extern const char* const cmd_set_logging_help[];

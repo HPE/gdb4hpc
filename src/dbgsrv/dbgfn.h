@@ -59,7 +59,7 @@ extern dbgevent_t *DbgShowFrame(int, const char*);
 extern dbgevent_t *DbgGetFrame(bool, const char*);
 extern dbgevent_t *DbgSetVar(const char *, const char* val, const char* threads);
 extern dbgevent_t *DbgSetDebuggerVar(const char *, const char *val);
-extern dbgevent_t *DbgSetSourcePath(const char *);
+extern dbgevent_t *DbgSetSourcePath(DbgDirOp, const char *);
 extern dbgevent_t *DbgGetSourcePath(void);
 extern dbgevent_t *DbgSetPrintElements(const char* elements);
 extern dbgevent_t *DbgResetBeforeDirectCmd();

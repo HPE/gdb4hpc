@@ -347,7 +347,7 @@ extern rep_set_t *DbgEvalExpr(rec_set_t *, const char *);
 // at some point though for staging data in gdb variables on the backends
 extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, const char *, AIFStream *);
 extern rep_set_t *DbgGetDebuggerVar(rec_set_t *, const char *);
-extern rep_set_t *DbgSetSourcePath(rec_set_t *, char *);
+extern rep_set_t *DbgSetSourcePath(rec_set_t *, DbgDirOp op, const char *);
 extern rep_set_t *DbgGetSourcePath(rec_set_t *);
 extern rep_set_t *DbgSetPrintElements(rec_set_t *, const char *);
 extern rep_set_t *DbgResetBeforeDirectCmd(rec_set_t *);

@@ -1214,12 +1214,12 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
             lineArg += "," + lineArg; // filename:xx,filename:xx
             dbgevent_t *listResult = nullptr;
 
-            if (ev_set->di().frontendGdb()) {
-                listResult = DbgFEList(ev_set->di().frontendGdb(), nullptr, lineArg.c_str());
+            if (auto fe = ev_set->di().frontendGdb()) {
+                listResult = fe->list(nullptr, lineArg.c_str());
             }
 
             if (!doPrintLocation) {
-
+                // no-op
             } else if (listResult && listResult->ev_event == DBGEV_LIST &&
                        listResult->ev_list->list_lno == frameLoc.loc_line) {
                 // Print a frame if the last step event changed functions

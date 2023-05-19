@@ -2,7 +2,7 @@
  * GDB/MI frontend interface routines
  * TODO: This does not support asynchronous commands.
  *
- * Copyright 2013-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -28,53 +28,51 @@
 #define GDB_MIN_VERS 7.2
 #define GDB_EXPECTED_ARCH "x86_64"
 
-/* static prototypes */
-static void DbgInstantiateGDBMI(dbgfrontend_sw *);
-static dbgevent_t *DbgGDBMIInit_fe(dbgfrontend_sw *, const char* gdbPath);
-static dbgevent_t *DbgGDBMIQuit_fe(dbgfrontend_sw *);
-static dbgevent_t *DbgGDBMIList_fe(dbgfrontend_sw *, const char*, const char *);
-static dbgevent_t *DbgGDBMIGetSources_fe(dbgfrontend_sw *);
-static dbgevent_t *DbgGDBMISetFile_fe(dbgfrontend_sw *, const char *);
-static dbgevent_t *DbgGDBMISetSourcePath_fe(dbgfrontend_sw *, const char *);
-static dbgevent_t *DbgGDBMIGetSourcePath_fe(dbgfrontend_sw *);
-static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *, const char *);
-static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *);
+DbgFE::DbgFE(const char* gdbPath) {
 
-static dbgevent_t *setup_gdbmi_environment(MISession *);
-static void SendMICommand_fe(MISession *sess, MICommand *cmd);
-
-dbgfrontend_sw_create DbgFrontendGDBMICreate = {DbgInstantiateGDBMI};
-
-static void DbgInstantiateGDBMI(dbgfrontend_sw *fe_obj) {
-    fe_obj->dbg_session = (dbgfrontend_sess)MISessionNew();
-    fe_obj->dbg_init = DbgGDBMIInit_fe;
-    fe_obj->dbg_quit = DbgGDBMIQuit_fe;
-    fe_obj->dbg_set_file = DbgGDBMISetFile_fe;
-    fe_obj->dbg_checkstartupfunc = DbgGDBMICheckStartupFunc_fe;
-    fe_obj->dbg_list = DbgGDBMIList_fe;
-    fe_obj->dbg_getsources = DbgGDBMIGetSources_fe;
-    fe_obj->dbg_setsourcepath = DbgGDBMISetSourcePath_fe;
-    fe_obj->dbg_getsourcepath = DbgGDBMIGetSourcePath_fe;
-    fe_obj->dbg_getscope = DbgGDBMIGetScope_fe;
-
+    m_session = MISessionNew();
+    
     // only set debug for gdbmi if compiled with debug mode
 #ifdef DEBUG
     MISessionSetDebug(1);
 #else
     MISessionSetDebug(0);
 #endif
+
+    // set the gdb path to use gdb-guard
+    MISessionSetGDBPath(m_session, gdbPath ? gdbPath : "gdb-guard");
+
+    // Get the base dir env var and setup data-dir if the env var is set
+    char *env_base_dir = getenv(GUARD_INST_DIRECTORY);
+    if (env_base_dir != NULL) {
+        char *data_dir;
+        Asprintf(&data_dir, "%s/share/gdb", env_base_dir);
+        MISessionSetGDBDataDirectory(m_session, data_dir);
+        Free(data_dir);
+    }
+
+    if (MISessionStartLocal(m_session, NULL) < 0) {
+        return;
+    }
+
+    if (auto e = setup_gdbmi_environment()) {
+        FreeEvent(e);
+        return;
+    }
+
+    // no need to startup debugger, we are not attaching onto anything.
+    dbg_status = DBGSTAT_STOPPED;
 }
 
 /*
 ** Send the MI command
 */
-static void SendMICommand_fe(MISession *sess, MICommand *cmd) {
-    char *buf;
+void DbgFE::sendCmd(MICommand *cmd) {
 
-    MISessionSendCommand(sess, cmd);
+    MISessionSendCommand(m_session, cmd);
     do {
-        if (MISessionProgress(sess) == -1) {
-            if ((buf = MICommandResultErrorMessage(cmd)) != NULL) {
+        if (MISessionProgress(m_session) == -1) {
+            if (auto buf = MICommandResultErrorMessage(cmd)) {
                 DPRINT("SendMICommand: Debugger error: %s\n", buf);
                 free(buf);
             } else {
@@ -84,20 +82,19 @@ static void SendMICommand_fe(MISession *sess, MICommand *cmd) {
             break;
         }
 
-        if (sess->out_fd == -1) {
-            DPRINT("SendMICommand: sess->out_fd = -1\n");
+        if (m_session->out_fd == -1) {
+            DPRINT("SendMICommand: m_session->out_fd = -1\n");
             break;
         }
 
     } while (!MICommandCompleted(cmd));
 }
 
-static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
+dbgevent_t *DbgFE::setup_gdbmi_environment() {
     dbgevent_t *e;
-    MICommand *cmd;
 
-    cmd = MIGDBSet("confirm", "off");
-    SendMICommand_fe(sess, cmd);
+    auto cmd = MIGDBSet("confirm", "off");
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set confirm command failed.");
@@ -107,7 +104,7 @@ static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
 
     // stop printing strings on the first null character
     cmd = MIGDBSet("print null-stop", "on");
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_DEBUGGER,
@@ -118,7 +115,7 @@ static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
 
     // demangle c++ names
     cmd = MIGDBSet("print demangle", "on");
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_DEBUGGER,
@@ -128,7 +125,7 @@ static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
     MICommandFree(cmd);
 
     cmd = MIGDBSet("print asm-demangle", "on");
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_DEBUGGER,
@@ -139,7 +136,7 @@ static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
 
     // print derived types from the vtable
     cmd = MIGDBSet("print object", "on");
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb set print object command failed.");
@@ -149,7 +146,7 @@ static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
 
     // limit backtrace size to 1000
     cmd = MIGDBSet("backtrace limit", "1000");
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_DEBUGGER,
@@ -160,7 +157,7 @@ static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
 
     // unwind signals triggered by gdb
     cmd = MIGDBSet("unwindonsignal", "on");
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_DEBUGGER,
@@ -172,55 +169,16 @@ static dbgevent_t *setup_gdbmi_environment(MISession *sess) {
     return NULL;
 }
 
-static dbgevent_t *DbgGDBMIInit_fe(dbgfrontend_sw *fe_obj, const char* gdbPath) {
-    dbgevent_t *e;
-    MISession *sess = (MISession *)fe_obj->dbg_session;
-
-    DPRINT("*** DbgGDBMIInit_fe\n");
-
-    /*MISessionRegisterEventCallback(sess, event_callback);
-    MISessionRegisterConsoleCallback(sess, console_callback);
-    MISessionRegisterLogCallback(sess, log_callback);
-    MISessionRegisterTargetCallback(sess, target_callback);*/
-
-    // set the gdb path to use gdb-guard
-    MISessionSetGDBPath(sess, gdbPath ? gdbPath : "gdb-guard");
-
-    // Get the base dir env var and setup data-dir if the env var is set
-    char *env_base_dir = getenv(GUARD_INST_DIRECTORY);
-    if (env_base_dir != NULL) {
-        char *data_dir;
-        Asprintf(&data_dir, "%s/share/gdb", env_base_dir);
-        MISessionSetGDBDataDirectory(sess, data_dir);
-        Free(data_dir);
-    }
-
-    if (MISessionStartLocal(sess, NULL) < 0) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not start the debugger.");
-        return e;
-    }
-
-    if ((e = setup_gdbmi_environment(sess)) != NULL) return e;
-
-    // no need to startup debugger, we are not attaching onto anything.
-    fe_obj->dbg_status = DBGSTAT_STOPPED;
-
-    return (dbgevent_t *)NULL;
-}
-
 /*
 ** Set a.out inferior file for symbol reading.
 */
-static dbgevent_t *DbgGDBMISetFile_fe(dbgfrontend_sw *fe_obj,
-                                      const char *file) {
+dbgevent_t *DbgFE::setFile(const char *file) {
     dbgevent_t *e;
-    MICommand *cmd;
-    MISession *sess = (MISession *)fe_obj->dbg_session;
 
-    DPRINT("*** DbgGDBMISetFile_fe\n");
+    DPRINT("*** DbgFESetFile_fe\n");
 
-    cmd = MIFileExecAndSymbols(file);
-    SendMICommand_fe(sess, cmd);
+    auto cmd = MIFileExecAndSymbols(file);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
@@ -232,14 +190,11 @@ static dbgevent_t *DbgGDBMISetFile_fe(dbgfrontend_sw *fe_obj,
     return NewEvent(DBGEV_OK);
 }
 
-static dbgevent_t *DbgGDBMIQuit_fe(dbgfrontend_sw *fe_obj) {
-    MICommand *cmd;
-    MISession *sess = (MISession *)fe_obj->dbg_session;
+dbgevent_t *DbgFE::quit() {
+    DPRINT("*** DbgFEQuit_fe\n");
 
-    DPRINT("*** DbgGDBMIQuit_fe\n");
-
-    cmd = MIGDBExit();
-    SendMICommand_fe(sess, cmd);
+    auto cmd = MIGDBExit();
+    sendCmd(cmd);
     MICommandFree(cmd);
 
     return NewEvent(DBGEV_OK);
@@ -251,20 +206,19 @@ static dbgevent_t *DbgGDBMIQuit_fe(dbgfrontend_sw *fe_obj) {
 **
 ** GDB does not have a MI command for this; we use the CLI command.
 */
-static dbgevent_t *DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, const char* threads, const char *str) {
+dbgevent_t *DbgFE::list(const char* threads, const char *str) {
     dbgevent_t *e;
     MICommand *cmd;
-    MISession *sess = (MISession *)fe_obj->dbg_session;
     MIList *lines;
     CLILineInfo *line;
     dbglist_t *line_list;
     dbglist_t *list_ptr = NULL;
     dbglist_t *list = NULL;
 
-    DPRINT("*** DbgGDBMIList_fe\n");
+    DPRINT("*** DbgFE::list_fe\n");
 
     cmd = CLIList(str);
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
@@ -299,24 +253,26 @@ static dbgevent_t *DbgGDBMIList_fe(dbgfrontend_sw *fe_obj, const char* threads, 
     return e;
 }
 
+dbgevent_t* DbgFE::list(const Location& loc) {
+    return list(loc.threads.get(), loc.loc_str.get());
+}
+
 /*
 ** Get source files from inferior.
 */
-static dbgevent_t *DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj) {
+dbgevent_t *DbgFE::getSources() {
     dbgevent_t *e;
-    MICommand *cmd;
-    MISession *sess = (MISession *)fe_obj->dbg_session;
     MIList *sources;
     MISources *source;
     dbgsources_t *dbg_sources;
     dbgsources_t *sources_ptr = NULL;
     dbgsources_t *head = NULL;
 
-    DPRINT("*** DbgGDBMIGetSources_fe\n");
+    DPRINT("*** DbgFE::getSources_fe\n");
 
-    cmd = MIFileListExecSourceFiles();
+    auto cmd = MIFileListExecSourceFiles();
 
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
@@ -332,7 +288,7 @@ static dbgevent_t *DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj) {
 
         dbg_sources = (dbgsources_t *)Alloc(sizeof(dbgsources_t));
 
-        DPRINT("DbgGDBMIGetSources_fe: fullname is %s\n", source->fullname);
+        DPRINT("DbgFE::getSources_fe: fullname is %s\n", source->fullname);
 
         // Ensure that this source file actually exists
         dbg_sources->sources_file = realpath(source->fullname, NULL);
@@ -361,23 +317,21 @@ static dbgevent_t *DbgGDBMIGetSources_fe(dbgfrontend_sw *fe_obj) {
     return e;
 }
 
-static dbgevent_t *DbgGDBMISetSourcePath_fe(dbgfrontend_sw *fe_obj,
-                                            const char *path) {
-    MISession *sess = (MISession *)fe_obj->dbg_session;
+dbgevent_t *DbgFE::setSourcePath(DbgDirOp op, const char *path) {
     char *pathdirs[2];
     MICommand *cmd;
     MIString *cmd_result;
     char *res;
     dbgevent_t *e;
 
-    DPRINT("*** DbgGDBMISetSourcePath_fe\n");
+    DPRINT("*** DbgFE::setSourcePath_fe\n");
 
     pathdirs[0] = const_cast<char *>(path);
     pathdirs[1] = NULL;
 
     cmd = MIEnvironmentDirectory(0, pathdirs);
 
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_DEBUGGER,
@@ -397,21 +351,20 @@ static dbgevent_t *DbgGDBMISetSourcePath_fe(dbgfrontend_sw *fe_obj,
     return e;
 }
 
-static dbgevent_t *DbgGDBMIGetSourcePath_fe(dbgfrontend_sw *fe_obj) {
-    MISession *sess = (MISession *)fe_obj->dbg_session;
+dbgevent_t *DbgFE::getSourcePath() {
     char *pathdirs[1];
     MICommand *cmd;
     MIString *cmd_result;
     char *res;
     dbgevent_t *e;
 
-    DPRINT("*** DbgGDBMIGetSourcePath_fe\n");
+    DPRINT("*** DbgFE::getSourcePath_fe\n");
 
     pathdirs[0] = NULL;
 
     cmd = MIEnvironmentDirectory(0, pathdirs);
 
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         EVENT_ERROR(e, DBGERR_DEBUGGER,
@@ -431,9 +384,7 @@ static dbgevent_t *DbgGDBMIGetSourcePath_fe(dbgfrontend_sw *fe_obj) {
     return e;
 }
 
-static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj,
-                                       const char *location) {
-    MISession *sess = (MISession *)fe_obj->dbg_session;
+dbgevent_t *DbgFE::getScope(const char *location) {
     MICommand *cmd;
     MIList *vars;
     char *name;
@@ -447,11 +398,11 @@ static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj,
     char *type;
     dbgevent_t *e;
 
-    DPRINT("*** DbgGDBMIGetScope_fe\n");
+    DPRINT("*** DbgFE::getScope_fe\n");
 
     cmd = CLIInfoScope(location);
 
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
@@ -502,7 +453,7 @@ static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj,
     // the function name.
 
     cmd = MIBreakInsert(0, 0, 0, NULL, 0, location, 0);
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
 
     if (!MICommandResultOK(cmd)) {
         // free existing event
@@ -545,7 +496,7 @@ static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj,
 
     // Delete the breakpoint, we have the information we need
     cmd = MIBreakDelete(1, &bpid);
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     // We don't care if the delete breakpoint failed. I think this is okay to
     // do since it won't cause anything to break. This assumption might be
     // wrong though.
@@ -557,7 +508,7 @@ static dbgevent_t *DbgGDBMIGetScope_fe(dbgfrontend_sw *fe_obj,
         cmd = CLIWhatis(var_str);
         Free(var_str);
 
-        SendMICommand_fe(sess, cmd);
+        sendCmd(cmd);
         if (!MICommandResultOK(cmd)) {
             // If there was a problem, continue
             MICommandFree(cmd);
@@ -606,14 +557,12 @@ static const std::array<std::string, 16> parallel_entry_pt_strs
     "shmem_init"
 };
 
-static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
-    MISession *sess = (MISession *)fe_obj->dbg_session;
-
-    DPRINT("*** DbgGDBMICheckStartupFunc_fe\n");
+dbgevent_t *DbgFE::checkStartupFunc() {
+    DPRINT("*** DbgFECheckStartupFunc_fe\n");
 
     // set the lang to c. We always want to do this!!
     auto cmd = MIGDBSet("lang", "c");
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         return NewErrorEvent(DBGERR_DEBUGGER, "Gdb set lang command failed.");
@@ -624,7 +573,7 @@ static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
     
     for (auto&& str: parallel_entry_pt_strs) {
         cmd = MIBreakInsert(0, 0, 0, NULL, 0, str.c_str(), 0);
-        SendMICommand_fe(sess, cmd);
+        sendCmd(cmd);
         // We expect many of these to fail - only one has to exist
         if (!MICommandResultOK(cmd)) {
             MICommandFree(cmd);
@@ -636,7 +585,7 @@ static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
         for (MIBreakpoint* bp; (bp = (MIBreakpoint *)MIListGet(bpts)); ) {
             auto id = bp->number;
             auto delCmd = MIBreakDelete(1, &id);
-            SendMICommand_fe(sess, delCmd);
+            sendCmd(delCmd);
             if (!MICommandResultOK(delCmd)) {
                 MICommandFree(delCmd);
                 return NewErrorEvent(DBGERR_NOBP, "Delete internal breakpoint failed.");
@@ -652,7 +601,7 @@ static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
 
     // set the lang back to auto. We always want to do this!!
     cmd = MIGDBSet("lang", "auto");
-    SendMICommand_fe(sess, cmd);
+    sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
         return NewErrorEvent(DBGERR_DEBUGGER, "Gdb set lang command failed.");
@@ -667,4 +616,24 @@ static dbgevent_t *DbgGDBMICheckStartupFunc_fe(dbgfrontend_sw *fe_obj) {
     // startup function was found
     return NewEvent(DBGEV_OK);
 }
+
+void DbgFE::addListStateLocation(const Bitset *set, const char* threads, const char *str) {
+    if (!set || !str) return;
+    
+    Location loc = {
+        .set = set->clone(),
+        .threads = std::unique_ptr<char,decltype(&std::free)>(StrdupOpt(threads), &std::free),
+        .loc_str = std::unique_ptr<char,decltype(&std::free)>(strdup(str), &std::free),
+        .count = 0};
+
+    m_listLocs.push_back(std::move(loc));
+    m_listIsPending = true;
+}
+
+void DbgFE::clearListState() {
+    m_listLocs.clear();
+    m_listIsPending = false;
+}
+
+DbgFE::~DbgFE() { if (m_session) MISessionFree(m_session); }
 

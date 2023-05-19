@@ -15,6 +15,7 @@ cuda            Cuda debugging functions.
 decomposition   Define a decomposition scheme.
 defset          Create a set of processes.
 delete          Delete a breakpoint or checkpoint.
+directory       Add directory to search path for source files.
 disable         Disable a breakpoint.
 down            Move down one or more stack frames.
 enable          Enable a breakpoint.

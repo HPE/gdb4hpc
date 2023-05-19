@@ -644,23 +644,15 @@ static int cmd_info_status_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_set_directory_cmd(rec_set_t *rec_set, int argc,
-                                          char **argv) {
-    rep_set_t *rep_set;
-    char *new_path;
+static int cmd_directory_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: set directory /path/to/dir\n");
-        return 0;
-    }
-
-    rep_set = DbgSetSourcePath(rec_set, argv[1]);
+    auto dir = ArgsToString(argv+1, argc-1);
+    auto rep_set = DbgSetSourcePath(rec_set, DbgDirOp::ADD, dir.c_str());
 
     ProcessErrorInRepSet(rep_set);
 
     for (auto&& reply : rep_set) {
-        new_path = EVENT_SOURCE_PATH(reply->rep_event);
+        auto new_path = EVENT_SOURCE_PATH(reply->rep_event);
 
         PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                             "Source directory search path set to: %s\n",
@@ -1061,8 +1053,8 @@ void InitCmd_env(void) {
                    "Display the status of the debug servers.");
 
     // set commands
-    AddCommand("set directory", proc_required, cmd_set_directory_cmd,
-                  cmd_set_directory_help,
+    AddCommand("directory", "dir", proc_required, cmd_directory_cmd,
+                  cmd_directory_help,
                   "Add directory to search path for source files.");
     AddCommand("set error", proc_ignore, cmd_set_error_cmd,
                   cmd_set_error_help,

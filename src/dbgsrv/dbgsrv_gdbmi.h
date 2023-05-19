@@ -74,7 +74,7 @@ public:
     bool isOk();
     bool isStopped();
     dbgevent_t *setDebuggerVar(const char *var, const char *val);
-    dbgevent_t *setSourcePath(const char *path);
+    dbgevent_t *setSourcePath(DbgDirOp op, const char *path);
     dbgevent_t *getSourcePath();
     dbgevent_t *getDebuggerVar(const char *var);
     dbgevent_t *setPrintElements(const char *elements);

@@ -62,6 +62,6 @@ gdb4hpc_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
 				  -Wl,-rpath,\$$ORIGIN \
 				  -Wl,--enable-new-dtags
 gdb4hpc_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(GUARD_RD_LIBS) $(GRAM)/libgram.a \
-				  $(DBGCLNT)/libdbgclnt.a $(DBGCLNT)/libdbgproto.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
+				  $(DBGCLNT)/libdbgclnt.a $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a \
 				  $(EDITLINE_LIBS) $(CRAYTOOL_LIBS) $(MRN_LIBS) $(ZMQN_LIBS) $(MI_LIBS) $(PYTHON3_LIBS) \
 				  $(SSH2_LIBS) $(BITSET)/libbitset.la -lm -lstdc++ -lstdc++fs -lpthread

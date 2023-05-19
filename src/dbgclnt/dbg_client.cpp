@@ -1527,18 +1527,17 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
     // FIXME: This will fail if using --gdb=/path/to/gdb:/path/to/datadir form.
     // See PE-46911
     const auto& gdbPath = args.gdb_path;
-    di->instantiateFrontendGdb(args.backend_name.c_str(),
-                               gdbPath.empty() ? nullptr : gdbPath.c_str());
+    di->instantiateFrontendGdb(gdbPath.empty() ? nullptr : gdbPath.c_str());
 
     // Set the debug frontend a.out directly.
-    if (di->frontendGdb() != nullptr) {
-        e = DbgFESetFile(di->frontendGdb(), args.app_argv[0].c_str());
+    if (auto fe = di->frontendGdb()) {
+        e = fe->setFile(args.app_argv[0].c_str());
 
         // handle the error case
         if (e->ev_event == DBGEV_ERROR) {
             // We want to tear down the frontend since it has no way of reading
             // symbols since loading the binary failed.
-            di->instantiateFrontendGdb(nullptr, nullptr);
+            di->resetFrontendGdb();
         }
 
         FreeEvent(e);
@@ -1546,8 +1545,8 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
 
     // Check for startup function presence if unsafe is false
     if (!args.unsafe_flag && !args.non_mpi_flag) {
-        if (di->frontendGdb() != nullptr) {
-            e = DbgFECheckStartupFunc(di->frontendGdb());
+        if (auto fe = di->frontendGdb()) {
+            e = fe->checkStartupFunc();
 
             // handle the error case
             if (e->ev_event == DBGEV_ERROR) {
@@ -2085,7 +2084,7 @@ rep_set_t *DbgGetDebuggerVar(rec_set_t *set, const char *var) {
 /*
 ** DBG_SETSOURCEPATH: Set source search path in debugger to new value.
 */
-rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
+rep_set_t *DbgSetSourcePath(rec_set_t *set, DbgDirOp op, const char *path) {
     if (!set) return nullptr;
 
     rec_set_t *to_send = NewRecSet();
@@ -2102,7 +2101,7 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
                 result = NewRepSet();
             }
 
-            auto e = DbgFESetSourcePath(dbg_fe, path);
+            auto e = dbg_fe->setSourcePath(op, path);
 
             if (e->ev_event != DBGEV_SOURCEPATH && e->ev_event != DBGEV_ERROR) {
                 // Free the event
@@ -2131,7 +2130,7 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, char *path) {
 
     // check to see if there are any commands left to send
     if (GetNumberOfReceivers(to_send)) {
-        auto request = CommandToSocProto(DBGCMD_SETSOURCEPATH, path);
+        auto request = CommandToSocProto(DBGCMD_SETSOURCEPATH, int(op), path);
 
         auto tmp_res = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCEPATH);
 
@@ -2159,7 +2158,7 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
     for (auto&& recv_ptr : set) {
         // point at the debug frontend
         if (auto* dbg_fe = recv_ptr->rec_di.frontendGdb()) {
-            auto e = DbgFEGetSourcePath(dbg_fe);
+            auto e = dbg_fe->getSourcePath();
 
             if (e->ev_event != DBGEV_SOURCEPATH && e->ev_event != DBGEV_ERROR) {
                 // Free the event
@@ -2253,10 +2252,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
     // was no error
     if (!SetHasError(result)) {
         for (auto&& recv_ptr : set) {
-            auto* dbg_fe = recv_ptr->rec_di.frontendGdb();
-            if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
-                ClearListState(dbg_fe);
-            }
+            recv_ptr->rec_di.clearFrontendGdb();
             recv_ptr->rec_di.setAtInitialBreakpoint(false);
         }
         if (set->getNumReceivers() > 0) {
@@ -2280,10 +2276,8 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                auto* dbg_fe = recv_ptr->rec_di.frontendGdb();
-                if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
-                    ClearListState(dbg_fe);
-                }
+                recv_ptr->rec_di.clearFrontendGdb();
+
                 // update global status flags
                 inferior_status_change = 1;
                 async_pending = 1;
@@ -2314,10 +2308,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
     // was no error
     if (!SetHasError(result)) {
         for (auto&& recv_ptr : set) {
-            auto* dbg_fe = recv_ptr->rec_di.frontendGdb();
-            if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
-                ClearListState(dbg_fe);
-            }
+            recv_ptr->rec_di.clearFrontendGdb();
         }
     } else {
         // selectively clear the list
@@ -2336,10 +2327,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                auto* dbg_fe = recv_ptr->rec_di.frontendGdb();
-                if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
-                    ClearListState(dbg_fe);
-                }
+                recv_ptr->rec_di.clearFrontendGdb();
                 recv_ptr->rec_di.setAtInitialBreakpoint(false);
             }
         }
@@ -3122,8 +3110,6 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
     rec_set_t *to_send = NewRecSet();
 
-    int i, cont;
-
     // We want to do the actual reading of the source code on the frontend if
     // possible. This is because there is a performance hit associated with
     // opening cross mounted files on the compute nodes. Its also the case that
@@ -3142,7 +3128,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
             // First is the logic for the case where a previous list is not
             // pending. If str is null, then we need to ask each of the ranks
             // for their current frame.
-            if ((!str || isReverse) && !dbg_fe->dbg_list_isPending) {
+            if ((!str || isReverse) && !dbg_fe->listIsPending()) {
                 // Get the innermost frame.
                 // Create the new rec set for this group - it holds state so it's not
                 // directly re-usable
@@ -3186,14 +3172,11 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         auto location = os.str();
 
                         // Save this new list location state for later calls to list
-                        if (AddListStateLocation(dbg_fe, group_rep->rep_group.get(), fp->getThreads(),
-                                                 location.c_str()) < 0) {
-                            PrintOutError("Failed to save list location. Further calls to "
-                                          "list will not save state.\n");
-                        }
+                        dbg_fe->addListStateLocation(group_rep->rep_group.get(), fp->getThreads(),
+                                                     location.c_str());
 
                         // Send the list command to the frontend
-                        auto e = DbgFEList(dbg_fe, fp0->getThreads(), location.c_str());
+                        auto e = dbg_fe->list(fp0->getThreads(), location.c_str());
 
                         // Make sure the event is a DBGEV_LIST, otherwise add this
                         // to the to_send list
@@ -3201,7 +3184,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                             FreeRepSet(tmp_result);
                             tmp_result = nullptr;
                             FreeEvent(e);
-                            ClearListState(dbg_fe);
+                            dbg_fe->clearListState();
                             AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
                             break; // for (fp)
                         }
@@ -3221,16 +3204,15 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 // This has converted the SHOWFRAME result into a LIST result.
                 result = MergeRepSet(result, tmp_result);  // it checks for tmp_result==nulptr
 
-            } else if ((!str || isReverse) && dbg_fe->dbg_list_isPending) {
+            } else if ((!str || isReverse) && dbg_fe->listIsPending()) {
                 // We will create the result by hand based on the saved list
                 // location state data
 
                 // loop over every set_location
-                for (auto& set_loc : GetListStateLocations(*dbg_fe)) {
+                for (auto& set_loc : dbg_fe->getListStateLocations()) {
                     // Call the list command using the saved location string to
                     // set things up
-                    auto e = DbgFEList(dbg_fe, set_loc.threads.get(),
-                                       set_loc.loc_str.get());
+                    auto e = dbg_fe->list(set_loc);
 
                     // handle the error case
                     if (e->ev_event == DBGEV_ERROR) {
@@ -3245,50 +3227,24 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                     // Now we need to call list count times with direction
                     // depending on its sign.
-                    if (set_loc.count < 0) {
-                        cont = 0;
-
-                        // We need to go in the reverse direction
-                        for (i = set_loc.count; i < 0; ++i) {
-                            e = DbgFEList(dbg_fe, set_loc.threads.get(), "-");
-
-                            // handle the error case
-                            if (e->ev_event == DBGEV_ERROR) {
-                                auto group_rep =
-                                    NewGroupReply(recv_ptr->rec_di.handle(),
-                                                  set_loc.set->clone(), e);
-                                AddErrToSet(result, group_rep);
-                                ++cont;
-                                break;
-                            }
-                            // Free the event
-                            FreeEvent(e);
+                    auto dir = ((set_loc.count < 0) ? "-" : "");
+                    auto cont = false;
+                    for (auto i = 0, n = abs(set_loc.count); i < n; ++i) {
+                        e = dbg_fe->list(set_loc.threads.get(), dir);
+                        
+                        // handle the error case
+                        if (e->ev_event == DBGEV_ERROR) {
+                            auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
+                                                           set_loc.set->clone(), e);
+                            AddErrToSet(result, group_rep);
+                            cont = true;
+                            break;
                         }
-                        if (cont) {
-                            continue;
-                        }
-                    } else if (set_loc.count > 0) {
-                        cont = 0;
-
-                        // We need to go in the forward direction
-                        for (i = 0; i < set_loc.count; ++i) {
-                            e = DbgFEList(dbg_fe, set_loc.threads.get(), "");
-
-                            // handle the error case
-                            if (e->ev_event == DBGEV_ERROR) {
-                                auto group_rep =
-                                    NewGroupReply(recv_ptr->rec_di.handle(),
-                                                  set_loc.set->clone(), e);
-                                AddErrToSet(result, group_rep);
-                                ++cont;
-                                break;
-                            }
-                            // Free the event
-                            FreeEvent(e);
-                        }
-                        if (cont) {
-                            continue;
-                        }
+                        // Free the event
+                        FreeEvent(e);
+                    }
+                    if (cont) {
+                        continue;
                     }
 
                     // Now we have everything setup for the actual list command
@@ -3296,10 +3252,10 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     // isReverse value. We also increment or decrement the saved
                     // count here
                     if (isReverse) {
-                        e = DbgFEList(dbg_fe, set_loc.threads.get(), "-");
+                        e = dbg_fe->list(set_loc.threads.get(), "-");
                         set_loc.count--;
                     } else {
-                        e = DbgFEList(dbg_fe, set_loc.threads.get(), "");
+                        e = dbg_fe->list(set_loc.threads.get(), "");
                         set_loc.count++;
                     }
 
@@ -3311,7 +3267,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         FreeEvent(e);
                         // Create a new error event
                         EVENT_ERROR(e, DBGERR_DEBUGGER,
-                                    "DbgFEList returned unknown event other "
+                                    "DbgFE::list returned unknown event other "
                                     "than error.");
                     }
 
@@ -3336,19 +3292,14 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 // the same answer.
 
                 // Make sure we clear the state if there was any saved
-                ClearListState(dbg_fe);
+                dbg_fe->clearListState();
 
                 // Save this new list location state for later calls to list
-                if (AddListStateLocation(dbg_fe, recv_ptr->rec_group.get(), nullptr, str) <
-                    0) {
-                    PrintOutError(
-                        "Failed to save list location. Further calls to list "
-                        "will not save state.\n");
-                }
+                dbg_fe->addListStateLocation(recv_ptr->rec_group.get(), nullptr, str);
 
                 // we can pass the str directly to the frontend list command
                 // since its not null and was provided by the user.
-                auto e = DbgFEList(dbg_fe, nullptr, str);
+                auto e = dbg_fe->list(nullptr, str);
 
                 // Make sure the event is a DBGEV_LIST or DBGEV_ERROR, otherwise
                 // create an error
@@ -3358,7 +3309,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     // Create a new error event
                     EVENT_ERROR(
                         e, DBGERR_DEBUGGER,
-                        "DbgFEList returned unknown event other than error.");
+                        "DbgFE::list returned unknown event other than error.");
                 }
 
                 // Add the event to the result based on its type
@@ -3369,7 +3320,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     AddErrToSet(result, group_rep);
                     // Make sure to clear the saved list state since there was
                     // an error with the provided string
-                    ClearListState(dbg_fe);
+                    dbg_fe->clearListState();
                 } else {
                     AddReplyToSet(result, group_rep);
                 }
@@ -3420,7 +3371,7 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
     for (auto&& recv_ptr : set) {
         dbgevent_t* e = nullptr;
         if (auto dbg_fe = recv_ptr->rec_di.frontendGdb()) {
-            e = DbgFEGetSources(dbg_fe);
+            e = dbg_fe->getSources();
         }
 
         if (e && e->ev_event == DBGEV_SOURCES && EVENT_SOURCES(e) != nullptr) {
@@ -3485,10 +3436,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
     // was no error
     if (!SetHasError(result)) {
         for (auto&& recv_ptr : set) {
-            auto dbg_fe = recv_ptr->rec_di.frontendGdb();
-            if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
-                ClearListState(dbg_fe);
-            }
+            recv_ptr->rec_di.clearFrontendGdb();
             recv_ptr->rec_di.setAtInitialBreakpoint(false);
         }
     } else {
@@ -3507,10 +3455,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                auto dbg_fe = recv_ptr->rec_di.frontendGdb();
-                if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
-                    ClearListState(dbg_fe);
-                }
+                recv_ptr->rec_di.clearFrontendGdb();
                 recv_ptr->rec_di.setAtInitialBreakpoint(false);
             }
         }
@@ -3557,7 +3502,7 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir dir) {
 
         if (auto dbg_fe = recv_ptr->rec_di.frontendGdb()) {
             // Clear any existing state
-            ClearListState(dbg_fe);
+            dbg_fe->clearListState();
 
             // process the frame(s)
             for (auto&& group_rep : result) {
@@ -3577,12 +3522,8 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir dir) {
 
                     // Save this new list location state for later calls to
                     // list
-                    if (AddListStateLocation(dbg_fe, group_rep->rep_group.get(), fp->getThreads(),
-                                             locStr.str().c_str()) < 0) {
-                        PrintOutError(
-                            "Failed to save list location. Further calls "
-                            "to list will not save state.\n");
-                    }
+                    dbg_fe->addListStateLocation(group_rep->rep_group.get(), fp->getThreads(),
+                                                 locStr.str().c_str());
                 }
             }
         }
@@ -3655,10 +3596,8 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
 
     // Loop over each di in the set
     for (auto&& recv_ptr : set) {
-        auto dbg_fe = recv_ptr->rec_di.frontendGdb();
-
-        if (dbg_fe != nullptr) {
-            auto e = DbgFEGetScope(dbg_fe, location);
+        if (auto dbg_fe = recv_ptr->rec_di.frontendGdb()) {
+            auto e = dbg_fe->getScope(location);
 
             // Make sure the event is a DBGEV_VARS or DBGEV_ERROR, otherwise
             // create an error
@@ -3668,7 +3607,7 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
                 // Create a new error event
                 EVENT_ERROR(
                     e, DBGERR_DEBUGGER,
-                    "DbgFEGetScope returned unknown event other than error.");
+                    "DbgFE::getScope returned unknown event other than error.");
             }
 
             // Add the event msg to the result based on its type
@@ -3739,10 +3678,7 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
     // was no error
     if (!SetHasError(result)) {
         for (auto&& recv_ptr : set) {
-            auto dbg_fe = recv_ptr->rec_di.frontendGdb();
-            if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
-                ClearListState(dbg_fe);
-            }
+            recv_ptr->rec_di.clearFrontendGdb();
         }
     } else {
         // selectively clear the list
@@ -3761,10 +3697,7 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
 
             // only proceed if there wasn't an error with this di
             if (!has_err) {
-                auto dbg_fe = recv_ptr->rec_di.frontendGdb();
-                if (dbg_fe != nullptr && dbg_fe->dbg_list_isPending) {
-                    ClearListState(dbg_fe);
-                }
+                recv_ptr->rec_di.clearFrontendGdb();
             }
         }
     }

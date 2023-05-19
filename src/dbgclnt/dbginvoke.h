@@ -224,16 +224,19 @@ public:
     //
     // On success, this function returns the newly instantiated interface. On failure, it
     // returns nullptr.
-    //
-    // XXX: The only available implementation right now is "gdbmi".
-    dbgfrontend_sw* instantiateFrontendGdb(const char* frontend_impl_type,
-                                           const char* gdb_path);
+    DbgFE* instantiateFrontendGdb(const char* gdb_path);
+
+    // undo instantateFrontendGdb
+    void resetFrontendGdb();
 
     // Interface to an instance of gdb running on the client machine for use in things
     // like source code listing. Create the interface with instantiateFrontendGdb first.
     // The creation of the frontend gdb is allowed to silently fail. In that case, this
     // function returns nullptr.
-    dbgfrontend_sw* frontendGdb() const;
+    DbgFE* frontendGdb() const;
+
+    // clear pending list ops on the front end
+    void clearFrontendGdb();
 
     // Get/set a funcion as the function to be called with callAsyncEventCallback. This is
     // typically in the main loop to tell a DbgInvoke that an async event (like a
@@ -312,7 +315,7 @@ private:
     DebugClientProtocol& m_proto;
     std::unique_ptr<DebugClientNetwork> m_proto_net;
 
-    dbgfrontend_sw* m_frontend_gdb = nullptr; // TODO convert to smart pointer
+    std::unique_ptr<DbgFE> m_frontend_gdb;
 
     AsyncEventCallback m_clnt_ev_callback;
 

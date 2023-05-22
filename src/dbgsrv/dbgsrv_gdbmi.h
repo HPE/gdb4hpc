@@ -66,9 +66,9 @@ public:
     dbgevent_t *quit(bool detach);
     dbgevent_t *interrupt(bool all);
     dbgevent_t *launch(const char *host, int cp, const char *proto, const char *prog,
-                               const char *args, char **env, int arch);
-    dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, int arch);
-    dbgevent_t *targetRemote(const char* target_remote, int arch);
+                               const char *args, char **env);
+    dbgevent_t *attach(int pid, const char *prog, const char *args, char **env);
+    dbgevent_t *targetRemote(const char* target_remote);
     void finalize();
     bool isReadyForCmd();
     bool isOk();

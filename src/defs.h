@@ -24,10 +24,6 @@
 #define DBG_PROTO "socket" /* "socket" or "mrnet" or "zmqnet" */
 #endif
 
-// I don't think this is used anymore - pretty sure it related to the old
-// starter architecture.
-#define DBG_ARCH "alps"
-
 #define DBG_BACKEND "gdbmi"
 
 #define GUARD_ENV_SETUP "GDB4HPC_IS_SETUP"

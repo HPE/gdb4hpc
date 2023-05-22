@@ -107,7 +107,6 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
         CHECK(opts.non_stop_flag == true);
         CHECK(opts.early_entry_flag == true);
         CHECK(opts.proto_name == "mock_zmqnet");
-        CHECK(opts.arch_name == "mock_alps");
         CHECK(opts.backend_name == "mock_gdbmi");
     }
 
@@ -821,7 +820,6 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
     early_entry_flag = csi.isEarlyEntry();
     unsafe_flag = csi.isUnsafe();
     proto_name = csi.getProto();
-    arch_name = csi.getArch();
     backend_name = csi.getBackend();
 }
 

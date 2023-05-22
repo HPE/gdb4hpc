@@ -76,19 +76,17 @@ dbgevent_t *DbgInit(int *dfd, int *iofd, char **env) {
     return DbgBackendSW->init(dfd, iofd, env);
 }
 
-dbgevent_t *DbgAttach(int pid, const char *prog, const char *args, char **env,
-                      int arch) {
-    return DbgBackendSW->attach(pid, prog, args, env, arch);
+dbgevent_t *DbgAttach(int pid, const char *prog, const char *args, char **env) {
+    return DbgBackendSW->attach(pid, prog, args, env);
 }
 
 dbgevent_t *DbgLaunch(const char *host, int cb, const char *proto,
-                      const char *prog, const char *args, char **env,
-                      int arch) {
-    return DbgBackendSW->launch(host, cb, proto, prog, args, env, arch);
+                      const char *prog, const char *args, char **env) {
+    return DbgBackendSW->launch(host, cb, proto, prog, args, env);
 }
 
-dbgevent_t *DbgTargetRemote(const char* target_remote, int arch) {
-    return DbgBackendSW->targetRemote(target_remote, arch);
+dbgevent_t *DbgTargetRemote(const char* target_remote) {
+    return DbgBackendSW->targetRemote(target_remote);
 }
 
 void DbgFinalize(void) {

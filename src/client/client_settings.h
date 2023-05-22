@@ -46,7 +46,6 @@ struct clnt_settings : public ClientSettingsInterface {
     int sync_wait;                                 /* Treat asynchronous cmds as sync? */
     int sync_blocked;                              /* Current blocked on async cmd? */
     const char* proto;                             /* Default debugger protocol */
-    const char* arch;                              /* Default starter achitecture */
     const char* backend;                           /* Default debug backend*/
     cli_type_t cli_mode;                           /* CLI mode */
                                                    // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
@@ -61,7 +60,6 @@ struct clnt_settings : public ClientSettingsInterface {
 
     // methods for ClientSettingsInterface base class
     std::string getProto() override { return proto; }
-    std::string getArch() override { return arch; }
     std::string getBackend() override { return backend; }
     bool isUnsafe() override { return static_cast<bool>(unsafe); }
     bool isEarlyEntry() override { return static_cast<bool>(early_entry); }

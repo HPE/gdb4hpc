@@ -18,27 +18,27 @@ class LaunchOpts {
   void enforceValid();
 
   ArgvStream launcher_argv;          // --launcher="custom_launcher"
-  // --launcher-args="launcher argv"
-  // if processType() == DBG_LAUNCHED, stores passed WLM launcher
-  // arguments. if the user passes --launcher, argv[0] will
-  // be set and CTI_LAUNCHER_NAME_ENV_VAR should be set before
-  // launch. these arguments can't be changed by the user after launch.
-  //
+                                     // --launcher-args="launcher argv"
+                                     // if processType() == DBG_LAUNCHED, stores passed WLM launcher
+                                     // arguments. if the user passes --launcher, argv[0] will
+                                     // be set and CTI_LAUNCHER_NAME_ENV_VAR should be set before
+                                     // launch. these arguments can't be changed by the user after launch.
+                                     //
   ArgvStream app_argv;               // --args="application argv"
-  // if processType() == DBG_LAUNCHED, holds app's argv,
-  // with the name of the binary as argv[0].
-  //
+                                     // if processType() == DBG_LAUNCHED, holds app's argv,
+                                     // with the name of the binary as argv[0].
+                                     //
   ArgvStream run_argv;               // args to apply when a `run` command is invoked. initially
-  // holds app_argv, but args can be changed with "set args" 
-  // command. argv[0] should never change.
-  //
+                                     // holds app_argv, but args can be changed with "set args" 
+                                     // command. argv[0] should never change.
+                                     //
   std::string gdb_path = "";         // "--gdb /path/to/custom/gdb" or "--gdb my_gdb" to be found in PATH
   std::string gdb_data_dir;          // --gdb-data-dir
   std::string input_file_path = "";  // --launcher-input /path/to/input/file
   std::string cwd = "";              // --workdir /path/to/workdir
   bool set_default_cwd = false;      // true if --workdir is passed with no argument. if true,
-  // the cwd of the program should be set to the directory
-  // the actual binary file is located in.
+                                     // the cwd of the program should be set to the directory
+                                     // the actual binary file is located in.
   ArgvStream env;                    // --env "name=value"
   bool gpu_flag = false;             // --gpu
   bool non_mpi_flag = false;         // --non-mpi
@@ -46,20 +46,18 @@ class LaunchOpts {
   std::string qsub_file_path = "";   // --qsub /path/to/script
   std::string sbatch_file_path = ""; // --sbatch /path/to/script
   std::string procset_name;          // full name of passed procset, including rank count, e.g. $a{3}
-  //
+                                     //
   bool non_stop_flag = true;         // settings copied from passed ClientSettingsInterface
   bool early_entry_flag = false;     //
   bool unsafe_flag = false;          //
-  std::string proto_name = "";       //
-  std::string arch_name = "";        // arch and proto are legacy settings that don't change
-  std::string backend_name = "";     // any more, but are still passed down
+  std::string proto_name = "";       // proto is a legacy setting that doesn't change
+  std::string backend_name = "";     //
 };
 
 // Connection options for attaching to a running process
 struct AttachOpts {
   std::string proto;
   std::string app_ident;
-  std::string arch;
   std::string backend;
   std::string gdb;
   std::string gdb_data_dir;

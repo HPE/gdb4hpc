@@ -346,7 +346,6 @@ int main(int argc, char *argv[]) {
     Client.sync_wait = 0;             // Treat asynchronous cmds as sync?
     Client.sync_blocked = 0;          // Current blocked on async cmd?
     Client.proto = getDefaultProtocol(); // Default debugger protocol
-    Client.arch = DBG_ARCH;           // Default starter achitecture
     Client.backend = DBG_BACKEND;     // Default debug backend
     Client.cli_fpprog = nullptr;      // only set to override the stream setting
     Client.XML_mode = 0;              // XML output mode

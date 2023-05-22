@@ -59,7 +59,6 @@ void SendMICommand(MISession *, MICommand *);
 
 static MISession *GDBMISession;
 static dbgstat Status;
-static int MPArch;
 static dbgbp_t *CurrBP = (dbgbp_t *)NULL;
 static std::vector<dbgbp_t*> BP;
 
@@ -2851,11 +2850,9 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
 
 dbgevent_t *DbgGdbMI::launch(const char *host, int cb, const char *proto,
                              const char *prog, const char *args,
-                             char **env, int arch) {
+                             char **env) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
-
-    MPArch = arch;
 
     e = m_initializer->initDbg(prog, args);
 
@@ -2869,18 +2866,11 @@ dbgevent_t *DbgGdbMI::launch(const char *host, int cb, const char *proto,
 /*
 ** Attach debugger to running process.
 */
-dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *args,
-                             char **env, int arch) {
+dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *args, char **env) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
-    MPArch = arch;
-
-    switch (arch) {
-        default:
-            e = m_initializer->initDbgAttach(pid, prog);
-            break;
-    }
+    e = m_initializer->initDbgAttach(pid, prog);
 
     Status = DBGSTAT_STOPPED;
 
@@ -2890,17 +2880,11 @@ dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *args,
 /*
 ** Attach debugger to GDB server using provided command.
 */
-dbgevent_t *DbgGdbMI::targetRemote(const char* target_remote, int arch) {
+dbgevent_t *DbgGdbMI::targetRemote(const char* target_remote) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
-    MPArch = arch;
-
-    switch (arch) {
-        default:
-            e = m_initializer->initDbgTargetRemote(target_remote);
-            break;
-    }
+    e = m_initializer->initDbgTargetRemote(target_remote);
 
     // Check for live VGDB connection
     // Exited instances will update State to Running to block commands

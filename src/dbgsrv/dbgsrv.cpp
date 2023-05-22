@@ -43,7 +43,6 @@
 #include "dbgsrv_p2p.h"
 #include "dbgsrv_proto.h"
 #include "defs.h"
-#include "mparch.h"
 #include "useful.h"
 
 #include "unittest_drivers.h"
@@ -62,7 +61,6 @@ const char* custom_gdb_data = nullptr;
 const struct option long_opts[] = {
     {"callbackHost", required_argument, 0, 'h'},
     {"callbackPort", required_argument, 0, 'c'},
-    {"networkArch", required_argument, 0, 'a'},
     {"networkProtocol", required_argument, 0, 'p'},
     {"dbgBackend", required_argument, 0, 'e'},
     {"ranknum", required_argument, 0, 'n'},
@@ -77,14 +75,6 @@ const struct option long_opts[] = {
     {"program", required_argument, 0, 'f'},
     {"vgdb-command-file", required_argument, 0, 'v'},
     {0, 0, 0, 0}};
-
-struct mp_arch MPArchs[] = {
-    {"serial", MPARCH_SERIAL},     {"alps", MPARCH_ALPS},
-    {"mrnet", MPARCH_MRNET},       {"poe", MPARCH_POE},
-    {"mpich", MPARCH_MPICH},       {"mpich-mpd", MPARCH_MPICH_MPD},
-    {"mpich-gm", MPARCH_MPICH_GM}, {"mpich-p4", MPARCH_MPICH_P4},
-    {"p4", MPARCH_P4MASTER},       {"p4slave", MPARCH_P4SLAVE},
-    {"ompi", MPARCH_OMPI},         {"unknown", MPARCH_UNKNOWN}};
 
 int Shutdown = 0;
 int my_rank;
@@ -110,7 +100,6 @@ void Usage(void);
 void Server(void);
 void EndServer();
 char *MakeStr(int, char *[]);
-int FindMPArch(char *);
 int SetupProgIO(int *, int *);
 int DoProgIO(int *, int);
 int AllocPty(int *, char **, char **);
@@ -122,9 +111,7 @@ extern char *optarg;
 
 int main(int argc, char *argv[], char *env[]) {
     int opt_ind = 0;
-    char *ps;
     int c;
-    int arch = MPARCH_UNKNOWN;
     int cb = 0;
     char *hname = NULL;
     char *host = NULL;
@@ -168,14 +155,11 @@ int main(int argc, char *argv[], char *env[]) {
 
     Argv0 = argv[0];
 
-    while ((c = getopt_long(argc, argv, "p:h:c:a:n:i:e:k:f:v:", long_opts,
+    while ((c = getopt_long(argc, argv, "p:h:c:n:i:e:k:f:v:", long_opts,
                             &opt_ind)) != -1) {
         switch (c) {
             case 0:
                 // if this is a flag, do nothing
-                break;
-            case 'a':
-                arch = FindMPArch(optarg);
                 break;
 
             case 'c':
@@ -257,104 +241,9 @@ int main(int argc, char *argv[], char *env[]) {
         Usage();
     }
 
-    if (arch == MPARCH_UNKNOWN) {
-        fprintf(stderr, "Unknown architecture.\n");
-        Usage();
-    }
-
     if (cb == 0) {
         fprintf(stderr, "No callback specified.\n");
         Usage();
-    }
-
-    switch (arch) {
-        case MPARCH_POE:
-            if ((ps = getenv("MP_CHILD")) == NULL) {
-                fprintf(stderr, "AIX_POE: could not find MP_CHILD\n");
-                exit(1);
-            }
-
-            procnum = atoi(ps);
-
-            break;
-
-        case MPARCH_MPICH:
-            if ((ps = getenv("PMI_RANK")) == NULL ||
-                sscanf(ps, "%d", &procnum) != 1) {
-                fprintf(stderr, "MPICH: could not find process number\n");
-                exit(1);
-            }
-
-            break;
-
-        case MPARCH_MPICH_MPD:
-            if ((ps = getenv("MPD_JRANK")) == NULL ||
-                sscanf(ps, "%d", &procnum) != 1) {
-                fprintf(stderr, "MPICH_MPD: could not find process number\n");
-                exit(1);
-            }
-
-            break;
-
-        case MPARCH_MPICH_GM:
-            if ((ps = getenv("BPROC_RANK")) == NULL ||
-                sscanf(ps, "%d", &procnum) != 1) {
-                fprintf(stderr, "MPICH_GM: could not find process number\n");
-                exit(1);
-            }
-
-            break;
-
-        case MPARCH_MPICH_P4:
-            if ((ps = getenv("BPROC_RANK")) == NULL ||
-                sscanf(ps, "%d", &procnum) != 1) {
-                fprintf(stderr, "MPICH_P4: could not find process number\n");
-                exit(1);
-            }
-
-            break;
-
-        case MPARCH_P4MASTER:
-            procnum = 0;
-
-            break;
-
-        case MPARCH_P4SLAVE:
-            if (pid < 0) {
-                fprintf(stderr, "P4SLAVE: no pid\n");
-                exit(1);
-            }
-
-            break;
-
-        case MPARCH_OMPI:
-            if ((ps = getenv("OMPI_MCA_ns_nds_vpid")) ==
-                    NULL  // for OpenMPI 1.2
-                || sscanf(ps, "%d", &procnum) != 1) {
-                if ((ps = getenv("OMPI_COMM_WORLD_RANK")) ==
-                        NULL  // for OpenMPI 1.3 and above
-                    || sscanf(ps, "%d", &procnum) != 1) {
-                    fprintf(stderr, "OMPI: could not find process number\n");
-                    exit(1);
-                }
-            }
-
-            break;
-
-        case MPARCH_SERIAL:
-            procnum = 0;
-
-            break;
-
-        case MPARCH_ALPS:
-            break;
-
-        case MPARCH_MRNET:
-            break;
-
-        default:
-            fprintf(stderr, "MP type not supported\n");
-            exit(1);
     }
 
 #ifdef PERFLOG
@@ -457,13 +346,13 @@ int main(int argc, char *argv[], char *env[]) {
         // Initializing the network connection succeeded but
         // initializing gdb failed; we are continuing into the
         // server loop so we can send a real failure message.
-    } else if (arch == MPARCH_P4SLAVE || arch == MPARCH_ALPS) {
+    } else {
 
         // attach to application directly
         if (vgdb_command_file == nullptr) {
             DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s\n", pid, prog);
             DBEPERFLOG(SetTimerStart("DbgAttach"));
-            e = DbgAttach(pid, prog, nullptr, env, arch);
+            e = DbgAttach(pid, prog, nullptr, env);
             DBEPERFLOG(SetTimerStopAndLog("DbgAttach"));
 
         // attach to remote GDB server
@@ -506,16 +395,9 @@ int main(int argc, char *argv[], char *env[]) {
             // Run remote attach
             DVPRINT("dbgsrv: rank %d '%s'\n", my_rank, vgdbCommand.c_str());
             DBEPERFLOG(SetTimerStart("DbgTargetRemote"));
-            e = DbgTargetRemote(vgdbCommand.c_str(), arch);
+            e = DbgTargetRemote(vgdbCommand.c_str());
             DBEPERFLOG(SetTimerStopAndLog("DbgTargetRemote"));
         }
-    } else {
-        if (procnum < 0 && strncmp(proto, "socket", strlen("socket")) == 0) {
-            fprintf(stderr, "Invalid process number\n");
-            return 1;
-        }
-
-        e = DbgLaunch(host, cb, proto, prog, nullptr, env, arch);
     }
 
     if (e->ev_event != DBGEV_OK) {
@@ -543,7 +425,7 @@ int main(int argc, char *argv[], char *env[]) {
 
 void Usage(void) {
     fprintf(stderr,
-            "usage: dbgsrv -h host -c cb -a arch -f program [-p proto] [proto args]\n");
+            "usage: dbgsrv -h host -c cb -f program [-p proto] [proto args]\n");
     exit(1);
 }
 
@@ -691,21 +573,6 @@ char *MakeStr(int argc, char *argv[]) {
     }
 
     return s;
-}
-
-/*
-** Convert a string into MP architecture type.
-*/
-int FindMPArch(char *arch) {
-    struct mp_arch *mp;
-
-    for (mp = MPArchs; mp->mp_arch != MPARCH_UNKNOWN; mp++) {
-        if (strcmp(mp->mp_str, arch) == 0) {
-            return mp->mp_arch;
-        }
-    }
-
-    return MPARCH_UNKNOWN;
 }
 
 /*

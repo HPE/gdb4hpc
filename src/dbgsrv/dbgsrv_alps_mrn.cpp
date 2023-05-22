@@ -38,7 +38,6 @@
 #define DBGSRV_OPT_PID "-i"
 #define DBGSRV_OPT_HOST "-h"
 #define DBGSRV_OPT_PORT "-c"
-#define DBGSRV_OPT_ARCH "-a"
 #define DBGSRV_OPT_PROTO "-p"
 #define DBGSRV_OPT_DBG "-e"
 #define DBGSRV_OPT_PROC "-n"
@@ -72,7 +71,6 @@ static int non_mpi_flag = 0;
 const struct option long_opts[] = {
     {"callbackHost", required_argument, 0, 'h'},
     {"callbackPort", required_argument, 0, 'c'},
-    {"networkArch", required_argument, 0, 'a'},
     {"networkProtocol", required_argument, 0, 'p'},
     {"dbgBackend", required_argument, 0, 'e'},
     {"help", no_argument, 0, 'x'},
@@ -106,7 +104,6 @@ void usage(char *name) {
     fprintf(stdout, "Launch guard debug servers on compute nodes.\n");
     fprintf(stdout, "\t-h, --callbackHost     Front end hostname\n");
     fprintf(stdout, "\t-c, --callbackPort     Front end callback port\n");
-    fprintf(stdout, "\t-a, --networkArch      Network architecture\n");
     fprintf(stdout, "\t-p, --networkProtocol  Network protocol\n");
     fprintf(stdout, "\t-e, --dbgBackend       Debugging program backend\n");
     fprintf(stdout, "\t    --gpu              Turn on gpu mode.\n");
@@ -123,7 +120,6 @@ int main(int argc, char **argv) {
     int c;
     char *callbackHost = NULL;
     char *callbackPort = NULL;
-    char *networkArch = NULL;
     char *networkProto = NULL;
     char *dbgBackend = NULL;
     char *prog = NULL;
@@ -171,7 +167,7 @@ int main(int argc, char **argv) {
 
     DVPRINT("Parsing longopts...\n");
 
-    while ((c = getopt_long(argc, argv, "h:c:a:p:e:f:v:x", long_opts, &opt_ind)) !=
+    while ((c = getopt_long(argc, argv, "h:c:p:e:f:v:x", long_opts, &opt_ind)) !=
            -1) {
         switch (c) {
             case 0:
@@ -193,15 +189,6 @@ int main(int argc, char **argv) {
                 }
                 callbackPort = strdup(optarg);
                 DVPRINT("callbackPort: %s\n", callbackPort);
-                break;
-
-            case 'a':
-                if (optarg == NULL || *optarg == '\0') {
-                    fprintf(stderr, "Invalid network architecture.\n");
-                    return 1;
-                }
-                networkArch = strdup(optarg);
-                DVPRINT("networkArch: %s\n", networkArch);
                 break;
 
             case 'p':
@@ -390,8 +377,8 @@ int main(int argc, char **argv) {
     // set the static members of dbgsrv_argv
     auto dbgsrv_argv =
         ArgvStream(DBGSRV, DBGSRV_OPT_HOST, callbackHost, DBGSRV_OPT_PORT,
-                callbackPort, DBGSRV_OPT_ARCH, networkArch, DBGSRV_OPT_PROTO,
-                networkProto, DBGSRV_OPT_DBG, dbgBackend);
+                callbackPort, DBGSRV_OPT_PROTO, networkProto,
+                   DBGSRV_OPT_DBG, dbgBackend);
 
     if (gpu_flag)         dbgsrv_argv << DBGSRV_OPT_GPU;
     if (debug_flag)       dbgsrv_argv << DBGSRV_OPT_DEBUG;
@@ -522,7 +509,6 @@ int main(int argc, char **argv) {
     // cleanup strdup'ed stuff
     Free(callbackHost);
     Free(callbackPort);
-    Free(networkArch);
     Free(networkProto);
     Free(dbgBackend);
     if (prog != NULL) {

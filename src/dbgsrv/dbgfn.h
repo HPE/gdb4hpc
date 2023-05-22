@@ -25,10 +25,10 @@ extern void AsyncCheck(dbgevent_t *(*)(dbgevent_t *), dbgevent_t *);
 
 extern int DbgSetBackend(const char *);
 extern dbgevent_t *DbgInit(int *, int *, char **);
-extern dbgevent_t *DbgAttach(int, const char *, const char *, char **, int);
+extern dbgevent_t *DbgAttach(int, const char *, const char *, char **);
 extern dbgevent_t *DbgLaunch(const char *, int, const char *, const char *,
-                             const char *, char **, int);
-extern dbgevent_t *DbgTargetRemote(const char *, int);
+                             const char *, char **);
+extern dbgevent_t *DbgTargetRemote(const char *);
 extern void DbgFinalize(void);
 extern int DbgProgIOHook(int);
 extern int DbgRead(int);

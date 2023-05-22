@@ -250,7 +250,6 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
 
             auto attachOpts = AttachOpts{.proto = Client.proto,
                                          .app_ident = pbs_job_id,
-                                         .arch = Client.arch,
                                          .backend = Client.backend,
                                          .gdb = args.gdb_path,
                                          .gpu_flag = args.gpu_flag,
@@ -690,7 +689,6 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 
     auto opts = AttachOpts{ .proto = Client.proto,
-                            .arch = Client.arch,
                             .backend = Client.backend };
     
     while ((opt = getopt_long(argc, argv, "", attach_long_opts, &opt_ind)) !=

@@ -270,7 +270,6 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
         "dbgsrv",
         "-h", "zmq",   // meaningless for zmqnet, but required to be non-null by dbgsrv
         "-c", "1",     // meaningless for zmqnet, but required to be non-zero by dbgsrv
-        "-a", opts.arch.c_str(),
         "-p", "zmqnet",
         "-e", opts.backend.c_str()
     );
@@ -397,8 +396,7 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
 
     PrintOutMsg("Launched application...\n");
 
-    auto attachOpts = AttachOpts{.arch = opts.arch_name,
-                                 .backend = opts.backend_name,
+    auto attachOpts = AttachOpts{.backend = opts.backend_name,
                                  .gdb = opts.gdb_path,
                                  .gdb_data_dir = opts.gdb_data_dir,
                                  .gpu_flag = bool(opts.gpu_flag),

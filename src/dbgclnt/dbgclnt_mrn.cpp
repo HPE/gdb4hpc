@@ -254,7 +254,6 @@ int MRNClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
     cti_session_id_t sid;
     char *env_base_dir = nullptr;
     std::optional<std::string> serverGdb = {};
-    auto arch = opts.arch.c_str();
     auto backend = opts.backend.c_str();
     
 #ifdef DEBUG
@@ -481,24 +480,24 @@ OMPD support will not be available.\n");
     }
 
     // Transfer and execute dbgsrv_alps with call line info:
-    // dbgsrv_alps -h <cbhost> -c <cbport> -a <arch> -p <proto> -e <backend>
+    // dbgsrv_alps -h <cbhost> -c <cbport> -p <proto> -e <backend>
     // first create the argv for dbgsrv_alps
     // This now also depends on gpu_flag
     if (dbg) {
         if (opts.gpu_flag) {
-            argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+            argv = ArgvStream("-h", "mrn", "-c", "-1", "-p",
                               di->proto().name(), "-e", backend, "--gpu",
                               "--debug");
         } else {
-            argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+            argv = ArgvStream("-h", "mrn", "-c", "-1", "-p",
                               di->proto().name(), "-e", backend, "--debug");
         }
     } else {
         if (opts.gpu_flag) {
-            argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+            argv = ArgvStream("-h", "mrn", "-c", "-1", "-p",
                               di->proto().name(), "-e", backend, "--gpu");
         } else {
-            argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+            argv = ArgvStream("-h", "mrn", "-c", "-1", "-p",
                          di->proto().name(), "-e", backend);
         }
     }
@@ -725,7 +724,6 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     char *env_base_dir = nullptr;
     std::optional<std::string> serverGdb = {};
 
-    auto arch = opts.arch_name;
     auto backend = opts.backend_name;
     auto prog = opts.app_argv[0];
 
@@ -1074,11 +1072,11 @@ OMPD support will not be available.\n");
     DPRINT("Launching debug servers onto compute nodes.\n");
 
     // Transfer and execute dbgsrv_alps with call line info:
-    // dbgsrv_alps -h <cbhost> -c <cbport> -a <arch> -p <proto> -e <backend>
+    // dbgsrv_alps -h <cbhost> -c <cbport> -p <proto> -e <backend>
     // prog first create the argv for dbgsrv_alps This now also depends on
     // gpu_flag This now adds the early entry flag...
 
-    dbgsrv_alps_argv = ArgvStream("-h", "mrn", "-c", "-1", "-a", arch, "-p",
+    dbgsrv_alps_argv = ArgvStream("-h", "mrn", "-c", "-1", "-p",
                                   di->proto().name(), "-e", backend);
     if (opts.gpu_flag)    dbgsrv_alps_argv << "--gpu";
     if (dbg)              dbgsrv_alps_argv << "--debug";

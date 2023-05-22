@@ -129,6 +129,7 @@ private:
 class RajaSubArray : public SubArray {
 public:
     static std::unique_ptr<RajaSubArray> get(Mi2Aif& mi, const std::string& expr1,
+                                             std::string_view meta_info,
                                              const std::shared_ptr<ais::RajaView> raja_view);
                                          
     char* getArrayDataString() override;
@@ -140,7 +141,7 @@ public:
 private:
     // throws std::runtime_error on failure
     RajaSubArray(Mi2Aif& mi, const std::string& base_expr, const std::string& expr,
-        const std::shared_ptr<ais::RajaView> view);
+        std::string_view meta_info, const std::shared_ptr<ais::RajaView> view);
 
     struct RajaIndex {
         int position;
@@ -436,7 +437,7 @@ std::shared_ptr<ais::Type> LazyMIVar::getType() {
                 // this sets kv's view lengths even in the non-slice case
                 m_subArray = KokkosSubArray::get(m_mi, expr1, metaInfo, kv);
             } else if (auto rv = std::dynamic_pointer_cast<ais::RajaView>(m_type)) {
-                m_subArray = RajaSubArray::get(m_mi, expr1, rv);
+                m_subArray = RajaSubArray::get(m_mi, expr1, metaInfo, rv);
             } else if (expr1.find("..") != std::string::npos) {
                 m_subArray.reset(new CSubArray(m_mi, expr1));
             }
@@ -1122,6 +1123,7 @@ char* KokkosSubArray::getArrayDataString()
 
 std::unique_ptr<RajaSubArray>
 RajaSubArray::get(Mi2Aif& mi, const std::string& expr,
+                  std::string_view meta_info,
                   const std::shared_ptr<ais::RajaView> raja_view) {
     // get view bounds from gdb
     auto paren = expr.find_last_of('('); // npos is ok
@@ -1181,33 +1183,44 @@ RajaSubArray::get(Mi2Aif& mi, const std::string& expr,
     }
 
     // check if we are slicing the view
-    return std::unique_ptr<RajaSubArray>(new RajaSubArray(mi, base_expr, expr, raja_view));
+    return std::unique_ptr<RajaSubArray>(new RajaSubArray(mi, base_expr, expr, meta_info, raja_view));
 }
 
-const mdspan& RajaSubArray::getSpan() { return *m_span; }
+const mdspan& RajaSubArray::getSpan() { return m_view->getSpan(); }
 bool RajaSubArray::mayHaveOffset() const { return true; }
 
-RajaSubArray::RajaSubArray(Mi2Aif& mi, const std::string& base_expr, const std::string& expr, const std::shared_ptr<ais::RajaView> view)
+RajaSubArray::RajaSubArray(Mi2Aif& mi, const std::string& base_expr, const std::string& expr, std::string_view meta_info, const std::shared_ptr<ais::RajaView> view)
     : SubArray(mi, expr)
     , m_base_expr{base_expr}
     , m_view{view}
 {
-    m_span.reset(new mdspan{view->getSpan()});
-
     DVPRINT("In RajaSubArray::RajaSubArray\n");
-    
-    {   // extract m_rngs from expr
-        auto paren = expr.find_last_of('(');
-        if (paren == std::string::npos) throw std::runtime_error("no parenthesis");
 
-        auto ranges_text = std::vector<std::string>{};
-        for (auto loc = paren; loc != std::string::npos; ) {
-            auto end = expr.find_first_of(",)", loc+1);
-            if (end != std::string::npos) {
-                ranges_text.push_back(expr.substr(loc+1,end-loc-1));
+    {   // deduce m_rngs from expr
+        auto ranges_text = [&]() -> std::vector<std::string> {
+            auto rstrings = std::vector<std::string>{};
+            auto paren = expr.find_last_of('(');
+
+            if (paren != std::string::npos) {
+                // slice contents
+                for (auto loc = paren; loc != std::string::npos; ) {
+                    auto end = expr.find_first_of(",)", loc+1);
+                    if (end != std::string::npos) {
+                        rstrings.emplace_back(expr.substr(loc+1,end-loc-1));
+                    }
+                    loc = end;
+                }
+            } else if (!meta_info.empty()) {
+                // decomposition, get entire contents
+                for (auto i = size_t{0}; i < m_view->getSpan().dim(); i++) {
+                    const auto low = 0 + m_view->getSpan().offset(i);
+                    const auto high = low + m_view->getSpan().size(i) - 1;
+                    rstrings.emplace_back(std::to_string(low) + ".." + std::to_string(high));
+                }
             }
-            loc = end;
-        }
+
+            return rstrings;
+        }();
 
         getRngs(ranges_text); // sets m_rngs
     }

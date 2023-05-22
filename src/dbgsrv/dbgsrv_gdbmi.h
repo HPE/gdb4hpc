@@ -121,6 +121,8 @@ private:
     std::vector<int> getThreadSet(const std::string& threadId, std::string* suffix, std::string& error);
     std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet,
                                    bool &isVerbose, size_t& numThreads);
+    void sendCmd(MICommand* cmd);
+    
     dbgevent_t*  initOmpd();
     bool initOmpdL();
     dbgevent_t* setPrintElementsL(int elems);

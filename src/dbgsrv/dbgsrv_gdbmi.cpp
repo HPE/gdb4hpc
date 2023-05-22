@@ -2955,33 +2955,71 @@ dbgevent_t *DbgGdbMI::setDebuggerVar(const char *var, const char *val) {
 
 dbgevent_t *DbgGdbMI::setSourcePath(DbgDirOp op, const char *path) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    char *pathdirs[2];
-    MICommand *cmd;
-    MIString *cmd_result;
-    char *res;
-    dbgevent_t *e;
 
-    pathdirs[0] = const_cast<char *>(path);
-    pathdirs[1] = NULL;
+    if (op == DbgDirOp::ADD || op == DbgDirOp::SET) {
+        auto reset = (op == DbgDirOp::SET || !path || !strlen(path) ? 1 : 0);
 
-    cmd = MIEnvironmentDirectory(0, pathdirs);
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
+        char* pathdirs[2] = { (reset ? nullptr : const_cast<char *>(path)), nullptr };
+
+        auto cmd = MIEnvironmentDirectory(reset, pathdirs);
+
+        sendCmd(cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            return NewErrorEvent(DBGERR_DEBUGGER,
+                                 "Gdb -environment-directory command failed.");
+        }
+
+        auto cmd_result = MIGetEnvironmentDirectoryInfo(cmd);
+
+        auto e = NewEvent(DBGEV_SOURCEPATH);
+        auto res = MIStringToCString(cmd_result);
+        e->ev_source_path = (res == NULL) ? NULL : strdup(res);
+
         MICommandFree(cmd);
-        EVENT_ERROR(e, DBGERR_DEBUGGER,
-                    "Gdb -environment-directory command failed.");
+        MIStringFree(cmd_result);
+
         return e;
     }
 
-    cmd_result = MIGetEnvironmentDirectoryInfo(cmd);
+    if (op == DbgDirOp::SUB) {
+        auto cmd = MIGDBSet("substitute-path", path);
+        sendCmd(cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            return NewErrorEvent(DBGERR_DEBUGGER,
+                                 "Gdb set substitute-path command failed.");
+        }
+        MICommandFree(cmd);
+    } else if (op == DbgDirOp::UNSET_SUB) {
+        
+        auto cmd = MICommandNew("unset", MIResultRecordDONE);
+        MICommandAddOption(cmd, "substitute-path", path && strlen(path) ? path : nullptr);
+        sendCmd(cmd);
+        if (!MICommandResultOK(cmd)) {
+            MICommandFree(cmd);
+            return NewErrorEvent(DBGERR_DEBUGGER,
+                                 "Gdb unset substitute-path command failed.");
+        }
+        MICommandFree(cmd);
+    }
 
-    e = NewEvent(DBGEV_SOURCEPATH);
-    res = MIStringToCString(cmd_result);
-    e->ev_source_path = (res == NULL) ? NULL : strdup(res);
+    // Op DbgDirOp::SHOW_SUB just falls through to here.
+    // All operations return the new path
+    auto cmd = MICommandNew("-gdb-show", MIResultRecordDONE);
+    MICommandAddOption(cmd, "substitute-path", nullptr);
+    sendCmd(cmd);
+    if (!MICommandResultOK(cmd)) {
+        MICommandFree(cmd);
+        return NewErrorEvent(DBGERR_DEBUGGER,
+                             "Gdb set substitute-path command failed.");
+    }
+    auto e = NewEvent(DBGEV_SOURCEPATH);
+    auto res = MICommandConsoleOOBMessages(cmd);
+    e->ev_source_path = (res == NULL) ? strdup("n/a") : strdup(res);
 
     MICommandFree(cmd);
-    MIStringFree(cmd_result);
-
+    
     return e;
 }
 
@@ -3962,6 +4000,10 @@ bool DbgGdbMI::isRunning() const { return Status == DBGSTAT_RUNNING; }
 bool DbgGdbMI::isAtExit() const { return Status == DBGSTAT_EXIT; }
 void DbgGdbMI::setIsInNonStopMode(bool nonStop) { isInNonStopMode = nonStop; }
 
+void DbgGdbMI::sendCmd(MICommand* cmd) {
+    SendMICommand(GDBMISession, cmd);
+}
+ 
 static dbgevent_t *NewMIErrorEvent(MICommand* cmd, free_cmd_type doFree, dbgerr err) {
     auto e = NewErrorEvent(err, "%s", MICommandResultErrorMessage(cmd));
     if (doFree == FREE_CMD)

@@ -78,6 +78,6 @@ enum dbgcmd {
 
 enum class DbgFrameDir { DOWN, UP, ABSOLUTE };
 
-enum class DbgDirOp { ADD, SET, SUB };
+enum class DbgDirOp { ADD, SET, SUB, SHOW_SUB, UNSET_SUB };
 
 #endif /* !_DBGCMD_H */

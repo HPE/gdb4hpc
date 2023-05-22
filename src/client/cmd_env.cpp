@@ -644,37 +644,65 @@ static int cmd_info_status_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_directory_cmd(rec_set_t *rec_set, int argc, char **argv) {
-
+static int dir_cmd(rec_set_t *rec_set, DbgDirOp op, int argc, char **argv) {
     auto dir = ArgsToString(argv+1, argc-1);
-    auto rep_set = DbgSetSourcePath(rec_set, DbgDirOp::ADD, dir.c_str());
+    auto rep_set = DbgSetSourcePath(rec_set, op, dir.c_str());
 
     ProcessErrorInRepSet(rep_set);
 
     for (auto&& reply : rep_set) {
         auto new_path = EVENT_SOURCE_PATH(reply->rep_event);
-
         PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                             "Source directory search path set to: %s\n",
                             new_path);
     }
 
     FreeRepSet(rep_set);
-
     return 1;
 }
 
+
+static int cmd_directory_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    if (argc == 1 && !cli_query("clear source path", cli_query_default::NO, cli_query_default::YES)) return 1;
+    return dir_cmd(rec_set, DbgDirOp::ADD, argc, argv);
+}
+static int cmd_set_directories_cmd(rec_set_t *rec_set, int argc, char **argv) {
+    return dir_cmd(rec_set, DbgDirOp::SET, argc, argv);
+}
+static int cmd_set_substitute_path_cmd(rec_set_t *rec_set, int argc, char** argv) {
+    if (argc != 3) {
+        PrintOutError("Wrong number of arguments.\n");
+        PrintOutError("Expected: set substitute-path <from-path> <to-path>\n");
+        return 0;
+    }
+    return dir_cmd(rec_set, DbgDirOp::SUB, argc, argv);
+}
+
+static int cmd_show_substitute_path_cmd(rec_set_t *rec_set, int argc, char** argv) {
+    if (argc > 2) {
+        PrintOutError("Wrong number of arguments.\n");
+        PrintOutError("Expected: show substitute-path [path]\n");
+        return 0;
+    }
+    return dir_cmd(rec_set, DbgDirOp::SHOW_SUB, argc, argv);
+}
+static int cmd_unset_substitute_path_cmd(rec_set_t *rec_set, int argc, char** argv) {
+    if (argc > 2) {
+        PrintOutError("Wrong number of arguments.\n");
+        PrintOutError("Expected: unset substitute-path [path]\n");
+        return 0;
+    }
+    return dir_cmd(rec_set, DbgDirOp::UNSET_SUB, argc, argv);
+}
+
+
 static int cmd_show_directories_cmd(rec_set_t *rec_set, int argc,
                                              char **argv) {
-    rep_set_t *rep_set;
-    char *path;
-
-    rep_set = DbgGetSourcePath(rec_set);
-
+    auto rep_set = DbgGetSourcePath(rec_set);
     ProcessErrorInRepSet(rep_set);
 
     for (auto&& reply : rep_set) {
-        path = EVENT_SOURCE_PATH(reply->rep_event);
+        auto path = EVENT_SOURCE_PATH(reply->rep_event);
 
         PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                             "Source directories searched: %s\n", path);
@@ -684,6 +712,8 @@ static int cmd_show_directories_cmd(rec_set_t *rec_set, int argc,
 
     return 1;
 }
+
+
 
 static int cmd_show_version_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
@@ -1056,6 +1086,22 @@ void InitCmd_env(void) {
     AddCommand("directory", "dir", proc_required, cmd_directory_cmd,
                   cmd_directory_help,
                   "Add directory to search path for source files.");
+    AddCommand("set directories", proc_required, cmd_set_directories_cmd,
+                  cmd_set_directories_help,
+                  "Add directory to search path for source files.");
+
+    AddCommand("set substitute-path", proc_required, cmd_set_substitute_path_cmd,
+                  cmd_set_substitute_path_help,
+                  "Define a source path substitution rule.");
+
+    AddCommand("show substitute-path", proc_required, cmd_show_substitute_path_cmd,
+               cmd_show_substitute_path_help,
+               "Show a source path substitution rule.");
+
+    AddCommand("unset substitute-path", proc_required, cmd_unset_substitute_path_cmd,
+               cmd_unset_substitute_path_help,
+               "Unset a source path substitution rule.");
+
     AddCommand("set error", proc_ignore, cmd_set_error_cmd,
                   cmd_set_error_help,
                   "Set warn and error epsilon for floating point comparison.");

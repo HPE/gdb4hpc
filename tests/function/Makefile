@@ -25,6 +25,7 @@ TESTS = \
    ./bin/${PE_ENV}/C++/cpp_bt_stress.x \
    ./bin/${PE_ENV}/C++/cpp_arrays_print.x \
    ./bin/${PE_ENV}/C++/cpp_catch.x \
+   ./bin/${PE_ENV}/C++/c_moved.x \
    ./bin/${PE_ENV}/fortran/ftn_cmp_diff.x \
    ./bin/${PE_ENV}/fortran/ftn_arrays.x \
    ./bin/${PE_ENV}/fortran/ftn_decomp.x \
@@ -62,6 +63,7 @@ endif
 
 ifdef LOCALHOST
 MPI_INC = -I./localMPI
+MOVED_MPI_INC = -I../../localMPI
 MPI_COBJ = ./localMPI/cmpi.o
 MPI_FOBJ = ./localMPI/mpi.o
 CC = gcc
@@ -173,6 +175,9 @@ clean:
 
 ./bin/${PE_ENV}/C++/cpp_arrays_print.x : ./bin/${PE_ENV}/C++/cpp_arrays_print.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
+
+./bin/${PE_ENV}/C++/c_moved.x : ./src/c/c_list.c
+	( cp src/c/c_list.c src/C++; cd src/C++; $(CC) $(CFLAGS) $(MOVED_MPI_INC) c_list.c -o ../../$@; rm c_list.c )
 
 ./bin/${PE_ENV}/c/libfoo.so : ./src/c/libfoo.c
 	gcc -g -O0 -fPIC -shared $^ -o $@

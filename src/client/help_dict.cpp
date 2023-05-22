@@ -1457,8 +1457,9 @@ const char* const cmd_set_cuda_help[] = {
 
 
 const char* const cmd_directory_help[] = {
-    "Summary: Directory search source path.",
+    "Summary: Add to the source Directory search path.",
     "Usage: dir <path> [<path>]..",
+    "Usage: dir",
     "Example command: dir /path/to/source",
     "",
     "Arguments: path (directory containing source)",
@@ -1471,6 +1472,49 @@ const char* const cmd_directory_help[] = {
     "to compile the application are available at a new location. This will",
     "cause cached information about source file locations and line positions",
     "to be lost.",
+    "",
+    "With no arguments, reset the search path to $cdir:$cwd",
+    0};
+
+const char* const cmd_set_directories_help[] = {
+    "Summary: Replace the directory search source path.",
+    "Usage: set directories [<path>]..",
+    "Example command: set directories /path/to/source1 /path/to/source2",
+    "",
+    "Arguments: paths (directory containing source)",
+    "",
+    "Description:",
+    "This is like the directory command except the previous path is",
+    "removed.",
+    0};
+
+const char* const cmd_set_substitute_path_help[] = {
+    "Summary: Define a rule to replace a compile path with a source path.",
+    "Usage: set substitute-path <from-path> <to-path>",
+    "Example command: set subtitute-path /orig/dev /mnt/cross",
+    "",
+    "Description:",
+    "Add a source path substitution rule, which is useful when an application",
+    "was built somewhere else.  Unlike the directory command, it maps the",
+    "entire build tree to a new location.",
+    0};
+
+const char* const cmd_show_substitute_path_help[] = {
+    "Summary: Show  a rule to replace a compile path with a source path.",
+    "Usage: show substitute-path [from-path]"
+    "",
+    "Description:",
+    "Show the source path substition rules.  If an path argument is given,",
+    "show just any rule mapping that path.",
+    0};
+
+const char* const cmd_unset_substitute_path_help[] = {
+    "Summary: Unset one or all compile path to source path rules.",
+    "Usage: unset substitute-path [from-path]"
+    "",
+    "Description:",
+    "Unset the source path substition rules.  If an path argument is given,",
+    "unset only any rule mapping that path.",
     0};
 
 const char* const cmd_set_error_help[] = {

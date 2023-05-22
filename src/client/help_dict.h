@@ -136,6 +136,8 @@ extern const char* const cmd_set_scheduler_locking_help[];
 extern const char* const cmd_set_non_stop_help[];
 extern const char* const set_subcmd_args_help[];
 extern const char* const cmd_set_command_timeout_help[];
+extern const char* const cmd_set_directories_help[];
+extern const char* const cmd_set_substitute_path_help[];
 
 /*
  * Class set print subcommands
@@ -160,6 +162,7 @@ extern const char* const cmd_maint_set_sync_help[];
 /*
  * Class show subcommands
  */
+extern const char* const show_subcmd_args_help[];
 extern const char* const cmd_show_cuda_help[];
 extern const char* const cmd_show_directories_help[];
 extern const char* const cmd_show_error_help[];
@@ -169,8 +172,8 @@ extern const char* const cmd_show_prompt_help[];
 extern const char* const cmd_show_version_help[];
 extern const char* const cmd_show_scheduler_locking_help[];
 extern const char* const cmd_show_non_stop_help[];
-extern const char* const show_subcmd_args_help[];
 extern const char* const cmd_show_command_timeout_help[];
+extern const char* const cmd_show_substitute_path_help[];
 
 /*
  * Class show print subcommands
@@ -196,6 +199,7 @@ extern const char* const cmd_maint_show_sync_help[];
  * Class unset subcommands
  */
 extern const char* const cmd_unset_environment_help[];
+extern const char* const cmd_unset_substitute_path_help[];
 
 /*
  * Class usage subcommands

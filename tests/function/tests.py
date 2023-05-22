@@ -435,7 +435,8 @@ class FunctionTests(Gdb4hpcTest):
 
     def test_c_list(self):
         self.base_name = "c_list"
-        runTest(self)
+        subs = ( ("CURRENT_DIRECTORY", os.getcwd()), )
+        runTest(self, subs)
         
     def test_c_next(self):
         self.base_name = "c_next"

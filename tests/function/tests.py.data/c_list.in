@@ -23,5 +23,90 @@ a{0}: 22   					end comment
 a{0}: 23   			}
 a{0}: 24   		}
 a{0}: 25   	}
-6: q
+6: n
+a{0}: 17			for (int j=0; j<i; j++) {
+7: release $a
+Shutting down debugger and resuming application for 'a'.
+Warning: an error occurred during release of $a.
+The job might be killed before completing.
+8: launch $a{1} ./bin/CRAY/C++/c_moved.x
+Starting application, please wait...
+Launched application...
+Got a timeout of 30 from GDB4HPC_STARTUP_TIMEOUT.
+1/1 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0}: Initial breakpoint, main at c_list.c:7
+9: list 7
+a{0}: 2    	c_list.c: No such file or directory.
+10: dir ./src/c
+a{0}: Source directory search path set to: %.*%/src/c:$cdir:$cwd
+11: list
+a{0}: 12   	}
+a{0}: 13   	
+a{0}: 14   	static void printIt()
+a{0}: 15   	{
+a{0}: 16   	    for (int i=0; i<3; i++) {
+a{0}: 17   			for (int j=0; j<i; j++) {
+a{0}: 18   				int foo	=	j;
+a{0}: 19   				foo		+=	i;
+a{0}: 20   				// try to be as nasty as possible with backslashes...
+a{0}: 21   				printf("\tfoo is: \"\t\t\\\t\t%d\n", foo);	// print foo \
+12: show directories
+a{0}: Source directories searched: %.*%/src/c:$cdir:$cwd
+13: dir
+clear source path ([y] or n) y
+a{0}: Source directory search path set to: $cdir:$cwd
+14: show directories
+a{0}: Source directories searched: $cdir:$cwd
+15: list 7
+a{0}: 2    	c_list.c: No such file or directory.
+16: set substitute-path CURRENT_DIRECTORY/src/C++ CURRENT_DIRECTORY/src/c
+a{0}: Source directory search path set to: List of all source path substitution rules:
+  `CURRENT_DIRECTORY/src/C++' -> `CURRENT_DIRECTORY/src/c'.
+
+17: list 7
+a{0}: 2    	
+a{0}: 3    	#include <stdio.h>
+a{0}: 4    	#include "mpi.h"
+a{0}: 5    	static void printIt();
+a{0}: 6    	int main(int argc, char *argv[]) {
+a{0}: 7    		MPI_Init(&argc, &argv);
+a{0}: 8    	
+a{0}: 9    	    printIt();
+a{0}: 10   	
+a{0}: 11   		MPI_Finalize();
+18: show substitute-path
+a{0}: Source directory search path set to: List of all source path substitution rules:
+  `CURRENT_DIRECTORY/src/C++' -> `CURRENT_DIRECTORY/src/c'.
+
+19: set substitute-path bogus/from bogus/to
+a{0}: Source directory search path set to: List of all source path substitution rules:
+  `CURRENT_DIRECTORY/src/C++' -> `CURRENT_DIRECTORY/src/c'.
+  `bogus/from' -> `bogus/to'.
+
+20: show substitute-path
+a{0}: Source directory search path set to: List of all source path substitution rules:
+  `CURRENT_DIRECTORY/src/C++' -> `CURRENT_DIRECTORY/src/c'.
+  `bogus/from' -> `bogus/to'.
+
+21: n
+a{0}: 9	    printIt();
+22: unset substitute-path bogus/from
+a{0}: Source directory search path set to: List of all source path substitution rules:
+  `CURRENT_DIRECTORY/src/C++' -> `CURRENT_DIRECTORY/src/c'.
+
+23: show substitute-path
+a{0}: Source directory search path set to: List of all source path substitution rules:
+  `CURRENT_DIRECTORY/src/C++' -> `CURRENT_DIRECTORY/src/c'.
+
+24: n
+a{0}: 11		MPI_Finalize();
+25: unset substitute-path
+a{0}: Source directory search path set to: List of all source path substitution rules:
+
+26: list
+a{0}: 11   	c_list.c: No such file or directory.
+27: q
 Shutting down debugger and killing application for 'a'.

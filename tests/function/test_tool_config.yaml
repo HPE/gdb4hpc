@@ -6,7 +6,7 @@ build:
     all:
       j: 16
       modules:
-      - cce/15.0.0
+      - cce/16.0.0
       optional-modules:
       - PrgEnv-cray
       - cray-cti-devel
@@ -37,6 +37,7 @@ build:
 test:
   modules:
     - gdb4hpc
+  parallel-jobs: 1
 
 # launcher config
 launch:
@@ -44,7 +45,7 @@ launch:
   # for example, use "--time=5:00" instead of "-t 5:00".
   # rank/node count args are defined per test in gdb4hpc, so avoid -n and -N here.
   args:
-    slurm: "--time=5:00"
+    slurm: "--time=5:00 --exclusive"
     alps: ""
     ssh: ""
     aprun: ""

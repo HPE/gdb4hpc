@@ -353,7 +353,43 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
     }
 
     // call the showframe function to ask for the innermost frame
-    return m_dbg.showFrame(1, nullptr);
+    auto frame =  m_dbg.showFrame(1, nullptr);
+
+    // Workaround for PE-48149 (cce 16 no fortran line numbers on attach) based
+    // on findings from PE-47129 (working around the same issue in ATP)
+    if (frame && frame->ev_event == DBGEV_FRAME && frame->ev_u.ev_u_frame->getLoc().loc_line == 0
+        && ::getenv(GDB4HPC_SKIP_PE48149_WORKAROUND) == nullptr
+    ) {
+        DVPRINT("Missing line number (PE-48149) in initial frame, trying workaround\n");
+
+        // PE-48149: fortran binaries compiled with cce 16 have line number
+        // information missing on gdb attach for some reason.
+        //
+        // The "info variables" command is known to shake gdb enough to load
+        // line number data properly. It takes a long time and generates huge
+        // log files, so this should be removed as soon as possible.
+        //
+        // Part of the weirdness of the workaround is that it only works with a
+        // CLIBypass, a more proper MI command (e.g.
+        // MICommandNew("-symbol-list-variables" ...)) doesn't produce the same
+        // behavior for some unknown reason.
+
+        const char* argv[] = {"info", "variables"};
+        auto cmd = CLIBypassc(2, argv);
+        SendMICommand(m_session, cmd);
+
+        if (MICommandResultOK(cmd)) {
+            DVPRINT("info variables failed\n");
+        }
+        MICommandFree(cmd);
+
+        if (auto new_frame = m_dbg.showFrame(1, nullptr); new_frame) {
+            FreeEvent(frame);
+            frame = new_frame;
+        }
+    }
+
+    return frame;
 }
 
 // When the debug server starts up, some combination of gdb and WLM give control to

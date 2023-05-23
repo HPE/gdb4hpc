@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -35,6 +35,10 @@
 #define GDB4HPC_DEFAULT_NUM_RANKS "GDB4HPC_DEFAULT_NUM_RANKS"
 #define DEFAULT_MRNET_PORT_BASE "20000"
 #define GDB4HPC_BE_SUPPRESSIONS "gdb4hpc_be_suppressions.txt"
+
+// If defined, the backend will skip the workaround implemented for PE-48149
+// (missing line number info in cce 16 fortran binaries)
+#define GDB4HPC_SKIP_PE48149_WORKAROUND "GDB4HPC_SKIP_PE48149_WORKAROUND"
 
 #ifdef ZPL
 #define LANG_ZPL 7

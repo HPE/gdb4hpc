@@ -357,7 +357,6 @@ b{0..1}: class Classy2 {
     Classy2(Double, int);
     static void setZZ(int);
 
-  private:
     typedef double Double;
 }
 138: p c2.x

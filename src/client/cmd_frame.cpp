@@ -20,8 +20,10 @@
 #include <stdio.h>
 #include <string>
 #include <cstring>
+#include <sstream>
 #include <vector>
 #include <algorithm>
+#include <iostream>
 
 #include "client.h"
 #include "useful.h"
@@ -31,7 +33,7 @@ namespace {
 backtrace tree
 
 used in cmd_backtrace_cmd (cmd_frame.cpp) to print a pstree-like 
-representation of the results of a backtrack command.
+representation of the results of a backtrace command.
 
 copies setname, debugframe_t, and group pointers and does not modify them.
 */
@@ -177,6 +179,7 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
     root.orderTree();
 
     if(!Client.MI_mode){
+        auto pager = cli_pager{};
         root.print();
     }
 
@@ -266,10 +269,10 @@ void BTTree::print(std::string indent, bool is_last) const {
         }
 
         // substr(3) is a hack to shave off the first 3 characters of the tree.
-        // since there is an invisible master root node, every backtrack tree is
+        // since there is an invisible master root node, every backtrace tree is
         // indented by 3 spaces by default. we want it to look like we're printing
         // multiple tress instead of one big tree.
-        PrintOutMsg((indent + nodeMark).substr(3).c_str());
+        PrintOutMsg("%s", (indent + nodeMark).substr(3).c_str());
         printData(m_dirtyGroup ? m_dirtyGroup.get() : m_group);
         for (auto &lat : m_lateral) {
             if (is_last) {
@@ -278,7 +281,7 @@ void BTTree::print(std::string indent, bool is_last) const {
                 nodeMark = "|  ";
             }
 
-            PrintOutMsg((indent + nodeMark).substr(3).c_str());
+            PrintOutMsg("%s", (indent + nodeMark).substr(3).c_str());
             lat.printData(m_dirtyGroup ? m_dirtyGroup.get() : m_group);
         }
 

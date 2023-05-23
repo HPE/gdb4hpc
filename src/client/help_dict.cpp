@@ -1,7 +1,7 @@
 /****************************************************************************** \
  * help_dict.c - Command help string definition dictionary.
  *
- * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -2263,6 +2263,67 @@ const char* const cmd_show_command_timeout_help[] = {
     "",
     "Description:",
     "Show the current amount of time that a blocking command will be cancelled after.",
+    0};
+
+const char *const cmd_set_pager_help[] = {
+    "Summary: Set external pager program.",
+    "Usage: set pager <path/to/pager> <arg1> ... <argn>",
+    "Example commands: set pager less -S",
+    "                  set pager none",
+    "",
+    "Description:",
+    "Set an external pager for gdb4hpc to use for certain large command",
+    "results (e.g. backtrace). If certain messages have more lines than the",
+    "height setting (see set/show height command), the external pager will be",
+    "started and used to display the result.",
+    "",
+    "Use \"set pager none\" to disable paging.",
+    "",
+    "The pager is assumed to have an api like /usr/bin/less and /usr/bin/more,",
+    "but non-interactive programs like /usr/bin/cat are also valid. A paged",
+    "message is written into the pager's stdin, and gdb4hpc waits for the user",
+    "to terminate the pager. As long as the pager eventually exits, it is",
+    "compatible with gdb4hpc.",
+    0};
+
+const char *const cmd_show_pager_help[] = {
+    "Summary: Show current external pager program.",
+    "Usage: show pager",
+    "",
+    "Description:",
+    "Show the current external pager for gdb4hpc to use for certain large",
+    "command results (e.g. backtrace). If certain messages have more lines",
+    "than the height setting (see set/show height command), the external pager",
+    "will be started and used to display the result.",
+    0};
+
+const char *const cmd_set_height_help[] = {
+    "Summary: Set paging threshold",
+    "Usage: set height <n>",
+    "Example commands: set height 40",
+    "                  set height 0",
+    "",
+    "Description:",
+    "Set the threshold for activating the external pager (see set pager",
+    "command). If certain commands (e.g. backtrace) have a result with more",
+    "lines than the currently set height, gdb4hpc will use the currently set",
+    "pager to view the result instead of the gdb4hpc terminal.",
+    "",
+    "gdb4hpc will automatically detect the terminal height on startup and set",
+    "this setting to match the terminal. Paging will still be disabled until",
+    "the set pager command is used, and paging is always disabled in batch mode.",
+    "",
+    "Set to 0 to disable paging.",
+    0};
+
+const char *const cmd_show_height_help[] = {
+    "Summary: Show paging threshold",
+    "Usage: show height",
+    "",
+    "Show the threshold for activating the external pager (see set pager",
+    "command). If certain commands (e.g. backtrace) have a result with more",
+    "lines than the currently set height, gdb4hpc will use the currently set",
+    "pager to view the result instead of the gdb4hpc terminal.",
     0};
 
 // Dummy help

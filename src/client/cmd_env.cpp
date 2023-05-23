@@ -868,6 +868,50 @@ static int cmd_set_logging_cmd(rec_set_t *rec_set, int argc, char **argv){
     return 1;
 }
 
+static int cmd_set_pager_cmd(rec_set_t* _, int argc, char* argv[]) {
+    if (argc < 2) {
+        PrintOutError("usage: set pager <path/to/pager/binary> <arg1> <arg2> ... <argn>\n");
+        return 0;
+    }
+
+    if (argc == 2 && std::string_view{argv[1]} == "none") {
+        Client.pager = "";
+    } else {
+        Client.pager = ArgsToString(&argv[1], argc - 1);
+    }
+
+    return 1;
+}
+
+static int cmd_show_pager_cmd(rec_set_t* _, int argc, char* argv[]) {
+    if (!Client.pager.empty()) {
+        PrintOutMsg("%s\n", Client.pager.c_str());
+    } else {
+        PrintOutMsg("No pager set.\n");
+    }
+    return 1;
+}
+
+static int cmd_set_height_cmd(rec_set_t* _, int argc, char* argv[]) {
+    if (argc < 2) {
+        PrintOutError("set height <n>\n");
+        return 0;
+    }
+
+    Client.height = std::max(0, atoi(argv[1]));
+    return 1;
+}
+
+static int cmd_show_height_cmd(rec_set_t* _, int argc, char* argv[]) {
+    if (Client.height == 0) {
+        PrintOutMsg("0 lines (no paging)\n");
+    } else {
+        PrintOutMsg("%d lines\n", Client.height);
+    }
+
+    return 1;
+}
+
 static int cmd_set_print_entryframe_cmd(rec_set_t *rec_set, int argc,
                                                  char **argv) {
 
@@ -1111,6 +1155,14 @@ void InitCmd_env(void) {
     AddCommand("set logging", proc_ignore, cmd_set_logging_cmd,
                   cmd_set_logging_help,
                   "Redirect client side output.");
+    AddCommand("set pager", proc_ignore, cmd_set_pager_cmd,
+               cmd_set_pager_help, "Set paging program");
+    AddCommand("show pager", proc_ignore, cmd_show_pager_cmd,
+               cmd_show_pager_help, "Show paging program");
+    AddCommand("set height", proc_ignore, cmd_set_height_cmd,
+               cmd_show_height_help, "Set paging height");
+    AddCommand("show height", proc_ignore, cmd_show_height_cmd,
+               cmd_show_height_help, "Show paging height");
 
     // set print commands
     AddCommand(

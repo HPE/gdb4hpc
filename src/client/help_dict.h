@@ -1,7 +1,7 @@
 /******************************************************************************\
  * help_dict.h - Command help string defintion dictionary interface.
  *
- * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -77,6 +77,11 @@ extern const char* const cmd_script_assert_help[];
 extern const char* const cmd_script_end_help[];
 extern const char* const cmd_script_set_help[];
 extern const char* const cmd_script_show_help[];
+
+extern const char* const cmd_set_pager_help[];
+extern const char* const cmd_show_pager_help[];
+extern const char* const cmd_set_height_help[];
+extern const char* const cmd_show_height_help[];
 
 /**********************************************
  * Command class help definitions

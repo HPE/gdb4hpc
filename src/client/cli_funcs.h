@@ -23,6 +23,7 @@
 #include <stdio.h>
 
 #include "dbgevent.h"
+#include "exec.h"
 
 /*
 ** Types of cli streams
@@ -231,6 +232,82 @@ private:
     int m_logForkPid = 0;
 
     std::string m_error;
+};
+
+// When an instance of this class is in scope, it will catch anything sent to
+// PrintOutMsg. If the number of lines printed eventually exceeds Client.height
+// and Client.pager is set, Client.pager will be started in the foreground and
+// will be used to handle the data.
+//
+// It's assumed that the pager has an api like /usr/bin/less or /usr/bin/more,
+// accepting data on stdin and then waiting for the user to quit.
+//
+// If the number of lines printed never exceeds Client.height, this object will
+// print out the lines it buffered when it goes out of scope.
+//
+// If paging is disabled (Client.height == 0 || Client.pager == ""), or an error
+// occurs while constructing the object, this object does nothing and all calls
+// to PrintOutMsg are immediatly sent to the current stream as normal.
+//
+// This class does not affect logging.
+class cli_pager {
+public:
+    cli_pager();
+    ~cli_pager();
+
+private:
+    // This class works by creating a custom FILE* stream and installing it in the
+    // CurrentStream object. When the current stream tries to print something, the
+    // custom FILE* stream will be used.
+    //
+    // This class is a state machine. During the constructor, it will attempt to
+    // install the custom FILE* stream and enter the Buffer state. If it fails to
+    // initialize, it will enter and remain in DoNothing, leaving the
+    // CurrentStream unmodified.
+    //
+    // In the Buffer state, it will buffer anything printed by CurrentStream until
+    // the number of printed lines exceeds Client.height, at which point it will
+    // attempt to start Client.pager and enter ForwardToPager.
+    //
+    // In ForwardToPager, all intercepted data is immediately given to the
+    // Client.pager binary.
+    //
+    // If unsuccessful in entering ForwardToPager, it will enter
+    // ForwardToOriginalStream. Here, all intercepted data is immediately given to
+    // the original stream and no attempt to start the pager is made again.
+
+    enum class State {
+      Buffer,
+      ForwardToPager,
+      ForwardToOriginalStream,
+      DoNothing,
+    } m_state = State::Buffer;
+
+    static ssize_t handleFILEWrite(void *cookie, const char *buf, size_t size);
+
+    constexpr static cookie_io_functions_t cookie_funcs = {
+        .read = nullptr,
+        .write = cli_pager::handleFILEWrite,
+        .seek = nullptr,
+        .close = nullptr,
+    };
+
+    // called from handleFILEWrite iff m_state == Buffer
+    ssize_t bufferModeWrite(const char *buf, size_t size);
+
+    // data used to modify/restore the original output stream.
+    // if cli_pager is successfully constructed, these will never be null.
+    cli_stream_t *m_cli_stream = nullptr;
+    std::shared_ptr<FILE> m_original_fstream = nullptr;
+
+    // buffered data kept before starting pager
+    int m_newline_running_total = 0;
+    unsigned short m_terminal_width = 0;
+    std::vector<std::vector<char>> m_saved_text;
+    void dumpBufferedDataToOriginalStream();
+
+    // non-null iff m_state == ForwardToPager
+    std::unique_ptr<SharedForegroundSubprocess> m_pager_process = nullptr;
 };
 
 /*

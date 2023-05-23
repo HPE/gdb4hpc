@@ -45,8 +45,9 @@ public:
         for (int i=0; i<argc; ++i) *this << argv[i];
     }
 
-    // returns a vector of const char *, passable to cti and others by calling .data()
-    // on the resulting vector
+    // returns contained arguments in vector of const char * with a nullptr as
+    // the last entry. the result is passable to cti and others by calling
+    // .data() on it.
     const std::vector<const char *> c_strs(size_t start) const;
 
     const std::vector<const char*> c_strs() const {

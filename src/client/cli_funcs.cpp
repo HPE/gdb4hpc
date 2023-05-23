@@ -22,6 +22,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
 
 #include "client.h"
 #include "useful.h"
@@ -482,6 +483,13 @@ void cli_dec_prompt(void) {
     CurrentStream->cs_plevel--;
 }
 
+bool cli_is_interactive() {
+    // return true if we have a stream, the stream has an input, and it's a tty
+    return CurrentStream != NULL &&
+        CurrentStream->cs_fpin != NULL &&
+        CurrentStream->cs_type == CLI_TTY_STREAM;
+}
+
 char *cli_get_prompt(void) {
     cli_stream_t *cs = CurrentStream;
     dbgprocset_t *s = CurrentProcSet();
@@ -583,9 +591,7 @@ static bool cli_query_noninteractive(const char* s, cli_query_default default_va
 //    If the context is non-interactive and *both* default values are NONE, return true.
 bool cli_query(const char *s, cli_query_default defaultVal,
               cli_query_default nonInteractiveDefaultVal) {
-    if (!Client.confirm || CurrentStream == NULL ||
-        CurrentStream->cs_fpin == NULL ||
-        CurrentStream->cs_type == CLI_FILE_STREAM) {
+    if (!Client.confirm || !cli_is_interactive()) {
         return cli_query_noninteractive(s, nonInteractiveDefaultVal);
     }
     return cli_query_interactive(s, defaultVal);
@@ -1465,4 +1471,152 @@ std::pair<FILE*,int> cli_pipe::open(FILE* out, const std::string& command)
 
 void cli_pipe::setError(const char* msg) {
     m_error = std::string{msg} + ":" + strerror(errno);
+}
+
+cli_pager::cli_pager()
+    : m_cli_stream(CurrentStream)
+{
+    // Don't try to page if:
+    // - We don't have a CurrentStream,
+    // - CurrentStream doesn't have an output,
+    // - The CLI is noninteractive,
+    // - Or the user has disabled paging via Client.height == 0 or .pager = ""
+    if (!m_cli_stream || !m_cli_stream->cs_out.getOut() || !cli_is_interactive()
+        || Client.height == 0 || Client.pager.empty())
+    {
+        m_state = State::DoNothing;
+        return;
+    }
+
+    auto* fstream = fopencookie((void*)this, "w", cli_pager::cookie_funcs);
+    if (!fstream) {
+        m_state = State::DoNothing;
+        return;
+    }
+
+    {
+        // the check for cli_is_interactive above will keep us from getting into
+        // weird non-interactive situations where this returns 0.
+        struct winsize ws;
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+        m_terminal_width = ws.ws_col;
+    }
+
+    m_original_fstream = m_cli_stream->cs_out.getOutSP();
+    m_cli_stream->cs_out.setOut(fstream);
+}
+
+cli_pager::~cli_pager() {
+    // The FILE* layer above us does buffering, so make sure we get all of the data in
+    // transit before we swap out the streams. This might call forwardToWrite.
+    ::fflush(m_cli_stream->cs_out.getOut());
+
+    switch (m_state) {
+        case State::Buffer: {
+            // height threshold never hit, print out the data now
+            dumpBufferedDataToOriginalStream();
+        }
+        break;
+
+        case State::ForwardToPager: {
+            // wait for user to exit pager
+            m_pager_process->stdin_pipe.close(Pipe::End::Write);
+            m_pager_process->waitForExit();
+        }
+        break;
+
+        case State::ForwardToOriginalStream: {
+            // implies paging was attempted, but it failed
+            ::fprintf(m_original_fstream.get(), "\nWarning: pager \"%s\" failed.\n", Client.pager.c_str());
+        }
+        break;
+
+        case State::DoNothing: return;
+    }
+
+    // calls ::fclose on the custom stream that was created in the ctor
+    m_cli_stream->cs_out.setOut(m_original_fstream);
+}
+
+void cli_pager::dumpBufferedDataToOriginalStream() {
+    for (const auto& saved_buf : m_saved_text) {
+        ::fwrite(saved_buf.data(), 1, saved_buf.size(), m_original_fstream.get());
+    }
+    m_saved_text.clear();
+}
+
+ssize_t cli_pager::bufferModeWrite(const char* buf, size_t size) {
+    const auto handleFailedToStartPager = [&]() {
+        dumpBufferedDataToOriginalStream();
+        m_state = State::ForwardToOriginalStream;
+        return ::fwrite(buf, 1, size, m_original_fstream.get());
+    };
+
+    // count lines. count plain old '\n' and also attempt to break extremly long
+    // lines into mutliple lines based on m_terminal_width.
+    {
+        size_t i = 0;
+        size_t this_line_length = 1;
+
+        for (; i < size && m_newline_running_total < Client.height; i++, this_line_length++) {
+            if (buf[i] == '\n' || this_line_length > m_terminal_width) {
+                m_newline_running_total++;
+                this_line_length = 0;
+            }
+        }
+    }
+
+    if (m_newline_running_total < Client.height) {
+        // newline threshold not met; save data for later
+        m_saved_text.emplace_back(buf, buf + size);
+        return size;
+    } else {
+        // newline threshold met; launch pager and switch to pager mode
+        auto argv = ArgvStream{};
+        argv.parseAndAppendArgs(Client.pager);
+
+        m_pager_process = SharedForegroundSubprocess::make(argv);
+        if (!m_pager_process) {
+            return handleFailedToStartPager();
+        }
+
+        // dump previously saved data into pager
+        auto bytes_written = size_t{0};
+        auto total_saved_bytes = size_t{0};
+        for (const auto& saved_buf : m_saved_text) {
+            total_saved_bytes += saved_buf.size();
+            bytes_written += m_pager_process->stdin_pipe.write(saved_buf.data(), saved_buf.size());
+        }
+
+        if (bytes_written != total_saved_bytes) {
+            m_pager_process.reset(); // SIGKILL pager
+            return handleFailedToStartPager();
+        }
+
+        // dump current data into pager
+        if (m_pager_process->stdin_pipe.write(buf, size) != size) {
+            m_pager_process.reset(); // SIGKILL pager
+            return handleFailedToStartPager();
+        }
+
+        m_state = State::ForwardToPager;
+        return size;
+    }
+}
+
+ssize_t cli_pager::handleFILEWrite(void* cookie, const char* buf, size_t size) {
+    auto* ths = reinterpret_cast<cli_pager*>(cookie);
+
+    switch (ths->m_state) {
+        case State::Buffer: return ths->bufferModeWrite(buf, size);
+        case State::ForwardToPager: return ths->m_pager_process->stdin_pipe.write(buf, size);
+        case State::ForwardToOriginalStream: return fwrite(buf, 1, size, ths->m_original_fstream.get());
+
+        // forwardToWrite should never be called in the DoNothing state
+        // because DoNothing implies that the custom file stream was never installed.
+        case State::DoNothing: return 0;
+    }
+
+    throw std::runtime_error("unreachable");
+    return 0;
 }

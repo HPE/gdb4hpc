@@ -1,9 +1,5 @@
 /*********************************************************************************\
- * Exec support routines
- *
- * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
- *
- * Copyright 2010-2013, 2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -11,192 +7,210 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  *********************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include "exec.h"
+#include "signal_util.h"
 
 #include <fcntl.h>
-#include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/param.h>
-#include <sys/signal.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
 
-#include "alloc.h"
-#include "defs.h"
-#include "error.h"
-#include "exec.h"
-#include "str.h"
+#include <thread>
+#include <chrono>
 
-// external error printing function
-extern void PrintOutError(const char *, ...);
+std::optional<Pipe> Pipe::make() {
+    int fds[2];
+    if (::pipe(fds)) return {};
 
-static void pathexec(char *, char **, char **);
-static int do_exec(int, char *, char **, char **);
-
-#ifdef DEBUG
-static void dumparg(FILE *, char *[]);
-
-static void dumparg(FILE *fp, char *argv[]) {
-    char **ap;
-
-    for (ap = argv; *ap != NULL; ap++) fprintf(fp, "%s ", *ap);
+    return Pipe(fds[0], fds[1]);
 }
-#endif /* DEBUG */
 
-int CheckStatus(int pid) {
-    int status;
-    int rtn_pid;
+Pipe::Pipe(int read_end, int write_end)
+    : m_pipe_fds{read_end, write_end}
+{}
 
-    rtn_pid = waitpid(pid, &status, WNOHANG);
+Pipe::Pipe(Pipe&& expiring)
+    : m_pipe_fds{expiring.m_pipe_fds[0], expiring.m_pipe_fds[1]}
+{
+    expiring.m_pipe_fds[0] = -1;
+    expiring.m_pipe_fds[1] = -1;
+}
 
-    // only return true if our pid status has changed, on error we don't
-    // want this to return true. This is to handle cases where aprun is
-    // a wrapper script which calls the real aprun.
-    if (rtn_pid == pid) {
-        // Return true only if the child exited.
-        return WIFEXITED(status);
+Pipe::~Pipe() {
+    close(End::Read);
+    close(End::Write);
+}
+
+size_t Pipe::read(char* buffer, size_t len) {
+    auto bytes_read = size_t{0};
+    auto successive_failures = 0;
+
+    // note: 3 sucessive_failures is about .75 seconds, but
+    // *only if the pipe is set to non-blocking.*
+
+    while (bytes_read < len && successive_failures < 3) {
+        auto rc = ::read(m_pipe_fds[0], buffer, len);
+        if (rc > 0) {
+            bytes_read += rc;
+            successive_failures = 0;
+        } else {
+            switch (errno) {
+                case EAGAIN:
+                    successive_failures += 1;
+                    // fall through
+                case EINTR: {
+                    using namespace std::chrono_literals;
+                    std::this_thread::sleep_for(250ms);
+                    continue;
+                }
+
+                // assume all other errors are fatal
+                default: return bytes_read;
+            }
+        }
+    }
+
+    return bytes_read;
+}
+
+void ignoreSIGPIPE(int sig) {
+    // ignore...
+}
+
+size_t Pipe::write(const char* buffer, size_t len) {
+    auto bytes_written = size_t{0};
+    auto successive_failures = size_t{0};
+
+    // SIGPIPE is sent if read end is closed when we try to write
+    TmpSignalHandler sigpipe_handler(SIGPIPE, ignoreSIGPIPE);
+
+    // note: 3 sucessive_failures is about .75 seconds, but
+    // *only if the pipe is set to non-blocking.*
+
+    while (bytes_written < len && successive_failures < 3) {
+        auto rc = ::write(m_pipe_fds[1], buffer + bytes_written, len - bytes_written);
+        if (rc > 0) {
+            bytes_written += rc;
+            successive_failures = 0;
+        } else {
+            switch (errno) {
+                case EAGAIN:
+                    successive_failures += 1;
+                    // fall through
+                case EINTR: {
+                    using namespace std::chrono_literals;
+                    std::this_thread::sleep_for(250ms);
+                    continue;
+                }
+
+                // assume all other errors are fatal
+                default: return bytes_written;
+            }
+        }
+    }
+
+    return bytes_written;
+}
+
+int Pipe::dup2(End end, int fd) {
+    return ::dup2(m_pipe_fds[static_cast<unsigned>(end)], fd);
+}
+
+int Pipe::setCloseOnExec(End end) {
+    const auto e = static_cast<unsigned>(end);
+
+    const auto current_flags = ::fcntl(m_pipe_fds[e], F_GETFD);
+    if (current_flags == -1) return -1;
+
+    return ::fcntl(m_pipe_fds[e], F_SETFD, current_flags | FD_CLOEXEC);
+}
+
+int Pipe::close(End end) {
+    const auto e = static_cast<unsigned>(end);
+    const auto rc = ::close(m_pipe_fds[e]);
+    if (rc == 0)
+        m_pipe_fds[e] = -1;
+    return rc;
+}
+
+SharedForegroundSubprocess::SharedForegroundSubprocess(pid_t pid, Pipe&& in_pipe)
+    : stdin_pipe{std::move(in_pipe)}
+    , m_pid{pid}
+{}
+
+SharedForegroundSubprocess::SharedForegroundSubprocess(SharedForegroundSubprocess&& expiring)
+    : stdin_pipe{std::move(expiring.stdin_pipe)}
+    , m_pid{expiring.m_pid}
+{
+    expiring.m_pid = -1;
+}
+
+SharedForegroundSubprocess::~SharedForegroundSubprocess() {
+    if (m_pid != -1) {
+        ::kill(m_pid, SIGKILL);
+        waitForExit();
+    }
+}
+
+void SharedForegroundSubprocess::waitForExit() {
+    while (true) {
+        int status;
+        const auto r = ::waitpid(m_pid, &status, 0);
+
+        if (r > 0) {
+            if (WIFEXITED(status) || WIFSIGNALED(status))
+                break;
+            // otherwise, pid's status changed for some other reason
+            // (e.g. SIGCONT) and it's still alive.
+        } else if (errno == EINTR) {
+            continue;
+        } else {
+            // all other error cases mean the process is gone
+            break;
+        }
+    }
+
+    m_pid = -1;
+}
+
+std::unique_ptr<SharedForegroundSubprocess> SharedForegroundSubprocess::make(const ArgvStream& argv) {
+    auto in_pipe = Pipe::make();
+    auto health_pipe = Pipe::make();
+    if (!in_pipe || !health_pipe) return nullptr;
+
+    // set close on exec on the health pipe to let us confirm from the parent
+    // process if the execvp is sucessful
+    health_pipe->setCloseOnExec(Pipe::End::Write);
+
+    const auto pid = ::fork();
+    if (pid < 0) return nullptr;
+
+    if (pid == 0) {
+        health_pipe->close(Pipe::End::Read);
+        in_pipe->close(Pipe::End::Write);
+        in_pipe->dup2(Pipe::End::Read, STDIN_FILENO);
+
+        if (argv.argc() > 0)
+            ::execvp(const_cast<char *>(argv[0].c_str()),
+                     const_cast<char **>(argv.c_strs().data()));
+
+        // failed to exec
+        health_pipe->write("x", 1);
+        ::_exit(-1);
     } else {
-        return 0;
+        health_pipe->close(Pipe::End::Write);
+        in_pipe->close(Pipe::End::Read);
+
+        // if the execvp is sucessful, the other end of the the health pipe will
+        // be closed by the subprocess and read will read nothing and return 0.
+        // if the execvp failes, we'll read the byte the child process sends
+        // before exiting.
+        char is_dead[1] = {'\0'};
+        health_pipe->read(is_dead, 1);
+        if (is_dead[0] != '\0')
+            return nullptr;
+
+        return std::unique_ptr<SharedForegroundSubprocess>(
+            new SharedForegroundSubprocess(pid, std::move(*in_pipe)));
     }
 }
-
-void Exec(char *cmd, char **av, char **ev) { (void)do_exec(0, cmd, av, ev); }
-
-int ForkAndExec(char *cmd, char **av, char **ev) {
-    return do_exec(1, cmd, av, ev);
-}
-
-void Reap(int sig) {
-    int status;
-
-    wait(&status);
-}
-
-static void pathexec(char *prog, char **av, char **ev) {
-    int n;
-    char *p;
-    char *s;
-    char *t;
-    static char path[MAXPATHLEN + 1];
-
-    if (prog == NULL) return;
-
-    if (*prog == '/' || (p = getenv("PATH")) == NULL) {
-        execve(prog, av, ev);
-        return; /* only on error */
-    }
-
-    while (*p != '\0') {
-        if ((s = SkipTo(p, ':')) != NULL) *s = '\0';
-
-        strcpy(path, p);
-
-        if (s != NULL) *s = ':';
-
-        n = strlen(path);
-
-        t = &path[n - 1];
-
-        if (*t != '/') {
-            strcat(path, "/");
-            n++;
-        }
-
-        strncat(path, prog, MAXPATHLEN - n);
-
-        execve(path, av, ev);
-
-        p = s + 1;
-    }
-}
-
-#ifndef ALPS /* Cray_Inc */
-static int do_exec(int dofork, char *cmd, char **av, char **ev) {
-    int pid;
-
-    /*
-#ifdef DEBUG
-            fprintf(stderr, "Exec: %s ", cmd);
-            dumparg(stderr, av);
-            fprintf(stderr, "\n");
-#endif
-    */
-
-    if (!dofork) {
-        pathexec(cmd, av, ev);
-        PrintOutError("exec \"%s\" failed", cmd);
-        exit(1);
-    }
-
-    switch (pid = fork()) {
-        case 0:
-            close(0);
-            dup2(open("/dev/null", O_RDONLY), 0);
-            pathexec(cmd, av, ev);
-            PrintOutError("exec \"%s\" failed", cmd);
-            exit(1);
-
-        case -1:
-            PrintOutError("fork failed");
-            break;
-
-        default:
-            break;
-    }
-
-    return pid;
-}
-
-#else /* ALPS */
-/* Cray_Inc: Re-worked the code a bit to keep the DPRINT message
- * from being printed when dofork is false.  An example of this
- * causing a problem is when do_exec() is called to start gdb--stderr
- * has already been connected to dbgsrv's DBGIn and the DPRINT
- * output is later interpreted as real gdb output.
- */
-static int do_exec(int dofork, char *cmd, char **av, char **ev) {
-    int pid;
-
-    if (dofork) {
-        pid = fork();
-
-        if (pid == -1) {
-            PrintOutError("fork failed");
-            return pid;
-        }
-        if (pid != 0) {
-            /* parent */
-            return pid;
-        }
-
-        /* child */
-#ifdef DEBUG
-        fprintf(stderr, "Exec: %s ", cmd);
-        dumparg(stderr, av);
-        fprintf(stderr, "\n");
-#endif
-        /* Note: Only execute the preceding DPRINT if dofork was
-         * specified.  If the fork was done by the callee, it could
-         * have re-assigned the stdio file descriptors such that
-         * writing to stderr would be problematic.
-         */
-    }
-
-    pathexec(cmd, av, ev);
-    PrintOutError("exec \"%s\" failed", cmd);
-    exit(1);
-}
-#endif /* ALPS */

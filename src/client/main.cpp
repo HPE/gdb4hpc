@@ -36,6 +36,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <fstream>
 #include <filesystem>
@@ -355,6 +356,15 @@ int main(int argc, char *argv[]) {
     Client.cmp_lower_eps = ulp;
     Client.cmp_upper_eps = ulp;
     Client.brk_pending = PendingBrkType::Auto;  // Allow pending breakpoints?
+    {
+        struct winsize ws;
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+        Client.height = ws.ws_row; // Messages longer than this many lines will
+                                   // be paged in PrintOutPagedMsg
+
+        // a non-interactive stdout will have 0 rows,
+        // which is interpreted as "never page" properly.
+    }
 
     /*
     ** Set signal handlers.

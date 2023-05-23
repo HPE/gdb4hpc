@@ -90,7 +90,7 @@ static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
         } 
     } catch (EvalError& err) {
         auto msg = std::string{err.what()} + "\n";
-        PrintOutError(msg.c_str());
+        PrintOutError("%s", msg.c_str());
         return 0;
     }
 

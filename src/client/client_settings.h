@@ -57,6 +57,8 @@ struct clnt_settings : public ClientSettingsInterface {
     double cmp_lower_eps;                          /* Lower eps limit */
     double cmp_upper_eps;                          /* upper eps limit */
     PendingBrkType brk_pending;                    /* pending breakpoint mode */
+    std::string pager;                             // External binary to use for paging large content via PrintOutPagedMsg
+    int height;                                    // PrintOutPagedMsg will only page messages with more lines than `height`
 
     // methods for ClientSettingsInterface base class
     std::string getProto() override { return proto; }

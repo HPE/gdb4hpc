@@ -161,6 +161,16 @@ b{0..1}: {{"and"},{"then","there"}}
 b{0..1}: "there"
 50: p vecOfStrings[5][2][2]
 b{0..1}: 101 'e'
+51: set print elements 3
+51: p vecOfStrings
+b{0..1}: {{},{"and"},{"then","there"}...}
+51: set print elements 4
+51: p vecOfStrings
+b{0..1}: {{},{"and"},{"then","there"},{"were"...}...}
+51: set print elements 17
+51: p vecOfVecs
+b{0..1}: {{27,24,21,18,15,12,9,6,3,0},{24,21,18,15,12,9,6...}...}
+51: set print elements 0
 51: continue
 b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 52: finish???

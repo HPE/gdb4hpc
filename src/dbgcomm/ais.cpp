@@ -28,6 +28,8 @@ static const char* skipspace(const char* s) {
     return s;
 }
 
+static std::unique_ptr<ais::Writer> makeNullWriter();
+
 void ais::Type::printIndex(int idx, std::ostream& os) const {}
 
 int ais::Type::getTypeId(ais::Writer& writer) const
@@ -57,6 +59,8 @@ void ais::Type::apply(Reader& reader, Visitor& f) const {
         f(err);
     }
 }
+
+bool ais::Type::resetTruncation() const { return true; }
     
 ais::Type::~Type() {}
 
@@ -803,11 +807,16 @@ ais::Array::Array(std::shared_ptr<Type> elemType, int len, int idx0)
 
 void ais::Array::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
-    auto mayBeTruncated = in.mayBeTruncated();
+    auto& truncater = in.truncater();
+    auto mayBeTruncated = truncater.isActive();
+    auto isTruncated = false;
 
     out.writeInt(m_numElems);
     out.writeInt(m_idx0);
     out.writeInt(mayBeTruncated);
+
+    auto outptr = &out;
+    auto locOut = std::unique_ptr<Writer>{};
 
     // assuming something like {val,val,val}
     for (int i=0; i<m_numElems; ++i) {
@@ -830,10 +839,26 @@ void ais::Array::parseL(InterpretStream& in, Writer& out) const {
 
         in.setPos(s);
 
-        auto eout = getOut(out); // give filtered array a chance to toggle 
-        if (mayBeTruncated) eout.writeInt(true); // there is another element
+        if (!isTruncated && truncater.truncate(*m_elemType)) {
+            // we've hit the set print elements count
+            // gdb currently can't truncate multi-d arrays in the middle
+            // of a row, so we'll need continue parsing and dropping elements
+            isTruncated = true;
+            out.writeInt(false); // there is not a another element
+            locOut = makeNullWriter();
+            outptr = locOut.get();
+        }
+
+        auto eout = getOut(*outptr); // give filtered array a chance to toggle 
+
+        if (mayBeTruncated) {
+            eout.writeInt(true); // there is another element
+            truncater.push(*m_elemType);  // start new counter if element is a struct
+        }
+
         m_elemType->parse(in, eout);
-            
+
+        if (mayBeTruncated) truncater.pop(*m_elemType);
     }
     s = in.get();
     for ( ;*s && isspace(*s); ++s) {}
@@ -966,13 +991,23 @@ void ais::Array::applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, in
 
 bool ais::Array::isFortran() const { return false; }
 
+bool ais::Array::resetTruncation() const { return false; }
+
 std::shared_ptr<ais::Type> ais::Array::getAtomicType() const {
     auto arr = this;
     for (auto next=this; (next=dynamic_cast<const Array*>(arr->getElemType()));
          arr=next) {}
     return arr->getElemTypePtr();
 }
- 
+
+void ais::Array::setOutput(std::unique_ptr<Output>&& out) {
+    Array* innermost = this;
+    for (Array* next; (next=dynamic_cast<Array*>(innermost->getElemTypePtr().get()));
+         innermost = next) {};
+
+    innermost->m_output = std::move(out);
+}
+
 ais::FilteredArray::Filter::Filter() {}
 ais::FilteredArray::Filter::~Filter() {}
 
@@ -1011,6 +1046,34 @@ void ais::FtnArray::printIndex(int idx, std::ostream& os) const {
 
 bool ais::FtnArray::isFortran() const { return true; }
 
+//===========================================================================
+
+ais::Truncater::Truncater(size_t limit) : m_limit(limit)
+{
+    if (limit) m_rem.push_back(limit);
+}
+
+void ais::Truncater::push(const ais::Type& nestedType) {
+    if (m_limit && nestedType.resetTruncation()) {
+        m_rem.push_back(m_limit);
+    }
+}
+void ais::Truncater::pop(const ais::Type& nestedType) {
+    if (m_limit && nestedType.resetTruncation()) {
+        m_rem.pop_back();
+    }
+}
+bool ais::Truncater::truncate(const ais::Type& nestedType) {
+    if (!m_limit) return false;
+
+    auto& n = m_rem.back();
+    if (n == 0) return true;
+
+    // only update the count on the innermost dimension
+    if (nestedType.resetTruncation()) --n;
+    return false;
+}
+ 
 //===========================================================================
 
 ais::CharArray::CharArray() {}
@@ -1314,12 +1377,8 @@ void ais::FilteredArray::parseL(InterpretStream& in, Writer& out) const {
     auto nullBuffer = std::make_shared<NullBuffer>();
     auto nullWriter = ais::Writer{nullBuffer};
 
-    Array* innermost = m_baseType.get();
-    for (Array* next; (next=dynamic_cast<Array*>(innermost->getElemTypePtr().get()));
-         innermost = next) {};
-
-    innermost->setOutput(std::make_unique<Output>(m_filter, out));
-
+    m_baseType->setOutput(std::make_unique<Output>(m_filter, out));
+    
     // write the array header info 
     out.writeInt(m_filter->getLen());
     out.writeInt(0); // idx0
@@ -1337,6 +1396,11 @@ int ais::FilteredArray::getTypeId(Writer& writer) const {
     return m_ftn ? m_ftn->getTypeId(writer) : Array::getTypeId(writer);
 }
 
+static std::unique_ptr<ais::Writer> makeNullWriter() {
+    auto nullBuffer = std::make_shared<NullBuffer>();
+    return std::make_unique<ais::Writer>(nullBuffer);
+}
+ 
 //===========================================================================
 
 ais::Vector::Vector() : m_capacity(0) {}

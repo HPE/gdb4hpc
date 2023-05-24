@@ -27,8 +27,6 @@ a{0}: 25   	}
 a{0}: 17			for (int j=0; j<i; j++) {
 7: release $a
 Shutting down debugger and resuming application for 'a'.
-Warning: an error occurred during release of $a.
-The job might be killed before completing.
 8: launch $a{1} ./bin/CRAY/C++/c_moved.x
 Starting application, please wait...
 Launched application...

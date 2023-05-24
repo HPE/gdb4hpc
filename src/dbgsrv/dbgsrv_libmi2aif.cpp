@@ -204,11 +204,11 @@ namespace {
 // "bite-sized" pieces via the Chunker object.
 class GdbResult : public ais::InterpretStream {
 public:
-    GdbResult(const char* buf) : m_buffer{buf}, m_pos{buf} {}
+    GdbResult(const char* buf) : m_buffer{buf}, m_pos{buf}, m_truncater(clientPrintElements) {}
     ~GdbResult() = default;
     const char* get() override { return m_pos; }
     void setPos(const char* pos) override { m_pos = pos; }
-    bool mayBeTruncated() override;
+    ais::Truncater& truncater() override { return m_truncater; }
 
     GdbResult(const GdbResult&) = delete;
     GdbResult& operator=(const GdbResult&) = delete;
@@ -216,11 +216,8 @@ public:
 private:
     const char* m_buffer;
     const char* m_pos;
+    ais::Truncater m_truncater;
 };
-
-bool GdbResult::mayBeTruncated() {
-    return (clientPrintElements > 0);
-}
 
 // Chunks implementation where the data is created on demand by
 // using gdb/mi to evaluate an expression.

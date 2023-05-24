@@ -248,6 +248,19 @@ private:
     std::shared_ptr<DecompIterator> m_decompIter;
 };
 
+// Nested counter for handling truncating a multi-d array
+// after n elements
+class Truncater {
+public:
+    Truncater(size_t limit);
+    bool isActive() const { return m_limit != 0; }
+    void push(const ais::Type& nestedType);
+    void pop(const ais::Type& nestedType);
+    bool truncate(const ais::Type& nestedType);
+private:
+    size_t m_limit;
+    std::vector<size_t> m_rem;
+};
 
 // The interpret stream is the result from MI that is used for the
 // parse operation.   I might be able to make this just a pure
@@ -260,7 +273,7 @@ public:
     virtual ~InterpretStream() = default;
     virtual const char* get() = 0;
     virtual void setPos(const char* pos) = 0;
-    virtual bool mayBeTruncated() = 0;
+    virtual Truncater& truncater() = 0;
 };
 
 // Visitor class for applying an arbitrary operation to a data structure.
@@ -435,6 +448,9 @@ public:
     // specialization for printing the index within a compound type
     virtual void printIndex(int idx, std::ostream& out) const;
 
+    // return true if truncation values should be reset - default is true
+    virtual bool resetTruncation() const;
+
 protected:
     // Parse gdb output and write to a data stream
     virtual void parseL(InterpretStream& in, Writer& out) const = 0;
@@ -442,7 +458,6 @@ protected:
     // Read the object form a data stream and forward to
     // an operator
     virtual void applyL(Reader& reader, Visitor& f) const = 0;
-
 };
 
 // Base class for a binary operator.   This can be use used to
@@ -796,7 +811,11 @@ public:
     void setBounds(int len, int idx0) { m_numElems = len; m_idx0 = idx0; }
 
     class Output { public: virtual Writer& getOut(ais::Writer& out) { return out; } };
-    void setOutput(std::unique_ptr<Output>&& out) { m_output = std::move(out); }
+    void setOutput(std::unique_ptr<Output>&& out);
+
+    bool resetTruncation() const;
+
+    
 protected:
     Writer& getOut(ais::Writer& out) const { return m_output->getOut(out); };
     int getElemTypeId(ais::Writer& writer) const;

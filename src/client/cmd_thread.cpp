@@ -214,8 +214,8 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
         if (Client.MI_mode && !ss.str().empty()){
             ss<<"],"<<current_thread_id<<"\"";
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",threads=%s\n%s",handle,ss.str().c_str(),
-                             GetMIEpilogue());
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",group=\"%s\",threads=%s\n%s",
+                            handle, group->toSetString().c_str(),ss.str().c_str(), GetMIEpilogue());
         }
     }
 

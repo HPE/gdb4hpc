@@ -169,8 +169,10 @@ static int cmd_backtrace_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 ss<<"[";
             }
             ss<<"]";
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",stack=%s\n%s",
-                             reply->rep_di.c_str(),ss.str().c_str(),GetMIEpilogue());
+            std::string group = reply->rep_group.get()->toSetString();
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",group=\"%s\",stack=%s\n%s",
+                             reply->rep_di.c_str(), group.substr(1,group.length()-2).c_str(),
+                             ss.str().c_str(), GetMIEpilogue());
         }
     }
 
@@ -206,11 +208,13 @@ static int cmd_frame_cmd(rec_set_t *rec_set, int argc, char **argv) {
         for (auto&& reply : rep_set) {
             auto f = EVENT_FRAME(reply->rep_event);
             auto loc = f->getLoc();
+            std::string group = reply->rep_group.get()->toSetString();
             PrintOutMIResult(MIResult::DONE,
-                             "proc_set=\"%s\",frame={level=\"%d\",addr=\"%s\","
+                             "proc_set=\"%s\",group=\"%s\",frame={level=\"%d\",addr=\"%s\","
                              "func=\"%s\",file=\"%s\",fullname=\"%s\",line=\"%d\"}\n",
-                             reply->rep_di.c_str(), f->getLevel(), loc.loc_addr,
-                             loc.loc_func, loc.loc_file, loc.loc_file, loc.loc_line);
+                             reply->rep_di.c_str(), group.substr(1,group.length()-2).c_str(), 
+                             f->getLevel(), loc.loc_addr, loc.loc_func, loc.loc_file, 
+                             loc.loc_file, loc.loc_line);
             break; // just print the first
         }
             

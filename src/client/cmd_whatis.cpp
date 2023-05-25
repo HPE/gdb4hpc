@@ -148,7 +148,9 @@ static int cmd_info_locals_cmd(rec_set_t *rec_set, int argc,
                     }else{
                         ss<<"[";
                     }
-                    ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<reply->rep_di.c_str()<<"\"}";
+                    std::string group = reply->rep_group.get()->toSetString();
+                    ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<reply->rep_di.c_str()
+                                    <<"\",group=\""<<group.substr(1,group.length()-2).c_str()<<"\"}";
                 }else{
                     PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Name:%-25s\tType:%s\n", v->var_name,
@@ -157,7 +159,9 @@ static int cmd_info_locals_cmd(rec_set_t *rec_set, int argc,
             }
             if (Client.MI_mode && !ss.str().empty()){
                 ss<<"]";
-                PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",variables=%s\n%s", reply->rep_di.c_str(),ss.str().c_str(), GetMIEpilogue());
+                std::string group = reply->rep_group.get()->toSetString();
+                PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",group=\"%s\",variables=%s\n%s", reply->rep_di.c_str(),
+                                    group.substr(1,group.length()-2).c_str(),ss.str().c_str(), GetMIEpilogue());
             }
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),

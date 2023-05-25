@@ -104,8 +104,10 @@ force_pending_break:
         else if (bpset->line() >= 0) {
             if (Client.MI_mode){
                 std::stringstream ss;
+                std::string group = reply->rep_group.get()->toSetString();
                 auto fullpath = reply->rep_di.lock()->sourcePaths().getFullPath(bpset->file());
                 ss << "proc_set=\"" << reply->rep_di.name()
+                   << "\",group=\"" << group.substr(1,group.length()-2)
                    << "\",bkpt={number=\"" << bpset->id()
                    << "\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""
                    << bpset->address() << "\",func=\"" << bpset->function()
@@ -872,8 +874,10 @@ static int cmd_info_breakpoints_cmd(rec_set_t *rec_set, int argc,
         } // for (const auto &bpset : recv_ptr->rec_di.breakpoints())
 
         if (Client.MI_mode){
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", BreakpointTable={body=[%s]}\n%s",
-                                recv_ptr->rec_di.handle().c_str(),ss.str().c_str(), GetMIEpilogue());
+            std::string group = recv_ptr->rec_group.get()->toSetString();
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", group=\"%s\",BreakpointTable={body=[%s]}\n%s",
+                                recv_ptr->rec_di.handle().c_str(),group.substr(1,group.length()-2).c_str(),
+                                ss.str().c_str(), GetMIEpilogue());
             // clear ss stream for next recv_ptr 
             ss.str("");
         }

@@ -26,7 +26,7 @@ static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes(), virtualFuncTest();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
-static void anonymousNamespace(); static void mapsTest();
+static void anonymousNamespace(), mapsTest(), vectorOfSmartPtr();
 
 
 static void trap() {
@@ -118,7 +118,7 @@ int main(int argc, char ** argv){
     virtualFuncTest();
     anonymousNamespace();
     mapsTest();
-    
+    vectorOfSmartPtr();
 
     
     delete ll;
@@ -456,5 +456,22 @@ static void mapsTest()
                                                           {16,"corner"}, {16,"puts Baby"}};
     auto em = std::map<int,int>{};
     
+    trap();
+}
+
+static void vectorOfSmartPtr() {
+    auto up1 = std::unique_ptr<PureVirtual>{new Derived{-4,0.25}};
+    auto ups = std::vector<std::unique_ptr<PureVirtual>>{};
+    auto sp1 = std::shared_ptr<PureVirtual>{new Derived{21,-1.125}};
+    auto sps = std::vector<std::shared_ptr<PureVirtual>>{};
+    auto d = Derived{3,-101.0};
+    auto p = &d;
+    auto b = (PureVirtual*)p;
+
+    for (int i=0; i<4; ++i) {
+        ups.emplace_back(new Derived{i,1.0+i});
+        sps.emplace_back(new Derived{-i,-1.0-i});
+    }
+
     trap();
 }

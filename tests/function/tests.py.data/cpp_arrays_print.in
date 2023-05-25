@@ -104,9 +104,9 @@ a{0..2}: {"%.*%/bin/CRAY/C++/cpp_arrays_print.x"}
 44: p intarray
 a{0..2}: {1,2,3...}
 45: p intarray2d
-a{0..2}: {{1,2},{3,0}}
+a{0..2}: {{1,2},{3...}}
 46: p intarray2d2
-a{0..2}: {{1,2},{3,0}...}
+a{0..2}: {{1,2},{3...}...}
 47: p two_d
 a{0..2}: {"Hel"...}
 54: set print elements 0

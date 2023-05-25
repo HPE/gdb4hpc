@@ -485,5 +485,30 @@ b{0..1}: std::unordered_map = {[16] = -8, [-4] = 1.2221}
 b{0..1}: std::unordered_multimap = {[16] = "puts Baby", [16] = "corner", [0] = "the", [0] = "in"}
 183: p em
 b{0..1}: std::map = {}
-184: q
+205: c
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp:33
+206: up
+b{0..1}: #1  vectorOfSmartPtr at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp:476
+207: p sp1
+b{0..1}: std::shared_ptr<Derived>(<2>)
+  <2>:{PureVirtual = {baseMember = 21}, dmember = -1.125}
+208: p up1
+b{0..1}: std::unique_ptr<Derived>(<2>)
+  <2>:{PureVirtual = {baseMember = -4}, dmember = 0.25}
+209: p b
+b{0..1}: (Derived*) <1>
+  <1>:{PureVirtual = {baseMember = 3}, dmember = -101}
+210: p sps
+b{0..1}: a{0}: {std::shared_ptr<PureVirtual>(<2>),(<3>),(<4>),(<5>)}
+  <2>:{baseMember = 0}
+  <3>:{baseMember = -1}
+  <4>:{baseMember = -2}
+  <5>:{baseMember = -3}
+211: p ups
+b{0..1}: {std::unique_ptr<PureVirtual>(<2>),(<3>),(<4>),(<5>)}
+  <2>:{baseMember = 0}
+  <3>:{baseMember = 1}
+  <4>:{baseMember = 2}
+  <5>:{baseMember = 3}
+212: q
 Shutting down debugger and killing application for 'b'.

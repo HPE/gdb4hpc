@@ -37,19 +37,22 @@ int ais::Type::getTypeId(ais::Writer& writer) const
     return writer.getTypeId(getTypeName());
 }
 
-void ais::Type::parse(InterpretStream& in, Writer& out) const
-{
+void ais::Type::parse(InterpretStream& in, Writer& out) const {
     auto s = skipspace(in.get());
     if (*s != '<')
         return parseL(in,out);
 
     if (auto end = strchr(s+1, '>')) {
         auto error = std::string{s, size_t(end-s+1)};
-        out.writeError(error);
+        parseError(error, out);
         in.setPos(end+1);
     } else {
         return parseL(in,out);
     }
+}
+
+void ais::Type::parseError(const std::string& error, Writer& out) const {
+    out.writeError(error);
 }
 
 void ais::Type::apply(Reader& reader, Visitor& f) const {
@@ -1839,8 +1842,6 @@ void ais::Struct::parseL(InterpretStream& in, ais::Writer& writer) const {
     auto s = in.get();
     s = skipspace(s);
 
-    if (*s == '@') throw ais::Error("got a structure reference");
-
     char endBracket = '}';
     
     if (*s == '{') {
@@ -1848,7 +1849,16 @@ void ais::Struct::parseL(InterpretStream& in, ais::Writer& writer) const {
     } else if (*s == '(') {
         ++s; endBracket = ')';  // fortran defined type
     } else {
-        fprintf(stderr, "expected opening bracket\n");
+        static const std::regex refRE{R"(^@0x[[:xdigit:]]+)"};
+        auto match = std::cmatch{};
+        if (std::regex_search(s, match, refRE)) {
+            fprintf(stderr, "got a reference for a struct\n");
+            writer.writeError("<reference>");
+            in.setPos(s+match.length(0));
+            return;
+        } else {
+            fprintf(stderr, "expected opening bracket\n");
+        }
     }
 
     auto numMembers = m_members.size();
@@ -1892,6 +1902,7 @@ void ais::Struct::parseL(InterpretStream& in, ais::Writer& writer) const {
         const auto ndf = "<No data fields>";
         auto n_ndf = strlen(ndf);
         s = skipspace(s);
+        s = skipVTable(s);
         if (strncmp(s, ndf, n_ndf) == 0) s += n_ndf;
         else fprintf(stderr, "did not find <No data fields\n");
     }
@@ -1903,7 +1914,13 @@ void ais::Struct::parseL(InterpretStream& in, ais::Writer& writer) const {
     in.setPos(s);
 }
 
-int ais::Struct::getTypeId(ais::Writer& writer) const {
+void ais::Struct::parseError(const std::string& err, Writer& out) const {
+    // If the struct has no members, I can send and error because the
+    // client won't read anything
+    if (!m_members.empty()) Type::parseError(err, out);
+}
+
+int  ais::Struct::getTypeId(ais::Writer& writer) const {
     auto typeName = "{" + m_name + ";";
 
     for (auto& [name, elem] : m_members) {
@@ -2153,13 +2170,10 @@ std::unique_ptr<ais::Printer> ais::SmartPointer::makePrinter(Printer& parent) co
                 out << "0x0";
         }
         void operator()(const std::string& val) override {
-            if (!cnt) {
-                out << val;
-            } else if (cnt == 1) {
-                out << "<" << val << ">";
-            } else {
-                out << ":" << val;
-            }
+            if (!cnt) out << val;   // smart pointer type
+            else if (cnt == 1) out << "<" << val << ">"; // contained type
+            // higher numbers are part of an array and it gets awfully
+            // cluttered to show the type every time
             ++cnt;
         }
         int cnt = 0;

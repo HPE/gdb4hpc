@@ -65,6 +65,8 @@ private:
     std::string getGdbType(const std::string& expr);
     std::string sendWhatIs(const std::string& expr);
     void getSliceType(const std::string& expr, const std::string& metaInfo);
+    std::string getSharedPtrType(const std::string& type);
+    std::string getUniquePtrType(const std::string& type);    
 };
 
 namespace {
@@ -341,6 +343,11 @@ std::string LazyMIVar::getGdbType(const std::string& exp) {
                 what = alias;
             }
         }
+
+        // we need to dig deeper to tease out the dynamic type of a smart pointer
+        if (what.starts_with("std::shared_ptr<")) what = getSharedPtrType(what);
+        else if (what.starts_with("std::unique_ptr<")) what = getUniquePtrType(what);
+
         return what;
 
     } catch (...) {
@@ -353,6 +360,70 @@ std::string LazyMIVar::getGdbType(const std::string& exp) {
             throw;
         }
     }
+}
+
+static std::string getSmartPtrType(const std::string& exprType,
+                                   const std::string& realType)
+{
+    static const auto realTypeRE = std::regex{R"(/\*\s*real type\s*=\s*(.*\S)\s*\*\s*\*/)"};
+    auto match = std::smatch{};
+    if (std::regex_match(realType, match, realTypeRE)) {
+        auto ptrBeg = exprType.find("<");
+        auto ptrEnd = findExprMatch(exprType, ptrBeg);
+        
+        auto rval = exprType.substr(0,ptrBeg+1) + match[1].str() + exprType.substr(ptrEnd);
+        DVPRINT("derived type is %s\n", rval.c_str());
+        return rval;
+
+    }
+
+    return exprType;
+}
+
+
+// attempt to find the real type of a shared_ptr 
+std::string LazyMIVar::getSharedPtrType(const std::string& exprType) {
+    auto retVal = exprType;
+    try {
+        auto ptrBeg = exprType.find("<");
+        auto ptrEnd = findExprMatch(exprType, ptrBeg);
+        auto ptrType = exprType.substr(ptrBeg+1, ptrEnd-ptrBeg-1);
+
+        auto val = std::unique_ptr<char, decltype(&std::free)>(getArrayDataString(), std::free);;
+        if (!val) return exprType;
+
+        if (auto addr = strstr(val.get(), "0x")) {
+            auto os = std::ostringstream{};
+            os << "(" << ptrType << "*)" << addr;
+            auto subType = sendWhatIs(os.str());
+
+            retVal = getSmartPtrType(exprType, subType);
+        }
+
+    } catch (...) {}  
+    
+    
+    return retVal;
+}
+
+std::string LazyMIVar::getUniquePtrType(const std::string& exprType) {
+    auto retVal = exprType;
+    try {
+        auto val = std::unique_ptr<char, decltype(&std::free)>(getArrayDataString(), std::free);;
+        if (!val) return retVal;
+
+        static const auto typeValRE = std::regex{R"(.*std::unique_ptr<(.*)>\s+containing\s+(0x.*))"};
+        auto tvMatch = std::cmatch{};
+        if (!std::regex_match(val.get(), tvMatch, typeValRE)) return retVal;
+
+        auto os = std::ostringstream{};
+        os << "(" << tvMatch[1].str() << "*)" << tvMatch[2].str();
+        auto ptrType = sendWhatIs(os.str());
+        retVal = getSmartPtrType(exprType, ptrType);
+    } catch (...) {}
+
+    return retVal;
+        
 }
 
 // Use whatis commands to determine the gdb type of `exp`. Accounts
@@ -1660,8 +1731,10 @@ PTypeFields::parseField(const std::string& type, const std::string& fieldStr) {
     // the field is type followed by name
     auto namePos = fieldStr.rfind(' ');
     if (namePos == std::string::npos) return RetType{};
-    
-    while (++namePos < fieldStr.size() && fieldStr[namePos] == '*') {}
+
+    namePos = fieldStr.find_first_not_of("*&",namePos+1);
+    if (namePos == std::string::npos) return RetType{};
+
     auto isStatic = false;
     size_t t0 = 0;
     if (fieldStr.rfind("static ",0) == 0) {

@@ -454,6 +454,7 @@ public:
 protected:
     // Parse gdb output and write to a data stream
     virtual void parseL(InterpretStream& in, Writer& out) const = 0;
+    virtual void parseError(const std::string& err, Writer& out) const;
 
     // Read the object form a data stream and forward to
     // an operator
@@ -1033,6 +1034,7 @@ public:
     void addMember(const std::string& memberName, std::shared_ptr<Type> member);
 
     void parseL(InterpretStream& in, Writer& out) const override;
+    void parseError(const std::string& err, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     void applyL(Reader& reader, Visitor& f) const override;
     void printIndex(int idx, std::ostream& out) const override;

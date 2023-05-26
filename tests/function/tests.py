@@ -296,7 +296,7 @@ def runGpuTest(test, gpu):
     if not os.path.exists(gpuScript):
         test.cancel("No " + gpuScript + " script")
 
-    runfile = makeRunFile(test, substitutions)
+    runfile = makeRunFile(test)
     outfile = getOut(test)
  
     try:

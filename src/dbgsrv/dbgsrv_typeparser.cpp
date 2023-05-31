@@ -52,6 +52,7 @@ std::tuple<std::string, std::string, std::string> getContainerTypes(TypeName t);
 std::shared_ptr<ais::Type> stlContainer(Mi2Aif& mi, const ais::Array& contType,
                                         TypeName t);
 std::shared_ptr<ais::Type> stdArray(Mi2Aif& mi, TypeName t);
+std::shared_ptr<ais::Type> stdPair(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> kokkosView(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdConditional(Mi2Aif& mi, TypeName t);
@@ -194,6 +195,7 @@ std::vector<Prim> m_cppStlPrims =
  {"std::multimap", MapWrap<ais::Multimap>()},
  {"std::unordered_map", MapWrap<ais::UnorderedMap>()},
  {"std::unordered_multimap", MapWrap<ais::UnorderedMultimap>()},
+ {"std::pair", stdPair},
  {"Kokkos::View", kokkosView},
  {"RAJA::internal::ViewBase", rajaView},      // "ptype RAJA::View<...>" will turn into this
  {"RAJA::internal::TypedViewBase", rajaView}, // or this
@@ -815,6 +817,29 @@ std::shared_ptr<ais::Type> stdArray(Mi2Aif& mi, TypeName t) {
     auto vtype = std::make_shared<ais::StdArray>(elemType,len);
     return cppWrap(vtype, t2);
 }
+
+std::shared_ptr<ais::Type> stdPair(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing stdArray container type %s\n", t.decoration.c_str());
+
+    auto [first, second, decoration] = getContainerTypes(t);
+    if (first.empty() || second.empty()) {
+        return unimplemented(mi,t);
+    }
+
+    DVPRINT("Got types: \"%s\", \"%s\", \"%s\"\n",
+            first.c_str(), second.c_str(), decoration.c_str());
+
+
+    auto t2 = TypeName{t.type  + "<" + first + "," + second + ">",
+                       std::move(decoration)};
+
+    auto firstType = getType(mi, nullptr, first.c_str());
+    auto secondType = getType(mi, nullptr, second.c_str());
+
+    auto vtype = std::make_shared<ais::Pair>(first, firstType, second, secondType);
+    return cppWrap(vtype, t2);
+}
+
 
 std::shared_ptr<ais::Type> stdString(Mi2Aif& mi, TypeName t) {
     DVPRINT("parsing stdString container type %s\n", t.decoration.c_str());

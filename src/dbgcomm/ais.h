@@ -1051,6 +1051,14 @@ public:
     void parseL(InterpretStream& in, Writer& out) const override;
 };
 
+// C++ std::pair
+class Pair : public Struct {
+public:
+    Pair(const std::string& first, std::shared_ptr<Type> firstType,
+         const std::string& second, std::shared_ptr<Type> secondType);
+    void parseL(InterpretStream& in, Writer& out) const override;
+};
+  
 // Pointer type    
 class Pointer : public Type {
 public:

@@ -2051,6 +2051,26 @@ void ais::Union::parseL(InterpretStream& in, Writer& out) const
 
 //===========================================================================
 
+ais::Pair::Pair(const std::string& first, std::shared_ptr<Type> firstType,
+                const std::string& second, std::shared_ptr<Type> secondType) :
+    ais::Struct("std::pair<" + first + "," + second + ">") {
+    addMember("first", firstType);
+    addMember("second", secondType);
+}
+
+void ais::Pair::parseL(InterpretStream& in, Writer& out) const {
+    // skip over the empty base class
+    auto s = in.get();
+    static auto firstRE = std::regex{R"(\bfirst\s*=)"};
+    auto match = std::cmatch{};
+    
+    if (std::regex_search(s, match, firstRE)) in.setPos(s += match.prefix().length());
+    Struct::parseL(in, out);
+}
+                
+
+//===========================================================================
+
 ais::Pointer::Pointer(std::string derefType) : m_derefType(std::move(derefType)) {}
 
 void ais::Pointer::parseL(InterpretStream& in, Writer& out) const {

@@ -467,10 +467,13 @@ static void vectorOfSmartPtr() {
     auto d = Derived{3,-101.0};
     auto p = &d;
     auto b = (PureVirtual*)p;
+    auto pr = std::make_pair(true, sp1);
+    auto vps = std::vector<std::pair<int,std::shared_ptr<PureVirtual>>>{};
 
     for (int i=0; i<4; ++i) {
         ups.emplace_back(new Derived{i,1.0+i});
         sps.emplace_back(new Derived{-i,-1.0-i});
+        vps.push_back(std::make_pair(i, sps.back()));
     }
 
     trap();

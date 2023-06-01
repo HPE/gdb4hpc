@@ -420,6 +420,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_bd_dt.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_bd_dt.f90
 %{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_cmp_diff.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_cmp_diff.f90
 %{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_decomp.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_decomp.f90
+%{__cp} -a %{tests_source_dir}/function/src/fortran/ftn_omp.f90 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_omp.f90
 
 %{__cp} -a %{tests_source_dir}/function/src/raja/view-layout_solution.cpp                         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/view-layout_solution.cpp
 %{__cp} -a %{tests_source_dir}/function/src/raja/view-layout-decomp_solution.cpp                  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/view-layout-decomp_solution.cpp
@@ -494,6 +495,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cudaGpu.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/qsub.template           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/rocm/pinoak-login1.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/rocm/pea2k.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pea2k.sh
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda/pegasus.sh         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pegasus.sh
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_views.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_views.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_tile.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_tile.in
@@ -802,6 +804,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_bd_dt.f90
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_cmp_diff.f90
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_decomp.f90
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran/ftn_omp.f90
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/view-layout_solution.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/view-layout-decomp_solution.cpp
@@ -874,6 +877,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pea2k.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pegasus.sh
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_views.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_tile.in

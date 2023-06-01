@@ -803,6 +803,11 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "rocmGpu"
         runGpuTest(self, "rocm")
 
+    @avocado.skipIf(not os.path.exists("./tests.py.data/rocm/" + socket.gethostname() + ".sh"))
+    def test_ftn_rocmGpu(self):
+        self.base_name = "ftn_rocmGpu"
+        runGpuTest(self, "rocm")
+
     @avocado.skipIf(not os.path.exists("./tests.py.data/cuda/" + socket.gethostname() + ".sh"))
     def test_cudaGpu(self):
         self.base_name = "cudaGpu"

@@ -38,7 +38,8 @@ CTI_TESTS = \
 # tests which require GPUs
 GPU_TESTS = \
 	./bin/CRAY/c/simple_gpu-rocm.x \
-	./bin/CRAY/c/simple_gpu-cuda.x
+	./bin/CRAY/c/simple_gpu-cuda.x \
+	./bin/CRAY/fortran/ftn_omp-rocm.x
 
 RAJA_TESTS = \
 	./bin/CRAY/raja/view-layout_solution.x \
@@ -241,6 +242,12 @@ CUDA_SCRIPT = ./tests.py.data/cuda/$(HOSTNAME).sh
 	if [ -f $(CUDA_SCRIPT) ] ; then \
 		$(CUDA_SCRIPT) make $< $@; \
 	fi
+
+./bin/CRAY/fortran/ftn_omp-rocm.x : ./src/fortran/ftn_omp.f90 $(wildcard $(ROCM_SCRIPT))
+	if [ -f $(ROCM_SCRIPT) ] ; then \
+		$(ROCM_SCRIPT) make $< $@; \
+	fi
+
 
 raja: $(RAJA_TESTS)
 

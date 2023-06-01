@@ -14,6 +14,8 @@ echo "in pea2k.sh" $*
 if [ x$1 == xmake ]; then
     echo  cc -gheterogeneous-dwarf -O0 -fopenmp -DUSE_MPI ./src/c/simple_gpu.c -o ./bin/${PE_ENV}/c/simple_gpu-rocm.x
     cc -gheterogeneous-dwarf -O0 -fopenmp -DUSE_MPI ./src/c/simple_gpu.c -o ./bin/${PE_ENV}/c/simple_gpu-rocm.x
+    echo ftn -g --gheterogeneous-dwarf O0 -h omp ./src/fortran/ftn_omp.f90 -o ./bin/${PE_ENV}/fortran/ftn_omp-rocm.x
+    ftn -g -gheterogeneous-dwarf -O0 -h omp ./src/fortran/ftn_omp.f90 -o ./bin/${PE_ENV}/fortran/ftn_omp-rocm.x
    exit 0
 fi
 

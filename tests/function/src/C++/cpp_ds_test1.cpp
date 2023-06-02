@@ -27,7 +27,7 @@ static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest()
 static void obscureDataTypes(), virtualFuncTest();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
 static void anonymousNamespace(), mapsTest(), vectorOfSmartPtr();
-
+static float refs();
 
 static void trap() {
     std::cout << "trap function\n";
@@ -56,55 +56,55 @@ private:
 };
 
 int main(int argc, char ** argv){
-	int x[5] = {1,2,3,4,5};
-	MPI_Init(&argc, &argv);
-	if(dup2(2,1) < 0)    return 1;
-	Rectangle rect (3,4);
-	Rectangle rectb (5,6);
-	int i=0;
-	int area1=0;
-	int area2=0;
-	std::map<int, int> m;
-	std::list<int> l;
-	std::deque<int> d;
-	std::stack<int> s;
-	std::queue<int> q;
-	std::priority_queue<int> pq;
-	std::vector<float> vf;
-	std::vector<double> vd;
-	std::vector<int *> ip;
-	std::vector<Rectangle > vv;
+    int x[5] = {1,2,3,4,5};
+    MPI_Init(&argc, &argv);
+    if(dup2(2,1) < 0)    return 1;
+    Rectangle rect (3,4);
+    Rectangle rectb (5,6);
+    int i=0;
+    int area1=0;
+    int area2=0;
+    std::map<int, int> m;
+    std::list<int> l;
+    std::deque<int> d;
+    std::stack<int> s;
+    std::queue<int> q;
+    std::priority_queue<int> pq;
+    std::vector<float> vf;
+    std::vector<double> vd;
+    std::vector<int *> ip;
+    std::vector<Rectangle > vv;
     LinkedList* ll = new LinkedList;
     std::string ss{"So this grasshopper walks into a bar.."}, ss2{"hey: \"embedded quotes\""};
-	while(i < 10 ){
-		vv.push_back(rect);
-		ip.push_back((int*)0x1234);
-		vd.push_back(i+.5);
-		vf.push_back(i+0.5);
-		l.push_back(i);
-		d.push_back(i);
-		s.push(i);
-		q.push(i);
-		pq.push(i);  m.insert(std::make_pair((17*i)%13,i));
-		rect.width++;
-		rect.height++;
-		rect.vec.push_back(++i);
-		rect.vec.at(0);
-		area1 = rect.area();
-		area2 = rectb.area();
+    while(i < 10 ){
+        vv.push_back(rect);
+        ip.push_back((int*)0x1234);
+        vd.push_back(i+.5);
+        vf.push_back(i+0.5);
+        l.push_back(i);
+        d.push_back(i);
+        s.push(i);
+        q.push(i);
+        pq.push(i);  m.insert(std::make_pair((17*i)%13,i));
+        rect.width++;
+        rect.height++;
+        rect.vec.push_back(++i);
+        rect.vec.at(0);
+        area1 = rect.area();
+        area2 = rectb.area();
         ll->push((i*3)%5);
-	}
+    }
     void* my_null = nullptr;       
-	int l_tail = l.back();
-	int pq_tail = pq.top();
-	int stack_top=s.top();
-	int q_queue_tail=q.back();
-	int d_queue_tail=d.back();
-	float vec_float=vf.back();
-	double vec_double=vd.back();
-	Struct1 s1 = { 22.1, -5 };
-	Classy c1(22.2, -6);
-	f(s1,c1);
+    int l_tail = l.back();
+    int pq_tail = pq.top();
+    int stack_top=s.top();
+    int q_queue_tail=q.back();
+    int d_queue_tail=d.back();
+    float vec_float=vf.back();
+    double vec_double=vd.back();
+    Struct1 s1 = { 22.1, -5 };
+    Classy c1(22.2, -6);
+    f(s1,c1);
 
     variableSizeDataTest();
     templateClassTest();
@@ -119,7 +119,7 @@ int main(int argc, char ** argv){
     anonymousNamespace();
     mapsTest();
     vectorOfSmartPtr();
-
+    refs();
     
     delete ll;
     MPI_Finalize();
@@ -348,9 +348,9 @@ public:
   Classy2(Double ax, int ay) : x(ax), y(ay), n(15) {}
 
   struct Nesty {
-	  typedef int Int;
-	  Nesty(Int a) : ch_ch_ch_cherry_bomb(a) {}
-	  Int ch_ch_ch_cherry_bomb;
+      typedef int Int;
+      Nesty(Int a) : ch_ch_ch_cherry_bomb(a) {}
+      Int ch_ch_ch_cherry_bomb;
   };
   static void setZZ(int val) { zz = val; }
 private:
@@ -477,4 +477,88 @@ static void vectorOfSmartPtr() {
     }
 
     trap();
+}
+
+static float refs() {
+    {   // lvalue refs
+        auto s = Struct1{};
+        s.x = 11;
+        s.y = 22;
+        auto cl = Classy(33, 44);
+        auto m = Moderne<Struct1>(
+            {.x = 55, .y = 66},
+            {.x = 77, .y = 88},
+            {.x = 99, .y = 00}
+        );
+        int ia[4] = {555, 666, 777, 888};
+        char ca[12] = "lorem ipsum";
+        int ia2[2][4] = {{111, 222, 333, 444}, {555, 666, 777, 888}};
+        char ca2[2][12] = {"lorem ipsum", "dolor sit a"};
+
+        const auto l = [&]() {
+            cl = Classy(55, 66);
+            m = Moderne<Struct1>(
+                {.x = 555, .y = 666},
+                {.x = 777, .y = 888},
+                {.x = 999, .y = 0000}
+            );
+            auto ret =  s.y + ia[0] + ia2[1][1] + ca[0] + ca2[1][2];
+            trap();
+            return ret;
+        }();
+    }
+
+    {   // rvalue refs
+        auto s = Struct1{};
+        s.x = 11;
+        s.y = 22;
+        auto cl = Classy(33, 44);
+        auto m = Moderne<Struct1>(
+            {.x = 55, .y = 66},
+            {.x = 77, .y = 88},
+            {.x = 99, .y = 00}
+        );
+        int ia[4] = {555, 666, 777, 888};
+        char ca[12] = "lorem ipsum";
+        int ia2[2][4] = {{111, 222, 333, 444}, {555, 666, 777, 888}};
+        char ca2[2][12] = {"lorem ipsum", "dolor sit a"};
+
+        const auto l = [](Struct1&& s, Classy&& cl, Moderne<Struct1>&& m,
+			  int (&&ia)[4], char (&&ca)[12],
+			  int (&&ia2)[2][4], char (&&ca2)[2][12]) {
+            cl = Classy(55, 66);
+            m = Moderne<Struct1>(
+                {.x = 555, .y = 666},
+                {.x = 777, .y = 888},
+                {.x = 999, .y = 0000}
+            );
+            auto ret =  s.y + ia[0] + ia2[1][1] + ca[0] + ca2[1][2];
+            trap();
+            return ret;
+        }(std::move(s), std::move(cl), std::move(m), std::move(ia), std::move(ca), std::move(ia2), std::move(ca2));
+    }
+
+    {   // length-encoded pointers
+        int ia[2][2] = {{555, 666}, {777, 888}};
+	// int (*iap)[2] = ia;        // not implemented, see PE-48404
+	// int (**iapp)[2] = &iap;    // not implemented, see PE-48404
+	// int (***iappp)[2] = &iapp; // not implemented, see PE-48404
+	// auto iar = std::move(ia);  // not implemented, see PE-48404
+
+        char ca[2][6] = {"lorem", "ipsum"};
+	// char (*cap)[6] = &ca[1];    // not implemented, see PE-48404
+	// char (**capp)[6] = &cap;    // not implemented, see PE-48404
+	// char (***cappp)[6] = &capp; // not implemented, see PE-48404
+	// auto car = std::move(ca);   // not implemented, see PE-48404
+
+	// multi level function pointers and function references
+	auto& fr = refs;
+	auto* fp = refs;
+	// auto** fpp = &fp;    // not implemented, see PE-48405
+	// auto*** fppp = &fpp; // not implemented, see PE-48405
+
+	trap();
+    }
+
+    return 0;
 }

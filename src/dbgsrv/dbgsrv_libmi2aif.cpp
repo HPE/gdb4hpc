@@ -275,6 +275,24 @@ static void DeleteMIVar(MISession* session, MIVar* mivar)
     }
 }
 
+static bool typeIsReference(const char* str) {
+    if (!str) return false;
+
+    // check for the most common form, e.g. "int&", "double &&"
+    for (auto s = str+strlen(str); s != str; ) {
+        if (auto c = *--s; c == '&') return true;
+        else if (!std::isspace(c)) break;
+    }
+
+    // check for the reference to array form, e.g. "int (&)[4]", "double (&&)[4][4]"
+    {
+        const static std::regex array_ref_re(R"(^.* \(&&?\)(\[\d+\])+)");
+        if (std::regex_match(str, array_ref_re)) return true;
+    }
+
+    return false;
+}
+
 LazyMIVar::LazyMIVar(Mi2Aif& mi, std::string expr) 
     : m_mi{mi}, m_expr{std::move(expr)}
 {}
@@ -1193,32 +1211,32 @@ std::unique_ptr<RajaSubArray>
 RajaSubArray::get(Mi2Aif& mi, const std::string& expr,
                   std::string_view meta_info,
                   const std::shared_ptr<ais::RajaView> raja_view) {
-    // get view bounds from gdb
+    // prepare to get view bounds from gdb
     auto paren = expr.find_last_of('('); // npos is ok
     auto base_expr = expr.substr(0, paren);
 
-    auto res = std::unique_ptr<char, decltype(&free)>
-        (EvalExpression(mi.getSession(), base_expr.c_str()), free);
-    if (!res) throw std::runtime_error("EvalExpression failed");
-
-    // if it turns out that base_expr is a reference, res will contain
-    // something like "@0x7ffeaf99b110" instead of the data we want.
-    //
-    // PE-47549 might fix this one day.
-    if (::strncmp(res.get(), "@0x", 3) == 0) {
-        base_expr = "*&" + base_expr;
-        res.reset(EvalExpression(mi.getSession(), base_expr.c_str()));
-        if (!res) throw std::runtime_error("EvalExpression failed");
+    {
+        // RAJA uses capture-by-reference lambdas a lot, and gdb will evaluate
+        // some RAJA types as @0xffffabcce038 (a printout of a reference)
+        // instead of the info we want. "*&" tricks gdb into giving us the right info.
+        auto var = LazyMIVar(mi, base_expr).getVar(); // throws on failure
+        if (typeIsReference(var->type)) base_expr = "*&" + base_expr;
     }
+
+    // make request for bounds
+    auto bounds_data = std::unique_ptr<char, decltype(&::free)>(
+        EvalExpression(mi.getSession(), base_expr.c_str()), ::free
+    );
+    if (!bounds_data) throw std::runtime_error("EvalExpression failed");
 
     // some view types have their bounds encoded as template
     // arguments, and some have their bounds as explicit member
     // variables. we have no way to know ahead of time which
     // one we're dealing with, so we arbitrarily try template args
     // first, then member variables.
-    auto bounds = ais::RajaView::spanFromTemplateArgs(res.get());
+    auto bounds = ais::RajaView::spanFromTemplateArgs(bounds_data.get());
     if (!bounds.isValid())
-        bounds = ais::RajaView::spanFromMembers(res.get());
+        bounds = ais::RajaView::spanFromMembers(bounds_data.get());
 
     // it's possible that both parses failed and bounds is invalid.
     // we still set the bounds anyway and let the ais printing/parsing
@@ -2119,15 +2137,6 @@ namespace {
         ~DepthTracker() { --m_depth; }
         bool isTop() const { return (m_depth == 1); }
     };
-}
-
-static bool typeIsReference(const char* str) {
-    if (!str) return false;
-    for (auto s = str+strlen(str); s != str; ) {
-        if (auto c = *--s; c == '&') return true;
-        else if (!std::isspace(c)) break;
-    }
-    return false;
 }
 
 char *LazyMIVar::getArrayDataString() {

@@ -311,9 +311,10 @@ std::string sanitizeType(const std::string& type) {
 
     // remove leading and trailing whitespace
     if (auto p = sanType.find_first_not_of(' ')) sanType.erase(0,p);
-    if (auto p = sanType.find_last_not_of(" &"); p != std::string::npos) {
+    if (auto p = sanType.find_last_not_of(' '); p != std::string::npos) {
         sanType.erase(p+1);
     }
+
     return sanType;
 }
 
@@ -630,7 +631,7 @@ std::shared_ptr<ais::Type> getFtnType(Mi2Aif& mi, const char* typeStr) {
 std::shared_ptr<ais::Type> cppWrap(std::shared_ptr<ais::Type> elemType, TypeName t) {
     auto beg = t.decoration.find_first_not_of(' ');
     if (beg == std::string::npos) {
-        return std::move(elemType);
+        return elemType;
     }
 
     DVPRINT("wrap decoration is \"%s\"\n", t.decoration.c_str());
@@ -667,14 +668,19 @@ std::shared_ptr<ais::Type> cppWrap(std::shared_ptr<ais::Type> elemType, TypeName
             w.reset(new ais::Array(w, len));
         }
     } else if (c == '(') {
-        for (int level=1; level && ++end != r.size(); ) {
-            switch (r[end]) {
-            case '(': ++level; break;
-            case ')': --level; break;
-            default: break;
-            }
+        if (std::string_view(t.decoration).substr(beg, 3) == "(&)"
+         || std::string_view(t.decoration).substr(beg, 4) == "(&&)")
+        {
+            // reference to an array (e.g. "int (&)[4]") or reference to a
+            // function (e.g. void (&)(void)). ignore the reference symbol and
+            // let the next parse handle the rest
+            w = elemType;
+            end = t.decoration.find(')', beg);
+        } else {
+            // function
+            end = findExprMatch(t.decoration, beg);
+            w.reset(new ais::Function);
         }
-        w.reset(new ais::Function);
     } else if (c == '@') {
         // gpu register tag - like @local
         while ( ::isalpha(r[end+1])) ++end;
@@ -935,6 +941,9 @@ std::shared_ptr<ais::Type> charWrap(std::shared_ptr<ais::Type> elemType,
         return elemType;
     } else if (t.decoration[beg] == '*') {
         return cppWrap(std::make_shared<ais::CharArray>(), TypeName{t, beg+1});
+    } else if (t.decoration[beg] == '&') {
+        // ignore reference
+        return charWrap(elemType, TypeName{t, beg+1});
     } else if (t.decoration[beg] == '[') {
         DVPRINT("processing '['\n");
         
@@ -955,7 +964,13 @@ std::shared_ptr<ais::Type> charWrap(std::shared_ptr<ais::Type> elemType,
 
         DVPRINT("remainder is %s\n", t2.decoration.c_str());
         return cppWrap(std::make_shared<ais::CharArray>(), t2);
-
+    } else if (std::string_view(t.decoration).substr(beg, 3) == "(&)"
+            || std::string_view(t.decoration).substr(beg, 4) == "(&&)")
+    {
+        // reference to an array (e.g. char (&)[4]). ignore the reference symbol
+        // and let the next parse handle array size
+        auto end = t.decoration.find(')', beg);
+        return charWrap(elemType, TypeName{t, end + 1});
     } else {
         return std::make_shared<ais::Unimplemented>(t.type + t.decoration);
     }
@@ -1207,12 +1222,22 @@ TEST_CASE("TypeParser::sanitizeType") {
     CHECK(st("char  ") == std::string("char"));
     CHECK(st("  char  ") == std::string("char"));
 
-    // cpp
+    // cpp keywords
     CHECK(st("const char") == std::string("char"));
     // "signed" has an exception for chars
     CHECK(st("signed char") == std::string("signed char"));
     CHECK(st("signed int") == std::string("int"));
     CHECK(st("volatile char") == std::string("char"));
+
+    // c/cpp arrays
+    CHECK(st("char[8]") == std::string("char[8]"));
+    CHECK(st("char [8]") == std::string("char [8]"));
+    CHECK(st("char[8][8]") == std::string("char[8][8]"));
+    CHECK(st("char [8] [8]") == std::string("char [8] [8]"));
+    CHECK(st("signed int[8]") == std::string("int[8]"));
+    CHECK(st("signed int [8]") == std::string("int [8]"));
+    CHECK(st("signed int[8][8]") == std::string("int[8][8]"));
+    CHECK(st("signed int [8] [8]") == std::string("int [8] [8]"));
 
     // ftn
     CHECK(st("SHARED char") == std::string("char"));

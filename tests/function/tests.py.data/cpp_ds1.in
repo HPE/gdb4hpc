@@ -519,5 +519,85 @@ b{0..1}: {{first = 0, second = std::shared_ptr<PureVirtual>(<2>)},{first = 1, se
   <3>:{baseMember = -1}
   <4>:{baseMember = -2}
   <5>:{baseMember = -3}
+214: c
+b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:33
+215: up
+b{0..1}: #1  refs at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:506
+215: whatis s
+b{0..1}: Struct1 &
+215: p s
+b{0..1}: {x = 11, y = 22}
+215: whatis cl
+b{0..1}: Classy &
+215: p cl
+b{0..1}: {x = 55, y = 66}
+215: whatis m
+b{0..1}: Moderne<Struct1> &
+215: p m
+b{0..1}: {v = {{x = 555, y = 666},{x = 777, y = 888},{x = 999, y = 0}}, sp = std::shared_ptr<Struct1>(<2>), up = std::unique_ptr<Struct1>(<3>)}
+  <2>:{x = 555, y = 666}
+  <3>:{x = 999, y = 0}
+215: whatis ia
+b{0..1}: int (&)[4]
+215: p ia
+b{0..1}: {555,666,777,888}
+215: whatis ca
+b{0..1}: char (&)[12]
+215: p ca
+b{0..1}: "lorem ipsum"
+215: whatis ia2
+b{0..1}: int (&)[2][4]
+215: p ia2
+b{0..1}: {{111,222,333,444},{555,666,777,888}}
+215: whatis ca2
+b{0..1}: char (&)[2][12]
+215: p ca2
+b{0..1}: {"lorem ipsum","dolor sit a"}
+215: c
+b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:33
+215: up
+b{0..1}: #1  refs at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:536
+215: whatis s
+b{0..1}: Struct1 &&
+215: p s
+b{0..1}: {x = 11, y = 22}
+215: whatis cl
+b{0..1}: Classy &&
+215: p cl
+b{0..1}: {x = 55, y = 66}
+215: whatis m
+b{0..1}: Moderne<Struct1> &&
+215: p m
+b{0..1}: {v = {{x = 555, y = 666},{x = 777, y = 888},{x = 999, y = 0}}, sp = std::shared_ptr<Struct1>(<2>), up = std::unique_ptr<Struct1>(<3>)}
+  <2>:{x = 555, y = 666}
+  <3>:{x = 999, y = 0}
+215: whatis ia
+b{0..1}: int (&&)[4]
+215: p ia
+b{0..1}: {555,666,777,888}
+215: whatis ca
+b{0..1}: char (&&)[12]
+215: p ca
+b{0..1}: "lorem ipsum"
+215: whatis ia2
+b{0..1}: int (&&)[2][4]
+215: p ia2
+b{0..1}: {{111,222,333,444},{555,666,777,888}}
+215: whatis ca2
+b{0..1}: char (&&)[2][12]
+215: p ca2
+b{0..1}: {"lorem ipsum","dolor sit a"}
+215: c
+b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:33
+215: up
+b{0..1}: #1  refs at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:560
+216: whatis fr
+b{0..1}: float (&)(void)
+216: p fr
+b{0..1}: float (void) <refs()>
+216: whatis fp
+b{0..1}: float (*)(void)
+216: p fp
+b{0..1}: <refs()>
 214: q
 Shutting down debugger and killing application for 'b'.

@@ -10,6 +10,9 @@ build:
       optional-modules:
       - PrgEnv-cray
       - cray-cti-devel
+      - cray-dsmml
+      - cray-shmem
+      - cray-openshmemx
     raja:
       can-fail: yes
     gnu:

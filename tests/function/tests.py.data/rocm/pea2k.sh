@@ -3,6 +3,7 @@
 PE_ENV="${PE_ENV-CRAY}"
 
 #module load PrgEnv-amd
+module load rocm
 module load craype-accel-amd-gfx908
 
 export OMP_DEBUG=enabled

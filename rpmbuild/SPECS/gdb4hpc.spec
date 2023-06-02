@@ -400,6 +400,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/src/c/libfoo.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libfoo.c
 %{__cp} -a %{tests_source_dir}/function/src/c/libbar.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libbar.c
 %{__cp} -a %{tests_source_dir}/function/src/c/simple_gpu.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/simple_gpu.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_shmem.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_shmem.c
 
 %{__cp} -a %{tests_source_dir}/function/src/C++/cpp_arrays.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays.cpp
 %{__cp} -a %{tests_source_dir}/function/src/C++/cpp_arrays_print.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays_print.cpp
@@ -481,15 +482,17 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_viewset.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_viewset.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_whatis.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_whatis.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_segv.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_segv.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_shmem.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_shmem.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_arrays.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_arrays.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_decomp.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_decomp.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_ds1.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_ds1.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_t1.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t1.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_t2.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t2.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_cpp_t3.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t3.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t1.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t1.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t2.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t2.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/lgdb_ftn_t3.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t3.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_rocmGpu.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_rocmGpu.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_ds1.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_ds1.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_t1.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_t1.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_t2.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_t2.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_t3.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_t3.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_t1.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_t1.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_t2.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_t2.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/ftn_t3.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_t3.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/sbatch.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/sbatch.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/rocmGpu.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocmGpu.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cudaGpu.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
@@ -784,6 +787,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libfoo.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libbar.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/simple_gpu.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_shmem.c
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays_print.cpp
@@ -863,15 +867,17 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_viewset.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_whatis.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_segv.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_shmem.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_arrays.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_decomp.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_ds1.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t1.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t2.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_cpp_t3.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t1.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t2.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/lgdb_ftn_t3.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_rocmGpu.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_ds1.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_t1.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_t2.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_t3.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_t1.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_t2.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_t3.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/sbatch.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocmGpu.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in

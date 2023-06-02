@@ -515,35 +515,40 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_half_exit"
         runTest(self)
 
-    def test_lgdb_cpp_t1(self):
-        self.base_name = "lgdb_cpp_t1"
+    @avocado.skipIf(not os.path.isfile("bin/CRAY/c/c_shmem.x") , "No shmem")
+    def test_c_shmem(self):
+        self.base_name = "c_shmem"
+        runTest(self)
+
+    def test_cpp_t1(self):
+        self.base_name = "cpp_t1"
         runTest(self)
         
-    def test_lgdb_cpp_t2(self):
-        self.base_name = "lgdb_cpp_t2"
+    def test_cpp_t2(self):
+        self.base_name = "cpp_t2"
         runTest(self)
         
-    def test_lgdb_cpp_t3(self):
-        self.base_name = "lgdb_cpp_t3"
+    def test_cpp_t3(self):
+        self.base_name = "cpp_t3"
         runTest(self)
         
-    def test_lgdb_cpp_ds1(self):
-        self.base_name = "lgdb_cpp_ds1"
-        runTest(self)
-        
-    @avocado.skipIf(should_skip_fortran_tests(), "Broken ftn compiler")
-    def test_lgdb_ftn_t1(self):
-        self.base_name = "lgdb_ftn_t1"
-        runTest(self)
-        
-    @avocado.skipIf(should_skip_fortran_tests(), "Broken ftn compiler")
-    def test_lgdb_ftn_t2(self):
-        self.base_name = "lgdb_ftn_t2"
+    def test_cpp_ds1(self):
+        self.base_name = "cpp_ds1"
         runTest(self)
         
     @avocado.skipIf(should_skip_fortran_tests(), "Broken ftn compiler")
-    def test_lgdb_ftn_t3(self):
-        self.base_name = "lgdb_ftn_t3"
+    def test_ftn_t1(self):
+        self.base_name = "ftn_t1"
+        runTest(self)
+        
+    @avocado.skipIf(should_skip_fortran_tests(), "Broken ftn compiler")
+    def test_ftn_t2(self):
+        self.base_name = "ftn_t2"
+        runTest(self)
+        
+    @avocado.skipIf(should_skip_fortran_tests(), "Broken ftn compiler")
+    def test_ftn_t3(self):
+        self.base_name = "ftn_t3"
         runTest(self)
 
     def test_assert_scalars(self):

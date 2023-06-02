@@ -25,6 +25,7 @@ a{0}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/sr
 a{0}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/fortran/ftn_omp.f90, line 18.
 20: c
 a{0}: Breakpoint 1, main_$ck_L11_4 at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/fortran/ftn_omp.f90:15
+21: maint sleep 1
 21: info threads
 a{0}:   Id    Frame
 a{0}: * 1-2   "ftn_omp-rocm.x" (running)

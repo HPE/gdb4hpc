@@ -1,0 +1,31 @@
+1: maint set sync on
+2: launch $a{4} ./bin/CRAY/c/c_shmem.x
+Starting application, please wait...
+Launched application...
+4/4 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..3}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/c/c_shmem.c:6
+3: b 24
+a{0..3}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/c/c_shmem.c, line 24.
+4: c
+a{0..3}: Breakpoint 1, main at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/c/c_shmem.c:24
+5: p vec1[0]@4
+a{0..3}: {0,0,0,0}
+6: p local
+a{0}: {0,1,2,3}
+a{1}: {4,5,6,7}
+a{2}: {8,9,10,11}
+a{3}: {12,13,14,15}
+7: n 2
+a{0..3}: 28	  shmem_free(vec1);
+8: p vec1[0]@4
+a{0}: {12,13,14,15}
+a{1}: {0,1,2,3}
+a{2}: {4,5,6,7}
+a{3}: {8,9,10,11}
+9: c
+a{0..3}: The application has reached an exit breakpoint.
+10: q
+Shutting down debugger and killing application for 'a'.

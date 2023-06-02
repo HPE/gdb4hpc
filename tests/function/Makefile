@@ -1,4 +1,4 @@
-# Copyright 2022 Hewlett Packard Enterprise Development LP.
+# Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
 
 # Get $PE_ENV from environment to generate directories for output binaries.
 # IF $PE_ENV isn't set, just use CRAY
@@ -80,7 +80,7 @@ endif
 IN_YELLOW = \033[1;33m
 NO_COLOR = \033[0m
 
-all: dirs $(TESTS) kokkosTest
+all: dirs $(TESTS) kokkosTest shmemTest
 
 ifeq (${CTI_INSTALL_DIR}no,no)
 	@echo -e "$(IN_YELLOW)CTI development libraries not found, skipping tests that require them."
@@ -142,6 +142,12 @@ clean:
 	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/c_half_exit.x : ./bin/${PE_ENV}/c/c_half_exit.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+shmemTest :
+	$(MAKE) -i ./bin/${PE_ENV}/c/c_shmem.x 
+
+./bin/${PE_ENV}/c/c_shmem.x : ./bin/${PE_ENV}/c/c_shmem.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_bd_test.x : ./bin/${PE_ENV}/C++/cpp_bd_test.o

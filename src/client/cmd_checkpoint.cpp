@@ -76,7 +76,7 @@ static int cmd_info_checkpoints_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     // One pass to calibrate table entry widths
     for (const auto &[id, checkpointsV] : idMap) {
-        for (const auto [di, checkPtr] : checkpointsV) {
+        for (const auto &[di, checkPtr] : checkpointsV) {
             if (!di.lock() || !checkPtr) {
                 // shouldn't happen...
                 continue;
@@ -94,7 +94,7 @@ static int cmd_info_checkpoints_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // Print data
     for (const auto &[id, checkpointsV] : idMap) {
         std::string idStr = std::to_string(id);
-        for (const auto [di, checkPtr] : checkpointsV) {
+        for (const auto &[di, checkPtr] : checkpointsV) {
             if (!di.lock() || !checkPtr) {
                 // shouldn't happen...
                 PrintOutError("Warning: null checkpoint data\n");

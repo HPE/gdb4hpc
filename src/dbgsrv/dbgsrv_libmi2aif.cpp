@@ -19,6 +19,7 @@
 #include <regex>
 #include <cctype>
 #include <algorithm>
+#include <limits>
 
 #include "dbgevent.h"
 #include "dbgsrv_defs.h"

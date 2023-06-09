@@ -1060,12 +1060,8 @@ dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
 }
 
 static dbgframe_t* MakeFrameFromMIFrame(MIFrame* mi, bool keepAddr) {
-    dbgloc resLoc{
-        .loc_file = StrdupOpt(mi->file), 
-        .loc_func = StrdupOpt(mi->func), 
-        .loc_addr = keepAddr ? StrdupOpt(mi->addr) : nullptr, 
-        .loc_line = mi->line
-    };
+    dbgloc resLoc{StrdupOpt(mi->file), StrdupOpt(mi->func),
+        keepAddr ? StrdupOpt(mi->addr) : nullptr, mi->line};
     return new dbgframe_t{mi->level, resLoc, nullptr, nullptr, nullptr};
 }
 

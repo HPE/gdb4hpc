@@ -32,7 +32,7 @@ constexpr const char* ScopeScript = "per script";
 
 // returned by the settings api
 using Item = std::variant<
-    nullptr_t,   // used when a setting doesn't exist 
+    std::nullptr_t,  // used when a setting doesn't exist 
     const char*, // helper to allow passing Item to table printing functions. not actually used as a setting
     // ptr returned to user, const ptr used to allow defaults to be used in constexpr functions
     bool*, const bool*, 

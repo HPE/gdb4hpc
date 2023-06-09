@@ -865,7 +865,7 @@ static void ProgOutLineStream(DbgInvoke *di, FILE *o_stream) {
 
     cli_save_stream();
 
-    while (fgets(line, BUFSIZ, o_stream) > 0) {
+    while (fgets(line, BUFSIZ, o_stream)) {
         ProgOutLine(di, line);
     }
 

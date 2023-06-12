@@ -41,6 +41,7 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-break-insert", "break" },
  {"-break-list", "info breakpoints"},
  {"-compare", "compare"},
+ {"-show", "show"},
  {"-data-list-register-names", "ok,register-names=[]"},
  {"-enable-frame-filters", "ok"},
  {"-enable-pretty-printing", "set print pretty on"},

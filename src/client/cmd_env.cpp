@@ -775,12 +775,15 @@ static int cmd_set_error_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_show_error_cmd(rec_set_t *rec_set, int argc,
                                        char **argv) {
-    PrintOutMsg("Warning epsilon: ");
-    PrintOutMsg("%.16lg", Client.cmp_lower_eps);
-    PrintOutMsg("\nError epsilon: ");
-    PrintOutMsg("%.16lg", Client.cmp_upper_eps);
-    PrintOutMsg("\n");
-
+    if (!Client.MI_mode){
+        PrintOutMsg("Warning epsilon: ");
+        PrintOutMsg("%.16lg", Client.cmp_lower_eps);
+        PrintOutMsg("\nError epsilon: ");
+        PrintOutMsg("%.16lg", Client.cmp_upper_eps);
+        PrintOutMsg("\n");
+    }else{
+        PrintOutMIResult(MIResult::DONE,"epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}\n", Client.cmp_lower_eps, Client.cmp_upper_eps);
+    }
     return 1;
 }
 

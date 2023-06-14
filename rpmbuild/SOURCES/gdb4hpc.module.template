@@ -19,8 +19,8 @@
  prepend-path MANPATH           $GDB4HPC_BASEDIR/share/man
  append-path  PE_PRODUCT_LIST   GDB4HPC
 
- if { [ file exists ${GDB4HPC_BASEDIR}/release_info ] } {
-       set REL_INFO [ exec cat ${GDB4HPC_BASEDIR}/release_info ]
+ if { [ file exists ${GDB4HPC_BASEDIR}/release_notes.md ] } {
+       set REL_INFO [ exec cat ${GDB4HPC_BASEDIR}/release_notes.md ]
     } else {
        set REL_INFO ""
     }

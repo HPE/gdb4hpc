@@ -2,7 +2,7 @@
 #
 # runBuildPrep.sh - Preps the build environment
 #
-# Copyright 2019-2022 Hewlett Packard Enterprise Development LP.
+# Copyright 2019-2023 Hewlett Packard Enterprise Development LP.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -82,6 +82,7 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
             ncurses \
             ncurses-devel \
             python3-devel \
+            python3-pip \
             jq \
             rpm-build \
             tcl \

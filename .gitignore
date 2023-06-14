@@ -204,6 +204,3 @@ tests/function/src/kokkos/*.tmp
 tests/function/src/kokkos/desul
 tests/function/src/kokkos/KokkosCore_config.h
 
-rpmbuild/SOURCES/release_info.template
-rpmbuild/BUILDROOT
-

@@ -101,24 +101,23 @@ std::string ais::Bool::getTypeName() const {
 void ais::Char::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
-    
+
+    // these are print as integer value potentially followed by a 'char'
     char* next = nullptr;
     char val = strtol(str, &next, 10);
+    bool gotVal = (next != str);
 
-    if (next == str) {
-        // parse a single character surrounded by single quotes
+    // parse a single character surrounded by single quotes
 
-        next = const_cast<char*>(skipspace(next));
-        if (*next != '\'') {
-            throw ais::Error("expected value after a character");
-        }
+    next = const_cast<char*>(skipspace(next));
 
+    if (*next == '\'') {
         // get the value from the character, use std::quoted which
         // understands escape sequences
         auto is = std::istringstream{next};
         auto s = std::string{};
         is >> std::quoted(s,'\'');
-        val = (s.size() ? int{s[0]} : 0);
+        if (!gotVal) val = (s.size() ? int{s[0]} : 0);
 
         for (char c; (c=*++next) && c != '\''; ) {
             if (c == '\\' && next[1]) ++next;
@@ -126,9 +125,11 @@ void ais::Char::parseL(InterpretStream& in, Writer& out) const
         if (!*next) throw ais::Error("no end quote in character constant");
         
         in.setPos(next+1);
-    } else {
-        // already parsed a number via strtol
+    } else if (gotVal) {
+        // it just printed in integer
         in.setPos(next);
+    } else {
+        throw ais::Error("expected value after a character");
     }
     
     out.writeInt(val);
@@ -542,8 +543,13 @@ void ais::String::parseL(InterpretStream& in, Writer& out) const {
         }
         in.setPos(s);
         return;
+    } else if (str[0] == '"') {
+        auto end = findExprMatch(str);
+        out.writeString(std::string{str+1, end});
+        in.setPos(end+1);
+        return;
     }
-        
+             
     out.writeString(std::string{"unrecognized-string-result:"} + in.get());
 }
 
@@ -780,7 +786,8 @@ std::vector<std::shared_ptr<ais::Array>> ais::Reader::m_arrayTypes =
  std::make_shared<ais::Stack>(),
  std::make_shared<ais::StdArray>(),
  std::make_shared<ais::PriorityQueue>(),
- std::make_shared<ais::Queue>()
+ std::make_shared<ais::Queue>(),
+ std::make_shared<ais::List>()
 };
   
 //===========================================================================
@@ -1476,6 +1483,89 @@ void ais::Vector::applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, i
     Array::applyOne(reader, location, level, f);
 }
 
+//===========================================================================
+
+namespace {
+class ListElem : public ais::Type {
+public:
+    ListElem(std::shared_ptr<ais::Type> elem) : m_elem(elem) {}
+    std::string getTypeName() const override { return m_elem->getTypeName(); }
+    bool resetTruncation() const override { return m_elem->resetTruncation(); }
+    void applyL(ais::Reader& reader, ais::Visitor& f) const override { m_elem->apply(reader, f); }
+    void parseL(ais::InterpretStream& in, ais::Writer& out) const override {
+        const char* s = in.get();
+        // skip the [idx] = part
+        if (auto eq = strchr(s,'=')) in.setPos(eq+1);
+        m_elem->parse(in,out);
+    }
+private:
+    std::shared_ptr<ais::Type> m_elem;
+};
+}
+
+ais::List::List() {}
+
+ais::List::List(std::shared_ptr<Type> elemType)
+    : Array(elemType) {}
+
+void ais::List::parseL(InterpretStream& in, Writer& out) const {
+    const char* s = skipspace(in.get());
+
+    if (strncmp(s,"empty ", 6) == 0) {
+        // expecting "empty std::__cxx11::list"
+        if (auto t = strstr(s,"::list")) {
+            s = t+6;
+            for (int i=0; i<3; ++i) out.writeInt(0);
+            in.setPos(s);
+            return;
+        }
+    }
+
+    auto lbrk = strchr(s,'{');
+    if (!lbrk) {
+        out.writeError("<cannot parse list>");
+        return;
+    }
+
+    // find the number of elements in the list
+    int len = 0;
+    for (auto p = lbrk; *p && *p != '}'; ++len) {
+        p = skipspace(++p);
+        if (*p != '[') break;
+        p = findExprMatch(p);
+        if (!(p=strchr(p,'='))) break;
+
+        // skip over the value
+        for ( ; *p && *p != ',' && *p != '}'; ++p) {
+            if (*p == '{' || *p == '(' || *p == '"' || *p == '\'')
+                p = findExprMatch(p);
+        }
+    }
+
+    auto le = ListElem{m_elemType};
+
+    Array arr(std::make_shared<ListElem>(m_elemType), len);
+    in.setPos(lbrk);
+    arr.parseL(in, out);
+}
+            
+
+std::string ais::List::getTypeName() const {
+    return "std::list[" + (m_elemType ? m_elemType->getTypeName() : "");
+}
+
+int ais::List::getTypeId(Writer& writer) const {
+    auto elemIdx = getElemTypeId(writer);
+    auto name = "std::list[" + std::to_string(elemIdx);
+    return writer.getTypeId(name);
+}
+
+// generate a typed vector from a factory instance
+std::shared_ptr<ais::Array> ais::List::makeTyped(std::shared_ptr<ais::Type> elemType) const {
+    return std::make_shared<ais::List>(elemType);
+}
+
+
 //=============================
 
 ais::Deque::Deque() {}
@@ -2067,6 +2157,33 @@ void ais::Pair::parseL(InterpretStream& in, Writer& out) const {
     if (std::regex_search(s, match, firstRE)) in.setPos(s += match.prefix().length());
     Struct::parseL(in, out);
 }
+
+//===========================================================================
+ais::Tuple::Tuple(const std::vector<std::pair<std::string, std::shared_ptr<Type>>>& elems) :
+    ais::Struct(makeTypeName(elems)) {
+    int idx = 0;
+    for (const auto& [name, type] : elems) {
+        addMember("[" + std::to_string(++idx) + "]", type);
+    }
+}
+
+void ais::Tuple::parseL(InterpretStream& in, Writer& out) const {
+    // skip over the empty base class
+    auto s = in.get();
+
+    if (auto t = strchr(s,'{')) in.setPos(s=t);
+    Struct::parseL(in, out);
+}
+
+std::string
+ais::Tuple::makeTypeName(const std::vector<std::pair<std::string,std::shared_ptr<Type>>>& elems) {
+    auto os = std::ostringstream{};
+    os << "std::tuple<";
+    auto i = 0;
+    for (const auto& [name, type] : elems) os << (i++ ? "," : "") << name;
+    os << ">";
+    return os.str();
+}
                 
 
 //===========================================================================
@@ -2132,8 +2249,11 @@ void ais::SmartPointer::parseL(InterpretStream& in, Writer& out) const {
 
     void* p = nullptr; bool parsed = false;
     if (s) {
-        // looks like "std::shared_ptr (count 1, weak 0) 0x3bfc6f0"
-        // std::unique_ptr<T> containing 0x3bfc6f0
+        // looks like "std::shared_ptr (count 1, weak 0) = {get() = 0x3bfc6f0}"
+        // {_M_t = {<std::__uniq_ptr_impl<int, std::default_delete<int> >> =
+        //     {_M_t = std::tuple containing = {[1] = 0x1871950,
+        //      [2] = {<std::default_delete<int>> = {<No data fields>},
+        // <No data fields>}}}, <No data fields>}}
         s = skipspace(s);
 
         if (strncmp(s,"std::shared_ptr",15) == 0) {
@@ -2298,7 +2418,7 @@ mdspan ais::RajaView::spanFromMembers(const std::string_view& input) {
     //
     // the strategy is to skip delimiters from the input string and parse the
     // interesting numbers as we see them come up in the stream. we know sizes, strides,
-    // and offsets will always be 1D lists, so we don't need any special handling for {.
+    // and offsets will always be 1D list, so we don't need any special handling for {.
 
     std::vector<int> sizes, strides, offsets;
 

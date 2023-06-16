@@ -26,7 +26,7 @@ static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes(), virtualFuncTest();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
-static void anonymousNamespace(), mapsTest(), vectorOfSmartPtr();
+static void anonymousNamespace(), mapsTest(), vectorOfSmartPtr(), lists();
 static float refs();
 
 static void trap() {
@@ -119,7 +119,7 @@ int main(int argc, char ** argv){
     anonymousNamespace();
     mapsTest();
     vectorOfSmartPtr();
-    refs();
+    refs(); lists();
     
     delete ll;
     MPI_Finalize();
@@ -469,6 +469,7 @@ static void vectorOfSmartPtr() {
     auto b = (PureVirtual*)p;
     auto pr = std::make_pair(true, sp1);
     auto vps = std::vector<std::pair<int,std::shared_ptr<PureVirtual>>>{};
+    auto tup = std::tuple<int,double,std::pair<int,double>,char>{16,-12.25,{-8,14.4},'x'};
 
     for (int i=0; i<4; ++i) {
         ups.emplace_back(new Derived{i,1.0+i});
@@ -561,4 +562,22 @@ static float refs() {
     }
 
     return 0;
+}
+
+static void lists() {
+    auto l1 = std::list<int>{0,4,18,210};
+    auto l2 = std::list<std::list<std::tuple<double,int>>>{};
+    
+    for (int i=0; i<4; ++i) {
+        auto l3 = std::list<std::tuple<double,int>>{};
+        for (int j=0; j<i; ++j) {
+            l3.push_back(std::tuple<double,int>{1.5 * (i-j), i+j});
+        }
+        l2.push_back(std::move(l3));
+    }
+
+    auto empty = std::list<float>{};
+    trap();
+
+    return;
 }

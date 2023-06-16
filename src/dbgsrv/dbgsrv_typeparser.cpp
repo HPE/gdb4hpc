@@ -53,6 +53,7 @@ std::shared_ptr<ais::Type> stlContainer(Mi2Aif& mi, const ais::Array& contType,
                                         TypeName t);
 std::shared_ptr<ais::Type> stdArray(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdPair(Mi2Aif& mi, TypeName t);
+std::shared_ptr<ais::Type> stdTuple(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> kokkosView(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdConditional(Mi2Aif& mi, TypeName t);
@@ -183,10 +184,13 @@ std::vector<Prim> m_cppPrims =
 std::vector<Prim> m_cppStlPrims =
 {
  {"std::array", stdArray},
+
  {"std::conditional_t", stdConditional},
  {"std::deque", ContainerWrap<ais::Deque>()},
  {"std::stack", ContainerWrap<ais::Stack>()},
  {"std::vector", ContainerWrap<ais::Vector>()},
+ {"std::list", ContainerWrap<ais::List>()},
+ {"std::__cxx11::list", ContainerWrap<ais::List>()},
  {"std::priority_queue", ContainerWrap<ais::PriorityQueue>()},
  {"std::queue", ContainerWrap<ais::Queue>()},
  {"std::shared_ptr", SmartPointerWrap()},
@@ -196,6 +200,7 @@ std::vector<Prim> m_cppStlPrims =
  {"std::unordered_map", MapWrap<ais::UnorderedMap>()},
  {"std::unordered_multimap", MapWrap<ais::UnorderedMultimap>()},
  {"std::pair", stdPair},
+ {"std::tuple", stdTuple},
  {"Kokkos::View", kokkosView},
  {"RAJA::internal::ViewBase", rajaView},      // "ptype RAJA::View<...>" will turn into this
  {"RAJA::internal::TypedViewBase", rajaView}, // or this
@@ -825,7 +830,7 @@ std::shared_ptr<ais::Type> stdArray(Mi2Aif& mi, TypeName t) {
 }
 
 std::shared_ptr<ais::Type> stdPair(Mi2Aif& mi, TypeName t) {
-    DVPRINT("parsing stdArray container type %s\n", t.decoration.c_str());
+    DVPRINT("parsing stdPair container type %s\n", t.decoration.c_str());
 
     auto [first, second, decoration] = getContainerTypes(t);
     if (first.empty() || second.empty()) {
@@ -843,6 +848,33 @@ std::shared_ptr<ais::Type> stdPair(Mi2Aif& mi, TypeName t) {
     auto secondType = getType(mi, nullptr, second.c_str());
 
     auto vtype = std::make_shared<ais::Pair>(first, firstType, second, secondType);
+    return cppWrap(vtype, t2);
+}
+
+std::shared_ptr<ais::Type> stdTuple(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing stdTuple container type %s\n", t.decoration.c_str());
+
+    // expecting a decoration like: <int, double, int, int>
+
+    auto elems = std::vector<std::pair<std::string, std::shared_ptr<ais::Type>>>{};
+
+    auto beg = size_t{1}, end = beg;
+    const auto& d = t.decoration;
+    for ( ; end<d.size(); ++end) {
+        auto c = d[end];
+        if (c == ',' || c == '>') {
+            auto typeStr = d.substr(beg, end-beg);
+            auto type = getType(mi, nullptr, typeStr.c_str());
+            elems.push_back(std::make_pair(typeStr, type));
+            if (c == '>') break;
+            else if ((beg = d.find_first_not_of(" ",end+1)) != std::string::npos) end=beg;
+        } else if (c == '<' || c == '(') {
+            end = findExprMatch(d, end);
+        }
+    }
+
+    auto t2 = TypeName{t, end+1};
+    auto vtype = std::make_shared<ais::Tuple>(elems);
     return cppWrap(vtype, t2);
 }
 

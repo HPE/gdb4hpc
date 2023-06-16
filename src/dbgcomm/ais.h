@@ -914,6 +914,16 @@ public:
     int getTypeId(Writer& writer) const override;
 };
 
+class List : public Array {
+public:
+    List();
+    List(std::shared_ptr<Type> elemType);
+    void parseL(InterpretStream& in, Writer& out) const override;
+    std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
+    std::string getTypeName() const override;
+    int getTypeId(Writer& writer) const override;
+};
+    
 // C++ std::map
 class Map : public Type {
 public:
@@ -1058,6 +1068,17 @@ public:
          const std::string& second, std::shared_ptr<Type> secondType);
     void parseL(InterpretStream& in, Writer& out) const override;
 };
+
+// C++ std::tuple
+class Tuple : public Struct {
+public:
+    Tuple(const std::vector<std::pair<std::string,std::shared_ptr<Type>>>& elems);
+    void parseL(InterpretStream& in, Writer& out) const override;
+private:
+    static std::string
+    makeTypeName(const std::vector<std::pair<std::string,std::shared_ptr<Type>>>& elems);
+};
+
   
 // Pointer type    
 class Pointer : public Type {

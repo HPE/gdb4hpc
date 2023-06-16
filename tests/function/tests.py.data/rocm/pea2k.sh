@@ -1,6 +1,12 @@
 #!/bin/bash
 
 PE_ENV="${PE_ENV-CRAY}"
+PARTITION='-p mi100'
+
+if [[ $1 == args ]]; then
+    echo $PARTITION
+    exit 0
+fi
 
 #module load PrgEnv-amd
 module load rocm
@@ -27,21 +33,6 @@ if [ x$1 == xrun ]; then
 fi
 
 if [ x$1 == xlaunch ]; then
-    batch=''
-    nextIsBatch=0
-    for opt in "$@"; do
-	if [ $opt == '-b' ]; then
-	    nextIsBatch=1
-	elif [ $nextIsBatch == 1 ]; then
-	    nextIsBatch=0
-	    batch=$opt
-	fi
-    done
-
-    if [ -n "$batch" ]; then
-	sed -i '/^launch / s/$/ --launcher-args="-p mi100"/' $batch
-    fi
-	    
    echo launch
    shift
    echo $*

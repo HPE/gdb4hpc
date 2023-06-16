@@ -296,7 +296,11 @@ def runGpuTest(test, gpu):
     if not os.path.exists(gpuScript):
         test.cancel("No " + gpuScript + " script")
 
-    runfile = makeRunFile(test)
+    res = subprocess.run([gpuScript, 'args'], stdout=subprocess.PIPE)
+    gpuArgs = res.stdout.decode('utf-8').rstrip()
+    substititions = ( ("<LAUNCH_ARGS>", gpuArgs), )
+            
+    runfile = makeRunFile(test, substititions)
     outfile = getOut(test)
  
     try:

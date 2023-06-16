@@ -8,7 +8,7 @@
 8: # in any form.
 9: #
 15: maint set sync on
-17: launch $a{1} --gpu bin/CRAY/fortran/ftn_omp-rocm.x
+17: launch $a{1} --gpu bin/CRAY/fortran/ftn_omp-rocm.x --launcher-args="<LAUNCH_ARGS>"
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -29,13 +29,13 @@ a{0}: Breakpoint 1, main_$ck_L11_4 at /home/users/jvogt/rpm_install/gdb4hpc/4.15
 21: info threads
 a{0}:   Id    Frame
 a{0}: * 1-2   "ftn_omp-rocm.x" (running)
-a{0}:   4-19  AMDGPU "ftn_omp-rocm.x" main_$ck_L11_1 () at src/fortran/ftn_omp.f90:15
+a{0}:   %\d+-\d+%  AMDGPU "ftn_omp-rocm.x" main_$ck_L11_1 () at src/fortran/ftn_omp.f90:15
 a{0}: 
 22: t 5
 23: p i
-a{0}: 65
+a{0}: %((65)|(129))%
 24: p t
-a{0}: 65
+a{0}: %((65)|(129))%
 25: p aaa(i)
 <optimized out>
 24: del 1

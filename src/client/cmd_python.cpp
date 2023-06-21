@@ -166,11 +166,11 @@ PyObject* PyImpl::eval(PyObject* self, PyObject* args) {
 
         return maker.getPyObject();
 
+    } catch (EvalErrorAlreadyReported& err) {
+        Py_RETURN_NONE; // this was not reported as the command failing
     } catch (EvalError& err) {
         PrintOutError("%s\n", err.what());
         Py_RETURN_NONE;
-    } catch (EvalErrorAlreadyReported& err) {
-        Py_RETURN_NONE; // this was not reported as the command failing
     } catch (std::exception& err) {
         PrintOutError("%s\n", err.what());
         Py_RETURN_NONE;

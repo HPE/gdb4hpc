@@ -115,11 +115,11 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
         auto val = expr->evalTop(rec_set);
         val->print(Client.cli_out->ostream(), rec_set, format);
 
+    } catch (EvalErrorAlreadyReported& err) {
+        return 1; // this was not reported as the command failing
     } catch (EvalError& err) {
         PrintOutError("%s\n", err.what());
         return 0;
-    } catch (EvalErrorAlreadyReported& err) {
-        return 1; // this was not reported as the command failing
     } catch (std::exception& err) {
         PrintOutError("%s\n", err.what());
         return 0;

@@ -30,9 +30,9 @@ public:
     ParseError(std::string err) : EvalError(std::move(err)) {}
 };
 
-class EvalErrorAlreadyReported : public std::exception {
+class EvalErrorAlreadyReported : public EvalError {
 public:
-    EvalErrorAlreadyReported() {}
+    EvalErrorAlreadyReported() : EvalError("") {}
     const char* what() const noexcept override { return "error was already printed"; }
 };
 

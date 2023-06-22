@@ -45,8 +45,8 @@ static bool runRocgdb(MISession*);
 void SendMICommand(MISession *, MICommand *);
 
 // Enum for supported gdb versions
-enum class GdbVersion { GDB_100, CUDA_101, ROC_GDB, CUSTOM};
-static GdbVersion gdb_vers = GdbVersion::GDB_100;
+enum class GdbVersion { GDB, CUDA, ROC_GDB, CUSTOM};
+static GdbVersion gdb_vers = GdbVersion::GDB;
 
 static std::vector<dbgbp_t*> main_entry_BP;
 static std::vector<dbgbp_t*> parallel_entry_BP;
@@ -72,7 +72,7 @@ DbgGdbMI::Initializer::Initializer(DbgGdbMI& dbg)
 
 dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
     dbgevent_t *e;
-    gdb_vers = GdbVersion::GDB_100;
+    gdb_vers = GdbVersion::GDB;
 
     /**************DEBUG Start*****************/
     sigset_t debug_mask;
@@ -111,19 +111,27 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
     if (custom_gdb) {
         DVPRINT("setting gdb path to %s\n", custom_gdb);
         MISessionSetGDBPath(m_session, custom_gdb);
-        gdb_vers = GdbVersion::CUSTOM;
+
         if (custom_gdb_data) {
             MISessionSetGDBDataDirectory(m_session, custom_gdb_data);
         } else {
             setDataDir(custom_gdb);
         }
+
+        if (strstr(custom_gdb, "cuda-gdb")) {
+            gdb_vers = GdbVersion::CUDA;
+            initGpu();
+        } else {
+            gdb_vers = GdbVersion::CUSTOM;
+        }
+
     } else if (gpu_flag) {
         // try to initialize a gpu back-end, if this fails, gdb_vers will
-        // be set to GDB_100
+        // be set to GDB
         initGpu();
     }
 
-    if (gdb_vers == GdbVersion::GDB_100) {
+    if (gdb_vers == GdbVersion::GDB) {
         MISessionSetGDBPath(m_session, "gdb-guard");
         setDataDir(nullptr);
     }
@@ -199,30 +207,17 @@ void DbgGdbMI::Initializer::initGpu()
     // Need to determine the version of the driver to start the proper gdb
     //-----------------------------------------------------------------------
 
-    if (auto vers = fopen("/proc/driver/nvidia/version", "r")) {
-        // We are on an nvidia node.
-        char *vers_cstr = nullptr;
-        int num_fields = fscanf(vers,
-                            "NVRM version: NVIDIA UNIX x86_64 Kernel Module%*[ "
-                            "\t]%m[0-9.]",
-                            &vers_cstr);
+    if (custom_gdb) {}
+    else if (auto vers = fopen("/proc/driver/nvidia/version", "r")) {
+        // We are on an nvidia node.  This code used to *check* the version, but
+        // that code was so ancient it only exclude graphics card that ran on steam.
         fclose(vers);
-        if (num_fields > 0) {
-            // We now have the version string, close the vers file
-            DVPRINT("Detected Nvidia driver %s\n", vers_cstr);
-            std::string vers_str(vers_cstr);
-            int vers_int = stoi(vers_str.substr(0,3));
-            //We're assuming forward compatibility from version 440 which is CTK 10.2
-            if (vers_int >= 440) {
-                gdb_vers = GdbVersion::CUDA_101;
-            }
-        }
-        free(vers_cstr);
+        gdb_vers = GdbVersion::CUDA;
     } else if (hasAmdGpus()) {
         gdb_vers = GdbVersion::ROC_GDB;
     }
 
-    if (gdb_vers == GdbVersion::GDB_100) {
+    if (gdb_vers == GdbVersion::GDB) {
         // Didn't find any of the gpu driver types; apparently gpu_flag is
         // a global so we need to tell the world that we didn't find the
         // correct gpu debugger. (really, we need to do better variable
@@ -231,7 +226,7 @@ void DbgGdbMI::Initializer::initGpu()
         DVPRINT("Defaulting to non-gpu mode.\n");
         gpu_flag = 0;
         
-    } else if (gdb_vers == GdbVersion::CUDA_101) {
+    } else if (gdb_vers == GdbVersion::CUDA) {
         // If GPU mode is on and we're targeting Nvidia hardware, force tmpdir
         // to /tmp. Nvidia utilizes unix pipes that are writen in TMPDIR and
         // this value *MUST* match the value set in the applications
@@ -273,8 +268,10 @@ void DbgGdbMI::Initializer::initGpu()
 
         // set the path and data directory
         DVPRINT("Using cuda-gdb with --cuda-use-lockfile=0\n");
-        MISessionSetGDBPath(m_session, "cuda-gdb");
-        setDataDir("cuda-gdb");
+        if (!custom_gdb) {
+            MISessionSetGDBPath(m_session, "cuda-gdb");
+            setDataDir("cuda-gdb");
+        }
         MISessionAddGDBArg(m_session, "--cuda-use-lockfile=0");
 
     } else if (gdb_vers == GdbVersion::ROC_GDB) {
@@ -285,7 +282,7 @@ void DbgGdbMI::Initializer::initGpu()
             DVPRINT("rocgdb is unavailable.\n");
             DVPRINT("reverting to non-gpu mode.\n");
             gpu_flag = 0;
-            gdb_vers = GdbVersion::GDB_100;
+            gdb_vers = GdbVersion::GDB;
         }
     }
 }
@@ -1071,7 +1068,7 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
     /*
     ** Find out pid.
     */
-    if (gdb_vers != GdbVersion::CUDA_101) {
+    if (gdb_vers != GdbVersion::CUDA) {
         // The info proc call here breaks cuda-gdb.   It will start reporting
         // "Not supported on this target." errors.   I'm not sure about the
         // real need for it on other debuggers, but I'll leave it in.
@@ -1161,7 +1158,7 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgTargetRemote(const char *target_remote
     /*
     ** Find out pid.
     */
-    if (gdb_vers != GdbVersion::CUDA_101) {
+    if (gdb_vers != GdbVersion::CUDA) {
         // The info proc call here breaks cuda-gdb.   It will start reporting
         // "Not supported on this target." errors.   I'm not sure about the
         // real need for it on other debuggers, but I'll leave it in.
@@ -1343,7 +1340,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
         MICommandFree(cmd);
     }
 
-    if (gdb_vers == GdbVersion::CUDA_101) {
+    if (gdb_vers == GdbVersion::CUDA) {
         // If running with gpu's, turn upc off. If we don't do this, things will
         // break, but it is not supported on rocgdb, so it's just a ddt-cuda-gdb thing.
         // Other version of cuda-gdb don't support it so don't quit if the call fails
@@ -1368,7 +1365,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     // set non-stop mode -- disabled for cuda-gdb because non-stop is the default,
     // and cuda-gdb doesn't handle it well
     auto isInNonStopMode = false;
-    if (non_stop_flag && gdb_vers != GdbVersion::CUDA_101 &&
+    if (non_stop_flag && gdb_vers != GdbVersion::CUDA &&
         (!custom_gdb || !strstr(custom_gdb,"cuda")) ) {
         cmd = _MIGDBSet("non-stop", "on");
         SendMICommand(m_session, cmd);

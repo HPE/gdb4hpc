@@ -26,7 +26,7 @@ static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes(), virtualFuncTest();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
-static void anonymousNamespace(), mapsTest(), vectorOfSmartPtr(), lists();
+static void anonymousNamespace(), mapsTest(), vectorOfSmartPtr(), lists(), functionPointers();
 static float refs();
 
 static void trap() {
@@ -119,7 +119,7 @@ int main(int argc, char ** argv){
     anonymousNamespace();
     mapsTest();
     vectorOfSmartPtr();
-    refs(); lists();
+    refs(); lists(); functionPointers();
     
     delete ll;
     MPI_Finalize();
@@ -541,22 +541,22 @@ static float refs() {
 
     {   // length-encoded pointers
         int ia[2][2] = {{555, 666}, {777, 888}};
-	// int (*iap)[2] = ia;        // not implemented, see PE-48404
-	// int (**iapp)[2] = &iap;    // not implemented, see PE-48404
-	// int (***iappp)[2] = &iapp; // not implemented, see PE-48404
-	// auto iar = std::move(ia);  // not implemented, see PE-48404
+	int (*iap)[2] = ia;
+	int (**iapp)[2] = &iap;
+	int (***iappp)[2] = &iapp;
+	auto iar = std::move(ia);
 
         char ca[2][6] = {"lorem", "ipsum"};
-	// char (*cap)[6] = &ca[1];    // not implemented, see PE-48404
-	// char (**capp)[6] = &cap;    // not implemented, see PE-48404
-	// char (***cappp)[6] = &capp; // not implemented, see PE-48404
-	// auto car = std::move(ca);   // not implemented, see PE-48404
+	char (*cap)[6] = &ca[1];
+	char (**capp)[6] = &cap;
+	char (***cappp)[6] = &capp;
+	auto car = std::move(ca);
 
 	// multi level function pointers and function references
 	auto& fr = refs;
 	auto* fp = refs;
-	// auto** fpp = &fp;    // not implemented, see PE-48405
-	// auto*** fppp = &fpp; // not implemented, see PE-48405
+	auto** fpp = &fp;
+	auto*** fppp = &fpp;
 
 	trap();
     }
@@ -580,4 +580,30 @@ static void lists() {
     trap();
 
     return;
+}
+
+static char charFn() {
+    return 'c';
+}
+
+static char* charPtrFn() {
+    static char chars[] = {"qwerty"};
+    return chars;
+}
+
+static void functionPointers() {
+    // multi level function pointers and function references
+    auto& vr = functionPointers;
+    auto* vp = functionPointers;
+
+    auto& cr = charFn;
+    auto* cp = charFn;
+
+    auto& cpr = charPtrFn;
+    auto* cpp = charPtrFn;
+
+    auto& fr = refs;
+    auto* fp = refs;
+
+    trap();
 }

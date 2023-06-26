@@ -409,6 +409,7 @@ std::shared_ptr<ais::Type> getCppType(Mi2Aif& mi, MIVar* var, const char* inType
         return knownType;
     }
 
+    // TODO see if this can be put into cppWrap
     // pointer types
     if (type.back() == '*') {
         auto derefType = type.substr(0,type.find_last_not_of(' ', type.size()-2)+1);
@@ -634,7 +635,7 @@ std::shared_ptr<ais::Type> getFtnType(Mi2Aif& mi, const char* typeStr) {
 
 // Handle decorations of the base type.  Like *,&,[], etc.
 std::shared_ptr<ais::Type> cppWrap(std::shared_ptr<ais::Type> elemType, TypeName t) {
-    auto beg = t.decoration.find_first_not_of(' ');
+    const auto beg = t.decoration.find_first_not_of(' ');
     if (beg == std::string::npos) {
         return elemType;
     }
@@ -642,65 +643,85 @@ std::shared_ptr<ais::Type> cppWrap(std::shared_ptr<ais::Type> elemType, TypeName
     DVPRINT("wrap decoration is \"%s\"\n", t.decoration.c_str());
 
     auto c = t.decoration[beg];
-    auto w = std::shared_ptr<ais::Type>{};
-    auto end = beg;
-    const std::string& r{t.decoration};
-
     DVPRINT("c == %c\n", c);
-    
+
     if (c == '*') {
-        w.reset(new ais::Pointer(t.type));
+        return cppWrap(std::make_shared<ais::Pointer>(t.type), TypeName(t,beg+1));
     } else if (c == '&') {
         DVPRINT("ignoring reference");
-        w = elemType;
+        return cppWrap(elemType, TypeName(t,beg+1));
     } else if (c == '[') {
-        // for multi-dimension arrays, the last value is changing
-        // the fastest
-        for (auto loc = end;
-             (loc=r.find(']', loc+1)) != std::string::npos
-                 && (end=loc)+1 != r.size()
-                 && r[end+1] == '['; ) {}
+        // for multi-dimension arrays, the last value is changing the fastest
+        auto brackets_end = beg;
+        for (auto loc = brackets_end;
+             (loc=t.decoration.find(']', loc+1)) != std::string::npos
+                 && (brackets_end=loc)+1 != t.decoration.size()
+                 && t.decoration[brackets_end+1] == '['; ) {}
 
-        if (r[end] != ']') return std::make_shared<ais::Unimplemented>("unknown-c-decoration-" + r);
+        if (t.decoration[brackets_end] != ']')
+            return std::make_shared<ais::Unimplemented>("unknown-c-decoration-" + t.decoration);
 
-        w = elemType;
+        auto wrapper = elemType;
 
-        for (auto loc = end+1; loc != beg; ) {
+        for (auto loc = brackets_end+1; loc != beg; ) {
             auto close = loc-1;
-            loc = r.rfind('[', loc-1);
-            int len = std::stoi(r.substr(loc+1,close-loc-1));
+            loc = t.decoration.rfind('[', loc-1);
+            int len = std::stoi(t.decoration.substr(loc+1,close-loc-1));
 
-            w.reset(new ais::Array(w, len));
+            wrapper.reset(new ais::Array(wrapper, len));
         }
+
+        return cppWrap(wrapper, TypeName(t,brackets_end+1));
+    } else if (std::string_view(t.decoration).substr(beg, 3) == "(&)"
+            || std::string_view(t.decoration).substr(beg, 4) == "(&&)")
+    {
+        // reference to an array (e.g. "int (&)[4]") or reference to a
+        // function (e.g. void (&)(void)). ignore the reference symbol and
+        // let the next parse handle the rest
+        const auto first_paren_end = t.decoration.find(')', beg);
+        return cppWrap(elemType, TypeName(t,first_paren_end+1));
+    } else if (std::string_view(t.decoration).substr(beg, 2) == "(*") {
+        // a pointer type like int *(**)[2] or int (*)(int, int). when
+        // reading the type as a human, the asterisks in the parenthesis
+        // take precedence over everything else. int *(**)[3] is "a double
+        // pointer to an array of 3 int pointers". the int would be
+        // dereferenced like *(**array)[0].
+        //
+        // these precedence rules present a problem for this function, which
+        // parses things strictly left to right. to handle it, we transform
+        // the input type and put any asterisks in parenthesis onto the end
+        // of the type and remove the parenthesis. e.g. int *(**)[2] turns
+        // into int *[2]**. note that this function builds up the type from
+        // the innermost type outwards, so handling the parenthesis
+        // asterisks last is exactly what we want.
+        //
+        // gdb treats this new notation identically to the parenthesis
+        // notation when printing values. "whatis int *[2]**" returns "int *(**)[2]".
+        const auto paren_end = findExprMatch(t.decoration, beg);
+
+        t.decoration.erase(beg, paren_end - beg + 1);
+        // (paren_end - beg + 1) - 2
+        const auto num_asterisks = paren_end - beg - 1;
+        t.decoration.append(num_asterisks, '*');
+
+        // the removal of (*...*) shifted the remaining string left, so parse again at beg
+        return cppWrap(elemType, TypeName(t,beg));
     } else if (c == '(') {
-        if (std::string_view(t.decoration).substr(beg, 3) == "(&)"
-         || std::string_view(t.decoration).substr(beg, 4) == "(&&)")
-        {
-            // reference to an array (e.g. "int (&)[4]") or reference to a
-            // function (e.g. void (&)(void)). ignore the reference symbol and
-            // let the next parse handle the rest
-            w = elemType;
-            end = t.decoration.find(')', beg);
-        } else {
-            // function
-            end = findExprMatch(t.decoration, beg);
-            w.reset(new ais::Function);
-        }
+        // else assume a function.
+        const auto paren_end = findExprMatch(t.decoration, beg);
+        return cppWrap(std::make_shared<ais::Function>(), TypeName(t,paren_end+1));
     } else if (c == '@') {
         // gpu register tag - like @local
-        while ( ::isalpha(r[end+1])) ++end;
-        w = elemType;
-    } else if (r.find("const", beg) == beg) {
-        w = elemType;
-        end = beg + 4;
+        auto word_end = beg;
+        while ( ::isalpha(t.decoration[word_end+1])) ++word_end;
+        return cppWrap(elemType, TypeName(t,word_end+1));
+    } else if (t.decoration.find("const", beg) == beg) {
+        const auto const_end = beg + 4;
+        return cppWrap(elemType, TypeName(t,const_end+1));
     } else {
-        w.reset(new ais::Unimplemented{"unknown-decoration-" + r.substr(beg)});
-        end = r.size()-1;
+        return std::make_shared<ais::Unimplemented>("unknown-decoration-" + t.decoration.substr(beg));
     }
-
-    return cppWrap(w, TypeName(t,end+1));
 }
-
 
 std::shared_ptr<ais::Type> ftnWrap(std::shared_ptr<ais::Type> elemType,
                                                TypeName t) {
@@ -1003,6 +1024,12 @@ std::shared_ptr<ais::Type> charWrap(std::shared_ptr<ais::Type> elemType,
         // and let the next parse handle array size
         auto end = t.decoration.find(')', beg);
         return charWrap(elemType, TypeName{t, end + 1});
+    } else if (std::string_view(t.decoration).substr(beg, 2) == "(*") {
+        // see explanation of (* case in cppWrap
+        return cppWrap(elemType, t);
+    } else if (t.decoration[beg] == '(') {
+        // assume function that returns char
+        return cppWrap(elemType, t);
     } else {
         return std::make_shared<ais::Unimplemented>(t.type + t.decoration);
     }
@@ -1416,9 +1443,16 @@ TEST_CASE("TypeParser::getType: cpp decorated types") {
     }
 
     SUBCASE("function pointers ()") {
-        basicTypeTest<ais::Function>(TypeParser::Lang::Cpp, "int (*) (int, int, int)");
+        basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "int (*) (int, int, int)");
+        basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "int (*) ()");
+        basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "float (*) (int, int, int)");
+        basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "float (*) ()");
+        basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "char (*) (int, int, int)");
+        basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "char (*) ()");
+
+        // void pointers are explicitly not followed by swizzlePointer, so they are
+        // directly resolved as functions (not pointers to functions) at the type parser level
         basicTypeTest<ais::Function>(TypeParser::Lang::Cpp, "void (*) (int, int)");
-        basicTypeTest<ais::Function>(TypeParser::Lang::Cpp, "int (*) ()");
         basicTypeTest<ais::Function>(TypeParser::Lang::Cpp, "void (*) ()");
     }
 }

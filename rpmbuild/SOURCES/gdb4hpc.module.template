@@ -39,6 +39,4 @@
     puts stderr ""
  }
 
-  module load cray-mrnet
-
 module-whatis   "Loads the Cray Line Mode Parallel Debugger."

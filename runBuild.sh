@@ -258,15 +258,15 @@ check_exit_status
 # deliver manpage
 mkdir -p $install_dir/share/man/man1
 check_exit_status
-cp -a $top_level/man/man1/gdb4hpc.1 $install_dir/share/man/man1/.
+cp -a $top_level/doc/man/gdb4hpc.1 $install_dir/share/man/man1/.
 check_exit_status
 
 # deliver doc
 mkdir -p $install_dir/share/doc
 check_exit_status
-cp -a $top_level/doc/*.md $install_dir/share/doc/.
+cp -a $top_level/doc/guides/*.md $install_dir/share/doc/.
 check_exit_status
-cp -a $top_level/doc/*.html $install_dir/share/doc/.
+cp -a $top_level/doc/guides/*.html $install_dir/share/doc/.
 check_exit_status
 
 echo "############################################"

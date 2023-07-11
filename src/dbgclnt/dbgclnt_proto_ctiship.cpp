@@ -25,12 +25,13 @@ std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
         if (gdb[0] == '/') {
             serverGdb = gdb;
         } else {
-            if (cti_addManifestBinary(manifest, gdb.c_str())) {
-                PrintOutError("Failed to add %s to manifest.\n", gdb.c_str());
-                PrintOutError("CTI error: %s\n", cti_error_str());
-                return {};
-            }
             serverGdb = std::filesystem::path(gdb).filename();
+        }
+
+        if (cti_addManifestBinary(manifest, gdb.c_str())) {
+            PrintOutError("Failed to add %s to manifest.\n", gdb.c_str());
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            return {};
         }
 
         if (!dataDir.empty()) {

@@ -3667,9 +3667,6 @@ rep_set_t *DbgStatus(rec_set_t *set, int getLocation) {
 ** DBG_INTERRUPT: Interrupt current debugger operation.
 */
 rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
-    // Remove any old events for this group
-    ResetForAsyncCmd(set);
-
     auto request = CommandToSocProto(DBGCMD_INTERRUPT, all);
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_HALT);
@@ -3704,9 +3701,6 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
 
     // This command changes the status
     inferior_status_change = 1;
-
-    // An async event is now pending
-    async_pending = 1;
 
     return result;
 }

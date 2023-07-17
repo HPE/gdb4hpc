@@ -2421,7 +2421,7 @@ dbgevent_t *DbgGdbMI::sleep(int seconds) {
 
 dbgevent_t *DbgGdbMI::shell(int argc, char **argv){
     DVPRINT("Shell Invoked\n");
-    
+
     // Create the command string
     auto cmd = ArgsToString(&argv[0], argc);
     cmd += " 2>&1";
@@ -2436,40 +2436,35 @@ dbgevent_t *DbgGdbMI::shell(int argc, char **argv){
     }
 
     // Now read the result
-    char *line = NULL;
-    char result[BUFSIZ];
-    char *tmp_line = NULL;
-    auto e = NewEvent(DBGEV_STRING);
-    std::string output = "";
-    while (fgets(result, BUFSIZ, cmd_out) != NULL) {
-        // copy the result into the line buffer and clear the result buf
-        asprintf(&line, "%s", result);
-        memset((void *)result, '\0', BUFSIZ);
-        // ensure the last character is a newline, otherwise we need to keep
-        // reading
-        
-        while (line[strlen(line) - 1] != '\n') {
-            // read in another line
-            if (fgets(result, BUFSIZ, cmd_out) == NULL) {
-                return NewErrorEvent(DBGERR_NOLINE, "Line returned NULL");
-            }
-            // save a copy of line
-            tmp_line = line;
-            line = NULL;
-            // concat the two strings together
-            asprintf(&line, "%s%s", tmp_line, result);
-            // cleanup
-            Free(tmp_line);
-            memset((void *)result, '\0', BUFSIZ);
-            
-        }
-        output += line;
+    const size_t buf_size = BUFSIZ;
+    char buf[buf_size];
+    size_t bytes_read = 0;
 
-        Free(line);
+    std::string output = "";
+
+    for (bytes_read = ::fread(buf, 1, buf_size, cmd_out); bytes_read == buf_size; bytes_read = ::fread(buf, 1, buf_size, cmd_out)) {
+        output.append(buf, bytes_read);
     }
-    e->ev_string = strdup(output.c_str());
-    // close the file pointer
-    pclose(cmd_out);
+
+    // fread returns a number < buf_size (breaks the loop) upon either error or eof.
+    if (::ferror(cmd_out)) {
+        ::pclose(cmd_out);
+        return NewErrorEvent(DBGERR_DEBUGGER, "Failed to read shell output");
+    }
+
+    // no error, must have been eof. a-ok.
+    // copy last one into output
+    output.append(buf, bytes_read);
+    ::pclose(cmd_out);
+
+    // XXX: since ev_string is a null terminated string, it can't encode null bytes.
+    // transform them into '\x00' so they get shown to the user.
+    for (size_t i = output.find('\0', 0); i != std::string::npos; i = output.find('\0', i)) {
+        output.replace(i, 1, "\\x00");
+    }
+
+    auto e = NewEvent(DBGEV_STRING);
+    e->ev_string = ::strdup(output.c_str());
 
     return e;
 }

@@ -92,6 +92,8 @@ a{0..2}: #0  main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/
 Logging disabled.
 44: shell wc -l tmp/c_print.log
 12 tmp/c_print.log
+44: shell -r cat /proc/self/cmdline
+a{0..2}: cat\x00/proc/self/cmdline\x00
 45: whatis e1
 a{0..2}: enum MyEnum
 46: whatis te1

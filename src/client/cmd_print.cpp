@@ -112,9 +112,11 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
         
         if (auto pe = getenv("PRINT_EXPR"); pe && pe[0] != '0') expr->print();
 
-        auto val = expr->evalTop(rec_set);
-        val->print(Client.cli_out->ostream(), rec_set, format);
-
+        {
+            auto pager = Client.MI_mode ? nullptr : std::make_unique<cli_pager>();
+            auto val = expr->evalTop(rec_set);
+            val->print(Client.cli_out->ostream(), rec_set, format);
+        }
     } catch (EvalErrorAlreadyReported& err) {
         return 1; // this was not reported as the command failing
     } catch (EvalError& err) {

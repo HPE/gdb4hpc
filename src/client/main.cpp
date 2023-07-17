@@ -316,18 +316,8 @@ int main(int argc, char *argv[]) {
         return runUnitTests(argc - 1, &argv[1]);
     }
 
-    // Ensure the environment has been setup, otherwise set it up and re-exec
-    // This is required because otherwise dlopen's will be fubared.
-    if (getenv(GUARD_ENV_SETUP) == NULL) {
-        char *exe_path;
-
-        SetupEnvironment();
-        // Done. Set the proper environment variable so that we don't have an
-        // infinite loop here.
-        setenv(GUARD_ENV_SETUP, "true", 1);
-        exe_path = getexepath();
-        execve(exe_path, argv, environ);
-    }
+    // Set environment variables
+    SetupEnvironment();
 
     // Initialize the settings to the default values
     Client.confirm = 1;               // Confirm dangerous commands?
@@ -359,9 +349,11 @@ int main(int argc, char *argv[]) {
     {
         struct winsize ws;
         ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
-        Client.height = ws.ws_row; // Messages longer than this many lines will
-                                   // be paged in PrintOutPagedMsg
-
+        Client.height = ws.ws_row;
+        // Messages longer than this many lines will be paged
+        // if "set pager" is used and a cli_pager is in scope
+        // of the print statement.
+        //
         // a non-interactive stdout will have 0 rows,
         // which is interpreted as "never page" properly.
     }

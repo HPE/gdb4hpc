@@ -10,6 +10,7 @@
 #include <deque>
 #include <stack>
 #include <queue>
+#include <sstream>
 struct Struct1 {
   double x;
   int y;
@@ -50,10 +51,35 @@ public:
         elem->next = next;
         next = elem;
     }
+    void print() const  {
+        auto first = this, p = this;
+        do {
+            std::cout << (p == first ? "(" : ",") << p->val;
+        } while ((p = p->next) != first);
+        std::cout << ")\n" << std::flush;
+    }
+    std::string toString() const {
+        auto os = std::ostringstream{};
+        auto first = this, p = this;
+        do {
+            os << (p == first ? "(" : ",") << p->val;
+        } while ((p = p->next) != first);
+        os << ")";
+        return os.str();
+    }
+        
 private:
     int val;
     LinkedList* next;
 };
+
+void printList(LinkedList* list) {
+    if (list) list->print();
+    else std::cout << "NULL\n" << std::flush;
+}
+std::string toString(LinkedList* list) {
+    return (list ? list->toString() : "");
+}
 
 int main(int argc, char ** argv){
     int x[5] = {1,2,3,4,5};

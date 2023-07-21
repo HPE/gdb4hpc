@@ -1038,7 +1038,7 @@ std::shared_ptr<ais::Type> charWrap(std::shared_ptr<ais::Type> elemType,
 std::shared_ptr<ais::Type> wrapVoidFunc(Mi2Aif& mi, TypeName t) {
     auto end = t.decoration.find_last_not_of(' ');
     if (end == std::string::npos) {
-        return unimplemented(mi, t);
+        return std::make_shared<ais::Literal>();
     }
 
     if (t.decoration[end] != ')') {

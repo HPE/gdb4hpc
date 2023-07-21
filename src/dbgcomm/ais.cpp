@@ -594,6 +594,15 @@ std::string ais::FtnString::getTypeName() const {
     return "^FtnString";
 }
 
+void ais::Literal::parseL(InterpretStream& in, Writer& out) const {
+    const char* str = skipspace(in.get());
+    if (str[0] == '{' || str[0] == '"') return ais::String::parseL(in,out);
+
+    auto end = str;
+    while (*end && !isspace(*end)) ++end;
+    out.writeString(std::string{str, size_t(end-str)});
+}
+
 std::string ais::Literal::getTypeName() const {
     return "^literal";
 }

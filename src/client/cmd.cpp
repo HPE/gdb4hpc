@@ -152,80 +152,10 @@ int Command::execute(dbgprocset_t *s, int argc, char *argv[]) {
         failed();
     }
 
-    if (Client.XML_mode) postProcessXML(rec_set);
-
     // Done with the rec_set
     FreeRecSet(rec_set);
 
     return res;
-}
-
-
-/*
-** Apply a command to each process in a process set.
-** Print and compare handle blockmap function
-*/
-void Command::postProcessXML(rec_set_t *rec_set) {
-
-    // If XML mode is enabled, we need to ask the dbgclient layer if the
-    // command we just executed changed the status. If it did, we want to
-    // add the status information to the xml output. We also check to see
-    // if the command caused the inferior to exit. Inferior exit can only be
-    // caused by a command.
-    if (!DbgCheckForStatusChange()) return;
-
-    // Status has changed. We need to generate updated status
-    // information
-
-    // Query the new status from the backends, note that for this we
-    // want to grab the location information
-    auto rep_set = DbgStatus(rec_set, 1);
-
-    ProcessErrorInRepSet(rep_set);
-
-    // We need to loop over each di in the rec_set and process it one at
-    // a time. This is because we need to create a status block for each
-    // di.
-    for (auto&& recv_ptr : rec_set) {
-        // Start a new status block for this di
-        auto status_block = XMLStartStatusBlock(recv_ptr->rec_di.handle().c_str());
-
-        // Process each status message and add it to the status block
-        for (auto&& reply : rep_set) {
-            // Ensure the di match
-            if (recv_ptr->rec_di.handle() != reply->rep_di) {
-                continue;
-            }
-
-            // First create the bitset string
-            auto bitset_str = reply->rep_group->toSetString();
-
-            // Next create the full set string
-            char *set_str = nullptr;
-            Asprintf(&set_str, "%s%s", reply->rep_di.c_str(),
-                     bitset_str.c_str());
-
-            // point at the status data
-            auto stat = EVENT_STATUS(reply->rep_event);
-
-            // The XML status that is printed is based on the status
-            // value
-            XMLAddStatus(&status_block, set_str, stat->stat,
-                         stat->stat_loc);
-
-            // Done with the set_str
-            Free(set_str);
-        }
-
-        // Print the entire status block, this will free the string
-        XMLPrintStatusBlock(status_block);
-    }
-
-    // Free the reply set
-    FreeRepSet(rep_set);
-
-    // Reset the status change since we handled it
-    DbgResetStatusChange();
 }
 
 void Command::failed() {}
@@ -367,8 +297,6 @@ void ExecuteCommand(const char *line) {
 
     while (*line && std::isspace(*line)) ++line;
     if (!*line || *line == '#') return;
-    
-    int seq = 0;
 
     dbgprocset_t *s = CurrentProcSet();
     auto exiter = OnScopeExit([](){DPRINT("Exit ExecuteCommand\n");});
@@ -379,44 +307,7 @@ void ExecuteCommand(const char *line) {
 
     auto cmd = strdup(line);
 
-    // If xml mode is enabled, we need to pull apart the xml tag we received
-    if (Client.XML_mode) {
-        int num_read = 0;
-        if ((sscanf(line, XML_REQUEST_START, &seq, &num_read)) < 1) {
-            PrintOutError("XML request parse error.\n");
-            cli_set_error();
-            return;
-        }
-
-        Free(cmd);
-        cmd = strdup(line + num_read);
-
-        auto haystack = cmd;
-        // If we don't find the end needle the first time, its an error
-        if ((haystack = strstr(haystack, XML_REQUEST_END)) == NULL) {
-            PrintOutError("XML request parse error.\n");
-            cli_set_error();
-            Free(cmd);
-            return;
-        }
-        auto needle = haystack;
-
-        // Make sure that the user didn't type the needle in their command.
-        // Its unlikely that they would do this, but we should still guard
-        // against it.
-        while (strlen(haystack) > strlen(XML_REQUEST_END)) {
-            haystack += strlen(XML_REQUEST_END);
-
-            while ((haystack = strstr(haystack, XML_REQUEST_END)) != NULL) {
-                needle = haystack;
-            }
-        }
-
-        // turn the start of the needle into a newline followed by a null term
-        *needle = '\n';
-        *(needle + 1) = '\0';
-        DPRINT("ExecuteCommand: seq is %d\n", seq);
-    } else if (Client.MI_mode) {
+    if (Client.MI_mode) {
         //Convert mi to cli command
         try {
             auto cliCmd = convertMiToCli(cmd);
@@ -444,22 +335,10 @@ void ExecuteCommand(const char *line) {
 
     DPRINT("ExecuteCommand: cmd is \"%s\"\n", cmd);
 
-
-    // Inform the cli layer that we are starting to execute a command
-    if (!Client.MI_mode){
-        if (!cli_start_response(seq)) {
-            // Sequence number mismatch, silently fail so next command does not have interference
-            Free(cmd);
-            return;
-        }
-    }
-
     auto [c,args] = CurrentCmds->findCmd(cmd);
     if (!c) {
         // command not found
         Free(cmd);
-        // Inform the cli layer that we are done executing a command
-        cli_end_response();
         // set an error for the cli stream
         cli_set_error();
         return;
@@ -471,15 +350,12 @@ void ExecuteCommand(const char *line) {
     // do the command
     if (!c->execute(s, argv.argc(), const_cast<char**>(argv.c_strs().data()))) {
         Free(cmd);
-        // Inform the cli layer that we are done executing a command
-        cli_end_response();
         // set an error for the cli stream
         cli_set_error();
         return;
     }
 
     // Inform the cli layer that we are done executing a command
-    cli_end_response();
     if (Client.MI_mode){
         if (strstr(cmd, "-exec-continue")){
             PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());

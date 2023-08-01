@@ -92,7 +92,6 @@ static std::vector<int> DbgUnblockableSigList;
 static fd_set dispatch_fds;
 static int high_fd;
 static OutputCallbacks OutputCB;
-static int inferior_status_change;
 static int async_pending;     // used to track completion of async events
 static rec_set_t *async_set;  // full set of async receivers
 
@@ -1142,10 +1141,6 @@ int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
             case DBGEV_SIGNAL:
             case DBGEV_EXIT:
             case DBGEV_ERROR:
-                // Check the status
-                inferior_status_change = 1;
-                break;
-
             default:
                 // do nothing
                 break;
@@ -1418,16 +1413,6 @@ void DbgHandleSignal(int sig, SigHandlerFn hand, dbgsig_type mask_type) {
 }
 
 /*
-** Used to check if a command was called that changed the status
-*/
-int DbgCheckForStatusChange(void) { return inferior_status_change; }
-
-/*
-** Used to reset the inferior_status_change value to 0
-*/
-void DbgResetStatusChange(void) { inferior_status_change = 0; }
-
-/*
 ** Used to check if we are currently waiting for an async command to complete.
 */
 int DbgCheckForAsyncPending(void) { 
@@ -1490,12 +1475,8 @@ DbgInvoke::Handle DbgAttach(const std::string& name, const AttachOpts& opts) {
 
     auto handle = DbgInvoke::activate(name, std::move(di));
     if (!handle.lock()) {
-        // return nullptr without changing inferior status
         return handle;
     }
-
-    // This command changes the status
-    inferior_status_change = 1;
 
     return handle;
 }
@@ -1596,12 +1577,9 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
 
     auto handle = DbgInvoke::activate(name, std::move(di));
     if (!handle.lock()) {
-        // return nullptr without inferior status change
         return handle;
     }
 
-    // This command changes the status
-    inferior_status_change = 1;
     return handle;
 }
 
@@ -2005,9 +1983,6 @@ rep_set_t *DbgStartup(rec_set_t *set) {
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 
-    // This command changes the status
-    inferior_status_change = 1;
-
     return result;
 }
 
@@ -2257,7 +2232,6 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
         }
         if (set->getNumReceivers() > 0) {
             // update global status flags
-            inferior_status_change = 1;
             async_pending = 1;
         }
     } else {
@@ -2279,7 +2253,6 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
                 recv_ptr->rec_di.clearFrontendGdb();
 
                 // update global status flags
-                inferior_status_change = 1;
                 async_pending = 1;
                 recv_ptr->rec_di.setAtInitialBreakpoint(false);
             }
@@ -2332,9 +2305,6 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
             }
         }
     }
-
-    // This command changes the status
-    inferior_status_change = 1;
 
     // An async event is now pending
     async_pending = 1;
@@ -3461,9 +3431,6 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
         }
     }
 
-    // This command changes the status
-    inferior_status_change = 1;
-
     // An async event is now pending
     async_pending = 1;
 
@@ -3698,9 +3665,6 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
             }
         }
     }
-
-    // This command changes the status
-    inferior_status_change = 1;
 
     return result;
 }

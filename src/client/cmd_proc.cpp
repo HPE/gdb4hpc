@@ -192,14 +192,6 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
     auto ps = getNewProcSet(args.procset_name);
 
     const auto exitWithFailure = [&](){
-        // If XML mode is enabled, we want to print out a removed message.
-        if (Client.XML_mode) {
-            // procset_name will be of the form $a{n}.
-            // XMLPrintRemoveMsg only wants the $a part.
-            auto procset_name = args.procset_name.substr(0, args.procset_name.find('{'));
-            XMLPrintRemovedMsg(procset_name.c_str());
-        }
-
         FreeRecSet(rec_set);
         FreeRepSet(quit_rep);
         FreeRepSet(rep_set);
@@ -402,21 +394,6 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                 PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                     "Initial breakpoint, in %s\n",
                                     loc.loc_func);
-            }
-            // If XML mode is enabled, we want to print out a status message.
-            // We don't need to ask the backend for the status since this is
-            // implied by printing out the initial breakpoint.
-            if (Client.XML_mode) {
-                char *set_str;
-                char *status_block;
-                status_block = XMLStartStatusBlock(reply->rep_di.c_str());
-                // Create the full set string
-                Asprintf(&set_str, "%s%s", reply->rep_di.c_str(), 
-                    reply->rep_group->toSetString().c_str());
-                XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
-                             &(f->getLoc()));
-                Free(set_str);
-                XMLPrintStatusBlock(status_block);
             }
         }
     }
@@ -762,10 +739,6 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     opts.app_ident = argv[optind++];
 
     if (!DoAttach(ps, opts)) {
-        // If XML mode is enabled, we want to print out a removed message.
-        if (Client.XML_mode) {
-            XMLPrintRemovedMsg(ps->s_name.c_str());
-        }
         return 0;
     }
 
@@ -849,22 +822,6 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
             // print the frame
             for (const dbgframe_t* f = fp; f != nullptr; f = f->getNext()) {
                 PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), f);
-            }
-            // If XML mode is enabled, we want to print out a status message.
-            // We don't need to ask the backend for the status since this is
-            // implied by printing out the initial breakpoint.
-            if (Client.XML_mode) {
-                char *set_str;
-                char *status_block;
-                status_block = XMLStartStatusBlock(reply->rep_di.c_str());
-                // Create the full set string
-                Asprintf(&set_str, "%s%s", reply->rep_di.c_str(),
-                         reply->rep_group->toSetString().c_str());
-                // Set the location based on the top frame
-                XMLAddStatus(&status_block, set_str, DBGSTAT_STOPPED,
-                             (fp == NULL) ? NULL : &(fp->getLoc()));
-                Free(set_str);
-                XMLPrintStatusBlock(status_block);
             }
         }
     }
@@ -1031,11 +988,6 @@ static void ReleaseProc(dbgprocset_t *p, DbgQuitType quit_type) {
                         break;
                 }
                 break;
-        }
-
-        // If XML mode is enabled, we want to print out a removed message.
-        if (Client.XML_mode) {
-            XMLPrintRemovedMsg(di->handle().c_str());
         }
 
         rep_set = DbgQuit(*di, quit_type);
@@ -1572,69 +1524,6 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
                                   "Can't print event %d\n",
                                   ev_set.event()->ev_event);
             break;
-    }
-
-    // If XML mode is enabled, we need to ask the dbgclient layer if the event
-    // we just received changed the status. If it did, we want to add the status
-    // information to the xml output.
-    if (Client.XML_mode) {
-        // used for checking status
-        rec_set_t *rec_set;
-        rep_set_t *rep_set;
-        char *set_str;
-        dbgstatus_t *s;
-        char *status_block;
-
-        if (DbgCheckForStatusChange()) {
-            // Status has changed. We need to generate updated status
-            // information - this only impacts a single di
-
-            // create the rec_set - FOR THE ENTIRE DI!!!
-            // Bugfix for BUG 814782
-            rec_set = NewRecSet();
-            AddReceiverToSet(
-                rec_set,
-                NewGroupReceiver(ev_set.di(), ev_set.di().fullBitset()));
-
-            // Query the new status from the backends, note that for this we
-            // want to grab the location information
-            rep_set = DbgStatus(rec_set, 1);
-
-            ProcessErrorInRepSet(rep_set);
-
-            // Start a new status block
-            status_block = XMLStartStatusBlock(ev_set.di().handle().c_str());
-
-            // Process each status message and add it to the status block
-            for (auto&& reply : rep_set) {
-                // First create the bitset string
-                auto bitset_str = reply->rep_group->toSetString();
-
-                // Create the set string
-                Asprintf(&set_str, "%s%s", reply->rep_di.c_str(), bitset_str.c_str());
-
-                // point at the status data
-                s = EVENT_STATUS(reply->rep_event);
-
-                // The XML status that is printed is based on the status value
-                XMLAddStatus(&status_block, set_str, s->stat, s->stat_loc);
-
-                // Done with the set_str
-                Free(set_str);
-            }
-
-            // Print the entire status block, this will free the string
-            XMLPrintStatusBlock(status_block);
-
-            // Free the reply set
-            FreeRepSet(rep_set);
-
-            // Done with the rec_set
-            FreeRecSet(rec_set);
-
-            // Reset the status change since we handled it
-            DbgResetStatusChange();
-        }
     }
 
     cli_restore_stream();

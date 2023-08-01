@@ -34,7 +34,6 @@
 #include "dbg_client.h"
 #include "defs.h"
 #include "useful.h"
-#include "xml_tag.h"
 #include "mi_funcs.h"
 
 /*

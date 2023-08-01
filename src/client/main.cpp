@@ -68,7 +68,6 @@ static void Banner(void);
 static void SigHandler(int);
 static const char * getDefaultProtocol();
 static void readInitCommandsFile();
-static void interfaceOption(const char* opt, cli_stream_args_t*& cli_args);
 
 /*
  * long opts
@@ -82,7 +81,7 @@ static const struct option long_opts[] = {
     {"output", required_argument, 0, 'o'},
     {"silent", no_argument, 0, 's'},
     {"version", no_argument, 0, 'v'},
-    {"xml", no_argument, &(Client.XML_mode), 1},
+    {"xml", no_argument, 0, 'q'}, // after a few release cycles, this can be removed.
     {"interpreter", required_argument, 0, 'I'},
     {"debug", no_argument, &debug_flag, 1},
     {"no-init", no_argument, 0, 'n'},
@@ -339,7 +338,6 @@ int main(int argc, char *argv[]) {
     Client.proto = getDefaultProtocol(); // Default debugger protocol
     Client.backend = DBG_BACKEND;     // Default debug backend
     Client.cli_fpprog = nullptr;      // only set to override the stream setting
-    Client.XML_mode = 0;              // XML output mode
     Client.MI_mode = false;               // MI output mode
     // find out the ulp for this machine
     ulp = nextafter(0.0, 0.1);
@@ -375,7 +373,7 @@ int main(int argc, char *argv[]) {
     // we want to ignore SIGPIPE
     DbgHandleSignal(SIGPIPE, SIG_IGN, DBG_SIG_NOMASK);
 
-    while ((c = getopt_long(argc, argv, "b:j:l:x:nkehi:o:svt:", long_opts, &opt_ind)) !=
+    while ((c = getopt_long(argc, argv, "b:j:l:x:nkehi:o:svt:q", long_opts, &opt_ind)) !=
            -1) {
         switch (c) {
             case 0:
@@ -454,8 +452,11 @@ int main(int argc, char *argv[]) {
             case 'i': {
                 if (strncmp(optarg, "ex=", 3) == 0) {
                     QueueCommand(optarg+3);
-                } else {
-                    interfaceOption(optarg, cli_args);
+                } else if (optarg && optarg[0] == '=' && strstr(optarg, "mi")) {
+                    Client.MI_mode = true;
+                    Client.silent = true;
+                    Client.interactive = false;
+                    Client.confirm = false;
                 }
                 break;
             }
@@ -506,6 +507,10 @@ int main(int argc, char *argv[]) {
             case 'h':
                 usage(argv[0]);
                 exit(0);
+            case 'q':
+                // after a few release cycles, this can be removed.
+                PrintOutMsg("Starting in gdb4hpc 4.15.2, CCDB-X and XML output is unsupported. Please use gdb4hpc 4.15.1 or lower.\n");
+                exit(1);
             default:
                 usage(argv[0]);
                 exit(1);
@@ -553,8 +558,7 @@ int main(int argc, char *argv[]) {
     InitCommands();
 
     auto interpreter = interpreter_type::CLI;
-    if (Client.XML_mode) interpreter = interpreter_type::XML;
-    else if (Client.MI_mode) interpreter = interpreter_type::MI;
+    if (Client.MI_mode) interpreter = interpreter_type::MI;
 
     InitCLI(Client.cli_mode, interpreter, cli_args);
 
@@ -698,77 +702,4 @@ static void SigHandler(int sig) {
         SetDefaultCLIStream();
         longjmp(Top, sig);
     }
-}
-
-// Handle the old -i/--interface option which is used for ccdb to
-// specify a socket.   
-void interfaceOption(const char* opt, cli_stream_args_t*& cli_args)
-{
-    if (opt && opt[0] == '=' && strstr(opt, "mi")) {
-        Client.MI_mode = true;
-        Client.silent = true;
-        Client.interactive = false;
-        Client.confirm = false;
-        return;
-    }
-
-    // Setup things. Note that strsep modifies the string, so it
-    // shouldn't use optarg directly.
-    char* argstr = strdup(opt);
-    char* stringp = argstr;
-
-    // First parse the host argument
-    // Make sure its not null or that it doesn't contain a null
-    // terminator
-    char* token;
-    if ((token = strsep(&stringp, ":")) == NULL || *token == '\0') {
-        PrintOutError(
-            "Error:    Encountered problem with host argument.\n");
-        PrintOutError(
-            "Expected: --interface host:IOPort:ERRPort\n");
-        PrintOutError("Found:    --interface %s\n", optarg);
-        exit(1);
-    }
-    char* hoststr = token;
-    // Next parse the IO port argument
-    // Make sure its not null or that it doesn't contain a null
-    // terminator
-    if ((token = strsep(&stringp, ":")) == NULL || *token == '\0') {
-        PrintOutError(
-            "Error:    Encountered problem with IOPort "
-            "argument.\n");
-        PrintOutError(
-            "Expected: --interface host:IOPort:ERRPort\n");
-        PrintOutError("Found:    --interface %s\n", optarg);
-        exit(1);
-    }
-    char* portstr = token;
-    // The final argument is what is left in stringp
-    // Make sure this isn't pointing at the null terminator
-    if (*stringp == '\0') {
-        PrintOutError(
-            "Error:    Encountered problem with ERRPort "
-            "argument.\n");
-        PrintOutError(
-            "Expected: --interface host:IOPort:ERRPort\n");
-        PrintOutError("Found:    --interface %s\n", optarg);
-        exit(1);
-    }
-    char* errpstr = stringp;
-
-    // Set the default CLI and args to socket type
-    Client.cli_mode = CLI_SOCKET_STREAM;
-    cli_args =
-        NewCLIArgs(CLI_SOCKET_STREAM, hoststr, portstr, errpstr);
-    // Turn confirm off, we will not be able to call fgetc on stdin
-    // through a socket. If this is needed, rework the query
-    // function to call an external cli function that is cli stream
-    // dependent.
-    Client.confirm = 0;
-    // Set silent to 1, we don't want to print out banner
-    // This should be the case when output is XML
-    Client.silent = 1;
-
-    // Cleanup original strsep string that we strdup'ed.
-    Free(argstr);
 }

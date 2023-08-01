@@ -99,7 +99,6 @@ void DbgSwitchCurrentStream(cli_stream_t* stream){
         if (CurrentStream) CurrentStream->cs_out.flush();
         CurrentStream = stream;
         Client.cli_out = &CurrentStream->cs_out;
-        Client.XML_mode = (CurrentStream->cs_interpreter == interpreter_type::XML);
         Client.MI_mode = (CurrentStream->cs_interpreter == interpreter_type::MI);
     }
 }
@@ -616,218 +615,6 @@ char *cli_get_line(void) {
     return res;
 }
 
-int cli_start_response(int seq) {
-    if (CurrentStream == NULL) return 1;
-
-    // Set the in_cmd
-    CurrentStream->cs_in_cmd = 1;
-
-    // Only continue if we are in XML mode.
-    if (!Client.XML_mode) return 1;
-
-    if ((CurrentStream->cs_seq) != seq) {
-        // The sequence numbers don't match!
-        PrintOutError(XML_SYNC, CurrentStream->cs_seq);
-        // Respond to the invalid seq num with an empty response
-        PrintOutMsg(XML_RESPONSE_START, seq);
-        PrintOutMsg(XML_RESPONSE_END);
-        CurrentStream->cs_out.flush();
-        return 0;
-    }
-
-    PrintOutMsg(XML_RESPONSE_START, CurrentStream->cs_seq);
-    CurrentStream->cs_out.flush();
-
-    // Increment the seq num
-    CurrentStream->cs_seq = (CurrentStream->cs_seq+1) % XML_MAX_SEQ;
-
-    return 1;
-}
-
-void cli_end_response(void) {
-    if (CurrentStream == NULL) return;
-
-    // Reset the in_cmd
-    CurrentStream->cs_in_cmd = 0;
-
-    // Only continue if we are in XML mode.
-    if (!Client.XML_mode) return;
-
-    PrintOutMsg(XML_RESPONSE_END);
-    CurrentStream->cs_out.flush();
-
-    // Print any deferred messages
-    for (const auto& xml_msg : CurrentStream->cs_deferred) {
-        PrintOutMsg("%s", xml_msg.c_str());
-    }
-    CurrentStream->cs_deferred.clear();
-}
-
-char *XMLStartStatusBlock(const char *set_name) {
-    char *status_block = NULL;
-
-    if (!Client.XML_mode || set_name == NULL || CurrentStream == NULL)
-        return NULL;
-
-    Asprintf(&status_block, XML_STATUS_START, set_name);
-
-    return status_block;
-}
-
-void XMLPrintStatusBlock(char *status_block) {
-    if (!Client.XML_mode || status_block == NULL || CurrentStream == NULL)
-        return;
-
-    // Add the closing tag to the block
-    auto full_status_block = std::string{status_block} + XML_STATUS_END;
-    Free(status_block);
-
-    // Make sure we are not inside a command, otherwise register this as a
-    // deferred line to print.
-    if (CurrentStream->cs_in_cmd) {
-        CurrentStream->cs_deferred.push_back(std::move(full_status_block));
-    } else {
-        PrintOutMsg("%s", full_status_block.c_str());
-    }
-}
-
-void XMLAddStatus(char **status_block, char *set, dbgstat stat,
-                  const dbgloc_t *location) {
-    const char *func = NULL;
-    const char *file = NULL;
-    int line = 0;
-    char *status_str = NULL;
-    char *new_status_block = NULL;
-
-    if (!Client.XML_mode || status_block == NULL || *status_block == NULL ||
-        CurrentStream == NULL)
-        return;
-
-    // Get the location information for status types that contain it
-    switch (stat) {
-        // The following should all have location information
-        case DBGSTAT_WAITING:
-        case DBGSTAT_STOPPED:
-        case DBGSTAT_EXIT:
-        case DBGSTAT_STOPPED_IN_THREAD:
-            if (location != NULL) {
-                // point at the dbgloc_t members
-                func = location->loc_func;
-                file = location->loc_file;
-                line = location->loc_line;
-
-                // Make sure none of these are null pointers
-                if (func == NULL) func = "null";
-                if (file == NULL) file = "null";
-            } else {
-                // location is null, something went wrong. Print the status, but
-                // omit the location information
-                func = "null";
-                file = "null";
-                line = 0;
-            }
-            break;
-
-        // These do not have location information
-        case DBGSTAT_INITIALISING:
-        case DBGSTAT_RUNNING:
-        case DBGSTAT_DBGERR:
-        case DBGSTAT_INTERR:
-            break;
-    }
-
-    // Create the status string based on the stat
-    switch (stat) {
-        case DBGSTAT_INITIALISING:
-            Asprintf(&status_str, XML_STATUS_INIT, set);
-            break;
-
-        case DBGSTAT_WAITING:
-            Asprintf(&status_str, XML_STATUS_WAITING, set, func, file, line);
-            break;
-
-        case DBGSTAT_STOPPED:
-        case DBGSTAT_STOPPED_IN_THREAD:
-            Asprintf(&status_str, XML_STATUS_STOPPED, set, func, file, line);
-            break;
-
-        case DBGSTAT_EXIT:
-            Asprintf(&status_str, XML_STATUS_EXIT, set, func, file, line);
-            break;
-
-        case DBGSTAT_RUNNING:
-            Asprintf(&status_str, XML_STATUS_RUNNING, set);
-            break;
-
-        case DBGSTAT_DBGERR:
-        case DBGSTAT_INTERR:
-            Asprintf(&status_str, XML_STATUS_ERROR, set);
-            break;
-    }
-
-    // Add this status to the status block
-    Asprintf(&new_status_block, "%s%s", *status_block, status_str);
-
-    // Cleanup
-    Free(status_str);
-    Free(*status_block);
-
-    // Set new status block
-    *status_block = new_status_block;
-}
-
-void XMLPrintRemovedMsg(const char *set_name) {
-    char *removed_str = NULL;
-
-    if (!Client.XML_mode || set_name == NULL || CurrentStream == NULL) return;
-
-    // Create the removed string
-    Asprintf(&removed_str, XML_REMOVED, set_name);
-
-    // Make sure we are not inside a command, otherwise register this as a
-    // deferred line to print.
-    if (CurrentStream->cs_in_cmd) {
-        CurrentStream->cs_deferred.push_back(std::string{removed_str});
-    } else {
-        PrintOutMsg("%s", removed_str);
-    }
-    Free(removed_str);
-}
-
-void XMLPrintStartGraphMsg(const char *set_name, const char *set_str) {
-    char *s1, *s2, *s3;
-
-    if (!Client.XML_mode || set_name == NULL || CurrentStream == NULL) return;
-
-    // Create a new status block
-    s1 = XMLStartStatusBlock(set_name);
-
-    // Create the graph string
-    Asprintf(&s2, XML_STATUS_GRAPH, set_str);
-
-    // Add this status to the status block
-    Asprintf(&s3, "%s%s", s1, s2);
-
-    // Cleanup
-    Free(s1);
-    Free(s2);
-
-    // Now finish the status block
-    Asprintf(&s1, "%s%s", s3, XML_STATUS_END);
-
-    // Cleanup
-    Free(s3);
-
-    // Make sure we are not inside a command, otherwise register this as a
-    // deferred line to print.
-    if (CurrentStream->cs_in_cmd) {
-        CurrentStream->cs_deferred.push_back(std::string{s1});
-    } else {
-        PrintOutMsg("%s", s1);
-    }
-    free(s1);
-}
-
 static void ProgOutMITarget(DbgInvoke *di, const char* line) {
     // ignoring embedded quotes for the moment
     auto f = CurrentStream->cs_fpprog;
@@ -842,11 +629,7 @@ static void ProgOutMITarget(DbgInvoke *di, const char* line) {
 // common code between ProgOutLineStream and ProgOutLineStrings
 static void ProgOutLine(DbgInvoke *di, const char* line) {
     auto f = CurrentStream->cs_fpprog;
-    if (Client.XML_mode) {
-        fprintf(f, XML_PROG_OUTPUT_START, di->handle().c_str(), (unsigned int)strlen(line));
-        fprintf(f, "%s", line);
-        fprintf(f, XML_PROG_OUTPUT_END);
-    } else if (Client.MI_mode && !Client.cli_fpprog) {
+    if (Client.MI_mode && !Client.cli_fpprog) {
         ProgOutMITarget(di,line);
     } else {
         if (Client.cli_fpprog) f = Client.cli_fpprog;
@@ -936,28 +719,11 @@ void vPrintOutError(const char *format, va_list arg_list) {
     // clear the current line this should contain a prompt
     cli_clear_line();
 
-    // XXX: If we are currently in a command and running with XML_mode, then
-    //      we want to output the error in an XML format ON STANDARD OUT!!!
-    // FIXME: This is a current CCDB GUI requirement. I don't like this, but
-    //         its what we have to deal with.
-    auto f = CurrentStream->cs_fperr;
-    if (Client.XML_mode && CurrentStream->cs_in_cmd && CurrentStream->cs_out.getOut()) {
-
-        f = CurrentStream->cs_out.getOut();
-
-        // Print out XML error start
-        fprintf(f, XML_RESPONSE_ERROR);
-
-        // Print out the message
-        vfprintf(f, format, arg_list);
-
-        // Print out XML error end
-        fprintf(f, XML_RESPONSE_ERROR_END);
-    } else if (Client.MI_mode) {
+    if (Client.MI_mode) {
         vPrintOutMIError(format, arg_list);
-    } else if (f) {
+    } else if (CurrentStream->cs_fperr) {
         // vfprintf the line we recieved
-        vfprintf(f, format, arg_list);
+        vfprintf(CurrentStream->cs_fperr, format, arg_list);
     }
 
     // restore input processing

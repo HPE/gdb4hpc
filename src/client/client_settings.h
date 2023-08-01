@@ -51,7 +51,6 @@ struct clnt_settings : public ClientSettingsInterface {
                                                    // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
     cli_out_t* cli_out;                            /* output stream-like object */
     FILE* cli_fpprog;
-    int XML_mode;                                  /* XML output mode */
     bool MI_mode;                                  /* MI output mode */
     std::map<std::string, std::string> launch_env; /* Env vars applied to future job launches, modified by the set env cmd */
     double cmp_lower_eps;                          /* Lower eps limit */

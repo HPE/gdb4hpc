@@ -78,7 +78,6 @@ public:
 
 private:
 
-    void postProcessXML(rec_set_t *rec_set);
     std::variant<Command*,std::string> findSubCmd(const std::string& cmd);
 
     std::string m_fullName;       // e.g. "set print elements"

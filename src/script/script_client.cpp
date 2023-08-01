@@ -178,11 +178,6 @@ bool ScriptRunner::uninstall() {
         setCurrentScript("");
     }
 
-    if (Client.XML_mode) {
-        auto [passes, warns, fails] = getResultTotals();
-        PrintOutMsg(XML_RESULT, m_script->name().c_str(), 0lu, passes, warns, fails);
-    }
-    
     PrintOutMsg("Assertion script $%s stopped.\n", name().c_str());
     return success;
 }
@@ -296,13 +291,6 @@ bool ScriptRunner::sendContinue() {
     // update internal stopped ranks map; we just sent continue to everyone, so
     // no one should be stopped any more
     m_ranks->markAllRanksUnblocked();
-
-    if (Client.XML_mode) {
-        for (const auto& [di, ranks] : m_ranks->ranks()) {
-            std::string setStr = di.name() + ranks->toSetString();
-            XMLPrintStartGraphMsg(di.c_str(), setStr.c_str());
-        }
-    }
 
     LOG("Sent dbgGo (full set)");
     return true;
@@ -421,11 +409,6 @@ bool ScriptRunner::evaluateReadyAsserts() {
             resultPack.results.emplace_back(Result{.recSet = std::move(recSet),
                                                    .result = simpleResult,
                                                    .diff = std::move(diff)});
-
-            if (Client.XML_mode) {
-                PrintOutLine(XML_RESULT, name().c_str(), assert.id(), resultPack.passes,
-                             resultPack.warnings, resultPack.failures);
-            }
 
             if (assert.settings().stopOnFailure && simpleResult == CompareResult::Fail) {
                 PrintOutMsg("Assertion %lu: %s failed. Stopping script.\n", assert.id(), assert.string().c_str());

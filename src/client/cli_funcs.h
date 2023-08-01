@@ -36,7 +36,7 @@ enum cli_type {
 };
 typedef enum cli_type cli_type_t;
 
-enum class interpreter_type { CLI, MI, XML };
+enum class interpreter_type { CLI, MI };
 
 /*
 ** defined arg types for each stream type
@@ -165,7 +165,7 @@ struct cli_stream_t {
     ~cli_stream_t();
     
     cli_type_t cs_type;  /* cli stream type */
-    interpreter_type cs_interpreter = interpreter_type::CLI;  // or MI, XML
+    interpreter_type cs_interpreter = interpreter_type::CLI;  // or MI
     int cs_fdin = -1;         /* fd number for input to select on */
     FILE *cs_fpin = nullptr;       /* file to read from */
     cli_out_t cs_out;      /* stream to output to */
@@ -173,8 +173,8 @@ struct cli_stream_t {
     FILE *cs_fpprog = nullptr;     // stream for program output
     int cs_nprom = 0;        /* number of prompt levels */
     int cs_plevel = 0;       /* current prompt level */
-    char **cs_prompts = nullptr;   /* prompts to display */
-    char *cs_prompt = nullptr;     /* current prompt */
+    char **cs_prompts = nullptr;   /* format strings for prompts to display */
+    char *cs_prompt = nullptr;     /* current prompt, expanded from format string */
     char *cs_tmp_prompt = nullptr; /* used to temporarily save a prompt */
     char *cs_buf = nullptr;        /* current line buffer */
     size_t cs_buf_size = 0;  /* size of current line buffer in elements */
@@ -183,11 +183,7 @@ struct cli_stream_t {
     int cs_err = 0;          /* error control variable */
     int cs_saved = 0;        /* stream save control variable */
     int cs_handling = 0;     /* stream handling line control variable */
-    int cs_seq = 0;          /* current command sequence number */
-    int cs_in_cmd = 0;       /* currently processing command */
     int cs_num = 0;          // stream number
-    std::vector<std::string> cs_deferred; /* list of deferred lines to print after command
-                                       completes */
     struct cli_externals
         *cs_ext_funcs = nullptr;          /* cli externals associated with stream */
     cli_stream_args_t *cs_args; /* cli arguments used to initialize stream */
@@ -422,17 +418,5 @@ extern bool cli_query(const char *prompt,
 // Used to get a line of input. This should be avoided. It is needed for ssh
 // keyboard-interactive authentication
 extern char *cli_get_line(void);
-// Used to start and end a response for XML output
-extern int cli_start_response(int);
-extern void cli_end_response(void);
-// Used to print out XML status messages
-extern char *XMLStartStatusBlock(const char *set_name);
-extern void XMLAddStatus(char **status_block, char *set, dbgstat stat,
-                         const dbgloc_t *location);
-extern void XMLPrintStatusBlock(char *status_block);
-// Used to print out when a graph has been started
-extern void XMLPrintStartGraphMsg(const char *set_name, const char *set_str);
-// Used to print out when a process set has been removed
-extern void XMLPrintRemovedMsg(const char *set_name);
 
 #endif /* _CLI_FUNCS_H */

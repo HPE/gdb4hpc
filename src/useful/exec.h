@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 
 #include <optional>
+#include <memory>
 
 // wrapper around the result of a ::pipe syscall with some provided utilities
 // for file descriptor modifying syscalls.

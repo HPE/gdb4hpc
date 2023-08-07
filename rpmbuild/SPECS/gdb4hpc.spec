@@ -98,16 +98,14 @@
 
 # Dist tags for SuSE need to be manually set
 %if 0%{?suse_version}
-%if 0%{?sle_version} == 150300
-%global dist .sles15sp3
-%global OS_HW_TAG 7.0
-%global OS_WB_TAG sles15
-%endif
 %if 0%{?sle_version} == 150400
 %global dist .sles15sp4
+%endif
+%if 0%{?sle_version} == 150500
+%global dist .sles15sp5
+%endif
 %global OS_HW_TAG 7.0
 %global OS_WB_TAG sles15
-%endif
 %endif
 
 %if %{_arch} == aarch64
@@ -133,7 +131,7 @@ Release:    %(echo ${BUILD_NUMBER})%{dist}
 Release:    1%{dist}
 %endif
 Prefix:     %{cray_prefix}
-License:    %{copyright}
+License:    HPE Proprietary
 Vendor:     Hewlett Packard Enterprise Development LP.
 Group:      Development/Tools/Debuggers
 Provides:   %{cray_name} = %{pkgversion}
@@ -145,7 +143,6 @@ Source4:    %{lmod_template_gdb4hpc}
 Source5:    %{yaml_template}
 
 %description
-Cray gdb4hpc %{pkgversion}
 gdb4hpc is a gdb based parallel debugger used to debug MPI/SHMEM/UPC/Fortran 2008 applications written in C/C++/Fortran.
 
 %package -n %{cray_name}-tests-%{pkgversion}
@@ -184,7 +181,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/lib/libkj-0.8-dev.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libLrleBitset.so.0.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libLrleBitset.so.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmq.so.5.2.4 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libzmq.so.5.2.5 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libzmq.so.5 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libzmqnet.so.0.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libzmqnet.so.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
@@ -618,7 +615,7 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libkj-0.8-dev.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libLrleBitset.so.0.0.0
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libLrleBitset.so.0
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmq.so.5.2.4
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmq.so.5.2.5
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmq.so.5
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet.so.0.0.0
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet.so.0

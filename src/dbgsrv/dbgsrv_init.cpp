@@ -1801,7 +1801,8 @@ void DbgGdbMI::Initializer::setDataDir(const char* gdb) {
 static bool runRocgdb(MISession* session) {
 
     if (auto binDir = cti_be_getBinDir()) {
-        auto rocgdb = std::string{binDir} + "/rocgdb";
+        auto binDirStr = std::string{binDir};
+        auto rocgdb = binDirStr + "/rocgdb";
         free(binDir);
 
         if (access(rocgdb.c_str(), X_OK) == 0) {
@@ -1809,7 +1810,7 @@ static bool runRocgdb(MISession* session) {
             MISessionSetGDBPath(session, rocgdb.c_str());
             return true;
         } else {
-            DVPRINT("could not find rocgdb in %s\n", binDir);
+            DVPRINT("could not find rocgdb in %s\n", binDirStr.c_str());
         }
     }
 

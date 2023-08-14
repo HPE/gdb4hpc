@@ -64,11 +64,13 @@ public:
     void addSubCmd(const char* name, const char* alias, cmdptype ptype,
                    cmdfunc_t cmd,
                    const char* const* help, const char* desc);
-		 
 
-    // Locate a command from user input, return the command object and
-    // the arguments for that command
-    std::pair<Command*,std::string> findCmd(const std::string& cmdLine);
+    // Locate a command from user input.
+    // If a matching command is found, return the command object and the
+    // arguments for that command. If not found, return an error describing why.
+    struct Parts { Command* command; std::string args; };
+    using ErrStr = std::string;
+    std::variant<Parts, ErrStr> findCmd(std::string_view cmdLine);
 
     // run a command with set of arguments
     int execute(dbgprocset_t *s, int argc, char *argv[]);
@@ -78,7 +80,7 @@ public:
 
 private:
 
-    std::variant<Command*,std::string> findSubCmd(const std::string& cmd);
+    std::variant<Command*, ErrStr> findSubCmd(std::string_view cmd);
 
     std::string m_fullName;       // e.g. "set print elements"
     std::string m_name;           // "elements" 

@@ -94,9 +94,12 @@ void Command::addSubCmd( std::shared_ptr<Command> sub) {
         m_subCmds.insert(loc, sub);
     } else {
         auto prefix = sub->m_fullName.substr(0, spc);
-        if (auto [parent, empty] = findCmd(prefix); parent) {
+        auto find_result = findCmd(prefix);
+        if (std::holds_alternative<Command::Parts>(find_result)) {
+            auto& [parent, argv] = std::get<Command::Parts>(find_result);
             parent->addSubCmd(sub);
         }
+        // else silently ignore error. an error message is not useful to the user here.
     }
             
 }
@@ -184,15 +187,19 @@ int cmd_help_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     auto cmdStr = ArgsToString(argv+1, argc-1);
-    auto [cmd, err] = CurrentCmds->findCmd(cmdStr);
+    auto find_result = CurrentCmds->findCmd(cmdStr);
 
-    if (cmd && cmd->getHelp()) {
-        PrintHelpEntry(cmd->getHelp());
-        return 1;
-    } else if (cmd) {
-        PrintOutError("No help for %s\n", cmdStr.c_str());
+    if (std::holds_alternative<Command::Parts>(find_result)) {
+        auto [cmd, argv] = std::get<Command::Parts>(find_result);
+        if (cmd && cmd->getHelp()) {
+            PrintHelpEntry(cmd->getHelp());
+            return 1;
+        } else if (cmd) {
+            PrintOutError("No help for %s\n", cmdStr.c_str());
+        }
     } else {
-        PrintOutError("%s\n", err.c_str());
+        static_assert(std::variant_size_v<decltype(find_result)> == 2, "Assuming there are only two alternatives");
+        PrintOutError("%s\n", std::get<Command::ErrStr>(find_result).c_str());
     }
 
     return 0;
@@ -335,7 +342,20 @@ void ExecuteCommand(const char *line) {
 
     DPRINT("ExecuteCommand: cmd is \"%s\"\n", cmd);
 
-    auto [c,args] = CurrentCmds->findCmd(cmd);
+    auto find_result = CurrentCmds->findCmd(cmd);
+
+    if (auto* err = std::get_if<Command::ErrStr>(&find_result)) {
+        // command not found
+        PrintOutError("%s\n", err->c_str());
+        Free(cmd);
+        // set an error for the cli stream
+        cli_set_error();
+        return;
+    }
+
+    static_assert(std::variant_size_v<decltype(find_result)> == 2, "Assuming there are only two alternatives");
+
+    auto [c,args] = std::get<Command::Parts>(find_result);
     if (!c) {
         // command not found
         Free(cmd);
@@ -375,10 +395,11 @@ void ExecuteCommand(const char *line) {
 }
 
 
-// find a command from the command line argument.  Return the command and the
-// arguments if a matching function can be found
-std::pair<Command*, std::string> Command::findCmd(const std::string& cmd) {
-    auto* cp = CurrentCmds;
+// Locate a command from user input.
+// If a matching command is found, return the command object and the
+// arguments for that command. If not found, return an error describing why.
+std::variant<Command::Parts, Command::ErrStr> Command::findCmd(std::string_view cmd) {
+    auto* cp = this;
 
     const auto spcSlash = "/ \t\n";
     const auto spc = spcSlash+1;
@@ -403,15 +424,14 @@ std::pair<Command*, std::string> Command::findCmd(const std::string& cmd) {
         }
     }
     if (!err.empty()) {
-        PrintOutError("%s\n", err.c_str());
-        return std::pair<Command*, std::string>{nullptr, ""};
+        return err;
     } else {
         end = (cp->getShortName().empty() ? 0 : cmd.find_first_not_of(spc, end));
-        return std::make_pair(cp, cmd.substr(std::min(cmd.size(),end)));
+        return Parts{ .command = cp, .args = std::string{cmd.substr(std::min(cmd.size(),end))} };
     }
 }
 
-std::variant<Command*,std::string> Command::findSubCmd(const std::string& cmd) {
+std::variant<Command*, Command::ErrStr> Command::findSubCmd(std::string_view cmd) {
     Command* cp = nullptr;
     std::vector<std::string> matches;
     
@@ -443,7 +463,8 @@ std::variant<Command*,std::string> Command::findSubCmd(const std::string& cmd) {
     } else if (m_func) {
         return static_cast<Command*>(nullptr);
     } else {
-        auto err = "unknown command: " + cmd;
+        auto err = std::string{"unknown command: "};
+        err.append(cmd);
         return err;
     }
 }

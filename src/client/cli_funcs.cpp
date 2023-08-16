@@ -27,6 +27,9 @@
 #include "client.h"
 #include "useful.h"
 
+#include "interpreter_console.h"
+#include "interpreter_mi.h"
+
 /*
 ** Static internal definitions
 */
@@ -99,8 +102,19 @@ void DbgSwitchCurrentStream(cli_stream_t* stream){
         if (CurrentStream) CurrentStream->cs_out.flush();
         CurrentStream = stream;
         Client.cli_out = &CurrentStream->cs_out;
-        Client.MI_mode = (CurrentStream->cs_interpreter == interpreter_type::MI);
+        Client.MI_mode = (CurrentStream->_cs_interpreter == interpreter_type::MI);
     }
+}
+
+// TODO consider if this belongs in cli_funcs
+void DbgInterpret(std::string_view text) {
+    // TODO maybe lower this comment check to the interpreter implementation
+    const auto first = text.find_first_not_of(" \t\n\r");
+    if (first == std::string::npos || text[first] == '#') {
+        return;
+    }
+
+    CurrentStream->cs_interpreter->interpret(text);
 }
 
 void DestroyCLI(void) {
@@ -111,8 +125,6 @@ void DestroyCLI(void) {
 
     // Null out the global variables
     CurrentStream = nullptr;
-
-    Client.cli_out->reset();
 }
 
 int SetNewCLIStream(cli_type_t type, interpreter_type interpreter,
@@ -194,9 +206,19 @@ static cli_stream_t *NewCLIStream(cli_type_t type, interpreter_type interpreter,
 }
 
 cli_stream_t::cli_stream_t(cli_type_t type, interpreter_type interpreter,cli_stream_args_t *args,
-                           int nprom, va_list pargs) :
-    cs_type(type), cs_interpreter(interpreter), cs_args(args), cs_logging(cs_out)
+                           int nprom, va_list pargs)
+    : cs_type(type)
+    , _cs_interpreter(interpreter)
+    , cs_args(args)
+    , cs_logging(cs_out)
 {
+    // TODO eventually the interpreter_type member will be removed and this switch will
+    // depend on something else
+    switch (interpreter) {
+        case interpreter_type::CLI: cs_interpreter = std::make_unique<ConsoleInterpreter>(); break;
+        case interpreter_type::MI: cs_interpreter = std::make_unique<MiInterpreter>(); break;
+    }
+
     // Set the prompts if the user supplied any
     if (nprom > 0) {
         cs_nprom = nprom;
@@ -594,25 +616,6 @@ bool cli_query(const char *s, cli_query_default defaultVal,
         return cli_query_noninteractive(s, nonInteractiveDefaultVal);
     }
     return cli_query_interactive(s, defaultVal);
-}
-
-char *cli_get_line(void) {
-    char *res = NULL;
-    size_t n;
-
-    // Make sure we currently have a stream, otherwise reading is impossible
-    if (CurrentStream == NULL || CurrentStream->cs_fpin == NULL) {
-        return NULL;
-    }
-
-    // read a line of input
-    if (getline(&res, &n, CurrentStream->cs_fpin) < 0) {
-        PrintOutError("getline failed.\n");
-        perror("getline");
-        return NULL;
-    }
-
-    return res;
 }
 
 static void ProgOutMITarget(DbgInvoke *di, const char* line) {
@@ -1022,7 +1025,7 @@ std::ostream& cli_out_t::ostream()
 const char* GetMIEpilogue() {
     static const char* epilogue = nullptr;
     if (!epilogue) {
-        if (!AllStreams.empty() && AllStreams[0]->cs_interpreter == interpreter_type::MI) {
+        if (!AllStreams.empty() && AllStreams[0]->_cs_interpreter == interpreter_type::MI) {
             // This is probably a hack, but emacs-mi does not like the (gdb) at the
             // end of response, so I'm using this criteria as a stand-in because
             // gdb-mi uses -i=mi, while gdb-gui adds a separate tty for mi

@@ -70,6 +70,9 @@ Command::Command(const std::string& name, const char* alias,
     }
 }
 
+Command::Command(Command::CtorArgs&& args)
+    : Command(args.name, args.alias, args.ptype, args.fn, args.help, args.desc)
+{}
 
 Command::Command(cmdptype ptype, cmdfunc_t defaultCmd) :
     m_ptype(ptype), m_func(nullptr), m_help(nullptr), m_desc(nullptr)
@@ -108,6 +111,10 @@ void Command::addSubCmd(const char* name, const char* alias, cmdptype ptype,
                         cmdfunc_t cmd,
                         const char* const* help, const char* desc) {
     addSubCmd(std::make_shared<Command>(name, alias, ptype, cmd, help, desc));
+}
+
+void Command::addSubCmd(Command::CtorArgs&& args) {
+    addSubCmd(std::make_shared<Command>(std::move(args)));
 }
 
 // execute the command given a procset and arguments
@@ -169,42 +176,14 @@ Command *SetCommands(Command *cmds) {
     return old;
 }
 
-/*
- * Help functions defined below
- */
+// TODO remove the need for all shim:: functions
+namespace shim {
 
-int cmd_help_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    if (argc < 2) {
-        for (auto c : CurrentCmds->getSubCmds()) {
-            auto name = c->getShortName();
-            auto desc = c->getDesc();
-            if (desc && !name.empty()) {
-                PrintOutMsg("%-15s %s\n", name.c_str(), desc);
-            }
-        }
-
-        return 1;
-    }
-
-    auto cmdStr = ArgsToString(argv+1, argc-1);
-    auto find_result = CurrentCmds->findCmd(cmdStr);
-
-    if (std::holds_alternative<Command::Parts>(find_result)) {
-        auto [cmd, argv] = std::get<Command::Parts>(find_result);
-        if (cmd && cmd->getHelp()) {
-            PrintHelpEntry(cmd->getHelp());
-            return 1;
-        } else if (cmd) {
-            PrintOutError("No help for %s\n", cmdStr.c_str());
-        }
-    } else {
-        static_assert(std::variant_size_v<decltype(find_result)> == 2, "Assuming there are only two alternatives");
-        PrintOutError("%s\n", std::get<Command::ErrStr>(find_result).c_str());
-    }
-
-    return 0;
+Command *GetCommands() {
+    return CurrentCmds;
 }
 
+} // namespace shim
 
 void PrintHelpEntry(const char *const * helpStrArray) {
     if (helpStrArray == NULL) return;
@@ -231,10 +210,6 @@ void InitCommands() {
     // init the class commands
     InitCmd_class();
 
-    // add the help command
-    AddCommand("help", "h", proc_ignore, cmd_help_cmd,
-               cmd_help_help, "Display help information about commands.");
-
     // Begin init of every other command
     InitCmd_assign();
     InitCmd_blockmap();
@@ -243,7 +218,6 @@ void InitCommands() {
     InitCmd_comp();
     InitCmd_env();
     InitCmd_iostat();
-    InitCmd_frame();
     InitCmd_go();
     InitCmd_script();
     InitCmd_list();
@@ -409,7 +383,7 @@ std::variant<Command::Parts, Command::ErrStr> Command::findCmd(std::string_view 
 
     for (auto loc=size_t{0}; loc < cmd.size(); loc=end) {
         if ((loc = cmd.find_first_not_of(spc, loc)) == std::string::npos) break;
-        if (!std::isalpha(cmd[loc])) break;
+        if (!(std::isalpha(cmd[loc]) || cmd[loc] == '-')) break;
         if ((end = cmd.find_first_of(spcSlash, loc)) == std::string::npos) end = cmd.size();
 
         if (auto subRes = cp->findSubCmd(cmd.substr(loc,end-loc)); subRes.index()) {
@@ -423,6 +397,7 @@ std::variant<Command::Parts, Command::ErrStr> Command::findCmd(std::string_view 
             break;
         }
     }
+
     if (!err.empty()) {
         return err;
     } else {
@@ -467,4 +442,44 @@ std::variant<Command*, Command::ErrStr> Command::findSubCmd(std::string_view cmd
         err.append(cmd);
         return err;
     }
+}
+
+static int dummy_help_cmd(rec_set_t* rec_set, int argc, char* argv[]) {
+    // it's necessary to attach a function to the help command to satisfy the
+    // search algorithm in Command::findCmd, but this function should not
+    // actually be called. the interpreter should detect the help command
+    // and short circuit to its own implementation.
+    return Command::Failure;
+}
+
+std::shared_ptr<Command> ConsoleCommandsFactory::make() {
+    auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
+    insert_frame_commands(*root);
+
+    // insert a fake help command so we get the niceness of the command tree
+    // matching "h", "he", etc. to "help". printing the actual help requires
+    // context only available in the interpreter itself, so the interpreter
+    // will catch a match to this command and short circuit to the help output.
+    root->addSubCmd({
+        .name = "help", .alias = "h", .ptype = proc_ignore,
+        .fn = dummy_help_cmd, .help = cmd_help_help,
+        .desc = "Display help information about commands."});
+
+    return root;
+}
+
+std::shared_ptr<Command> MiCommandsFactory::make() {
+    auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
+    insert_frame_commands(*root);
+
+    // insert a fake help command so we get the niceness of the command tree
+    // matching "h", "he", etc. to "help". printing the actual help requires
+    // context only available in the interpreter itself, so the interpreter
+    // will catch a match to this command and short circuit to the help output.
+    root->addSubCmd({
+        .name = "-help", .ptype = proc_ignore,
+        .fn = dummy_help_cmd, .help = cmd_help_help,
+        .desc = "Display help information about commands."});
+
+    return root;
 }

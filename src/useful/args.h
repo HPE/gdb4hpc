@@ -56,7 +56,7 @@ public:
 
     // parses a string as a list of arguments separated by spaces and adds them
     // to the current list of arguments
-    void parseAndAppendArgs(const std::string_view& args);
+    void parseAndAppendArgs(std::string_view args);
 
     // returns arguments separated by delimiter as a string. if a stored argument
     // contains delimiter, it will be surrounded with double quotes.

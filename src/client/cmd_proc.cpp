@@ -752,7 +752,6 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     dbgframe_t *fp;
     rec_set_t *rec_set;
-    rep_set_t *rep_set;
     rep_set_t *quit_rep;
 
     // Note that we are reusing the invoke callback.
@@ -782,7 +781,7 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
 
     // grab all the frames
-    rep_set = DbgShowFrame(rec_set, 0);
+    auto rep_set = DbgShowFrame(rec_set, 0);
 
     // cuda-gdb doesn't report the threads as stopped at attachment time.
     // The debugger should not quit since since this does not inicate "Could not
@@ -798,7 +797,7 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     }
 
     // process error
-    if (!isRunning && ProcessErrorInRepSet(rep_set)) {
+    if (!isRunning && ProcessErrorInRepSet(rep_set.get())) {
         // This is fatal as its an indication that things are broken (i.e. we
         // cannot send commands)
         PrintOutError("Could not communicate with application.\n");
@@ -806,7 +805,6 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
         ProcessErrorInRepSet(quit_rep);
         FreeRecSet(rec_set);
         FreeRepSet(quit_rep);
-        FreeRepSet(rep_set);
         return 0;
     }
 
@@ -816,7 +814,7 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
         PrintOutMsg("Current rank location:\n");
         // Print the current frame based on this bitset
         // Print the startup frames based on this bitset
-        for (auto&& reply : rep_set) {
+        for (auto&& reply : rep_set.get()) {
             // point at the frame
             fp = EVENT_FRAME(reply->rep_event);
             // print the frame
@@ -825,9 +823,6 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
             }
         }
     }
-
-    // Done with the frames reply
-    FreeRepSet(rep_set);
 
     // Free the created rec_set
     FreeRecSet(rec_set);

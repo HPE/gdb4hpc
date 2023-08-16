@@ -24,6 +24,7 @@
 
 #include "dbgevent.h"
 #include "exec.h"
+#include "interpreter.h"
 
 /*
 ** Types of cli streams
@@ -165,7 +166,8 @@ struct cli_stream_t {
     ~cli_stream_t();
     
     cli_type_t cs_type;  /* cli stream type */
-    interpreter_type cs_interpreter = interpreter_type::CLI;  // or MI
+    interpreter_type _cs_interpreter = interpreter_type::CLI;  // CLI or MI. this member is deprecated.
+    std::unique_ptr<Interpreter> cs_interpreter = nullptr;
     int cs_fdin = -1;         /* fd number for input to select on */
     FILE *cs_fpin = nullptr;       /* file to read from */
     cli_out_t cs_out;      /* stream to output to */
@@ -414,9 +416,5 @@ enum class cli_query_default { NONE, NO, YES };
 extern bool cli_query(const char *prompt,
                       cli_query_default defVal=cli_query_default::NONE,
                       cli_query_default nonInteractiveDefVal=cli_query_default::NONE);
-
-// Used to get a line of input. This should be avoided. It is needed for ssh
-// keyboard-interactive authentication
-extern char *cli_get_line(void);
 
 #endif /* _CLI_FUNCS_H */

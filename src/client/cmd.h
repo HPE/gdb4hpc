@@ -40,16 +40,35 @@ using cmdfunc_t = int (*)(rec_set_t*, int, char**);
 // the client side function to call and its help information
 class Command {
 public:
+    // a more readable return value for command implementations. TODO consider promoting
+    // these to a full fledged enum class. if it was done, it would require a lot of
+    // noise to change the return type of all command functions.
+    static constexpr auto Success = 1;
+    static constexpr auto Failure = 0;
+
     // standard function
     Command(const std::string& name, const char* alias,
             cmdptype ptype, cmdfunc_t cmd,
             const char* const* help,
             const char* desc);
 
+    // enables nice things like cmd.addSubCmd({.name = "...", .desc = "..."})
+    struct CtorArgs {
+        std::string name;
+        const char* alias = nullptr;
+        cmdptype ptype;
+        cmdfunc_t fn;
+        const char* const* help = nullptr;
+        const char* desc = nullptr;
+    };
+
+    Command(CtorArgs&& args);
+
     // root node for a command tree. 
     Command(cmdptype ptype, cmdfunc_t defaultCmd);
 
     // access properties of the command 
+    const char* getAlias() const { return m_alias; }
     const std::string& getShortName() const { return m_name; }
     const std::string& getFullName() const { return m_fullName; }
     const std::vector<std::shared_ptr<Command>>& getSubCmds() const { return  m_subCmds; }
@@ -64,6 +83,7 @@ public:
     void addSubCmd(const char* name, const char* alias, cmdptype ptype,
                    cmdfunc_t cmd,
                    const char* const* help, const char* desc);
+    void addSubCmd(CtorArgs&& args);
 
     // Locate a command from user input.
     // If a matching command is found, return the command object and the
@@ -93,6 +113,22 @@ private:
     std::shared_ptr<Command> m_default;
 };
 
+class ConsoleCommandsFactory {
+public:
+    static std::shared_ptr<Command> make();
+private:
+    // these are defined in their respective cmd_*.cpp files
+    static void insert_frame_commands(Command& root);
+};
+
+class MiCommandsFactory {
+public:
+    static std::shared_ptr<Command> make();
+private:
+    // these are defined in their respective cmd_*.cpp files
+    static void insert_frame_commands(Command& root);
+};
+
 
 /*
 ** Global Init command functions defined elsewhere
@@ -104,7 +140,6 @@ extern void InitCmd_checkpoint();
 extern void InitCmd_comp();
 extern void InitCmd_env();
 extern void InitCmd_iostat();
-extern void InitCmd_frame();
 extern void InitCmd_func();
 extern void InitCmd_go();
 extern void InitCmd_script();
@@ -147,6 +182,18 @@ extern void ExecuteCommand(const char *);
 
 // external access to the help command
 extern void PrintHelpEntry(const char *const *);
-extern int cmd_help_cmd(rec_set_t *, int, char **);
+
+namespace shim {
+// these functions are temporary and will be removed when the new interpreters
+// implementation is done. they are needed to allow the interpreters
+// implementation access to internal cmd.cpp values to better switch between the
+// new and old implementations.
+//
+// TODO remove the need for all shim:: functions
+
+// get current legacy command tree
+Command* GetCommands();
+
+} // namespace shim
 
 #endif /* ! _CMD_H */

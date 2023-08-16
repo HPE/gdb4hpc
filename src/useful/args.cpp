@@ -161,7 +161,7 @@ const std::vector<const char *> ArgvStream::c_strs(size_t start) const {
     return c_strs;
 };
 
-void ArgvStream::parseAndAppendArgs(const std::string_view& args) {
+void ArgvStream::parseAndAppendArgs(std::string_view args) {
     std::stringstream arg;
 
     for (size_t i = 0; i < args.size(); i++) {

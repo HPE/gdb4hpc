@@ -2506,7 +2506,7 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
                 addStrError(result, rec->rec_di, *group, "Error fetching frame");
                 continue;
             }
-            for (const auto* frameReply : frames) {
+            for (const auto* frameReply : frames.get()) {
                 const auto &frameGroup = frameReply->rep_group;
                 const auto &frameLoc = EVENT_FRAME(frameReply->rep_event)->getLoc();
 
@@ -3111,9 +3111,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                 // Make sure there isn't an error in the result, otherwise add
                 // this to the to_send list to get the list from the back end.
-                if (SetHasError(tmp_result)) {
-                    FreeRepSet(tmp_result);
-                    tmp_result = nullptr;
+                if (SetHasError(tmp_result.get())) {
                     AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
                     continue;
                 }
@@ -3151,8 +3149,6 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         // Make sure the event is a DBGEV_LIST, otherwise add this
                         // to the to_send list
                         if (e->ev_event != DBGEV_LIST) {
-                            FreeRepSet(tmp_result);
-                            tmp_result = nullptr;
                             FreeEvent(e);
                             dbg_fe->clearListState();
                             AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
@@ -3172,7 +3168,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                 }
 
                 // This has converted the SHOWFRAME result into a LIST result.
-                result = MergeRepSet(result, tmp_result);  // it checks for tmp_result==nulptr
+                result = MergeRepSet(result, tmp_result.release());  // it checks for tmp_result==nulptr
 
             } else if ((!str || isReverse) && dbg_fe->listIsPending()) {
                 // We will create the result by hand based on the saved list
@@ -3440,7 +3436,7 @@ rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
 /*
 ** DBG_MOVEFRAME: Move up or down stack frames.
 */
-rep_set_t *DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir dir) {
+std::unique_ptr<rep_set_t> DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir dir) {
     if (!set) return nullptr;
 
     auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, int(dir), set->getThreads());
@@ -3496,30 +3492,30 @@ rep_set_t *DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir dir) {
         }
     }
 
-    return result;
+    return std::unique_ptr<rep_set_t>(result);
 }
 
 /*
 ** DBG_SHOWFRAME: Show current stack.
 */
-rep_set_t *DbgShowFrame(rec_set_t *set, int count) {
+std::unique_ptr<rep_set_t> DbgShowFrame(rec_set_t *set, int count) {
 
     auto request = CommandToSocProto(DBGCMD_SHOWFRAME, count, set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 
-    return result;
+    return std::unique_ptr<rep_set_t>(result);
 }
 
 /*
 ** DBG_GETFRAME: Get selected stack frame.
 */
-rep_set_t *DbgGetFrame(rec_set_t *set, bool verbose) {
+std::unique_ptr<rep_set_t> DbgGetFrame(rec_set_t *set, bool verbose) {
     auto request = CommandToSocProto(DBGCMD_GETFRAME, int(verbose), set->getThreads());
 
     rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 
-    return result;
+    return std::unique_ptr<rep_set_t>(result);
 }
 
 /*

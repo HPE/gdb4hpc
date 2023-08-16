@@ -156,7 +156,7 @@ static int cli_file_get_line(cli_stream_t **stream) {
         PrintOutMsg("%d: %s", cs->cs_line, cs->cs_buf); 
     }
 
-    ExecuteCommand(cs->cs_buf);
+    DbgInterpret(cs->cs_buf);
 
     // print an error if the err flag is set
     if (cs->cs_err) {

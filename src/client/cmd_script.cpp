@@ -588,9 +588,6 @@ void InitCmd_script(void) {
     ScriptCmds->addSubCmd("end", NULL, proc_ignore,
                   cmd_script_end_cmd, cmd_script_end_help,
                   "Finish building the current assertion script.");
-    ScriptCmds->addSubCmd("help", "h", proc_ignore,
-                  cmd_help_cmd, cmd_help_help,
-                  "Display help information about build script mode commands.");
     ScriptCmds->addSubCmd("set", NULL, proc_ignore,
                   cmd_script_set_cmd, cmd_script_set_help,
                   "Set information about the debugger environment.");

@@ -473,10 +473,6 @@ void InitCmd_blockmap(void) {
                   cmd_blockmap_end_cmd,
                   cmd_blockmap_end_help,
                   "Finish defining the current decomposition scheme.");
-    BlockMapCmds->addSubCmd(
-        "help", "h", proc_ignore, cmd_help_cmd,
-        cmd_help_help,
-        "Display help information about decomposition script mode commands.");
 }
 
 void FinishCmd_blockmap(void) {

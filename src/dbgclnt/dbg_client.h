@@ -36,6 +36,7 @@
 #include <vector>
 #include <chrono>
 #include <functional>
+#include <string_view>
 
 // Forward declare event set
 struct event_set;
@@ -317,6 +318,8 @@ struct cli_stream_t;
 extern void DbgHandleInput(int, cli_stream_t*, void (*)(void));
 extern void DbgUnhandleInput(cli_stream_t*);
 extern void DbgSwitchCurrentStream(cli_stream_t*);
+// TODO consider renaming or completely removing DbgInterpret
+extern void DbgInterpret(std::string_view text);
 using SigHandlerFn = void(*)(int);
 extern void DbgHandleSignal(int signal, SigHandlerFn fn, dbgsig_type type);
 extern void DbgMaskInput(void);
@@ -398,9 +401,9 @@ extern rep_set_t *DbgGetSources(rec_set_t *);
 extern rep_set_t *DbgSetArgs(rec_set_t *, char *);
 // Returns NULL on success, otherwise reply will contain error
 extern rep_set_t *DbgStep(rec_set_t *, int, int);
-extern rep_set_t *DbgMoveFrame(rec_set_t *, int count, DbgFrameDir dir);
-extern rep_set_t *DbgShowFrame(rec_set_t *, int);
-extern rep_set_t *DbgGetFrame(rec_set_t *, bool);
+extern std::unique_ptr<rep_set_t> DbgMoveFrame(rec_set_t *, int count, DbgFrameDir dir);
+extern std::unique_ptr<rep_set_t> DbgShowFrame(rec_set_t *, int);
+extern std::unique_ptr<rep_set_t> DbgGetFrame(rec_set_t *, bool);
 extern rep_set_t *DbgGetVars(rec_set_t *);
 extern rep_set_t *DbgGetArgs(rec_set_t *);
 extern rep_set_t *DbgGetScope(rec_set_t *, char *);

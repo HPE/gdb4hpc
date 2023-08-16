@@ -59,10 +59,7 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-interpreter-exec", "interpreter-exec" },
  {"-list-features", "ok,features=[]"},
  {"-list-target-features", "ok,features=[async]"}, 
- {"-stack-info-frame", "frame"},
- {"-stack-list-frames","backtrace"},
  {"-stack-list-variables", "info locals"},
- {"-stack-select-frame", "select-frame"},
  {"-thread-info", "info threads"},
  {"-thread-select", "thread" },
 };

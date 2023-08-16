@@ -115,7 +115,7 @@ static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (!rec_set) return 1;
 
     auto rep_set = DbgGetFrame(rec_set, false);
-    ProcessErrorInRepSet(rep_set);
+    ProcessErrorInRepSet(rep_set.get());
 
     if (Client.MI_mode && !rep_set->isEmpty()) {
         auto reply = rep_set->getFirstReply();
@@ -127,7 +127,7 @@ static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
                          reply->rep_di.name().c_str(), group.substr(1,group.length()-2).c_str(),
                          loc.loc_line, loc.loc_file, loc.loc_file);
     } else {
-        for (auto&& reply : rep_set) {
+        for (auto&& reply : rep_set.get()) {
             // Point at the frame data
             auto fp = EVENT_FRAME(reply->rep_event);
             auto loc = fp->getLoc();
@@ -136,7 +136,6 @@ static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    FreeRepSet(rep_set);
     return 1;
 }
 

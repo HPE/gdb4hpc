@@ -321,7 +321,7 @@ static void record_and_execute_line(const char *line) {
         }
     }
 
-    ExecuteCommand(line);
+    DbgInterpret(line);
 }
 
 static void rl_handle_line(char *line) {

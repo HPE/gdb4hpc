@@ -15,12 +15,13 @@ public:
     ConsoleInterpreter();
     ~ConsoleInterpreter() override = default;
 
-    std::string complete_text(std::string_view line) override; // unimplemented
-    bool can_interpret(std::string_view line) override;
+    std::string_view name() const override;
+    std::string complete_text(std::string_view line) const override; // unimplemented
+    bool can_interpret(std::string_view line) const override;
     void interpret(std::string_view line) override;
 
 private:
-    std::variant<Command::Parts, Command::ErrStr> find_command(std::string_view line);
+    std::variant<Command::Parts, Command::ErrStr> find_command(std::string_view line) const;
     void print_help(std::string_view line);
 
     std::shared_ptr<Command> m_console_commands;

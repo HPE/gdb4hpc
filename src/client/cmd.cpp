@@ -454,6 +454,7 @@ static int dummy_help_cmd(rec_set_t* rec_set, int argc, char* argv[]) {
 
 std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
+    insert_interpreter_commands(*root);
     insert_frame_commands(*root);
 
     // insert a fake help command so we get the niceness of the command tree
@@ -470,6 +471,7 @@ std::shared_ptr<Command> ConsoleCommandsFactory::make() {
 
 std::shared_ptr<Command> MiCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
+    insert_interpreter_commands(*root);
     insert_frame_commands(*root);
 
     // insert a fake help command so we get the niceness of the command tree

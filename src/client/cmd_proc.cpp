@@ -352,10 +352,10 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
 
     // Set the client event callback handler
     DbgHandleEvent(di, EventCB);
+    PrintOutMsg("Launch complete.\n");
     if (Client.MI_mode){
         PrintOutOk();  // LOOKAT: better way to suppress when in -iex
     }
-    PrintOutMsg("Launch complete.\n");
 
     // Create a rec_set based on the di
     rec_set = NewRecSet();

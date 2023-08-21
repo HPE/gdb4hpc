@@ -1031,44 +1031,6 @@ static int cmd_set_inferior_tty_cmd(rec_set_t* rec_set, int argc, char** argv) {
     return 1;
 }
 
-static int cmd_interpreter_exec_cmd(rec_set_t* rec_set, int argc, char** argv) {
-    if (argc < 3) {
-        PrintOutError("Usage %s console|mi <command>.\n", argv[0]);
-        return 0;
-    }
-
-    if (strcmp(argv[1],"console") != 0) {
-        PrintOutError("Only console is supported.\n");
-        return 0;
-    }
-
-    if (!Client.MI_mode) {
-        PrintOutError("Only supported from MI mode.\n");
-        return 0;
-    }
-
-    Client.MI_mode = false;
-
-    auto command = std::string{};
-    if (argc > 3 || argv[2][0] != '"') {
-        command = ArgsToString(argv+2, argc-2);
-    } else {
-        auto len = strlen(argv[2]);
-        command = std::string{argv[2]+1, std::max(size_t(2),len)-2};
-    }
-    mi_log("\nExecuting %s\n", command.c_str());
-    {
-        PrintOutCliToMI mi;         // toggles output printing
-        ExecuteCommand(command.c_str());
-    }
-
-    Client.MI_mode = true;
-
-    PrintOutOk();
-
-    return 1;
-}
-
 int cmd_set_command_timeout_cmd(rec_set_t*, int argc, char* argv[]) {
     if (argc < 2) {
         PrintOutError("Usage: set command-timeout <seconds>\n");
@@ -1109,10 +1071,6 @@ void InitCmd_env(void) {
 
     AddCommand("pipe", proc_optional, cmd_pipe_cmd,
                cmd_pipe_help, "Send the output of a gdb command to a shell command.");
-
-
-    AddCommand("interpreter-exec", proc_optional,
-               cmd_interpreter_exec_cmd, nullptr, nullptr); // undocumented
 
     // maint commands
     AddCommand("maint echo", proc_ignore, cmd_maint_echo_cmd,

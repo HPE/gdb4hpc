@@ -53,6 +53,15 @@ TEST_CASE("StripQuotes") {
     CHECK(StripQuotes("other half quoted\"") == "other half quoted\""s);
 }
 
+TEST_CASE("stripped") {
+    using namespace std::literals::string_view_literals;
+
+    CHECK(stripped("  hello\nworld  \t\r") == "hello\nworld"sv);
+    CHECK(stripped("\n\t\r") == ""sv);
+    CHECK(stripped("\n") == ""sv);
+    CHECK(stripped("") == ""sv);
+}
+
 /*
 ** Convert an ascii number to a number. NOTE: silently truncates
 ** the number to fit in sizeof int.
@@ -191,4 +200,21 @@ int IsInteger(char *s) {
         if (!isdigit((int)*s)) return 0;
 
     return 1;
+}
+
+std::string_view stripped(std::string_view sv) {
+    const auto whitespace = std::string_view{" \n\r\t"};
+
+    if (auto first = sv.find_first_not_of(whitespace); first != std::string_view::npos) {
+        sv.remove_prefix(first);
+    } else {
+        // sv is only whitespace
+        return "";
+    }
+
+    // if we get here, we know there is at least one non-whitespace character
+    auto last = sv.find_last_not_of(whitespace);
+    sv.remove_suffix(sv.size() - (last + 1));
+
+    return sv;
 }

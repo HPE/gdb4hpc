@@ -29,18 +29,26 @@ ConsoleInterpreter::ConsoleInterpreter()
     : m_console_commands(ConsoleCommandsFactory::make())
 {}
 
-std::string ConsoleInterpreter::complete_text(std::string_view line) {
+std::string_view ConsoleInterpreter::name() const {
+    return "console";
+}
+
+std::string ConsoleInterpreter::complete_text(std::string_view line) const {
     // Completion is unimplemented for this interpreter
     return std::string{line};
 }
 
-bool ConsoleInterpreter::can_interpret(std::string_view line) {
+bool ConsoleInterpreter::can_interpret(std::string_view line) const {
     auto find_result = find_command(line);
     return std::get_if<Command::Parts>(&find_result) != nullptr;
 }
 
 void ConsoleInterpreter::interpret(std::string_view line) {
+    line = stripped(line);
     log("interpreting \"%.*s\"", (int)line.size(), line.data());
+    if (line.empty() || line.starts_with("#")) {
+        return;
+    }
 
     auto find_result = find_command(line);
 
@@ -80,7 +88,7 @@ void ConsoleInterpreter::interpret(std::string_view line) {
     }
 }
 
-std::variant<Command::Parts, Command::ErrStr> ConsoleInterpreter::find_command(std::string_view line) {
+std::variant<Command::Parts, Command::ErrStr> ConsoleInterpreter::find_command(std::string_view line) const {
     auto console_result = m_console_commands->findCmd(line);
     auto legacy_result = shim::GetCommands()->findCmd(line);
     auto* console_parts = std::get_if<Command::Parts>(&console_result);

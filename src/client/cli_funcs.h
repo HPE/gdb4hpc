@@ -21,6 +21,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <map>
 
 #include "dbgevent.h"
 #include "exec.h"
@@ -166,8 +167,22 @@ struct cli_stream_t {
     ~cli_stream_t();
     
     cli_type_t cs_type;  /* cli stream type */
-    interpreter_type _cs_interpreter = interpreter_type::CLI;  // CLI or MI. this member is deprecated.
-    std::unique_ptr<Interpreter> cs_interpreter = nullptr;
+
+    // cs_interpreters are the stream's available interpreters.
+    // cs_current_interpreter will always be non-null, and points to the
+    // interpreter that will interpret commands from the user unless otherwise
+    // stated. interpreter-set changes the current interperter. commands
+    // like interpreter-exec might use a non-current interpreter for input
+    // interpretation, but the current interpreter *always* processes all output.
+    //
+    // the map initialy starts with one interpreter, depending on the cli_stream_t
+    // constructor arguments. when the user tries to run a command with an
+    // interpreter that doesn't exist yet, it will be created on demand and
+    // reused again when the user requests it again. this allows interpreters to
+    // keep internal state that lives between commands, e.g. entering gdbmode.
+    std::map<std::string, std::shared_ptr<Interpreter>> cs_interpreters;
+    std::shared_ptr<Interpreter> cs_current_interpreter;
+
     int cs_fdin = -1;         /* fd number for input to select on */
     FILE *cs_fpin = nullptr;       /* file to read from */
     cli_out_t cs_out;      /* stream to output to */
@@ -342,7 +357,10 @@ extern void SetDefaultCLIStream(void);
 extern cli_stream_args_t *NewCLIArgs(cli_type_t, ...);
 extern void DestroyCLIArgs(cli_type_t, cli_stream_args_t *);
 extern const char* GetMIEpilogue();
-
+// TODO consider if these belong in cli_funcs
+extern bool DbgInterpreterSet(std::string_view interpreter_name);
+extern void DbgInterpret(std::string_view text);
+extern bool DbgInterpreterExec(std::string_view interpreter_name, std::string_view command);
 
 /*
 ** Output functions

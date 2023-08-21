@@ -1,0 +1,45 @@
+0: interpreter-set mi
+0: maint set sync on
+0: launch $two{5} bin/CRAY/C++/cpp_bt.x -g "-N2"
+Starting application, please wait...
+Launched application...
+5/5 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+^done
+*stopped,reason="breakpoint-hit",bkptno="0",proc_set="two",group="0..4",frame={func="main",args=[],file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="20"}
+two{0..4}: Initial breakpoint, main at /src/C++/cpp_bt.cpp:20
+0: break merge
+^done,proc_set="two",group="0..4",bkpt={number="1",type="breakpoint",disp="keep",enabled="y",addr="0x0000000000202107",func="merge(int)",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="58"}
+(gdb)
+0: continue
+*stopped,reason="breakpoint-hit",bkptno="1",proc_set="two",group="0..4",frame={func="merge(int)",args=[],file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="58"}
+two{0..4}: Breakpoint 1, merge(int) at /src/C++/cpp_bt.cpp:58
+0: -stack-list-frames
+^done,proc_set="two",group="0",stack=[frame={level="0",addr="0xf00f",func="merge",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="58"},frame={level="1",func="step_three",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="73"},frame={level="2",func="rare_branch",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="54"},frame={level="3",func="step_two",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="67"},frame={level="4",func="step_one",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="62"},frame={level="5",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="86"},frame={level="6",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="88"},frame={level="7",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="88"},frame={level="8",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="88"},frame={level="9",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="88"},frame={level="10",func="left",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="77"},frame={level="11",func="branch",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="47"},frame={level="12",func="main",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="35"}]
+^done,proc_set="two",group="1..4",stack=[frame={level="0",addr="0xf00f",func="merge",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="58"},frame={level="1",func="step_three",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="73"},frame={level="2",func="step_two",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="69"},frame={level="3",func="step_one",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="62"},frame={level="4",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="86"},frame={level="5",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="88"},frame={level="6",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="88"},frame={level="7",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="88"},frame={level="8",func="loop",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="88"},frame={level="9",func="left",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="77"},frame={level="10",func="branch",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="47"},frame={level="11",func="main",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="35"}]
+0: backtrace
+~"two{0..4}: #12 main at /src/C++/cpp_bt.cpp:35\n"
+~"two{0..4}: #11 branch at /src/C++/cpp_bt.cpp:47\n"
+~"two{0..4}: #10 left at /src/C++/cpp_bt.cpp:77\n"
+~"two{0..4}: #9  loop at /src/C++/cpp_bt.cpp:88\n"
+~"two{0..4}: #8  loop at /src/C++/cpp_bt.cpp:88\n"
+~"two{0..4}: #7  loop at /src/C++/cpp_bt.cpp:88\n"
+~"two{0..4}: #6  loop at /src/C++/cpp_bt.cpp:88\n"
+~"two{0..4}: #5  loop at /src/C++/cpp_bt.cpp:86\n"
+~"two{0..4}: #4  step_one at /src/C++/cpp_bt.cpp:62\n"
+~"|  \n"
+~"|_ two{0}: #3  step_two at /src/C++/cpp_bt.cpp:67\n"
+~"|  two{0}: #2  rare_branch at /src/C++/cpp_bt.cpp:54\n"
+~"|  two{0}: #1  step_three at /src/C++/cpp_bt.cpp:73\n"
+~"|  two{0}: #0  merge at /src/C++/cpp_bt.cpp:58\n"
+~"|     \n"
+~"\_ two{1..4}: #2  step_two at /src/C++/cpp_bt.cpp:69\n"
+~"   two{1..4}: #1  step_three at /src/C++/cpp_bt.cpp:73\n"
+~"   two{1..4}: #0  merge at /src/C++/cpp_bt.cpp:58\n"
+~"      \n"
+0: -stack-info-frame
+^done,proc_set="two",group="0..4",frame={level="0",addr="",func="merge",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="58"}
+0: q
+~"Shutting down debugger and killing application for 'two'.\n"

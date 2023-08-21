@@ -899,6 +899,10 @@ class FunctionTests(Gdb4hpcTest):
 
         runTest(self)
 
+    def test_mi_backtrace(self):
+        self.base_name = "mi_backtrace"
+        runTest(self)
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

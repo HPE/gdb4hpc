@@ -318,8 +318,6 @@ struct cli_stream_t;
 extern void DbgHandleInput(int, cli_stream_t*, void (*)(void));
 extern void DbgUnhandleInput(cli_stream_t*);
 extern void DbgSwitchCurrentStream(cli_stream_t*);
-// TODO consider renaming or completely removing DbgInterpret
-extern void DbgInterpret(std::string_view text);
 using SigHandlerFn = void(*)(int);
 extern void DbgHandleSignal(int signal, SigHandlerFn fn, dbgsig_type type);
 extern void DbgMaskInput(void);

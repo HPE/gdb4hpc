@@ -27,8 +27,7 @@
 #include "client.h"
 #include "useful.h"
 
-#include "interpreter_console.h"
-#include "interpreter_mi.h"
+#include "interpreter.h"
 
 /*
 ** Static internal definitions
@@ -102,19 +101,55 @@ void DbgSwitchCurrentStream(cli_stream_t* stream){
         if (CurrentStream) CurrentStream->cs_out.flush();
         CurrentStream = stream;
         Client.cli_out = &CurrentStream->cs_out;
-        Client.MI_mode = (CurrentStream->_cs_interpreter == interpreter_type::MI);
+        // TODO eliminate the need for Client.MI_mode
+        Client.MI_mode = (CurrentStream->cs_current_interpreter->name() == "mi");
     }
+}
+
+static std::shared_ptr<Interpreter> getOrCreateInterpreter(std::string_view name) {
+    const auto name_str = std::string{name};
+
+    if (auto iter = CurrentStream->cs_interpreters.find(name_str); iter != CurrentStream->cs_interpreters.end()) {
+        return iter->second;
+    }
+
+    // not found, so try to create it
+    if (auto new_intr = Interpreter::make(name)) {
+        auto [iter, success] = CurrentStream->cs_interpreters.insert({name_str, new_intr});
+        // success should always be true after the .contains check above
+        return iter->second;
+    } else {
+        return nullptr;
+    }
+}
+
+bool DbgInterpreterExec(std::string_view interpreter_name, std::string_view text) {
+    if (auto intr = getOrCreateInterpreter(interpreter_name)) {
+        intr->interpret(text);
+        return true;
+    }
+
+    // TODO make this function have a more meaningful return value - how does the caller
+    // know if the command succeeded?
+    return false;
 }
 
 // TODO consider if this belongs in cli_funcs
 void DbgInterpret(std::string_view text) {
-    // TODO maybe lower this comment check to the interpreter implementation
-    const auto first = text.find_first_not_of(" \t\n\r");
-    if (first == std::string::npos || text[first] == '#') {
-        return;
+    // cs_current_interpreter will never be null after the cli_stream_t ctor
+    CurrentStream->cs_current_interpreter->interpret(text);
+    // TODO better return value
+}
+
+bool DbgInterpreterSet(std::string_view name) {
+    if (auto intr = getOrCreateInterpreter(name)) {
+        CurrentStream->cs_current_interpreter = intr;
+        // TODO make this implicit in the interpreter instead of a global variable
+        Client.MI_mode = (CurrentStream->cs_current_interpreter->name() == "mi");
+        return true;
     }
 
-    CurrentStream->cs_interpreter->interpret(text);
+    return false;
 }
 
 void DestroyCLI(void) {
@@ -208,15 +243,25 @@ static cli_stream_t *NewCLIStream(cli_type_t type, interpreter_type interpreter,
 cli_stream_t::cli_stream_t(cli_type_t type, interpreter_type interpreter,cli_stream_args_t *args,
                            int nprom, va_list pargs)
     : cs_type(type)
-    , _cs_interpreter(interpreter)
     , cs_args(args)
     , cs_logging(cs_out)
 {
     // TODO eventually the interpreter_type member will be removed and this switch will
     // depend on something else
+    // TODO if this switch statement gets one line bigger it should become a static function
     switch (interpreter) {
-        case interpreter_type::CLI: cs_interpreter = std::make_unique<ConsoleInterpreter>(); break;
-        case interpreter_type::MI: cs_interpreter = std::make_unique<MiInterpreter>(); break;
+        case interpreter_type::CLI: {
+            auto intr = Interpreter::make("console"); // blindly assuming this doesn't fail
+            cs_current_interpreter = intr;
+            cs_interpreters.insert({std::string{"console"}, intr});
+            break;
+        }
+        case interpreter_type::MI: {
+            auto intr = Interpreter::make("mi"); // blindly assuming this doesn't fail
+            cs_current_interpreter = intr;
+            cs_interpreters.insert({std::string{"mi"}, intr});
+            break;
+        }
     }
 
     // Set the prompts if the user supplied any
@@ -1025,7 +1070,7 @@ std::ostream& cli_out_t::ostream()
 const char* GetMIEpilogue() {
     static const char* epilogue = nullptr;
     if (!epilogue) {
-        if (!AllStreams.empty() && AllStreams[0]->_cs_interpreter == interpreter_type::MI) {
+        if (!AllStreams.empty() && AllStreams[0]->cs_current_interpreter->name() == "mi") {
             // This is probably a hack, but emacs-mi does not like the (gdb) at the
             // end of response, so I'm using this criteria as a stand-in because
             // gdb-mi uses -i=mi, while gdb-gui adds a separate tty for mi

@@ -153,7 +153,10 @@ static int cli_file_get_line(cli_stream_t **stream) {
 
     if (Client.echo == true && cs->cs_buf[0] != '\n' && cs->cs_buf[0] != '\0') {
         // cs->cs_buf has a \n on the end
-        PrintOutMsg("%d: %s", cs->cs_line, cs->cs_buf); 
+        //
+        // we use the output stream directly instead of PrintOutMsg so that the output
+        // interpreter doesn't format the echoed line - it's required to be plain for testing.
+        cs->cs_out("%d: %s", cs->cs_line, cs->cs_buf);
     }
 
     DbgInterpret(cs->cs_buf);

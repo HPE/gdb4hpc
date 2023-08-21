@@ -16,6 +16,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <string.h>
 #include <ctype.h>
 #include <type_traits>
@@ -90,3 +91,6 @@ void formatSourceLine(std::string &line);
 int IsInteger(char *);
 
 inline char* StrdupOpt(const char* s) { return (s ? strdup(s) : nullptr); };
+
+// return sv with leading and trailing whitespace removed
+std::string_view stripped(std::string_view sv);

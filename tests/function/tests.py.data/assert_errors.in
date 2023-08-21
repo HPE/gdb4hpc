@@ -44,8 +44,7 @@ Error: Expression contains overlapping ranks ($a{0..2} and $a{0..2} with overlap
 Command resulted in an error: 13:     assert $a::inc@"c_inc.c":15 == $a::inc@"c_inc.c":19
 14:     # catch invalid syntax
 15:     assert this certainly isn't the syntax for an assert
-Error: Parsing of "this certainly "isn't the syntax for an assert
-"" failed
+Error: Parsing of "this certainly "isn't the syntax for an assert"" failed
 syntax error, unexpected SYM, expecting $end.
 Command resulted in an error: 15:     assert this certainly isn't the syntax for an assert
 16: end

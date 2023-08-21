@@ -118,6 +118,7 @@ public:
     static std::shared_ptr<Command> make();
 private:
     // these are defined in their respective cmd_*.cpp files
+    static void insert_interpreter_commands(Command& root);
     static void insert_frame_commands(Command& root);
 };
 
@@ -126,6 +127,7 @@ public:
     static std::shared_ptr<Command> make();
 private:
     // these are defined in their respective cmd_*.cpp files
+    static void insert_interpreter_commands(Command& root);
     static void insert_frame_commands(Command& root);
 };
 

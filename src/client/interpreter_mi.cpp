@@ -1,4 +1,5 @@
 #include "interpreter_mi.h"
+#include "str.h"
 
 #include <charconv>
 
@@ -31,28 +32,30 @@ MiInterpreter::MiInterpreter()
     , m_console_intr()
 {}
 
-std::string MiInterpreter::complete_text(std::string_view line) {
+std::string_view MiInterpreter::name() const {
+    return "mi";
+}
+
+std::string MiInterpreter::complete_text(std::string_view line) const {
     // Completion is unimplemented for this interpreter
     return std::string{line};
 }
 
-bool MiInterpreter::can_interpret(std::string_view line) {
+bool MiInterpreter::can_interpret(std::string_view line) const {
     auto find_result = m_mi_commands->findCmd(line);
     return std::get_if<Command::Parts>(&find_result) != nullptr
         || m_console_intr.can_interpret(line);
 }
 
 void MiInterpreter::interpret(std::string_view line) {
-    if (auto first = line.find_first_not_of(" \n\r\t"); first != std::string_view::npos) {
-        line.remove_prefix(first);
-    }
-    if (auto last = line.find_last_not_of(" \n\r\t"); last != std::string_view::npos) {
-        line.remove_suffix(line.size() - (last + 1));
-    }
-
+    line = stripped(line);
     log("interpreting \"%.*s\"", (int)line.size(), line.data());
+    if (line.empty() || line.starts_with("#")) {
+        return;
+    }
 
     // consume tag, if present.
+    auto untagged_line = line;
     if (!line.starts_with("-")) {
         auto tag = -1;
         auto result = std::from_chars(line.data(), line.data() + line.size(), tag);
@@ -61,12 +64,12 @@ void MiInterpreter::interpret(std::string_view line) {
             log("got tag: %d", tag);
             // TODO use a different mechanism than cli_set_prefix to handle the tag
             cli_set_prefix(std::to_string(tag));
-            line.remove_prefix(result.ptr - line.data());
-            log("after tag, interpreting \"%.*s\"", (int)line.size(), line.data());
+            untagged_line.remove_prefix(result.ptr - line.data());
+            log("after tag, interpreting \"%.*s\"", (int)untagged_line.size(), untagged_line.data());
         }
     }
 
-    auto find_result = m_mi_commands->findCmd(line);
+    auto find_result = m_mi_commands->findCmd(untagged_line);
 
     if (auto* parts = std::get_if<Command::Parts>(&find_result)) {
         auto& [cmd, args] = *parts;
@@ -94,14 +97,18 @@ void MiInterpreter::interpret(std::string_view line) {
             // input stream.
             cli_set_error();
         }
-    } else if (m_console_intr.can_interpret(line)) {
+    } else if (m_console_intr.can_interpret(untagged_line)) {
         log("forwarding to console interpreter");
-        m_console_intr.interpret(line);
+        m_console_intr.interpret(untagged_line);
     } else {
         // fall back to execute command. even if we aren't deaing with a console
         // command, we still might have a valid command here. some unconverted
         // mi commands, e.g. "-break-after", won't show up in any command tree
         // until they've been transformed by ExecuteCommand.
+        //
+        // note that we pass the original line with the tag since ExecuteCommand does its
+        // own tag extraction logic. once the need to fall back to ExecuteCommand is
+        // removed, we can clean up this funny untagged_line business.
         //
         // XXX: there is no guarantee that .data() is valid here. the
         // string_view might not be null terminated. in practice, that is never

@@ -56,7 +56,6 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-gdb-set", "set"},
  {"-gdb-show", "show"},
  {"-inferior-tty-set", "set inferior-tty"},
- {"-interpreter-exec", "interpreter-exec" },
  {"-list-features", "ok,features=[]"},
  {"-list-target-features", "ok,features=[async]"}, 
  {"-stack-list-variables", "info locals"},

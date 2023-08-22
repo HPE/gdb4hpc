@@ -27,8 +27,8 @@ static int cmd_stepnext_console(rec_set_t* rec_set, int argc, char* argv[]) {
 
     if (argc >= 2) count = atoi(argv[1]);
 
-    if (auto error_rep_set = DbgStep(rec_set, count, in)) {
-        (void)ProcessErrorInRepSet(error_rep_set.get());
+    if (auto error_rep_set = DbgStep(rec_set, count, in); error_rep_set.hasError()) {
+        (void)ProcessErrorInRepSet(error_rep_set);
         return Command::Failure;
     }
 
@@ -44,8 +44,8 @@ static int cmd_stepnext_mi(rec_set_t* rec_set, int argc, char* argv[]) {
 
     if (argc >= 2) count = atoi(argv[1]);
 
-    if (auto error_rep_set = DbgStep(rec_set, count, in)) {
-        (void)ProcessErrorInRepSet(error_rep_set.get());
+    if (auto error_rep_set = DbgStep(rec_set, count, in); error_rep_set.hasError()) {
+        (void)ProcessErrorInRepSet(error_rep_set);
         // XXX: PrintOutOk is probably wrong for the error case, but is the old behavior.
         // leaving it for now...
         PrintOutOk();

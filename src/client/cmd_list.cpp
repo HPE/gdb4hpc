@@ -24,11 +24,10 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *s = nullptr;
     dbglist_t *l;
     dbglist_t *lp;
-    rep_set_t *rep_set = nullptr;
 
     if (argc > 1) s = argv[1];
 
-    rep_set = DbgList(rec_set, s);
+    auto rep_set = DbgList(rec_set, s);
 
     ProcessErrorInRepSet(rep_set);
 
@@ -47,8 +46,6 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
                                          "%-5d\t%s\n", l->list_lno, line.c_str());
         }
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -106,8 +103,6 @@ static int cmd_info_sources_cmd(rec_set_t *rec_set, int argc,
         }
     }
 
-    FreeRepSet(rep_set);
-
     return 1;
 }
 
@@ -115,10 +110,10 @@ static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
     if (!rec_set) return 1;
 
     auto rep_set = DbgGetFrame(rec_set, false);
-    ProcessErrorInRepSet(rep_set.get());
+    ProcessErrorInRepSet(rep_set);
 
-    if (Client.MI_mode && !rep_set->isEmpty()) {
-        auto reply = rep_set->getFirstReply();
+    if (Client.MI_mode && rep_set.getNumReplies() > 0) {
+        auto reply = rep_set.getFirstReply();
         auto f = EVENT_FRAME(reply->rep_event);
         auto loc = f->getLoc();
         std::string group = reply->rep_group.get()->toSetString();
@@ -127,7 +122,7 @@ static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
                          reply->rep_di.name().c_str(), group.substr(1,group.length()-2).c_str(),
                          loc.loc_line, loc.loc_file, loc.loc_file);
     } else {
-        for (auto&& reply : rep_set.get()) {
+        for (auto&& reply : rep_set) {
             // Point at the frame data
             auto fp = EVENT_FRAME(reply->rep_event);
             auto loc = fp->getLoc();

@@ -38,14 +38,13 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     if ((argc == 3 || argc == 2) && strcmp(argv[1],"name") == 0) {
-        rep_set_t* rep_set = DbgSetThreadName(rec_set, argc == 3 ? argv[2] : "");
+        auto rep_set = DbgSetThreadName(rec_set, argc == 3 ? argv[2] : "");
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
         return 1;
 
     } else if (argc >= 3 && strcmp(argv[1],"find") == 0) {
         auto arg = ArgsToString(&argv[2], argc - 2);
-        rep_set_t* rep_set = DbgFindThread(rec_set, arg.c_str());
+        auto rep_set = DbgFindThread(rec_set, arg.c_str());
         ProcessErrorInRepSet(rep_set);
 
         // process replies
@@ -61,11 +60,10 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
             }
         }
 
-        FreeRepSet(rep_set);
         return 1;
     } else if (argc >= 3 && strcmp(argv[1],"apply") == 0) {
         std::string arg = ArgsToString(&argv[2], argc - 2);
-        rep_set_t* rep_set = DbgThreadApply(rec_set,arg.c_str());
+        auto rep_set = DbgThreadApply(rec_set,arg.c_str());
         ProcessErrorInRepSet(rep_set);
 
         // process replies
@@ -81,7 +79,6 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
             }
         }
 
-        FreeRepSet(rep_set);
         return 1;
     } else if (argc > 2) {
         PrintOutError("Too many command arguments.\n");
@@ -101,11 +98,8 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
             return 0;
         }
 
-        rep_set_t *rep_set = DbgSetThread(rec_set, arg);
-
+        auto rep_set = DbgSetThread(rec_set, arg);
         ProcessErrorInRepSet(rep_set);
-
-        FreeRepSet(rep_set);
 
         return 1;
     }
@@ -183,7 +177,7 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // info threads if typically called with no arguments but it
     // does take an optional list of thread ids
     std::string arg = ArgsToString(&argv[1], argc - 1);
-    rep_set_t* rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
+    auto rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
 
     ProcessErrorInRepSet(rep_set);
 
@@ -219,8 +213,6 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    FreeRepSet(rep_set);
-
     return 1;
 }
 
@@ -236,9 +228,8 @@ static int cmd_set_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **ar
         return 1;
     }
 
-    rep_set_t* rep_set = DbgSetSchedulerLocking(rec_set, argv[1]);
+    auto rep_set = DbgSetSchedulerLocking(rec_set, argv[1]);
     ProcessErrorInRepSet(rep_set);
-    FreeRepSet(rep_set);
     return 1;
 }
 
@@ -249,7 +240,7 @@ static int cmd_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **a
         return 1;
     }
 
-    rep_set_t* rep_set = DbgGetSchedulerLocking(rec_set);
+    auto rep_set = DbgGetSchedulerLocking(rec_set);
     ProcessErrorInRepSet(rep_set);
 
     for (auto&& reply : rep_set) {
@@ -258,8 +249,6 @@ static int cmd_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **a
                             "%s\n", mode);
     }
 
-
-    FreeRepSet(rep_set);
     return 1;
 }
 
@@ -292,14 +281,13 @@ static int cmd_set_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
     // the user will get an error message pointing him toward calling it before
     // running.
     if (rec_set) {
-        rep_set_t* rep_set = DbgSetNonStop(rec_set, argv[1]);
+        auto rep_set = DbgSetNonStop(rec_set, argv[1]);
         ProcessErrorInRepSet(rep_set);
-        if (SetHasError(rep_set)) {
+        if (rep_set.hasError()) {
             // The gdb command is in terms of an inferior or process, add a line
             // to clarify it for the gdb4hpc context
             PrintOutMsg("non-stop mode will be applied on future \"launch\" commands\n");
         }
-        FreeRepSet(rep_set);
     }
     PrintOutOk();
     return 1;
@@ -314,7 +302,7 @@ static int cmd_show_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
     }
 
     if (rec_set) {
-        rep_set_t* rep_set = DbgGetNonStop(rec_set);
+        auto rep_set = DbgGetNonStop(rec_set);
         ProcessErrorInRepSet(rep_set);
 
         for (auto&& reply : rep_set) {
@@ -322,8 +310,6 @@ static int cmd_show_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
             PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "non-stop mode is %s\n", mode);
         }
-
-        FreeRepSet(rep_set);
     } else {
         PrintOutMsg("non-stop mode is %s\n", Client.non_stop ? "on" : "off");
     }
@@ -353,7 +339,6 @@ static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    FreeRepSet(rep_set);
     return 1;
 }
 
@@ -379,7 +364,6 @@ static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    FreeRepSet(rep_set);
     return 1;
 }
 

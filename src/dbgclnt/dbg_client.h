@@ -145,16 +145,18 @@ public:
 
     ~rep_set_t();
     rep_set_t(const rep_set_t&) = delete;
+    rep_set_t(rep_set_t&&);
 
     // create from chunks
-    rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& chunks, const Bitset* group);
+    rep_set_t(std::vector<rep_set_t>& chunks, const Bitset* group);
     rep_set_t& operator=(const rep_set_t&) = delete;
+    rep_set_t& operator=(rep_set_t&&);
 
     // create a copy of the contents of the rep_set
-    rep_set_t* clone() const;
+    rep_set_t clone() const;
 
-    // merge the replies in \a tmp into this object *and delete \a tmp*
-    rep_set_t* merge(rep_set_t* tmp);
+    // merge the replies in `expiring` into this object
+    void merge(rep_set_t&& expiring);
 
     // return the number of errors in this reply
     int hasError() const;
@@ -206,8 +208,8 @@ public:
     // acccess the set of error replies
     const std::vector<group_reply_t*>& getErrs() const;
 
-    // get the next reply chunk - return nullptr when none remain.
-    std::unique_ptr<rep_set_t> getNextChunk();
+    // get the next reply chunk - return an empty set when none remain.
+    rep_set_t getNextChunk();
 
     // install information to get the next chunk
     void setContinuation(group_recv_t* set);
@@ -215,13 +217,13 @@ public:
     // each expression result keeps and sequential id for requesting additional chunks.
     void setDataId(size_t id);
 
-    static const std::vector<group_reply_t*>& getNullReply();
-
 private:
     void mergeReplyChunks();
-    void mergeReplyChunkSet(const std::vector<std::unique_ptr<rep_set_t>>& chunks,
+    void mergeReplyChunkSet(std::vector<rep_set_t>& chunks,
                             const Bitset* group);
-    std::unique_ptr<rep_set_t> recvChunk();
+    rep_set_t recvChunk();
+
+    void dealloc();
 
     // these lists should always be sorted by their groups (bitset::operator<) 
     // when accessed externally
@@ -242,12 +244,12 @@ private:
 
 // Iteration support for processing the non-error replies of a rep_set_t, which
 // the overwhelmingly most common operation.   Most commonly used as:
-// for (auto&& reply : repSet)   and it treats repSet==nullptr as an empty set.
-inline std::vector<group_reply_t*>::const_iterator begin(const rep_set_t* set) {
-    return (set ? set->getReplies() : rep_set_t::getNullReply()).begin();
+// for (auto&& reply : repSet)
+inline std::vector<group_reply_t*>::const_iterator begin(const rep_set_t& set) {
+    return set.getReplies().begin();
 }
-inline std::vector<group_reply_t*>::const_iterator end(const rep_set_t* set) {
-    return (set ? set->getReplies() : rep_set_t::getNullReply()).end();
+inline std::vector<group_reply_t*>::const_iterator end(const rep_set_t& set) {
+    return set.getReplies().end();
 }
 
 // Used when calling DbgHandleSignal to determine if the signal should be
@@ -273,8 +275,6 @@ extern group_reply_t *NewGroupReply(DbgInvoke::Handle di, std::unique_ptr<Bitset
                                     dbgevent_t *reply);  // Make static
 extern group_reply_t *CopyGroupReply(group_reply_t *reply);
 extern void FreeGroupReply(group_reply_t *reply);
-extern rep_set_t *NewRepSet(void);  // Make static
-extern void FreeRepSet(rep_set_t *set);
 extern rep_set_t *CopyRepSet(rep_set_t *set);
 extern void AddReplyToSet(rep_set_t *set, group_reply_t *rep);  // Make static
 //extern void ResetSet(rep_set_t *set);                           // Make static
@@ -282,7 +282,7 @@ extern int SetHasError(rep_set_t *set);  // Maybe make static
 //extern void SetReplyHeadInSet(rep_set_t *set);
 extern int GetNumberOfReply(rep_set_t *set);
 //extern group_reply_t *GetNextReplyInSet(rep_set_t *set);
-extern int ProcessErrorInRepSet(rep_set_t *);
+extern int ProcessErrorInRepSet(const rep_set_t& rep_set);
 
 /*
 ** debugger client function prototypes
@@ -338,81 +338,77 @@ extern int DbgCheckForAsyncPending(void);
 extern DbgInvoke::Handle DbgAttach(const std::string& name, const AttachOpts& opts);
 extern DbgInvoke::Handle DbgLaunch(const char* handle, int nproc, LaunchOpts&& args);
 
-extern rep_set_t *DbgStartup(rec_set_t *);
-// This is the only thing that should be returning something other than
-// rep_set_t * I don't know how to fix it since its for sending a synchronous
-// command asynchronously
-
-extern rep_set_t *DbgEvalExpr(rec_set_t *, const char *);
+rep_set_t DbgStartup(rec_set_t *);
+rep_set_t DbgEvalExpr(rec_set_t *, const char *);
 // DbgSetDebuggerVar and DbgGetDebuggerVar is never called, this might be useful
 // at some point though for staging data in gdb variables on the backends
-extern rep_set_t *DbgSetDebuggerVar(rec_set_t *, const char *, AIFStream *);
-extern rep_set_t *DbgGetDebuggerVar(rec_set_t *, const char *);
-extern rep_set_t *DbgSetSourcePath(rec_set_t *, DbgDirOp op, const char *);
-extern rep_set_t *DbgGetSourcePath(rec_set_t *);
-extern rep_set_t *DbgSetPrintElements(rec_set_t *, const char *);
-extern rep_set_t *DbgResetBeforeDirectCmd(rec_set_t *);
-extern rep_set_t *DbgRestoreAfterDirectCmd(rec_set_t *);
-// Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *DbgSetVar(rec_set_t *, const char * var, const char* val);
-extern rep_set_t *DbgGetType(rec_set_t *, const char *, int);
-// Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *DbgGo(rec_set_t *, bool all);
-// Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *DbgFinishFunc(rec_set_t *);
-extern rep_set_t *DbgSetLineBreak(rec_set_t *, int, const char *, int, const char*);
-extern rep_set_t *DbgSetFuncBreak(rec_set_t *, int, const char *, const char *, const char*);
-extern rep_set_t *DbgSetWatch(rec_set_t *, int, char *);
-extern rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex);
-extern rep_set_t *DbgInfoBreakpoints(rec_set_t *recSet);
-extern rep_set_t *DbgSetCheckpoint(rec_set_t* recSet);
-// return nullptr on success, otherwise reply will contain error
-extern rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id);
-// returns nullptr on success, otherwise reply will contain error
-extern rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id);
-extern rep_set_t *DbgSetThread(rec_set_t *, const char *);
-extern rep_set_t *DbgGetThreadInfo(rec_set_t*, const char *);
-extern rep_set_t *DbgSetThreadName(rec_set_t *, const char *);
-extern rep_set_t *DbgFindThread(rec_set_t *, const char*);
-extern rep_set_t *DbgThreadApply(rec_set_t *,const char* op);
-extern rep_set_t *DbgSetSchedulerLocking(rec_set_t *,const char* mode);
-extern rep_set_t *DbgGetSchedulerLocking(rec_set_t *);
-extern rep_set_t *DbgSetNonStop(rec_set_t *,const char* mode);
-extern rep_set_t *DbgGetNonStop(rec_set_t *);
-extern rep_set_t *DbgOmpd(rec_set_t *,const char* op);
-extern rep_set_t *DbgCuda(rec_set_t *,const char* op);
+rep_set_t DbgSetDebuggerVar(rec_set_t *, const char *, AIFStream *);
+rep_set_t DbgGetDebuggerVar(rec_set_t *, const char *);
+rep_set_t DbgSetSourcePath(rec_set_t *, DbgDirOp op, const char *);
+rep_set_t DbgGetSourcePath(rec_set_t *);
+rep_set_t DbgSetPrintElements(rec_set_t *, const char *);
+rep_set_t DbgResetBeforeDirectCmd(rec_set_t *);
+rep_set_t DbgRestoreAfterDirectCmd(rec_set_t *);
+// Returns empty set on success, otherwise reply will contain error
+rep_set_t DbgSetVar(rec_set_t *, const char * var, const char* val);
+rep_set_t DbgGetType(rec_set_t *, const char *, int);
+// Returns empty set on success, otherwise reply will contain error
+rep_set_t DbgGo(rec_set_t *, bool all);
+// Returns empty set on success, otherwise reply will contain error
+rep_set_t DbgFinishFunc(rec_set_t *);
+rep_set_t DbgSetLineBreak(rec_set_t *, int, const char *, int, const char*);
+rep_set_t DbgSetFuncBreak(rec_set_t *, int, const char *, const char *, const char*);
+rep_set_t DbgSetWatch(rec_set_t *, int, char *);
+rep_set_t DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex);
+rep_set_t DbgInfoBreakpoints(rec_set_t *recSet);
+rep_set_t DbgSetCheckpoint(rec_set_t* recSet);
+// return empty set on success, otherwise reply will contain error
+rep_set_t DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id);
+// returns empty set on success, otherwise reply will contain error
+rep_set_t DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id);
+rep_set_t DbgSetThread(rec_set_t *, const char *);
+rep_set_t DbgGetThreadInfo(rec_set_t*, const char *);
+rep_set_t DbgSetThreadName(rec_set_t *, const char *);
+rep_set_t DbgFindThread(rec_set_t *, const char*);
+rep_set_t DbgThreadApply(rec_set_t *,const char* op);
+rep_set_t DbgSetSchedulerLocking(rec_set_t *,const char* mode);
+rep_set_t DbgGetSchedulerLocking(rec_set_t *);
+rep_set_t DbgSetNonStop(rec_set_t *,const char* mode);
+rep_set_t DbgGetNonStop(rec_set_t *);
+rep_set_t DbgOmpd(rec_set_t *,const char* op);
+rep_set_t DbgCuda(rec_set_t *,const char* op);
 
-// Returns NULL on success, otherwise reply will contain error
+// Returns empty set on success, otherwise reply will contain error
 // Pass in bp_set num, 0 means everything
-extern rep_set_t *DbgDeleteBreak(rec_set_t *, int);
-// Returns NULL on success, otherwise reply will contain error
+rep_set_t DbgDeleteBreak(rec_set_t *, int);
+// Returns empty set on success, otherwise reply will contain error
 // Pass in bp_set num, 0 means everything
-extern rep_set_t *DbgDisableBreak(rec_set_t *, int);
-// Returns NULL on success, otherwise reply will contain error
+rep_set_t DbgDisableBreak(rec_set_t *, int);
+// Returns empty set on success, otherwise reply will contain error
 // Pass in bp_set num, 0 means everything
-extern rep_set_t *DbgEnableBreak(rec_set_t *, int, bool, bool);
-extern rep_set_t *DbgIgnoreBreak(rec_set_t *, int, int);
-extern rep_set_t *DbgConditionBreak(rec_set_t *, int, const std::string& cond);
-extern rep_set_t *DbgList(rec_set_t *, char *);
-extern rep_set_t *DbgGetSources(rec_set_t *);
+rep_set_t DbgEnableBreak(rec_set_t *, int, bool, bool);
+rep_set_t DbgIgnoreBreak(rec_set_t *, int, int);
+rep_set_t DbgConditionBreak(rec_set_t *, int, const std::string& cond);
+rep_set_t DbgList(rec_set_t *, char *);
+rep_set_t DbgGetSources(rec_set_t *);
 // Not called on a Cray, might be useful on a cluster though
-extern rep_set_t *DbgSetArgs(rec_set_t *, char *);
-// DbgStep returns nullptr on success, otherwise reply will contain error
-extern std::unique_ptr<rep_set_t> DbgStep(rec_set_t *, int, int);
-extern std::unique_ptr<rep_set_t> DbgMoveFrame(rec_set_t *, int count, DbgFrameDir dir);
-extern std::unique_ptr<rep_set_t> DbgShowFrame(rec_set_t *, int);
-extern std::unique_ptr<rep_set_t> DbgGetFrame(rec_set_t *, bool);
-extern rep_set_t *DbgGetVars(rec_set_t *);
-extern rep_set_t *DbgGetArgs(rec_set_t *);
-extern rep_set_t *DbgGetScope(rec_set_t *, char *);
-extern rep_set_t *DbgDirectCmd(rec_set_t *, int, char **);
-extern rep_set_t *DbgStatus(rec_set_t *, int);
-extern rep_set_t *DbgInterrupt(rec_set_t *, bool all);
-extern rep_set_t *DbgQuit(DbgInvoke&, DbgQuitType type);
-extern rep_set_t *DbgOpenSocket(rec_set_t *, char *, int);
-extern rep_set_t *DbgCloseSocket(rec_set_t *);
-extern rep_set_t *DbgSleep(rec_set_t* rec_set, int seconds);
-extern rep_set_t *DbgShell(rec_set_t *, int argc, char **argv);
+rep_set_t DbgSetArgs(rec_set_t *, char *);
+// DbgStep returns empty set on success, otherwise reply will contain error
+rep_set_t DbgStep(rec_set_t *, int, int);
+rep_set_t DbgMoveFrame(rec_set_t *, int count, DbgFrameDir dir);
+rep_set_t DbgShowFrame(rec_set_t *, int);
+rep_set_t DbgGetFrame(rec_set_t *, bool);
+rep_set_t DbgGetVars(rec_set_t *);
+rep_set_t DbgGetArgs(rec_set_t *);
+rep_set_t DbgGetScope(rec_set_t *, char *);
+rep_set_t DbgDirectCmd(rec_set_t *, int, char **);
+rep_set_t DbgStatus(rec_set_t *, int);
+rep_set_t DbgInterrupt(rec_set_t *, bool all);
+rep_set_t DbgQuit(DbgInvoke&, DbgQuitType type);
+rep_set_t DbgOpenSocket(rec_set_t *, char *, int);
+rep_set_t DbgCloseSocket(rec_set_t *);
+rep_set_t DbgSleep(rec_set_t* rec_set, int seconds);
+rep_set_t DbgShell(rec_set_t *, int argc, char **argv);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 

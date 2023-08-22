@@ -26,7 +26,6 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *s;
     char *file;
     char *arg;
-    rep_set_t *rep_set = nullptr;
     dbgbp_t *bp;
 
     std::string threadSet;
@@ -63,16 +62,13 @@ static int cmd_break_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 force_pending_break:
 
-    DPERFLOG(SetTimerStart("setbreak"));
-
+    auto rep_set = rep_set_t();
     if (IsInteger(s)) {
         rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On), file, atoi(s), threadSet.c_str());
     } else {
         rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On), file, s,
                                   threadSet.c_str());
     }
-
-    DPERFLOG(SetTimerStopAndLog("setbreak"));
 
     // Process replies
 
@@ -133,13 +129,11 @@ force_pending_break:
         if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
             // Force pending_val to on and try again
             pending_val = PendingBrkType::On;
-            FreeRepSet(rep_set);
             goto force_pending_break;
         }
     }
 
     Free(arg);
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -148,8 +142,6 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
     char *s;
     char *file;
     char *arg;
-    rep_set_t *rep_set;
-    rep_set_t *enb_rep;
     dbgbp_t *bp;
     rec_set_t *new_rec;
     std::string threadSet;
@@ -184,8 +176,7 @@ static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 force_pending_tbreak:
 
-    DPERFLOG(SetTimerStart("settbreak"));
-
+    auto rep_set = rep_set_t();
     // Set the breakpoint
     if (IsInteger(s)) {
         rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On),
@@ -194,8 +185,6 @@ force_pending_tbreak:
         rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On),
                                   file, s, threadSet.c_str());
     }
-
-    DPERFLOG(SetTimerStopAndLog("settbreak"));
 
     // Process the replies
 
@@ -222,10 +211,9 @@ force_pending_tbreak:
             continue;
         }
 
-        if ((enb_rep = DbgEnableBreak(new_rec, bpset->id(), false, true)) != nullptr) {
+        if (auto enb_rep = DbgEnableBreak(new_rec, bpset->id(), false, true); enb_rep.hasError()) {
             ProcessErrorInRepSet(enb_rep);
             PrintOutError("ERROR: Could not set temporary breakpoint.\n");
-            FreeRepSet(enb_rep);
             FreeRecSet(new_rec);
             continue;
         }
@@ -261,13 +249,11 @@ force_pending_tbreak:
         if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
             // Force pending_val to on and try again
             pending_val = PendingBrkType::On;
-            FreeRepSet(rep_set);
             goto force_pending_tbreak;
         }
     }
 
     Free(arg);
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -314,7 +300,7 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     char* expression = strdup(exprStr.c_str());
 
-    rep_set_t *rep_set = DbgSetWatch(rec_set, bp_type, expression);
+    auto rep_set = DbgSetWatch(rec_set, bp_type, expression);
 
     Free(expression);
 
@@ -356,8 +342,6 @@ static int cmd_watch_cmd(rec_set_t *rec_set, int argc, char **argv) {
                                   bp->bp_fe_id, bp->bp_exp.c_str());
         }
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -421,8 +405,6 @@ static int cmd_catch_cmd(rec_set_t *rec_set, int argc, char **argv) {
                 "%s] in BPSetList.\n", bp->bp_fe_id, bp->bp_exp.c_str());
         }
     }
-    
-    FreeRepSet(repSet);
 
     return 1;
 }
@@ -445,8 +427,8 @@ static int cmd_delete_checkpoint_cmd(rec_set_t *rec_set, int argc, char **argv) 
         return 0;
     }
 
-    if (auto rep_set = std::unique_ptr<rep_set_t>(DbgDeleteCheckpoint(rec_set, id))) {
-        ProcessErrorInRepSet(rep_set.get());
+    if (auto rep_set = DbgDeleteCheckpoint(rec_set, id); rep_set.hasError()) {
+        ProcessErrorInRepSet(rep_set);
         return 0;
     }
 
@@ -455,7 +437,6 @@ static int cmd_delete_checkpoint_cmd(rec_set_t *rec_set, int argc, char **argv) 
 
 static int cmd_delete_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int bp_id = 0;
-    rep_set_t *rep_set;
 
     // if deleting a checkpoint, defer to specific delete checkpoint function
     using namespace std::string_literals;
@@ -483,10 +464,8 @@ static int cmd_delete_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // The dbg_client layer handles all the of the details here
-    if ((rep_set = DbgDeleteBreak(rec_set, bp_id)) != nullptr) {
+    if (auto rep_set = DbgDeleteBreak(rec_set, bp_id); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
-
         return 0;
     }
     return 1;
@@ -494,7 +473,6 @@ static int cmd_delete_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
 static int cmd_disable_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int bp_id = 0;
-    rep_set_t *rep_set;
 
     if (argc > 1) {
         if (!IsInteger(argv[1])) {
@@ -506,10 +484,8 @@ static int cmd_disable_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // The dbg_client layer handles all the of the details here
-    if ((rep_set = DbgDisableBreak(rec_set, bp_id)) != nullptr) {
+    if (auto rep_set = DbgDisableBreak(rec_set, bp_id); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
-
         return 0;
     }
 
@@ -521,7 +497,6 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv) {
     int once = 0;
     int delete_cmd = 0;
     int bp_id = 0;
-    rep_set_t *rep_set;
 
     // FIXME: Currently GDB has no way to turn a breakpoint that was marked as
     //         delete or disable back to keep. We could solve this by internaly
@@ -555,9 +530,8 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // The dbg_client layer handles all the of the details here
-    if ((rep_set = DbgEnableBreak(rec_set, bp_id, once, delete_cmd)) != nullptr) {
+    if (auto rep_set = DbgEnableBreak(rec_set, bp_id, once, delete_cmd); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
 
         return 0;
     }
@@ -585,9 +559,8 @@ static int cmd_ignore_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // The dbg_client layer handles all the of the details here
-    if (auto rep_set = DbgIgnoreBreak(rec_set, bp_id, n)) {
+    if (auto rep_set = DbgIgnoreBreak(rec_set, bp_id, n); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
         return 0;
     }
 
@@ -610,9 +583,8 @@ static int cmd_condition_cmd(rec_set_t *rec_set, int argc, char **argv) {
     auto cond = ArgsToString(argv+2, argc-2);
 
     // The dbg_client layer handles all the of the details here
-    if (auto rep_set = DbgConditionBreak(rec_set, bp_id, cond)) {
+    if (auto rep_set = DbgConditionBreak(rec_set, bp_id, cond); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
         return 0;
     }
 
@@ -624,11 +596,11 @@ namespace {
     class BPCnts {
     public:
         BPCnts() {}
-        ~BPCnts() { delete rep_set; };
+        ~BPCnts() {};
         void retrieve(rec_set_t* rec_set);
         std::string get(const std::string &handle, const Bitset *group, int id);
     private:
-        rep_set_t* rep_set = nullptr;
+        rep_set_t rep_set;
     };
 }
 
@@ -643,7 +615,7 @@ void BPCnts::retrieve(rec_set_t* rec_set) {
 // get the extended status for breakpoint id.
 // the count information has already been retrieved from the back end
 std::string BPCnts::get(const std::string &handle, const Bitset *group, int id) {
-    if (!rep_set) return "";
+    if (rep_set.isEmpty()) return "";
 
     std::map<std::pair<int,int>, std::unique_ptr<Bitset>> cnts;
 

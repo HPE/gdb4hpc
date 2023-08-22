@@ -644,6 +644,11 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "cpp_arrays_compare"
         runTest(self)
 
+    def test_cpp_arrays_chunk(self):
+        self.base_name = "cpp_arrays_chunk"
+        os.environ["GDB4HPC_BLOCK_ELEMENTS"] = "4"
+        runTest(self)
+
     def test_cpp_decomp(self):
         self.base_name = "cpp_decomp"
         runTest(self)

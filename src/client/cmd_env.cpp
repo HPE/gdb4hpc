@@ -125,7 +125,6 @@ static int cmd_maint_sleep_cmd(rec_set_t *rec_set, int argc, char **argv) {
         // remote sleep
         auto rep_set = DbgSleep(rec_set, time);
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
     } else {
         // local sleep
         sleep(time);
@@ -586,11 +585,10 @@ static int cmd_maint_show_sync_cmd(rec_set_t *rec_set, int argc,
 
 static int cmd_info_status_cmd(rec_set_t *rec_set, int argc,
                                         char **argv) {
-    rep_set_t *rep_set;
     dbgstatus_t *s;
 
     // We do not want to get the location info with this status command
-    rep_set = DbgStatus(rec_set, 0);
+    auto rep_set = DbgStatus(rec_set, 0);
 
     ProcessErrorInRepSet(rep_set);
 
@@ -639,8 +637,6 @@ static int cmd_info_status_cmd(rec_set_t *rec_set, int argc,
         }
     }
 
-    FreeRepSet(rep_set);
-
     return 1;
 }
 
@@ -657,7 +653,6 @@ static int dir_cmd(rec_set_t *rec_set, DbgDirOp op, int argc, char **argv) {
                             new_path);
     }
 
-    FreeRepSet(rep_set);
     return 1;
 }
 
@@ -707,8 +702,6 @@ static int cmd_show_directories_cmd(rec_set_t *rec_set, int argc,
         PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                             "Source directories searched: %s\n", path);
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }

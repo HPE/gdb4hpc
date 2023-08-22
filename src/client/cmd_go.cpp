@@ -26,10 +26,6 @@
 #include "useful.h"
 
 static int cmd_continue_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    rep_set_t *rep_set;
-
-    DPERFLOG(SetTimerStart("cont"));
-
     bool continueAll = false;
     if (argc == 2 && strcmp(argv[1],"-a") == 0) {
         continueAll = true;
@@ -39,29 +35,19 @@ static int cmd_continue_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
         
-    if ((rep_set = DbgGo(rec_set, continueAll)) != NULL) {
+    if (auto rep_set = DbgGo(rec_set, continueAll); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
         return 0;
     }
-
-    DPERFLOG(SetTimerStopAndLog("cont"));
 
     return 1;
 }
 
 static int cmd_finish_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    rep_set_t *rep_set;
-
-    DPERFLOG(SetTimerStart("finish"));
-
-    if ((rep_set = DbgFinishFunc(rec_set)) != NULL) {
+    if (auto rep_set = DbgFinishFunc(rec_set); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
         return 0;
     }
-
-    DPERFLOG(SetTimerStopAndLog("finish"));
 
     return 1;
 }

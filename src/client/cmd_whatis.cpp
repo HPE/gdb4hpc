@@ -21,7 +21,6 @@
 #include "useful.h"
 
 static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    rep_set_t *rep_set;
     int i;
     int argp = 1;
     int isType = 0;
@@ -57,7 +56,7 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
         strncat(type_str, " ", len);
     }
 
-    rep_set = DbgGetType(rec_set, type_str, isType);
+    auto rep_set = DbgGetType(rec_set, type_str, isType);
     Free(type_str);
 
     // process error
@@ -81,8 +80,6 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, char **argv) {
             PrintOutError("unexpected result type.\n");
         }
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -117,8 +114,6 @@ static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, char **argv) {
             PrintOutError("unexpected result type.\n");
         }
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -171,14 +166,11 @@ static int cmd_info_locals_cmd(rec_set_t *rec_set, int argc,
         }
     }
 
-    FreeRepSet(rep_set);
-
     return 1;
 }
 
 static int cmd_info_scope_cmd(rec_set_t *rec_set, int argc,
                                        char **argv) {
-    rep_set_t *rep_set;
     dbgvars_t *v;
 
     if (argc < 2) {
@@ -187,7 +179,7 @@ static int cmd_info_scope_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    rep_set = DbgGetScope(rec_set, argv[1]);
+    auto rep_set = DbgGetScope(rec_set, argv[1]);
 
     ProcessErrorInRepSet(rep_set);
 
@@ -196,7 +188,7 @@ static int cmd_info_scope_cmd(rec_set_t *rec_set, int argc,
         v = EVENT_VARS(reply->rep_event);
 
         // This only gets printed if there is one reply
-        if (GetNumberOfReply(rep_set) == 1) {
+        if (rep_set.getNumReplies() == 1) {
             PrintOutMsg("Scope local variables for $%s:\n",
                         reply->rep_di.c_str());
         }
@@ -205,7 +197,7 @@ static int cmd_info_scope_cmd(rec_set_t *rec_set, int argc,
             // We don't expect there to be a different result for each rank,
             // since this command is relative to the entire application. But we
             // will allow for rank unique results anyways.
-            if (GetNumberOfReply(rep_set) == 1) {
+            if (rep_set.getNumReplies() == 1) {
                 PrintOutMsg("Name:%-25s\tType:%s\n", v->var_name, v->var_type);
             } else {
                 PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
@@ -214,8 +206,6 @@ static int cmd_info_scope_cmd(rec_set_t *rec_set, int argc,
             }
         }
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -241,8 +231,6 @@ static int cmd_info_args_cmd(rec_set_t *rec_set, int argc,
                                 "%s\n", line.c_str());
         }
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }

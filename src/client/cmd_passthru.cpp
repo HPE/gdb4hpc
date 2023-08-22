@@ -23,7 +23,6 @@ static Command* OldCmds;
 
 static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
                                          char **argv) {
-    rep_set_t *rep_set;
     char *cmd;
 
     if (argc < 2) {
@@ -31,11 +30,12 @@ static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
         return 0;
     }
 
-    rep_set = DbgResetBeforeDirectCmd(rec_set);
+    {
+    auto rep_set = DbgResetBeforeDirectCmd(rec_set);
     ProcessErrorInRepSet(rep_set);
-    FreeRepSet(rep_set);
+    }
 
-    rep_set = DbgDirectCmd(rec_set, argc - 1, &argv[1]);
+    auto rep_set = DbgDirectCmd(rec_set, argc - 1, &argv[1]);
 
     // process error
     ProcessErrorInRepSet(rep_set);
@@ -53,7 +53,6 @@ static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
 
     DbgRestoreAfterDirectCmd(rec_set);
     ProcessErrorInRepSet(rep_set);
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -76,13 +75,14 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
     PrintOutMsg(
         "Entering gdb pass-thru mode. Type \"end\" to exit mode...\n\n");
 
+    {
     auto rep_set = DbgResetBeforeDirectCmd(rec_set);
     ProcessErrorInRepSet(rep_set);
-    FreeRepSet(rep_set);
+    }
 
     // This won't work with a "generic" debug backend, but works with gdb.
     const char *tmp_cmd[2] = {"show", "version"};
-    rep_set = DbgDirectCmd(rec_set, 2, const_cast<char **>(tmp_cmd));
+    auto rep_set = DbgDirectCmd(rec_set, 2, const_cast<char **>(tmp_cmd));
 
     // process error
     ProcessErrorInRepSet(rep_set);
@@ -95,15 +95,13 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
         // make sure the cmd is not empty
         if (strlen(cmd) == 0) continue;
 
-        if (GetNumberOfReply(rep_set) == 1) {
+        if (rep_set.getNumReplies() == 1) {
             PrintOutMsg("%s\n", cmd);
         } else {
             PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "%s\n", cmd);
         }
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -114,9 +112,8 @@ static int cmd_directmode_end_cmd(rec_set_t *rec_set, int argc,
         "\nEnding gdb pass-thru mode. If program location has changed (i.e. "
         "continue) debugger is in an unknown state.\n");
 
-    rep_set_t *rep_set = DbgRestoreAfterDirectCmd(rec_set);
+    auto rep_set = DbgRestoreAfterDirectCmd(rec_set);
     ProcessErrorInRepSet(rep_set);
-    FreeRepSet(rep_set);
     
     cli_dec_prompt();
     SetCommands(OldCmds);
@@ -137,14 +134,13 @@ static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
     }
 
     char *cmd;
-    rep_set_t *rep_set;
 
     if (rec_set == NULL) {
         PrintOutError("No processes in focus.\n");
         return 0;
     }
 
-    rep_set = DbgDirectCmd(rec_set, argc, argv);
+    auto rep_set = DbgDirectCmd(rec_set, argc, argv);
 
     // process error
     ProcessErrorInRepSet(rep_set);
@@ -157,7 +153,7 @@ static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
         // make sure the cmd is not empty
         if (strlen(cmd) == 0) continue;
 
-        if (GetNumberOfReply(rep_set) == 1) {
+        if (rep_set.getNumReplies() == 1) {
             PrintOutMsg("%s\n", cmd);
         } else {
             PrintOutMsg("\n");
@@ -165,8 +161,6 @@ static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
                                 "\n%s\n", cmd);
         }
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }

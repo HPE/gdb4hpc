@@ -105,10 +105,10 @@ static int movecmd(rec_set_t *rec_set, int argc, char **argv) {
     auto rep_set = DbgMoveFrame(rec_set, count, dir);
 
     // process error
-    ProcessErrorInRepSet(rep_set.get());
+    ProcessErrorInRepSet(rep_set);
 
     // process frames
-    for (auto&& reply : rep_set.get()) {
+    for (auto&& reply : rep_set) {
         // Point at the frame data
         auto* f = EVENT_FRAME(reply->rep_event);
 
@@ -124,7 +124,7 @@ static int cmd_backtrace_console(rec_set_t *rec_set, int argc, char **argv) {
     auto rep_set = DbgShowFrame(rec_set, count);
 
     // process error - even with an error, continue and print what we can
-    (void)ProcessErrorInRepSet(rep_set.get());
+    (void)ProcessErrorInRepSet(rep_set);
 
     // turn backtraces into tree format ////////////////////////////////////////
 
@@ -133,7 +133,7 @@ static int cmd_backtrace_console(rec_set_t *rec_set, int argc, char **argv) {
     // root is a blank root node which serves to hold multiple trees.
     // it needs a dummy bitset for the recursive group bitset merging to work.
 
-    for (const auto& reply : rep_set.get()) {
+    for (const auto& reply : rep_set) {
         // reply sets hold stack frames in "reverse" (deepest first) order, while
         // we want to print them in most shallow (i.e. main) first order.
         std::vector<BTTree> frames;
@@ -176,9 +176,9 @@ static int cmd_backtrace_mi(rec_set_t *rec_set, int argc, char **argv) {
     auto rep_set = DbgShowFrame(rec_set, count);
 
     // process error - even with an error, continue and print what we can
-    (void)ProcessErrorInRepSet(rep_set.get());
+    (void)ProcessErrorInRepSet(rep_set);
 
-    for (const auto& reply : rep_set.get()) {
+    for (const auto& reply : rep_set) {
         std::stringstream ss;
         int n = 0;
 
@@ -232,10 +232,10 @@ static int cmd_frame_console(rec_set_t *rec_set, int argc, char *argv[]) {
     auto rep_set = DbgGetFrame(rec_set, frame_args.verbose);
 
     // process error - even on error, continue and print what we can
-    (void)ProcessErrorInRepSet(rep_set.get());
+    (void)ProcessErrorInRepSet(rep_set);
 
     // process frame
-    for (auto&& reply : rep_set.get()) {
+    for (auto&& reply : rep_set) {
         // Point at the frame data
         auto fp = EVENT_FRAME(reply->rep_event);
         PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), fp);
@@ -252,9 +252,9 @@ static int cmd_frame_mi(rec_set_t *rec_set, int argc, char **argv) {
     auto rep_set = DbgGetFrame(rec_set, frame_args.verbose);
 
     // process error - even on error, continue and print what we can
-    (void)ProcessErrorInRepSet(rep_set.get());
+    (void)ProcessErrorInRepSet(rep_set);
 
-    for (auto&& reply : rep_set.get()) {
+    for (auto&& reply : rep_set) {
         auto f = EVENT_FRAME(reply->rep_event);
         auto loc = f->getLoc();
         std::string group = reply->rep_group.get()->toSetString();

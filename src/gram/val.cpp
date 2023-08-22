@@ -24,7 +24,6 @@ extern dbgprocset_t *FindProcSet(const char *name);
 extern dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice);
 extern void FreeProcSet(dbgprocset_t *s);
 extern rec_set_t *CreateRecSetForProcset(const dbgprocset_t *ps);
-extern rep_set_t *DbgEvalExpr(rec_set_t *set, const char *exp);
 extern void SetOverlaySetForProcSet(dbgprocset_t *s);
 extern dbg_over_set_t *GetNextOverlaySetForProcSet(dbgprocset_t *s);
 struct BlockMap;
@@ -156,15 +155,12 @@ void ReplyValue::addMetaInfo(const std::string& metaInfo) {
     m_expr = metaInfo + m_expr;
 }
 
-rep_set_t* ReplyValue::retrieve() const
+rep_set_t ReplyValue::retrieve() const
 {
     auto rep_set = DbgEvalExpr(m_rec_set, m_expr.c_str());
-    if (!rep_set || rep_set->isEmpty()) {
-        FreeRepSet(rep_set);
-        //SetError("Could not retrieve contents of val.");
+    if (rep_set.isEmpty()) {
         throw EvalError("Could not retrieve value of " + m_expr);
     } else if (ProcessErrorInRepSet(rep_set)) {
-        FreeRepSet(rep_set);
         throw EvalErrorAlreadyReported();
     }
 
@@ -197,8 +193,6 @@ void ReplyValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& 
         aif->print(os, label, format);
         os << "\n";
     }
-
-    FreeRepSet(rep_set);
 }
 
 void ReplyValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
@@ -213,8 +207,6 @@ void ReplyValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
             aif->getVStream().apply(visitor);
         }
     }
-
-    FreeRepSet(rep_set);
 }
 
 std::pair<size_t, bool> ReplyValue::getNumResults() {
@@ -254,7 +246,6 @@ std::pair<size_t, bool> ReplyValue::getNumResults() {
         m_replies.push_back(std::make_tuple(di, toRankBits(di, *reply->rep_group), aif));
     }
 
-    delete rep_set;
     return std::make_pair(m_numResults, m_replies.size());
 }
 
@@ -407,7 +398,7 @@ DistributedBlockMapValue::DistributedBlockMapValue(rec_set_t* rec_set, BlockMap*
     : ReplyValue(rec_set, val->getExpr()), m_blockMap(blockMap), m_val(std::move(val))
 {}
 
-rep_set_t* DistributedBlockMapValue::retrieve() const {
+rep_set_t DistributedBlockMapValue::retrieve() const {
     auto val = dynamic_cast<ReplyValue*>(m_val.get());
     if (!val) {
         throw EvalError("Decomposition must refer to a progam value");
@@ -428,8 +419,6 @@ void DistributedBlockMapValue::print(std::ostream& os, rec_set_t* rec_set,
         PrintWithBlockMap(aif, m_blockMap, os);
         os << "\n";
     }
-
-    FreeRepSet(rep_set);
 }
 
 

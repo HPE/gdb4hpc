@@ -39,9 +39,8 @@ void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
         // it is valid to call this function with a null rec_set, before a
         // gdb instance is launched
         if (rec_set != nullptr) {
-            rep_set_t *rep_set = DbgSetPrintElements(rec_set, std::to_string(elements).c_str());
+            auto rep_set = DbgSetPrintElements(rec_set, std::to_string(elements).c_str());
             ProcessErrorInRepSet(rep_set);
-            FreeRepSet(rep_set);
         }
     }
 }

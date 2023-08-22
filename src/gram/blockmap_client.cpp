@@ -258,16 +258,14 @@ size_t BlockMap::getElementsPerRank() const {
 AIFStream *construct_blockmap_data(BlockMap *bm,
                                    const std::string& idx,
                                    rec_set_t* rec_set,
-                                   rep_set_t *rep_set) {
-    if (!rep_set) return nullptr;
-
+                                   const rep_set_t& rep_set) {
     // Make sure that there were no errors and we received rep_set, otherwise
     // print error.
-    if (SetHasError(rep_set)) {
+    if (rep_set.hasError()) {
         PrintOutError("Cannot build blockmap due to error in reply!\n");
         return nullptr;
     }
-    if (GetNumberOfReply(rep_set) == 0) {
+    if (rep_set.isEmpty()) {
         PrintOutError("Cannot build blockmap due to empty reply!\n");
         return nullptr;
     }

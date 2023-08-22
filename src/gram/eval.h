@@ -146,7 +146,7 @@ public:
     rec_set_t* getRecSet() const { return m_rec_set; }
     std::string getExpr() const override { return m_expr; }
 
-    virtual rep_set_t* retrieve() const;
+    virtual rep_set_t retrieve() const;
 
     // functions for iterating through the matched ranks of a pair of values
     std::pair<size_t, bool> getNumResults() override;
@@ -212,7 +212,7 @@ public:
     virtual void print(std::ostream& os, rec_set_t* rec_set,
                        const std::string& format) override;
 
-    rep_set_t* retrieve() const override;
+    rep_set_t retrieve() const override;
 
 private:
     BlockMap* m_blockMap;

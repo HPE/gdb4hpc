@@ -59,7 +59,6 @@ static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
         auto rep_set = DbgSetVar(rv->getRecSet(), rv->getExpr().c_str(), value.c_str());
 
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
         
     } catch (EvalError& err) {
         PrintOutError("Could not parse expression: %s\n", err.what());

@@ -187,14 +187,10 @@ static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
 */
 static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
     rec_set_t *rec_set = nullptr;
-    rep_set_t *rep_set = nullptr;
-    rep_set_t *quit_rep = nullptr;
     auto ps = getNewProcSet(args.procset_name);
 
     const auto exitWithFailure = [&](){
         FreeRecSet(rec_set);
-        FreeRepSet(quit_rep);
-        FreeRepSet(rep_set);
         FreeProcSet(ps);
 
         return nullptr;
@@ -345,7 +341,7 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
 
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
-        quit_rep = DbgQuit(*di, DbgQuitType::Kill);
+        auto quit_rep = DbgQuit(*di, DbgQuitType::Kill);
         ProcessErrorInRepSet(quit_rep);
         return exitWithFailure();
     }
@@ -362,12 +358,12 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
     AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
 
     // Issue the startup command
-    rep_set = DbgStartup(rec_set);
+    auto rep_set = DbgStartup(rec_set);
 
     // process error
     if (ProcessErrorInRepSet(rep_set)) {
         PrintOutError("Could not startup application.\n");
-        quit_rep = DbgQuit(*di, DbgQuitType::Kill);
+        auto quit_rep = DbgQuit(*di, DbgQuitType::Kill);
         ProcessErrorInRepSet(quit_rep);
         return exitWithFailure();
     }
@@ -406,9 +402,6 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
     if (Client.print_elements != 0) {
         ClientSetPrintElements(Client.print_elements, rec_set, true);
     }
-
-    // Done with the startup reply
-    FreeRepSet(rep_set);
 
     // Free the created rec_set
     FreeRecSet(rec_set);
@@ -469,7 +462,6 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
             printedHeader = true;
         }
 
-        rep_set_t *repSet = nullptr;
         auto* recSet = CreateRecSetForProcset(newProcset);
         auto* di = getFirstDbgInvoke(*newProcset).lock();
 
@@ -482,6 +474,7 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
 
         recSet->intersectReceiver(&tmpGroup);
 
+        auto repSet = rep_set_t();
         if (oldBp.line() > 0) {
             repSet = DbgSetLineBreak(recSet, 
                     oldBp.isPending(), oldBp.file().c_str(), 
@@ -496,8 +489,7 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
 
         FreeRecSet(recSet);
 
-        if (!repSet || ProcessErrorInRepSet(repSet)) {
-            FreeRepSet(repSet);
+        if (repSet.isEmpty() || ProcessErrorInRepSet(repSet)) {
             PrintOutError("Warning: failed to set breakpoint for $%s.\n",
                           newProcset->s_name.c_str());
             continue;
@@ -521,13 +513,10 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
                         newBp->id());
         }
 
-        FreeRepSet(repSet);
-
         if (theNewBpId && !oldBp.condition().empty()) {
             // set the condition
-            repSet = DbgConditionBreak(recSet, theNewBpId, oldBp.condition());
+            auto repSet = DbgConditionBreak(recSet, theNewBpId, oldBp.condition());
             ProcessErrorInRepSet(repSet);
-            FreeRepSet(repSet);
         }
     }
 
@@ -752,7 +741,6 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
 static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     dbgframe_t *fp;
     rec_set_t *rec_set;
-    rep_set_t *quit_rep;
 
     // Note that we are reusing the invoke callback.
     auto newHandle = DbgAttach(ps->s_name.c_str(), opts);
@@ -767,9 +755,8 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
 
     // Finalize setup of the procset
     if (FinalizeProcSetForInvoke(ps, di)) {
-        quit_rep = DbgQuit(*di, DbgQuitType::Kill);
+        auto quit_rep = DbgQuit(*di, DbgQuitType::Kill);
         ProcessErrorInRepSet(quit_rep);
-        FreeRepSet(quit_rep);
         return 0;
     }
 
@@ -787,9 +774,9 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     // The debugger should not quit since since this does not inicate "Could not
     // communicate with application".
     bool isRunning = false;
-    if (rep_set && rep_set->hasError()) {
+    if (rep_set.hasError()) {
         isRunning = true;
-        for (auto&& err : rep_set->getErrs()) {
+        for (auto&& err : rep_set.getErrs()) {
             if (err->rep_event->ev_errno != DBGERR_ISRUNNING) {
                 isRunning = false;
             }
@@ -797,14 +784,13 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     }
 
     // process error
-    if (!isRunning && ProcessErrorInRepSet(rep_set.get())) {
+    if (!isRunning && ProcessErrorInRepSet(rep_set)) {
         // This is fatal as its an indication that things are broken (i.e. we
         // cannot send commands)
         PrintOutError("Could not communicate with application.\n");
-        quit_rep = DbgQuit(*di, DbgQuitType::Detach);
+        auto quit_rep = DbgQuit(*di, DbgQuitType::Detach);
         ProcessErrorInRepSet(quit_rep);
         FreeRecSet(rec_set);
-        FreeRepSet(quit_rep);
         return 0;
     }
 
@@ -814,7 +800,7 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
         PrintOutMsg("Current rank location:\n");
         // Print the current frame based on this bitset
         // Print the startup frames based on this bitset
-        for (auto&& reply : rep_set.get()) {
+        for (auto&& reply : rep_set) {
             // point at the frame
             fp = EVENT_FRAME(reply->rep_event);
             // print the frame
@@ -831,7 +817,6 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
 }
 
 static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    rep_set_t *rep_set;
     dbgloc_t *halt_loc;
 
     bool all = false;
@@ -843,7 +828,7 @@ static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
-    rep_set = DbgInterrupt(rec_set, all);
+    auto rep_set = DbgInterrupt(rec_set, all);
 
     // process error
     ProcessErrorInRepSet(rep_set);
@@ -855,8 +840,6 @@ static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
         PrintHaltedLocationSet(reply->rep_di.c_str(), reply->rep_group.get(),
                                halt_loc);
     }
-
-    FreeRepSet(rep_set);
 
     return 1;
 }
@@ -916,8 +899,6 @@ static int cmd_release_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 static void ReleaseProc(dbgprocset_t *p, DbgQuitType quit_type) {
-    rep_set_t *rep_set;
-
     if (!p) return;
 
     // calling DbgQuit below will delete the associated di. if we called DbgQuit on a
@@ -985,10 +966,9 @@ static void ReleaseProc(dbgprocset_t *p, DbgQuitType quit_type) {
                 break;
         }
 
-        rep_set = DbgQuit(*di, quit_type);
+        auto rep_set = DbgQuit(*di, quit_type);
 
         ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
     }
 
     if (p == CurrentProcSet()) SetCurrentProcSet(NULL);

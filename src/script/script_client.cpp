@@ -258,10 +258,8 @@ bool ScriptRunner::sendContinueHelper(rec_set_t *recSet) {
         }
     }
 
-    // returns nullptr on success
-    if (auto* repSet = DbgGo(recSet, true); repSet) {
+    if (auto repSet = DbgGo(recSet, true); repSet.hasError()) {
         LOG("go error");
-        FreeRepSet(repSet);
         return false;
     }
 
@@ -791,7 +789,7 @@ bool ScriptRunner::restoreOldEventHandlers() {
 
 bool ScriptRunner::sendHalt() {
     LOG("Sending halt");
-    auto* repSet = DbgInterrupt(&m_fullRecSet, true);
+    auto repSet = DbgInterrupt(&m_fullRecSet, true);
 
     // process error
     if (ProcessErrorInRepSet(repSet)) {
@@ -807,8 +805,6 @@ bool ScriptRunner::sendHalt() {
         auto loc = EVENT_LOC(reply->rep_event);
         PrintHaltedLocationSet(reply->rep_di.c_str(), reply->rep_group.get(), loc);
     }
-
-    FreeRepSet(repSet);
 
     return true;
 }
@@ -865,7 +861,6 @@ bool SR::Assertion::setBreakpoints() {
 
         if (ProcessErrorInRepSet(repSet)) {
             LOG("Error setting breakpoint: " << loc->getLogString());
-            FreeRepSet(repSet);
             return false;
         }
 
@@ -890,8 +885,6 @@ bool SR::Assertion::setBreakpoints() {
                 break;
             }
         }
-
-        FreeRepSet(repSet);
     }
 
     return success;
@@ -932,16 +925,14 @@ bool SR::Assertion::deleteBreakpoints() {
         // returns nullptr on success
         auto repSet = DbgDeleteBreak(recSet.get(), bpid);
 
-        if (repSet) {
+        if (repSet.hasError()) {
             ProcessErrorInRepSet(repSet);
             LOG("Error deleting breakpoint: " << bpid);
-            FreeRepSet(repSet);
             return false;
         }
 
         LOG("Deleted breakpoint " << bpid);
         bpid = -1;
-        FreeRepSet(repSet);
     }
 
     return true;
@@ -1108,7 +1099,6 @@ void SR::Ranks::reset() {
 
     if (ProcessErrorInRepSet(repSet)) {
         // fall back to educated guess
-        ProcessErrorInRepSet(repSet);
         PrintOutError("Warning: couldn't detect all ranks' statuses.\n");
         PrintOutError("Assertion script will assume everything is stopped to start.\n");
         for (const auto& [di, bitset] : m_involvedRanks) {
@@ -1135,8 +1125,6 @@ void SR::Ranks::reset() {
             }
         }
     }
-
-    FreeRepSet(repSet);
 
     LOG("Reset blocked ranks map:");
     for ([[maybe_unused]] const auto& [dih, ranks] : m_blockedRanks) {

@@ -61,15 +61,11 @@ struct OutputCallbacks {
 /*
 ** Internal prototypes
 */
-static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
+static rep_set_t DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 static void FreeGroupReceiver(group_recv_t *);
 static void ClearCmdSent(group_recv_t *);
 static group_recv_t *CopyGroupReceiver(group_recv_t *);
 static int GetNumberOfReceivers(rec_set_t *);
-static rep_set_t *MergeRepSet(rep_set_t *, rep_set_t *);
-static void AddErrToSet(rep_set_t *, group_reply_t *);
-//static void SetErrHeadInSet(rep_set_t *);
-//static group_reply_t *GetNextErrInSet(rep_set_t *);
 static void DestroyEventSet(DbgInvoke *, dbgev);
 static DbgInvoke::EventSet *AddEvent(DbgInvoke *, const Bitset *, dbgevent_t *);
 static void CheckForFullEventSet(DbgInvoke *, const Bitset *, dbgev);
@@ -79,7 +75,7 @@ static group_reply_t* JoinReplies(const Bitset* group,
                                   const std::vector<group_reply*>& replies,
                                   bool& isError);
 
-static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
+static rep_set_t DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
                                          dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 static std::pair<std::string,std::unique_ptr<const char*[]>>
 GetTrampolineArgs(const char* prog, const char* const* args);
@@ -356,26 +352,48 @@ group_reply_t *CopyGroupReply(group_reply_t *rep) {
  * data structures for sets of group replies from dbgsrv
  */
 
-rep_set_t *NewRepSet(void) {
-    return new rep_set_t();
-}
-
 rep_set_t::rep_set_t()
     : m_set(nullptr), m_dataId(0), m_isChunked(false), m_returnedChunk0(false),
       m_moreChunks(false)
 {}
 
-rep_set_t::rep_set_t(const std::vector<std::unique_ptr<rep_set_t>>& chunks, const Bitset* group)
+rep_set_t::rep_set_t(std::vector<rep_set_t>& chunks, const Bitset* group)
     : rep_set_t()
 {
     mergeReplyChunkSet(chunks, group);
 }
 
-void FreeRepSet(rep_set_t *set) {
-    delete set;
+rep_set_t::rep_set_t(rep_set_t&& expiring)
+    : rep_set_t()
+{
+    *this = std::move(expiring);
+}
+
+rep_set_t& rep_set_t::operator=(rep_set_t&& expiring) {
+    dealloc();
+
+    m_reps = std::move(expiring.m_reps);
+    m_errs = std::move(expiring.m_errs);
+
+    // XXX: m_set is a raw pointer and is the only reason we can't just do ::rep_set_t(rep_set_t&&) = default.
+    m_set = expiring.m_set;
+    expiring.m_set = nullptr;
+
+    m_dataId = expiring.m_dataId;
+    m_isChunked = expiring.m_isChunked;
+    m_returnedChunk0 = expiring.m_returnedChunk0;
+    m_moreChunks = expiring.m_moreChunks;
+    m_repsIsSorted = expiring.m_repsIsSorted;
+    m_errsIsSorted = expiring.m_errsIsSorted;
+
+    return *this;
 }
 
 rep_set_t::~rep_set_t() {
+    dealloc();
+}
+
+void rep_set_t::dealloc() {
     for (auto&& reply : m_reps)
         FreeGroupReply(reply);
     for (auto&& reply : m_errs)
@@ -386,81 +404,63 @@ rep_set_t::~rep_set_t() {
     }
 }
 
-rep_set_t *CopyRepSet(rep_set_t *set) {
-    return (set ? set->clone() : nullptr);
-}
-
-rep_set_t* rep_set_t::clone() const
+rep_set_t rep_set_t::clone() const
 {
-    rep_set_t *newset = new rep_set_t();
+    rep_set_t newset = rep_set_t();
     for (auto&& reply : m_reps) {
-        newset->m_reps.push_back(CopyGroupReply(reply));
+        newset.m_reps.push_back(CopyGroupReply(reply));
     }
     for (auto&& reply : m_errs) {
-        newset->m_errs.push_back(CopyGroupReply(reply));
+        newset.m_errs.push_back(CopyGroupReply(reply));
     }
     if (m_set) {
-        newset->m_set = NewRecSet();
+        newset.m_set = NewRecSet();
         for (auto&& recv : m_set) {
-            AddReceiverToSet(newset->m_set, CopyGroupReceiver(recv));
+            AddReceiverToSet(newset.m_set, CopyGroupReceiver(recv));
         }
     }
 
-    newset->m_dataId = m_dataId;
-    newset->m_moreChunks = m_moreChunks;
-    newset->m_repsIsSorted = m_repsIsSorted;
-    newset->m_errsIsSorted = m_errsIsSorted;
+    newset.m_dataId = m_dataId;
+    newset.m_moreChunks = m_moreChunks;
+    newset.m_repsIsSorted = m_repsIsSorted;
+    newset.m_errsIsSorted = m_errsIsSorted;
 
     return newset;
 }
 
-static rep_set_t *MergeRepSet(rep_set_t *set, rep_set_t *tmp_set) {
-    if (!set) return nullptr;
-    if (!tmp_set) return set;
-
-    // merge the replies
-    return set->merge(tmp_set);
-}
-
 // merge the reply from a single group_recv_t (\a tmp) into the reply set
 // and delete \a tmp
-rep_set_t* rep_set_t::merge(rep_set_t* tmp) {
+void rep_set_t::merge(rep_set_t&& tmp) {
     std::vector<group_reply_t*> r;
-    r.swap(tmp->m_reps);
+    r.swap(tmp.m_reps);
     m_reps.insert(m_reps.end(), r.begin(), r.end());
 
     r.clear();
-    r.swap(tmp->m_errs);
+    r.swap(tmp.m_errs);
     m_errs.insert(m_errs.end(), r.begin(), r.end());
 
-    m_isChunked |= tmp->m_isChunked;
-    m_moreChunks |= tmp->m_moreChunks;
+    m_isChunked |= tmp.m_isChunked;
+    m_moreChunks |= tmp.m_moreChunks;
     m_returnedChunk0 = false;
 
-    if (m_dataId != tmp->m_dataId) {
+    if (m_dataId != tmp.m_dataId) {
         fprintf(stderr, "data ids do not match\n");
     }
 
-    if (tmp->m_set) {
+    if (tmp.m_set) {
         if (!m_set) {
-            std::swap(m_set,tmp->m_set);
+            std::swap(m_set,tmp.m_set);
         } else {
-            for (auto&& recv : tmp->m_set) {
-                AddReceiverToSet(m_set, CopyGroupReceiver(recv));
+            for (auto&& recv : tmp.m_set) {
+                m_set->addReceiver(CopyGroupReceiver(recv));
             }
         }
     }
-    delete tmp;
 
     m_repsIsSorted = false;
     m_errsIsSorted = false;
-
-    return this;
 }
 
-int SetHasError(rep_set_t *set) {
-    return (set ? set->hasError() : 0);
-}
 int rep_set_t::hasError() const {
     return m_errs.size();
 }
@@ -472,10 +472,6 @@ bool rep_set_t::hasOperationAbandonedError() const {
     }) != m_errs.end();
 }
 
-void AddReplyToSet(rep_set_t *set, group_reply_t *rep) {
-    if (rep && set)
-        set->addReply(rep);
-}
 void rep_set_t::addReply(group_reply_t *rep)
 {
     m_reps.push_back(rep);
@@ -581,12 +577,6 @@ void rep_set_t::writeDataReply(std::unique_ptr<Bitset>&& group, AIFStream*&& dat
     });
 }
 
-static void AddErrToSet(rep_set_t *set, group_reply_t *err_rep) {
-    if (err_rep && set) {
-        set->addErr(err_rep);
-    }
-}
-
 void rep_set_t::addErr(group_reply_t* rep)
 {
     m_errs.push_back(rep);
@@ -636,20 +626,20 @@ const std::vector<group_reply_t*>& rep_set_t::getErrs() const
 }
 
 // get the next reply chunk if we haven't already processed the last one
-std::unique_ptr<rep_set_t> rep_set_t::getNextChunk() {
+rep_set_t rep_set_t::getNextChunk() {
     if (!m_returnedChunk0) {
-        rep_set_t* chunk0 = new rep_set_t;
-        m_reps.swap(chunk0->m_reps);
-        m_errs.swap(chunk0->m_errs);
-        chunk0->m_repsIsSorted = m_repsIsSorted;
-        chunk0->m_errsIsSorted = m_errsIsSorted;
+        auto chunk0 = rep_set_t();
+        m_reps.swap(chunk0.m_reps);
+        m_errs.swap(chunk0.m_errs);
+        chunk0.m_repsIsSorted = m_repsIsSorted;
+        chunk0.m_errsIsSorted = m_errsIsSorted;
         m_returnedChunk0 = true;
         m_repsIsSorted = m_errsIsSorted = true; // reps and errs now empty
-        return std::unique_ptr<rep_set_t>(chunk0);
+        return chunk0;
     } else if (m_isChunked && m_moreChunks) {
         return recvChunk();
     } else {
-        return nullptr;
+        return rep_set_t();
     }
 }
 
@@ -670,41 +660,30 @@ void rep_set_t::setContinuation(group_recv_t* set) {
 
 void rep_set_t::setDataId(size_t id) { m_dataId = id; }
 
-std::unique_ptr<rep_set_t> rep_set_t::recvChunk()
+rep_set_t rep_set_t::recvChunk()
 {
     if (!m_set) {
         fprintf(stderr, "no receptor for receiving the next chunk\n");
-        return nullptr;
+        return rep_set_t();
     }
 
     auto req = CommandToSocProto(DBGCMD_CONTINUEEVALEXPR, m_dataId);
 
-    if (rep_set_t* chunk = DbgSendCmdAndRecvReply(m_set, req, DBGEV_DATA)) {
-        m_moreChunks = chunk->m_moreChunks;
-        chunk->m_isChunked = chunk->m_returnedChunk0 = chunk->m_moreChunks = false;
-        return std::unique_ptr<rep_set_t>(chunk);
+    auto chunk = DbgSendCmdAndRecvReply(m_set, req, DBGEV_DATA);
+    if (!chunk.isEmpty()) {
+        m_moreChunks = chunk.m_moreChunks;
+        chunk.m_isChunked = chunk.m_returnedChunk0 = chunk.m_moreChunks = false;
     } else {
         m_moreChunks = false;
-        return nullptr;
     }
-}
 
-// keep an empty vector to iterator over when trying to use
-// a rep_set_t* == nullptr
-const std::vector<group_reply_t*>& rep_set_t::getNullReply()
-{
-    static std::vector<group_reply_t*> nullReply;
-    return nullReply;
-}
-
-int GetNumberOfReply(rep_set_t *set) {
-    return (set ? int(set->getNumReplies()): 0);
+    return chunk;
 }
 
 // Used to print out an error from a rep_set
-int ProcessErrorInRepSet(rep_set_t *rep_set) {
-    if (rep_set && rep_set->hasError()) {
-        for (auto&& err : rep_set->getErrs()) {
+int ProcessErrorInRepSet(const rep_set_t& rep_set) {
+    if (rep_set.hasError()) {
+        for (auto&& err : rep_set.getErrs()) {
             if (err->rep_group) {
                 PrintErrorWithSetInfo(err->rep_di.c_str(), err->rep_group.get(), "%s\n",
                                       DbgEventErrorStr(err->rep_event));
@@ -1588,8 +1567,8 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
 // \param req_type the event type we expect to be returned.   Any other event will
 //      generate an error response.   (except for DBGEV_DATA_CHUNK is accepted in lieu of
 //      DBG_DATA).
-// \return the reply as a rep_set_t*, note errors are returned with an error response.
-static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type) {
+// \return the reply as a rep_set_t, note errors are returned with an error response.
+static rep_set_t DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type) {
     auto proto_res =
         set->rec_di.proto().receiveReply(&set->rec_di, set->rec_group.get(), sync_command_timeout, *set->_cmd_sent);
 
@@ -1607,23 +1586,23 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                 // and to the user it's not important which di we were in when the cancel
                 // happened.
                 auto* error = NewErrorEvent(DBGERR_OPERATION_ABANDONED, error_string);
-                auto* reply = NewRepSet();
+                auto reply = rep_set_t();
                 auto* group_rep = NewGroupReply(nullptr, nullptr, error);
-                AddErrToSet(reply, group_rep);
+                reply.addErr(group_rep);
                 ClearCmdSent(set);
                 return reply;
             }
             default: {
                 auto* error = NewErrorEvent(DBGERR_INTERNAL, "Failed to receive response");
-                auto* reply = NewRepSet();
+                auto reply = rep_set_t();
                 auto* group_rep = NewGroupReply(set->rec_di.handle(), set->rec_group->clone(), error);
-                AddErrToSet(reply, group_rep);
+                reply.addErr(group_rep);
                 return reply;
             }
         }
     }
 
-    auto* reply = NewRepSet();
+    auto reply = rep_set_t();
     group_reply_t *rep = nullptr;
     bool isFinal = true;
 
@@ -1638,7 +1617,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
             case DBGEV_ERROR:
                 rep = NewGroupReply(set->rec_di.handle(), msg.getBitset()->clone(), e);
                 // Add this error to the reply set
-                AddErrToSet(reply, rep);
+                reply.addErr(rep);
                 break;
 
             // Any event without data should be handled here
@@ -1651,7 +1630,7 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                                       DbgevToStr(ev), DbgevToStr(req_type));
                     rep = NewGroupReply(set->rec_di.handle(), msg.getBitset()->clone(), e);
                     // Add the error to the reply set
-                    AddErrToSet(reply, rep);
+                    reply.addErr(rep);
                     break;
                 }
                 // Do nothing.
@@ -1672,27 +1651,20 @@ static rep_set_t *DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_
                         DbgevToStr(ev), DbgevToStr(req_type));
                     rep = NewGroupReply(set->rec_di.handle(), msg.getBitset()->clone(), e);
                     // Add the error to the reply set
-                    AddErrToSet(reply, rep);
+                    reply.addErr(rep);
                     break;
                 }
                 // Create a reply out of this event
                 rep = NewGroupReply(set->rec_di.handle(), msg.getBitset()->clone(), e);
                 // Add this reply to the reply set
-                AddReplyToSet(reply, rep);
+                reply.addReply(rep);
                 break;
         }
     }
 
-    // Check to see if there are no replies or errors in the reply set, if so we
-    // want to return nullptr. This is because some of the event types have no
-    // data. These functions will want to receive null, otherwise they assume
-    // that there was an error
-    if (reply->isEmpty()) {
-        FreeRepSet(reply);
-        reply = nullptr;
-    } else if (!isFinal) {
+    if (!isFinal) {
         // the reply-set will need the receiver to request the remainder of the data
-        reply->setContinuation(set);
+        reply.setContinuation(set);
     }
     ClearCmdSent(set);
 
@@ -1713,9 +1685,9 @@ void rep_set_t::mergeReplyChunks()
     // up new equivalence classes to get a combined result that was returned by
     // every process.
 
-    std::vector<std::unique_ptr<rep_set_t>> chunks;
-    while (auto chunk = getNextChunk()) {
-        chunks.push_back(move(chunk));
+    std::vector<rep_set_t> chunks;
+    for (auto chunk = getNextChunk(); !chunk.isEmpty(); chunk = getNextChunk()) {
+        chunks.push_back(std::move(chunk));
     }
 
     mergeReplyChunkSet(chunks, nullptr);
@@ -1728,7 +1700,7 @@ void rep_set_t::mergeReplyChunks()
 // result chunks as they arrive; storing the full set of chunks
 // in memory does not help (actually hinders) the memory usage on the client
 // side
-void rep_set_t::mergeReplyChunkSet(const std::vector<std::unique_ptr<rep_set_t>>& chunks,
+void rep_set_t::mergeReplyChunkSet(std::vector<rep_set_t>& chunks,
                                    const Bitset* group)
 {
     // Each generation of packets was reduced separately, so we'll need to build
@@ -1739,10 +1711,10 @@ void rep_set_t::mergeReplyChunkSet(const std::vector<std::unique_ptr<rep_set_t>>
     if (chunks.empty()) {
         return;
     } else if (chunks.size() == 1) {
-        m_reps.swap(chunks[0]->m_reps);
-        std::swap(m_repsIsSorted, chunks[0]->m_repsIsSorted);
-        m_errs.swap(chunks[0]->m_errs);
-        std::swap(m_errsIsSorted, chunks[0]->m_errsIsSorted);
+        m_reps.swap(chunks[0].m_reps);
+        std::swap(m_repsIsSorted, chunks[0].m_repsIsSorted);
+        m_errs.swap(chunks[0].m_errs);
+        std::swap(m_errsIsSorted, chunks[0].m_errsIsSorted);
         m_dataId = 0;
         m_isChunked = m_returnedChunk0 = m_moreChunks = false;
         return;
@@ -1752,8 +1724,8 @@ void rep_set_t::mergeReplyChunkSet(const std::vector<std::unique_ptr<rep_set_t>>
     // compare is sparse, so we can't just look at the first chunk.
     std::set<DbgInvoke::Handle> disSet;
     std::vector<DbgInvoke::Handle> dis;
-    for (auto&& chunk : chunks) {
-        for (auto&& reply : chunk.get()) {
+    for (const auto& chunk : chunks) {
+        for (const auto& reply : chunk) {
             auto di = reply->rep_di;
             if (disSet.insert(di).second)
                 dis.push_back(di);
@@ -1766,7 +1738,7 @@ void rep_set_t::mergeReplyChunkSet(const std::vector<std::unique_ptr<rep_set_t>>
         size_t numTiers = chunks.size();
         std::vector<std::vector<group_reply*>> tiers(numTiers);
         for (size_t i=0; i<numTiers; ++i) {
-            rep_set_t& rs = *chunks[i];
+            rep_set_t& rs = chunks[i];
             auto& gs = tiers[i];
             for (int w=0; w<2; ++w) {
                 const auto& l = (!w ? rs.getReplies() : rs.getErrs());
@@ -1919,10 +1891,10 @@ static group_reply_t* JoinReplies(const Bitset* group,
     return groupReply;
 }
 
-static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
+static rep_set_t DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
                                          dbgev req_type, dbgev alt_req_type) {
-    if (!set) return nullptr;
-    auto result = NewRepSet();
+    auto result = rep_set_t();
+    if (!set) return result;
 
     HoldSignals();
 
@@ -1939,32 +1911,24 @@ static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& requ
         // Otherwise there was an error
         if (recv_ptr->_cmd_sent != nullptr) {
             auto reply_set = DbgRecvReply(recv_ptr, req_type, alt_req_type);
-            if (reply_set != nullptr) {
-                // check for an "operation cancelled" error. we are receiving results
-                // serially from each di, but to the user it looks like one action. the
-                // user should only have to cancel the operation once instead of once per di.
-                //
-                // we check for the cancel before MergeRepSet because MergeRepSet deletes reply_set.
-                auto has_cancel = reply_set->hasOperationAbandonedError();
 
-                // merge before potentially bailing out for the cancel so that the result
-                // will include the error event.
-                result = MergeRepSet(result, reply_set);
+            // check for an "operation cancelled" error. we are receiving results
+            // serially from each di, but to the user it looks like one action. the
+            // user should only have to cancel the operation once instead of once per di.
+            //
+            // we check for the cancel before MergeRepSet because MergeRepSet deletes reply_set.
+            auto has_cancel = reply_set.hasOperationAbandonedError();
 
-                if (has_cancel) break;
-            }
+            // merge before potentially bailing out for the cancel so that the result
+            // will include the error event.
+            result.merge(std::move(reply_set));
+
+            if (has_cancel) break;
         }
     }
 
     ReleaseSignals();
 
-    // If there is nothing in the result set, then return nullptr
-    if (result->isEmpty()) {
-        FreeRepSet(result);
-        return nullptr;
-    }
-
-    // Return the result set
     return result;
 }
 
@@ -1978,10 +1942,10 @@ static rep_set_t *DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& requ
 ** DBG_STARTUP: Startup the program (continue to Original Entry Point) and show
 **				the frame.
 */
-rep_set_t *DbgStartup(rec_set_t *set) {
+rep_set_t DbgStartup(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_STARTUP);
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
 
     return result;
 }
@@ -1997,11 +1961,11 @@ static size_t DbgGetNextExprIdx()
 /*
 ** DBGOPENSOCKET: Open socket for each debug server - for P2P
 */
-rep_set_t *DbgOpenSocket(rec_set_t *set, char *opset_name, int opset_size) {
+rep_set_t DbgOpenSocket(rec_set_t *set, char *opset_name, int opset_size) {
 
     auto request = CommandToSocProto(DBGCMD_OPENSOCKET, opset_name, opset_size);
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
     return result;
 }
@@ -2009,7 +1973,7 @@ rep_set_t *DbgOpenSocket(rec_set_t *set, char *opset_name, int opset_size) {
 /*
 ** DBGCLOSESOCKET: Close socket for each debug server - for P2P
 */
-rep_set_t *DbgCloseSocket(rec_set_t *set) {
+rep_set_t DbgCloseSocket(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_CLOSESOCKET);
     return DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 }
@@ -2017,16 +1981,14 @@ rep_set_t *DbgCloseSocket(rec_set_t *set) {
 /*
 ** DBG_EVALEXPR: Evaluate expression.
 */
-rep_set_t *DbgEvalExpr(rec_set_t *set, const char *exp) {
+rep_set_t DbgEvalExpr(rec_set_t *set, const char *exp) {
 
     size_t exprId = DbgGetNextExprIdx();
 
     auto request = CommandToSocProto(DBGCMD_EVALEXPR, exprId, exp, set->getThreads());
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_DATA);
-    if (result) {
-        result->setDataId(exprId);
-    }
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_DATA);
+    result.setDataId(exprId);
 
     return result;
 }
@@ -2034,24 +1996,24 @@ rep_set_t *DbgEvalExpr(rec_set_t *set, const char *exp) {
 /*
 ** DBG_SETDEBUGGERVAR: Set variable in debugger to new value.
 */
-rep_set_t *DbgSetDebuggerVar(rec_set_t *set, const char *var, AIFStream *val) {
+rep_set_t DbgSetDebuggerVar(rec_set_t *set, const char *var, AIFStream *val) {
 
     std::ostringstream valStr;
     val->print(valStr);
 
     auto request = CommandToSocProto(DBGCMD_SETDEBUGGERVAR, var, valStr.str());
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
 }
 
 /*
 ** DBG_GETDEBUGGERVAR: Get variable in debugger.
 */
-rep_set_t *DbgGetDebuggerVar(rec_set_t *set, const char *var) {
+rep_set_t DbgGetDebuggerVar(rec_set_t *set, const char *var) {
     auto request = CommandToSocProto(DBGCMD_GETDEBUGGERVAR, var);
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_DATA);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_DATA);
 
     return result;
 }
@@ -2059,11 +2021,10 @@ rep_set_t *DbgGetDebuggerVar(rec_set_t *set, const char *var) {
 /*
 ** DBG_SETSOURCEPATH: Set source search path in debugger to new value.
 */
-rep_set_t *DbgSetSourcePath(rec_set_t *set, DbgDirOp op, const char *path) {
-    if (!set) return nullptr;
-
+rep_set_t DbgSetSourcePath(rec_set_t *set, DbgDirOp op, const char *path) {
     rec_set_t *to_send = NewRecSet();
-    rep_set_t *result = nullptr;
+    auto result = rep_set_t();
+    if (!set) return result;
 
     // We want to do the actual reading of the source code on the frontend if
     // possible. This means this command should be directed towards the
@@ -2072,10 +2033,6 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, DbgDirOp op, const char *path) {
     for (auto&& recv_ptr : set) {
         // point at the debug frontend
         if (auto dbg_fe = recv_ptr->rec_di.frontendGdb()) {
-            if (result == nullptr) {
-                result = NewRepSet();
-            }
-
             auto e = dbg_fe->setSourcePath(op, path);
 
             if (e->ev_event != DBGEV_SOURCEPATH && e->ev_event != DBGEV_ERROR) {
@@ -2092,9 +2049,9 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, DbgDirOp op, const char *path) {
                                            recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
-                AddErrToSet(result, group_rep);
+                result.addErr(group_rep);
             } else {
-                AddReplyToSet(result, group_rep);
+                result.addReply(group_rep);
             }
 
         } else {
@@ -2110,7 +2067,7 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, DbgDirOp op, const char *path) {
         auto tmp_res = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCEPATH);
 
         // merge the results
-        result = MergeRepSet(result, tmp_res);
+        result.merge(std::move(tmp_res));
     }
 
     FreeRecSet(to_send);
@@ -2120,8 +2077,8 @@ rep_set_t *DbgSetSourcePath(rec_set_t *set, DbgDirOp op, const char *path) {
 /*
 ** DBG_GETSOURCEPATH: Get source search path from debugger.
 */
-rep_set_t *DbgGetSourcePath(rec_set_t *set) {
-    rep_set_t *result = NewRepSet();
+rep_set_t DbgGetSourcePath(rec_set_t *set) {
+    auto result = rep_set_t();
     if (!set) return result;
 
     auto to_send = NewRecSet();
@@ -2149,9 +2106,9 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
                                            recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
-                AddErrToSet(result, group_rep);
+                result.addErr(group_rep);
             } else {
-                AddReplyToSet(result, group_rep);
+                result.addReply(group_rep);
             }
         } else {
             // Add this recv_ptr to the to_send list
@@ -2166,38 +2123,38 @@ rep_set_t *DbgGetSourcePath(rec_set_t *set) {
         auto tmp_res = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCEPATH);
 
         // merge the results
-        result = MergeRepSet(result, tmp_res);
+        result.merge(std::move(tmp_res));
     }
 
     FreeRecSet(to_send);
     return result;
 }
 
-rep_set_t *DbgSetPrintElements(rec_set_t *set, const char *elements) {
+rep_set_t DbgSetPrintElements(rec_set_t *set, const char *elements) {
     auto request = CommandToSocProto(DBGCMD_SETPRINTELEMENTS, elements);
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
 }
 
-rep_set_t *DbgResetBeforeDirectCmd(rec_set_t *set) {
+rep_set_t DbgResetBeforeDirectCmd(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_RESETBEFOREDIRECTCMD);
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
 }
 
-rep_set_t *DbgRestoreAfterDirectCmd(rec_set_t *set) {
+rep_set_t DbgRestoreAfterDirectCmd(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_RESTOREAFTERDIRECTCMD);
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
 }
 
 /*
 ** DBG_SETVAR: Set variable in program to new value.
 */
-rep_set_t *DbgSetVar(rec_set_t *set, const char *var, const char* val) {
+rep_set_t DbgSetVar(rec_set_t *set, const char *var, const char* val) {
     auto request = CommandToSocProto(DBGCMD_SETVAR, var, val, set->getThreads());
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
     return result;
 }
@@ -2206,16 +2163,16 @@ rep_set_t *DbgSetVar(rec_set_t *set, const char *var, const char* val) {
 ** DBG_GETTYPE: Get type of variable.
 ** If isType is true, then get type of type.
 */
-rep_set_t *DbgGetType(rec_set_t *set, const char *var, int isType) {
+rep_set_t DbgGetType(rec_set_t *set, const char *var, int isType) {
     auto request = CommandToSocProto(DBGCMD_GETTYPE, var, isType, set->getThreads());
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_TYPE, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_TYPE, DBGEV_THREADINFO);
     return result;
 }
 
 /*
 ** DBG_GO: Continue/start execution.
 */
-rep_set_t *DbgGo(rec_set_t *set, bool all) {
+rep_set_t DbgGo(rec_set_t *set, bool all) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
@@ -2225,7 +2182,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
 
     // Clear the list location state since this modified the frame only if there
     // was no error
-    if (!SetHasError(result)) {
+    if (!result.hasError()) {
         for (auto&& recv_ptr : set) {
             recv_ptr->rec_di.clearFrontendGdb();
             recv_ptr->rec_di.setAtInitialBreakpoint(false);
@@ -2240,7 +2197,7 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
             auto has_err = false;
 
             // Ensure this di is not in the error list
-            for (auto&& err : result->getErrs()) {
+            for (auto&& err : result.getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di.handle()) {
                     // this di has an error
                     has_err = true;
@@ -2266,8 +2223,8 @@ rep_set_t *DbgGo(rec_set_t *set, bool all) {
 ** DBG_FINISHFUNC: Continue execution until the end of the current function
 *frame.
 */
-rep_set_t *DbgFinishFunc(rec_set_t *set) {
-    if (!set) return nullptr;
+rep_set_t DbgFinishFunc(rec_set_t *set) {
+    if (!set) return rep_set_t();
 
     // Remove any old events for this group
     ResetForAsyncCmd(set);
@@ -2279,7 +2236,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
 
     // Clear the list location state since this modified the frame only if there
     // was no error
-    if (!SetHasError(result)) {
+    if (!result.hasError()) {
         for (auto&& recv_ptr : set) {
             recv_ptr->rec_di.clearFrontendGdb();
         }
@@ -2290,7 +2247,7 @@ rep_set_t *DbgFinishFunc(rec_set_t *set) {
             auto has_err = 0;
 
             // Ensure this di is not in the error list
-            for (auto&& err : result->getErrs()) {
+            for (auto&& err : result.getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di.handle()) {
                     // this di has an error
                     ++has_err;
@@ -2322,7 +2279,7 @@ static int nextBPID(rec_set_t* set) {
 ** DBG_SETLINEBREAK: Set a breakpoint in program at
 **			specified line.
 */
-rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, const char *file, int line,
+rep_set_t DbgSetLineBreak(rec_set_t *set, int allowPending, const char *file, int line,
                            const char* threadSet) {
 
     auto id = nextBPID(set);
@@ -2344,7 +2301,7 @@ rep_set_t *DbgSetLineBreak(rec_set_t *set, int allowPending, const char *file, i
 ** DBG_SETFUNCBREAK: Set a breakpoint in program at
 **			specified function.
 */
-rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, const char *file, 
+rep_set_t DbgSetFuncBreak(rec_set_t *set, int allowPending, const char *file, 
         const char *func, const char* threadSet) {
 
     auto id = nextBPID(set);
@@ -2366,13 +2323,13 @@ rep_set_t *DbgSetFuncBreak(rec_set_t *set, int allowPending, const char *file,
 ** DBG_SETWATCH: Set a watchpoint in program for
 **			specified expression.
 */
-rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
+rep_set_t DbgSetWatch(rec_set_t *set, int type, char *expr) {
 
     auto id = nextBPID(set);
 
     auto request = CommandToSocProto(DBGCMD_SETWATCH, id, type, expr);
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_BPSET);
 
     // process breakpoint information
     for (auto&& reply : result) {
@@ -2383,7 +2340,7 @@ rep_set_t *DbgSetWatch(rec_set_t *set, int type, char *expr) {
     return result;
 }
 
-rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex) {
+rep_set_t DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex) {
     auto id = nextBPID(recSet);
     auto request = CommandToSocProto(DBGCMD_SETCATCH, id, event, regex);
     auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_BPSET);
@@ -2397,19 +2354,19 @@ rep_set_t *DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::s
     return result;
 }
 
-rep_set_t* DbgInfoBreakpoints(rec_set_t* set) {
+rep_set_t DbgInfoBreakpoints(rec_set_t* set) {
     auto request = CommandToSocProto(DBGCMD_INFOBREAK);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING);
     return result;
 }
 
-rep_set_t *DbgSetCheckpoint(rec_set_t* recSet) {
+rep_set_t DbgSetCheckpoint(rec_set_t* recSet) {
     static auto nextId = 0u;
 
     auto request = CommandToSocProto(DBGCMD_SETCHECKPOINT);
     auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_CHECKPOINT);
 
-    if (!result->hasError()) {
+    if (!result.hasError()) {
         // bucket each reply by its di
         std::unordered_map<DbgInvoke*, std::vector<std::pair<const Bitset *, const dbgcheckpoint_t*>>> diMap;
         for (const auto reply : result) {
@@ -2438,31 +2395,13 @@ rep_set_t *DbgSetCheckpoint(rec_set_t* recSet) {
     return result;
 }
 
-rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
-    if (!recSet) return nullptr;
+rep_set_t DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
+    if (!recSet) return rep_set_t();
 
     // add string error to rep_set_t result
-    const auto addStrError = [](rep_set_t *&result, const DbgInvoke& di, const Bitset &group, const std::string message) {
-        if (!result) {
-            result = NewRepSet();
-        }
-
-        AddErrToSet(result, NewGroupReply(di.handle(), group.clone(), NewErrorEvent(DBGERR_DEBUGGER, message.c_str())));
+    const auto addStrError = [](rep_set_t &result, const DbgInvoke& di, const Bitset &group, const std::string message) {
+        result.addErr(NewGroupReply(di.handle(), group.clone(), NewErrorEvent(DBGERR_DEBUGGER, message.c_str())));
     };
-
-    // add rep_set_t error to rep_set_t result
-    // deletes toMerge
-    const auto addRepSetError = [](rep_set_t *&result, rep_set_t *&toMerge) {
-        if (!result) {
-            result = NewRepSet();
-        }
-
-        MergeRepSet(result, toMerge);
-    };
-
-    using namespace std::string_literals;
-
-    rep_set_t *result = nullptr;
 
     // preliminary error checking
     auto foundCheckp = std::any_of(begin(recSet), end(recSet),
@@ -2470,16 +2409,16 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
         return rec->rec_di.checkpoints().find(id) != nullptr;
     });
 
+    using namespace std::string_literals;
+
+    auto result = rep_set_t();
+
     if (!foundCheckp) {
         // just use the first di to generate the error
         auto first = recSet->getReceivers().front();
         addStrError(result, first->rec_di, *first->rec_group, 
             "Checkpoint "s + std::to_string(id) + " doesn't exist."
         );
-    }
-
-    // return here if errors are detected
-    if (result) {
         return result;
     }
 
@@ -2502,18 +2441,18 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
 
             // Get frames to update client side location data on success
             auto frames = DbgGetFrame(new_rec_set, false);
-            if (!frames) {
+            if (frames.isEmpty()) {
                 addStrError(result, rec->rec_di, *group, "Error fetching frame");
                 continue;
             }
-            for (const auto* frameReply : frames.get()) {
+            for (const auto* frameReply : frames) {
                 const auto &frameGroup = frameReply->rep_group;
                 const auto &frameLoc = EVENT_FRAME(frameReply->rep_event)->getLoc();
 
                 auto request = CommandToSocProto(DBGCMD_RESTORECHECKPOINT, idSet.id);
 
-                // returns nullptr on success
-                if (auto tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK); !tmp_result) {
+                // returns empty set on success
+                if (auto tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK); tmp_result.isEmpty()) {
                     // update client side location data of any checkpoints that
                     // are current
                     for (auto &checkp : rec->rec_di.checkpoints()) {
@@ -2528,7 +2467,7 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
                     rec->rec_di.checkpoints().find(id)->markCurrent(*frameGroup);
                 } else {
                     // deletes tmp_result
-                    addRepSetError(result, tmp_result);
+                    result.merge(std::move(tmp_result));
                 }
             }
 
@@ -2539,34 +2478,20 @@ rep_set_t *DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id) {
     return result;
 }
 
-rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
-    if (!recSet) return nullptr;
+rep_set_t DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
+    if (!recSet) return rep_set_t();
 
     // add string error to rep_set_t result
-    const auto addStrError = [](rep_set_t *&result, const DbgInvoke& di, const Bitset &group, const std::string message) {
-        if (!result) {
-            result = NewRepSet();
-        }
-
+    const auto addStrError = [](rep_set_t &result, const DbgInvoke& di, const Bitset &group, const std::string message) {
         dbgevent_t *e;
         EVENT_ERROR(e, DBGERR_DEBUGGER, message.c_str());
         auto group_rep = NewGroupReply(di.handle(), group.clone(), e);
-        AddErrToSet(result, group_rep);
-    };
-
-    // add rep_set_t error to rep_set_t result
-    // deletes toMerge
-    const auto addRepSetError = [](rep_set_t *&result, rep_set_t *&toMerge) {
-        if (!result) {
-            result = NewRepSet();
-        }
-
-        MergeRepSet(result, toMerge);
+        result.addErr(group_rep);
     };
 
     using namespace std::string_literals;
 
-    rep_set_t *result = nullptr;
+    rep_set_t result = rep_set_t();
 
     // preliminary error checking
     auto foundCheckp = std::any_of(begin(recSet), end(recSet),
@@ -2580,10 +2505,6 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
         addStrError(result, first->rec_di, *first->rec_group, 
             "Checkpoint "s + std::to_string(id) + " doesn't exist."
         );
-    }
-
-    // return here if errors are detected
-    if (result) {
         return result;
     }
 
@@ -2617,7 +2538,7 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
     }
 
     // return here if errors are detected
-    if (result) {
+    if (result.hasError()) {
         return result;
     }
 
@@ -2641,12 +2562,12 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
             auto new_rec_set = NewRecSet();
             AddReceiverToSet(new_rec_set, NewGroupReceiver(rec->rec_di, group.get()));
 
-            if (auto tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK); !tmp_result) {
+            if (auto tmp_result = DbgSendCmdAndRecvReply(new_rec_set, request, DBGEV_OK); tmp_result.isEmpty()) {
                 // will remove the group from the checkpoint after loop
                 removeGroups.push_back(std::move(group));
             } else {
                 // deletes tmp_result
-                addRepSetError(result, tmp_result);
+                result.merge(std::move(tmp_result));
             }
 
             FreeRecSet(new_rec_set);
@@ -2668,94 +2589,94 @@ rep_set_t *DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id) {
 }
 
 // Set the current thread for subsequent commands
-rep_set_t *DbgSetThread(rec_set_t* set, const char* threadId)
+rep_set_t DbgSetThread(rec_set_t* set, const char* threadId)
 {
     auto request = CommandToSocProto(DBGCMD_THREAD, threadId);
 
-    rep_set_t* result  = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
 }
 
-rep_set_t *DbgSetThreadName(rec_set_t* set, const char* name)
+rep_set_t DbgSetThreadName(rec_set_t* set, const char* name)
 {
     auto request = CommandToSocProto(DBGCMD_SETTHREADNAME, name);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
 }
 
-rep_set_t *DbgFindThread(rec_set_t* set, const char* pattern)
+rep_set_t DbgFindThread(rec_set_t* set, const char* pattern)
 {
     auto request = CommandToSocProto(DBGCMD_FINDTHREAD,pattern);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
     return result;
 }
 
-rep_set_t *DbgThreadApply(rec_set_t* set, const char* op)
+rep_set_t DbgThreadApply(rec_set_t* set, const char* op)
 {
     auto request = CommandToSocProto(DBGCMD_THREADAPPLY,op);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
     return result;
 }
 
 // Set the current thread for subsequent commands
-rep_set_t *DbgGetThreadInfo(rec_set_t* set, const char* threadList)
+rep_set_t DbgGetThreadInfo(rec_set_t* set, const char* threadList)
 {
     auto request = CommandToSocProto(DBGCMD_GETTHREADINFO, threadList);
 
-    rep_set_t* result  = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
 
     return result;
 }
 
-rep_set_t *DbgSetSchedulerLocking(rec_set_t* set, const char* mode)
+rep_set_t DbgSetSchedulerLocking(rec_set_t* set, const char* mode)
 {
     auto request = CommandToSocProto(DBGCMD_SETSCHEDULERLOCKING,mode);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
 }
 
-rep_set_t *DbgGetSchedulerLocking(rec_set_t* set)
+rep_set_t DbgGetSchedulerLocking(rec_set_t* set)
 {
     auto request = CommandToSocProto(DBGCMD_GETSCHEDULERLOCKING);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
     return result;
 }
 
-rep_set_t *DbgSetNonStop(rec_set_t* set, const char* mode)
+rep_set_t DbgSetNonStop(rec_set_t* set, const char* mode)
 {
     auto request = CommandToSocProto(DBGCMD_SETNONSTOP,mode);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
     return result;
 }
 
-rep_set_t *DbgGetNonStop(rec_set_t* set)
+rep_set_t DbgGetNonStop(rec_set_t* set)
 {
     auto request = CommandToSocProto(DBGCMD_GETNONSTOP);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
     return result;
 }
 
-rep_set_t *DbgOmpd(rec_set_t* set, const char* op)
+rep_set_t DbgOmpd(rec_set_t* set, const char* op)
 {
     auto request = CommandToSocProto(DBGCMD_OMPD,op);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO, DBGEV_OK);
     return result;
 }
 
-rep_set_t *DbgCuda(rec_set_t* set, const char* op)
+rep_set_t DbgCuda(rec_set_t* set, const char* op)
 {
     auto request = CommandToSocProto(DBGCMD_CUDA,op);
-    rep_set_t* result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO, DBGEV_OK);
     return result;
 }
 
-rep_set_t *DbgSleep(rec_set_t* rec_set, int seconds) {
+rep_set_t DbgSleep(rec_set_t* rec_set, int seconds) {
     auto request = CommandToSocProto(DBGCMD_SLEEP, seconds);
     auto result = DbgSendCmdAndRecvReply(rec_set, request, DBGEV_OK);
     return result;
 }
 
-rep_set_t *DbgShell(rec_set_t* recSet, int argc, char **argv){
+rep_set_t DbgShell(rec_set_t* recSet, int argc, char **argv){
     auto request = CommandToSocProto(DBGCMD_SHELL, std::make_pair(argc, argv));
     auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_STRING);
     return result;
@@ -2764,10 +2685,10 @@ rep_set_t *DbgShell(rec_set_t* recSet, int argc, char **argv){
 /*
 ** DBG_DELETEBREAK: Delete a breakpoint.
 */
-rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
-    if (!set) return nullptr;
+rep_set_t DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
+    if (!set) return rep_set_t();
 
-    rep_set_t *result = nullptr;
+    auto result = rep_set_t();
 
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
     // with each dbginvoke_t
@@ -2801,19 +2722,13 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                     // We expect this to return nullptr on success, handle the case
                     // were things worked
-                    if (tmp_result == nullptr) {
+                    if (tmp_result.isEmpty()) {
                         // remove the group from the breakpoint
                         removeGroups.push_back(std::move(group));
                     }
 
                     // Add this to the overall result
-                    if (result == nullptr) {
-                        result = tmp_result;
-                    } else {
-                        if (tmp_result != nullptr) {
-                            result = MergeRepSet(result, tmp_result);
-                        }
-                    }
+                    result.merge(std::move(tmp_result));
 
                     FreeRecSet(new_rec_set);
                 }
@@ -2837,8 +2752,7 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
                 auto group_rep =
                     NewGroupReply(recv_ptr->rec_di.handle(), recv_ptr->rec_group->clone(), e);
                 // Create a new result and return it
-                result = NewRepSet();
-                AddErrToSet(result, group_rep);
+                result.addErr(group_rep);
                 continue;
             }
 
@@ -2868,19 +2782,13 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
                 // We expect this to return nullptr on success, handle the case
                 // were things worked
-                if (tmp_result == nullptr) {
+                if (tmp_result.isEmpty()) {
                     // remove the group from the breakpoint
                     removeGroups.push_back(std::move(group));
                 }
 
                 // Add this to the overall result
-                if (result == nullptr) {
-                    result = tmp_result;
-                } else {
-                    if (tmp_result != nullptr) {
-                        result = MergeRepSet(result, tmp_result);
-                    }
-                }
+                result.merge(std::move(tmp_result));
 
                 FreeRecSet(new_rec_set);
             }
@@ -2897,15 +2805,15 @@ rep_set_t *DbgDeleteBreak(rec_set_t *set, int bp_set_num) {
 
 // Apply a modifying operation to a breakpoint, or possible all breakpoints
 // 
-static rep_set_t* DbgModifyBreak(
+static rep_set_t DbgModifyBreak(
     rec_set_t *set,
     int bp_set_num,
     const std::function<std::string(int)>& makeRequest,  // it is the (backend)  bp-id
     const std::function<void(MappedBreakpoint&,const Bitset*)>& updateBPs) {
 
-    if (!set) return nullptr;
+    if (!set) return rep_set_t();
 
-    rep_set_t *result = nullptr;
+    auto result = rep_set_t();
 
     // if bp_set_num is 0, we want this to apply to every breakpoint associated
     // with each dbginvoke_t
@@ -2937,18 +2845,12 @@ static rep_set_t* DbgModifyBreak(
 
                     // We expect this to return nullptr on success, handle the case
                     // were things worked
-                    if (tmp_result == nullptr) {
+                    if (tmp_result.isEmpty()) {
                         updateBPs(bp_set, group.get());
                     }
 
                     // Add this to the overall result
-                    if (result == nullptr) {
-                        result = tmp_result;
-                    } else {
-                        if (tmp_result != nullptr) {
-                            result = MergeRepSet(result, tmp_result);
-                        }
-                    }
+                    result.merge(std::move(tmp_result));
 
                     FreeRecSet(new_rec_set);
                 }
@@ -2968,10 +2870,7 @@ static rep_set_t* DbgModifyBreak(
                 auto group_rep =
                     NewGroupReply(recv_ptr->rec_di.handle(), recv_ptr->rec_group->clone(), e);
                 // Create a new result and return it
-                if (result == nullptr) {
-                    result = NewRepSet();
-                }
-                AddErrToSet(result, group_rep);
+                result.addErr(group_rep);
                 continue;
             }
 
@@ -2999,17 +2898,13 @@ static rep_set_t* DbgModifyBreak(
 
                 // We expect this to return nullptr on success, handle the case
                 // were things worked
-                if (tmp_result == nullptr) {
+                if (tmp_result.isEmpty()) {
                     // mark the breakpoint as changed for this group
                     updateBPs(*bp_set, group.get());
                 }
 
                 // Add this to the overall result
-                if (result == nullptr) {
-                    result = tmp_result;
-                } else if (tmp_result != nullptr) {
-                    result = MergeRepSet(result, tmp_result);
-                }
+                result.merge(std::move(tmp_result));
 
                 FreeRecSet(new_rec_set);
             }
@@ -3022,7 +2917,7 @@ static rep_set_t* DbgModifyBreak(
 /*
 ** DBG_DISABLEBREAK: Disable a breakpoint.
 */
-rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
+rep_set_t DbgDisableBreak(rec_set_t *set, int bp_set_num) {
     auto makeRequest = [](int id) { return CommandToSocProto(DBGCMD_DISABLEBREAK, id); };
     auto disableBP = [](MappedBreakpoint& bp_set, const Bitset* group) { bp_set.markDisabled(group); };
 
@@ -3032,7 +2927,7 @@ rep_set_t *DbgDisableBreak(rec_set_t *set, int bp_set_num) {
 /*
 ** DBG_ENABLEBREAK: Enable a breakpoint.
 */
-rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
+rep_set_t DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
     auto makeRequest = [once, del](int id) {
                            return CommandToSocProto(DBGCMD_ENABLEBREAK, id, once, del); };
     auto enableBP = [once, del](MappedBreakpoint& bp_set, const Bitset* group) {
@@ -3051,7 +2946,7 @@ rep_set_t *DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
 /*
 ** DBG_IGNOREBREAK: Set an ignore count on a breakpoint
 */
-rep_set_t *DbgIgnoreBreak(rec_set_t *set, int bp_set_num, int n) {
+rep_set_t DbgIgnoreBreak(rec_set_t *set, int bp_set_num, int n) {
     auto makeRequest = [n](int id) {
                            return CommandToSocProto(DBGCMD_IGNOREBREAK, id, n); };
     auto ignoreBP = [n](MappedBreakpoint& bp_set, const Bitset* group) {
@@ -3060,7 +2955,7 @@ rep_set_t *DbgIgnoreBreak(rec_set_t *set, int bp_set_num, int n) {
     return DbgModifyBreak(set, bp_set_num, makeRequest, ignoreBP);
 }
 
-rep_set_t *DbgConditionBreak(rec_set_t *set, int bp_set_num, const std::string& cond) {
+rep_set_t DbgConditionBreak(rec_set_t *set, int bp_set_num, const std::string& cond) {
     auto makeRequest = [cond](int id) {
                            return CommandToSocProto(DBGCMD_CONDITIONBREAK, id, cond); };
     auto conditionBP = [cond](MappedBreakpoint& bp_set, const Bitset* group) {
@@ -3074,10 +2969,10 @@ rep_set_t *DbgConditionBreak(rec_set_t *set, int bp_set_num, const std::string& 
 /*
 ** DBG_LIST: List specified function or line.
 */
-rep_set_t *DbgList(rec_set_t *set, char *str) {
-    auto result = NewRepSet();
-    if (!set) return result;
+rep_set_t DbgList(rec_set_t *set, char *str) {
+    if (!set) return rep_set_t();
 
+    auto result = rep_set_t();
     rec_set_t *to_send = NewRecSet();
 
     // We want to do the actual reading of the source code on the frontend if
@@ -3111,18 +3006,14 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 
                 // Make sure there isn't an error in the result, otherwise add
                 // this to the to_send list to get the list from the back end.
-                if (SetHasError(tmp_result.get())) {
+                if (tmp_result.hasError()) {
                     AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
                     continue;
                 }
 
                 // process the frame -- note that we may be adding replies to tmp_result
                 // inside the loop.
-                for (size_t repIdx=0, numReps= tmp_result->getNumReplies();
-                     tmp_result && repIdx<numReps; ++repIdx) {
-
-                    auto group_rep = tmp_result->getReplies()[repIdx];
-
+                for (auto* group_rep : tmp_result) {
                     // Point at the event frame
                     const dbgframe_t* fp0 = EVENT_FRAME(group_rep->rep_event);
                     for (auto fp = fp0; fp; fp = fp->getNextThreadFrame()) {
@@ -3162,13 +3053,13 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         } else {
                             auto newReply = NewGroupReply(group_rep->rep_di,
                                                           group_rep->rep_group->clone(), e);
-                            tmp_result->addReply(newReply);
+                            tmp_result.addReply(newReply);
                         }
                     }
                 }
 
                 // This has converted the SHOWFRAME result into a LIST result.
-                result = MergeRepSet(result, tmp_result.release());  // it checks for tmp_result==nulptr
+                result.merge(std::move(tmp_result));
 
             } else if ((!str || isReverse) && dbg_fe->listIsPending()) {
                 // We will create the result by hand based on the saved list
@@ -3184,7 +3075,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                     if (e->ev_event == DBGEV_ERROR) {
                         auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                                        set_loc.set->clone(), e);
-                        AddErrToSet(result, group_rep);
+                        result.addErr(group_rep);
                         continue;
                     }
 
@@ -3202,7 +3093,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                         if (e->ev_event == DBGEV_ERROR) {
                             auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                                            set_loc.set->clone(), e);
-                            AddErrToSet(result, group_rep);
+                            result.addErr(group_rep);
                             cont = true;
                             break;
                         }
@@ -3242,9 +3133,9 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                                                    set_loc.set->clone(), e);
 
                     if (e->ev_event == DBGEV_ERROR) {
-                        AddErrToSet(result, group_rep);
+                        result.addErr(group_rep);
                     } else {
-                        AddReplyToSet(result, group_rep);
+                        result.addReply(group_rep);
                     }
                 }
 
@@ -3283,12 +3174,12 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
                                           recv_ptr->rec_group->clone(), e);
 
                 if (e->ev_event == DBGEV_ERROR) {
-                    AddErrToSet(result, group_rep);
+                    result.addErr(group_rep);
                     // Make sure to clear the saved list state since there was
                     // an error with the provided string
                     dbg_fe->clearListState();
                 } else {
-                    AddReplyToSet(result, group_rep);
+                    result.addReply(group_rep);
                 }
 
                 // This created the result from the event directly.
@@ -3308,7 +3199,7 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
         auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_LIST);
 
         // merge the results
-        result = (result ? MergeRepSet(result, tmp_result) : tmp_result);;
+        result.merge(std::move(tmp_result));
     }
 
     FreeRecSet(to_send);
@@ -3318,10 +3209,10 @@ rep_set_t *DbgList(rec_set_t *set, char *str) {
 /*
 ** DBG_GET_SOURCES: Ask for source files of inferior.
 */
-rep_set_t *DbgGetSources(rec_set_t *set) {
-    auto result = NewRepSet();
-    if (!set) return result;
+rep_set_t DbgGetSources(rec_set_t *set) {
+    if (!set) return rep_set_t();
 
+    auto result = rep_set_t();
     auto to_send = NewRecSet();
 
     // We want to do the actual reading of the source files on the frontend if
@@ -3344,7 +3235,7 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
             // Add the event to the result based on its type
             auto group_rep = NewGroupReply(recv_ptr->rec_di.handle(),
                                            recv_ptr->rec_group->clone(), e);
-            AddReplyToSet(result, group_rep);
+            result.addReply(group_rep);
         } else {
             // Currently (2023) gdb-guard at version 10.0 does not recognize
             // the dwarf put out by the rocm compilers and will fail to find
@@ -3367,7 +3258,7 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
         auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_SOURCES);
 
         // merge the results
-        result = MergeRepSet(result, tmp_result);
+        result.merge(std::move(tmp_result));
     }
 
     FreeRecSet(to_send);
@@ -3377,11 +3268,11 @@ rep_set_t *DbgGetSources(rec_set_t *set) {
 /*
 ** DBG_SETARGS: Set arguments to pass to program when run.
 */
-rep_set_t *DbgSetArgs(rec_set_t *set, char *args) {
+rep_set_t DbgSetArgs(rec_set_t *set, char *args) {
 
     auto request = CommandToSocProto(DBGCMD_SETARGS, args);
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
     return result;
 }
@@ -3390,17 +3281,17 @@ rep_set_t *DbgSetArgs(rec_set_t *set, char *args) {
 ** DBG_STEP: Execute to next statement. Repeat count times.
 **		If in == 0, pass over function calls (ala next).
 */
-std::unique_ptr<rep_set_t> DbgStep(rec_set_t *set, int count, int in) {
+rep_set_t DbgStep(rec_set_t *set, int count, int in) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
     auto request = CommandToSocProto(DBGCMD_STEP, count, in, set->getThreads());
 
-    auto result = std::unique_ptr<rep_set_t>(DbgSendCmdAndRecvReply(set, request, DBGEV_OK));
+    auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
 
     // Clear the list location state since this modified the frame only if there
     // was no error
-    if (!SetHasError(result.get())) {
+    if (!result.hasError()) {
         for (auto&& recv_ptr : set) {
             recv_ptr->rec_di.clearFrontendGdb();
             recv_ptr->rec_di.setAtInitialBreakpoint(false);
@@ -3411,7 +3302,7 @@ std::unique_ptr<rep_set_t> DbgStep(rec_set_t *set, int count, int in) {
             auto has_err = false;
 
             // Ensure this di is not in the error list
-            for (auto&& err : result->getErrs()) {
+            for (auto&& err : result.getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di.handle()) {
                     // this di has an error
                     has_err = true;
@@ -3436,8 +3327,8 @@ std::unique_ptr<rep_set_t> DbgStep(rec_set_t *set, int count, int in) {
 /*
 ** DBG_MOVEFRAME: Move up or down stack frames.
 */
-std::unique_ptr<rep_set_t> DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir dir) {
-    if (!set) return nullptr;
+rep_set_t DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir dir) {
+    if (!set) return rep_set_t();
 
     auto request = CommandToSocProto(DBGCMD_MOVEFRAME, count, int(dir), set->getThreads());
 
@@ -3451,7 +3342,7 @@ std::unique_ptr<rep_set_t> DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir d
         auto hasErr = false;
 
         // Ensure this di is not in the error list
-        for (auto&& err : result->getErrs()) {
+        for (auto&& err : result.getErrs()) {
             if (err->rep_di == recv_ptr->rec_di.handle()) {
                 // this di has an error
                 hasErr = true;
@@ -3492,48 +3383,40 @@ std::unique_ptr<rep_set_t> DbgMoveFrame(rec_set_t *set, int count, DbgFrameDir d
         }
     }
 
-    return std::unique_ptr<rep_set_t>(result);
+    return result;
 }
 
 /*
 ** DBG_SHOWFRAME: Show current stack.
 */
-std::unique_ptr<rep_set_t> DbgShowFrame(rec_set_t *set, int count) {
-
+rep_set_t DbgShowFrame(rec_set_t *set, int count) {
     auto request = CommandToSocProto(DBGCMD_SHOWFRAME, count, set->getThreads());
-
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
-
-    return std::unique_ptr<rep_set_t>(result);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
+    return result;
 }
 
 /*
 ** DBG_GETFRAME: Get selected stack frame.
 */
-std::unique_ptr<rep_set_t> DbgGetFrame(rec_set_t *set, bool verbose) {
+rep_set_t DbgGetFrame(rec_set_t *set, bool verbose) {
     auto request = CommandToSocProto(DBGCMD_GETFRAME, int(verbose), set->getThreads());
-
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
-
-    return std::unique_ptr<rep_set_t>(result);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
+    return result;
 }
 
 /*
 ** DBG_GETVARS: Return defined variables.
 */
-rep_set_t *DbgGetVars(rec_set_t *set) {
+rep_set_t DbgGetVars(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_GETVARS, set->getThreads());
-
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_VARS, DBGEV_THREADINFO);
-
-
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_VARS, DBGEV_THREADINFO);
     return result;
 }
 
 // Return arguments of current frame
-rep_set_t *DbgGetArgs(rec_set_t *set) {
+rep_set_t DbgGetArgs(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_GETARGS, set->getThreads());
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING, DBGEV_THREADINFO);
     return result;
 }
 
@@ -3541,12 +3424,11 @@ rep_set_t *DbgGetArgs(rec_set_t *set) {
 /*
 ** DBG_GETSCOPE: Return variables local to a scope.
 */
-rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
-    rep_set_t *result = NewRepSet();
-
-    if (!set) return result;
+rep_set_t DbgGetScope(rec_set_t *set, char *location) {
+    if (!set) return rep_set_t();
 
     rec_set_t *to_send = NewRecSet();
+    auto result = rep_set_t();
 
     // We want to do the actual reading of the source files on the frontend if
     // possible. This is because there is a performance hit associated with
@@ -3578,9 +3460,9 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
                                       recv_ptr->rec_group->clone(), e);
 
             if (e->ev_event == DBGEV_ERROR) {
-                AddErrToSet(result, group_rep);
+                result.addErr(group_rep);
             } else {
-                AddReplyToSet(result, group_rep);
+                result.addReply(group_rep);
             }
         } else {
             // add this recv_ptr to the to_send list
@@ -3597,7 +3479,7 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
         auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_VARS);
 
         // merge the results
-        result = MergeRepSet(result, tmp_result);
+        result.merge(std::move(tmp_result));
     }
 
     FreeRecSet(to_send);
@@ -3607,11 +3489,11 @@ rep_set_t *DbgGetScope(rec_set_t *set, char *location) {
 /*
 ** DBG_DIRECTCMD: Send direct command to debug backend
 */
-rep_set_t *DbgDirectCmd(rec_set_t *set, int argc, char **argv) {
+rep_set_t DbgDirectCmd(rec_set_t *set, int argc, char **argv) {
 
     auto request = CommandToSocProto(DBGCMD_DIRECT, std::make_pair(argc, argv));
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_CMD);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_CMD);
 
     return result;
 }
@@ -3619,9 +3501,9 @@ rep_set_t *DbgDirectCmd(rec_set_t *set, int argc, char **argv) {
 /*
 ** DBG_DBGSTATUS: Return status of debugger.
 */
-rep_set_t *DbgStatus(rec_set_t *set, int getLocation) {
+rep_set_t DbgStatus(rec_set_t *set, int getLocation) {
     auto request = CommandToSocProto(DBGCMD_STATUS, getLocation);
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_STAT);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STAT);
 
     return result;
 }
@@ -3629,14 +3511,14 @@ rep_set_t *DbgStatus(rec_set_t *set, int getLocation) {
 /*
 ** DBG_INTERRUPT: Interrupt current debugger operation.
 */
-rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
+rep_set_t DbgInterrupt(rec_set_t *set, bool all) {
     auto request = CommandToSocProto(DBGCMD_INTERRUPT, all);
 
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_HALT);
 
     // Clear the list location state since this modified the frame only if there
     // was no error
-    if (!SetHasError(result)) {
+    if (!result.hasError()) {
         for (auto&& recv_ptr : set) {
             recv_ptr->rec_di.clearFrontendGdb();
         }
@@ -3647,7 +3529,7 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
             auto has_err = false;
 
             // Ensure this di is not in the error list
-            for (auto&& err : result->getErrs()) {
+            for (auto&& err : result.getErrs()) {
                 if (err->rep_di == recv_ptr->rec_di.handle()) {
                     // this di has an error
                     has_err = true;
@@ -3669,8 +3551,8 @@ rep_set_t *DbgInterrupt(rec_set_t *set, bool all) {
 ** DBG_QUIT: Tell server to quit immediately.
 ** Use the value of det to override the default behavior
 */
-rep_set_t *DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
-    auto* result = NewRepSet();
+rep_set_t DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
+    auto result = rep_set_t();
 
     // determine if we should detach or kill. this is based on the value of the
     // `quit_type` parameter. if it's Default, the choice of whether to detach or
@@ -3695,25 +3577,28 @@ rep_set_t *DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
         return 0;
     }(quit_type, di.processType());
 
-    // send quit command. this should disconnect gdb on the backend and leave the
-    // job in a stopped state. the communication network is still alive.
-    auto tmp_result = [](DbgInvoke& recipient, int detach) {
-        auto to_send = NewRecSet();
-        to_send->addReceiver(NewGroupReceiver(recipient, recipient.fullBitset()));
+    auto do_blocking_exit = true;
+    {
+        // send quit command. this should disconnect gdb on the backend and leave the
+        // job in a stopped state. the communication network is still alive.
+        auto quit_result = [](DbgInvoke& recipient, int detach) {
+            auto to_send = NewRecSet();
+            to_send->addReceiver(NewGroupReceiver(recipient, recipient.fullBitset()));
 
-        auto request = CommandToSocProto(DBGCMD_QUIT, detach);
-        auto* tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_OK);
+            auto request = CommandToSocProto(DBGCMD_QUIT, detach);
+            auto tmp_result = DbgSendCmdAndRecvReply(to_send, request, DBGEV_OK);
 
-        FreeRecSet(to_send);
+            FreeRecSet(to_send);
 
-        return tmp_result;
-    }(di, detach);
+            return tmp_result;
+        }(di, detach);
 
-    // nullptr means sucess and the blocking teardown will probably succeed.
-    auto do_blocking_exit = tmp_result == nullptr;
+        // nullptr means sucess and the blocking teardown will probably succeed.
+        do_blocking_exit = quit_result.isEmpty();
 
-    // merge the results. this deletes tmp_result
-    result = MergeRepSet(result, tmp_result);
+        // merge the results. this deletes tmp_result
+        result.merge(std::move(quit_result));
+    }
 
     if (do_blocking_exit) {
         di.proto().syncExit(&di);

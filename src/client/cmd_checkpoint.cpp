@@ -12,14 +12,14 @@
 using namespace std::string_literals;
 
 static int cmd_checkpoint_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    auto repSet = std::unique_ptr<rep_set_t>(DbgSetCheckpoint(rec_set));
+    auto repSet = DbgSetCheckpoint(rec_set);
 
-    if (repSet == nullptr) {
+    if (repSet.isEmpty()) {
         PrintOutError("Failed to create checkpoint: No response from compute nodes.\n");
         return 0;
     }
 
-    if (ProcessErrorInRepSet(repSet.get())) {
+    if (ProcessErrorInRepSet(repSet)) {
         return 0;
     }
 
@@ -139,21 +139,21 @@ static int cmd_restart_cmd(rec_set_t *recSet, int argc, char **argv) {
         return 0;
     }
 
-    if (auto repSet = std::unique_ptr<rep_set_t>(DbgRestoreCheckpoint(recSet, id))) {
-        ProcessErrorInRepSet(repSet.get());
+    if (auto repSet = DbgRestoreCheckpoint(recSet, id); repSet.hasError()) {
+        ProcessErrorInRepSet(repSet);
         return 0;
     }
 
     PrintOutMsg("Checkpoint %lu restored:\n", id);
 
     // show new locations
-    auto frameRepSet = std::unique_ptr<rep_set_t>(DbgGetFrame(recSet, false));
+    auto frameRepSet = DbgGetFrame(recSet, false);
 
-    if (ProcessErrorInRepSet(frameRepSet.get())) {
+    if (ProcessErrorInRepSet(frameRepSet)) {
         return 0;
     }
 
-    for (const auto* reply : frameRepSet.get()) {
+    for (const auto* reply : frameRepSet) {
         auto fp = EVENT_FRAME(reply->rep_event);
         PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), fp);
     }

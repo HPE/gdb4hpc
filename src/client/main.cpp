@@ -654,7 +654,6 @@ void ForceQuit(void) {
 static void SigHandler(int sig) {
     dbgprocset_t *s;
     rec_set_t *rec_set;
-    rep_set_t *rep_set;
     dbgloc_t *halt_loc;
 
     DPRINT("\n***In SigHandler\n");
@@ -679,7 +678,7 @@ static void SigHandler(int sig) {
     rec_set = CreateRecSetForProcset(s);
 
     // Call the interupt command
-    rep_set = DbgInterrupt(rec_set,true);
+    auto rep_set = DbgInterrupt(rec_set,true);
 
     // process error
     ProcessErrorInRepSet(rep_set);
@@ -691,7 +690,6 @@ static void SigHandler(int sig) {
                                halt_loc);
     }
 
-    FreeRepSet(rep_set);
     FreeRecSet(rec_set);
 
     // unmask the signal

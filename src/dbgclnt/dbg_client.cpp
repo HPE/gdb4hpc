@@ -3390,17 +3390,17 @@ rep_set_t *DbgSetArgs(rec_set_t *set, char *args) {
 ** DBG_STEP: Execute to next statement. Repeat count times.
 **		If in == 0, pass over function calls (ala next).
 */
-rep_set_t *DbgStep(rec_set_t *set, int count, int in) {
+std::unique_ptr<rep_set_t> DbgStep(rec_set_t *set, int count, int in) {
     // Remove any old events for this group
     ResetForAsyncCmd(set);
 
     auto request = CommandToSocProto(DBGCMD_STEP, count, in, set->getThreads());
 
-    rep_set_t *result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    auto result = std::unique_ptr<rep_set_t>(DbgSendCmdAndRecvReply(set, request, DBGEV_OK));
 
     // Clear the list location state since this modified the frame only if there
     // was no error
-    if (!SetHasError(result)) {
+    if (!SetHasError(result.get())) {
         for (auto&& recv_ptr : set) {
             recv_ptr->rec_di.clearFrontendGdb();
             recv_ptr->rec_di.setAtInitialBreakpoint(false);

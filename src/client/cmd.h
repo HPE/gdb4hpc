@@ -120,6 +120,7 @@ private:
     // these are defined in their respective cmd_*.cpp files
     static void insert_interpreter_commands(Command& root);
     static void insert_frame_commands(Command& root);
+    static void insert_step_commands(Command& root);
 };
 
 class MiCommandsFactory {
@@ -129,6 +130,7 @@ private:
     // these are defined in their respective cmd_*.cpp files
     static void insert_interpreter_commands(Command& root);
     static void insert_frame_commands(Command& root);
+    static void insert_step_commands(Command& root);
 };
 
 
@@ -153,7 +155,6 @@ extern void InitCmd_procset();
 extern void InitCmd_python();
 extern void InitCmd_source();
 extern void InitCmd_thread();
-extern void InitCmd_step();
 extern void InitCmd_whatis();
 extern void InitCmd_class();
 

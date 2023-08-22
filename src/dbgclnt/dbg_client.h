@@ -397,8 +397,8 @@ extern rep_set_t *DbgList(rec_set_t *, char *);
 extern rep_set_t *DbgGetSources(rec_set_t *);
 // Not called on a Cray, might be useful on a cluster though
 extern rep_set_t *DbgSetArgs(rec_set_t *, char *);
-// Returns NULL on success, otherwise reply will contain error
-extern rep_set_t *DbgStep(rec_set_t *, int, int);
+// DbgStep returns nullptr on success, otherwise reply will contain error
+extern std::unique_ptr<rep_set_t> DbgStep(rec_set_t *, int, int);
 extern std::unique_ptr<rep_set_t> DbgMoveFrame(rec_set_t *, int count, DbgFrameDir dir);
 extern std::unique_ptr<rep_set_t> DbgShowFrame(rec_set_t *, int);
 extern std::unique_ptr<rep_set_t> DbgGetFrame(rec_set_t *, bool);

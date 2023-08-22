@@ -226,7 +226,6 @@ void InitCommands() {
     InitCmd_proc();
     InitCmd_procset();
     InitCmd_source();
-    InitCmd_step();
     InitCmd_thread();
     InitCmd_whatis();
 #ifdef USE_PYTHON    
@@ -456,6 +455,7 @@ std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
+    insert_step_commands(*root);
 
     // insert a fake help command so we get the niceness of the command tree
     // matching "h", "he", etc. to "help". printing the actual help requires
@@ -473,6 +473,7 @@ std::shared_ptr<Command> MiCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
+    insert_step_commands(*root);
 
     // insert a fake help command so we get the niceness of the command tree
     // matching "h", "he", etc. to "help". printing the actual help requires

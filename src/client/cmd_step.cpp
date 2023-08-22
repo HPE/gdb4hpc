@@ -13,46 +13,63 @@
  *
  *********************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
-
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "client.h"
-#include "useful.h"
 
 /*
 ** This function is able to handle both next and step by examining the first
 ** character of the command. If its an s, we set in to 1.
 */
-static int StepCmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_stepnext_console(rec_set_t* rec_set, int argc, char* argv[]) {
     int in = 0;
     int count = 1;
-    rep_set_t *rep_set;
 
     if (*argv[0] == 's') in++;
 
     if (argc >= 2) count = atoi(argv[1]);
 
-    DPERFLOG(SetTimerStart("step"));
-    if ((rep_set = DbgStep(rec_set, count, in)) != NULL) {
-        ProcessErrorInRepSet(rep_set);
-        FreeRepSet(rep_set);
-        PrintOutOk();
-        return 0;
+    if (auto error_rep_set = DbgStep(rec_set, count, in)) {
+        (void)ProcessErrorInRepSet(error_rep_set.get());
+        return Command::Failure;
     }
-    DPERFLOG(SetTimerStopAndLog("step"));
 
-    return 1;
+    return Command::Success;
 }
 
-void InitCmd_step(void) {
-    AddCommand("step", "s", proc_required, StepCmd, cmd_step_help,
-               "Step application until it reaches a different source line.");
-    AddCommand("next", "n", proc_required, StepCmd, cmd_next_help,
-               "Step application, proceeding through subroutine calls.");
+static int cmd_stepnext_mi(rec_set_t* rec_set, int argc, char* argv[]) {
+    int in = 0;
+    int count = 1;
+
+    auto command = std::string_view{argv[0]};
+    if (command.starts_with("-exec-s")) in++;
+
+    if (argc >= 2) count = atoi(argv[1]);
+
+    if (auto error_rep_set = DbgStep(rec_set, count, in)) {
+        (void)ProcessErrorInRepSet(error_rep_set.get());
+        // XXX: PrintOutOk is probably wrong for the error case, but is the old behavior.
+        // leaving it for now...
+        PrintOutOk();
+        return Command::Failure;
+    }
+
+    // XXX: PrintOutOk should probably be here instead...
+    return Command::Success;
+}
+
+void ConsoleCommandsFactory::insert_step_commands(Command& root) {
+    root.addSubCmd({
+        .name = "step", .alias = "s", .ptype = proc_required,
+        .fn = cmd_stepnext_console, .help = cmd_step_help,
+        .desc = "Step application until it reaches a different source line."});
+    root.addSubCmd({
+        .name = "next", .alias = "n", .ptype = proc_required,
+        .fn = cmd_stepnext_console, .help = cmd_next_help,
+        .desc = "Step application, proceeding through subroutine calls."});
+}
+
+void MiCommandsFactory::insert_step_commands(Command& root) {
+    root.addSubCmd({
+        .name = "-exec-step", .ptype = proc_required, .fn = cmd_stepnext_mi });
+    root.addSubCmd({
+        .name = "-exec-next", .ptype = proc_required, .fn = cmd_stepnext_mi });
 }

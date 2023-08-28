@@ -48,6 +48,11 @@ RAJA_TESTS = \
 	./bin/CRAY/raja/reductions_solution.x \
 	./bin/CRAY/raja/view-layout-decomp_solution.x
 
+# OpenMP OMPD tests
+OMPD_TESTS = \
+   ./bin/CRAY/c/c_ompd.x
+
+
 # you shouldn't have to have cti devel installed to test gdb4hpc, so only build
 # tests which require it if we happen to have it
 CTI_INC      = -I${CTI_INSTALL_DIR}/include
@@ -59,7 +64,7 @@ ifneq (${CTI_INSTALL_DIR}no,no)
 endif
 
 ifeq ($(PE_ENV),CRAY)
-	TESTS += $(GPU_TESTS)
+	TESTS += $(GPU_TESTS) $(OMPD_TESTS)
 endif
 
 ifdef LOCALHOST
@@ -143,6 +148,9 @@ clean:
 
 ./bin/${PE_ENV}/c/c_half_exit.x : ./bin/${PE_ENV}/c/c_half_exit.o
 	$(CC) $(CFLAGS) $^ -o $@
+
+./bin/${PE_ENV}/c/c_ompd.x : ./src/c/c_ompd.c
+	$(CC) -fopenmp $(CFLAGS) $^ -o $@
 
 shmemTest :
 	$(MAKE) -i ./bin/${PE_ENV}/c/c_shmem.x 

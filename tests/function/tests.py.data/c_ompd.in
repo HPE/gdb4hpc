@@ -1,0 +1,17 @@
+0: # test automatic OMPD library loading
+1: launch $a{2} --env=OMP_DEBUG=enabled ./bin/CRAY/c/c_ompd.x
+Starting application, please wait...
+Launched application...
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /src/c/c_ompd.c:11
+2: maint set sync on
+3: ompd init
+a{0..1}: Loaded OMPD lib successfully from %.*%/lib/libcrayompd.so
+a{0..1}: Initialized ICV map successfully for checking OMP API values.
+4: ompd threads
+a{0..1}: Thread 1 is an OpenMP thread; state: ompt_state_work_serial
+5: q
+Shutting down debugger and killing application for 'a'.

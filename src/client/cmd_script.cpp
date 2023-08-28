@@ -17,37 +17,23 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <iostream>
-#include <iomanip>
-#include <variant>
 #include <cmath>
-
-#include <arpa/inet.h>
-#include <math.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
+#include <iostream>
 
 #include "script_client.h"
 #include "script_settings.h"
 #include "bitset.h"
 #include "client.h"
 #include "useful.h"
+#include "interpreter_console.h"
 
-
-static std::shared_ptr<Command> ScriptCmds;
-static Command* OldCmds = nullptr;
+namespace {
 
 // script object built up by subsequent assert/set/etc commands
-static std::unique_ptr<script::data::Script> g_pendingScript = nullptr;
+//
+// XXX: if the user creates 2 interpreters and both of them access this at once,
+// bad things will happen.
+std::unique_ptr<script::data::Script> g_pendingScript = nullptr;
 
 #if DEBUG
 // backslash sequences are escape codes to print debug messages in dark grey. if
@@ -60,11 +46,13 @@ static std::unique_ptr<script::data::Script> g_pendingScript = nullptr;
     while (false) std::cerr << msg << std::endl
 #endif
 
+std::shared_ptr<Command> make_script_command_tree();
+
 /********************************
  * Info class commands
  ********************************/
 
-static int cmd_info_diff_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_info_diff_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     // this is a subcommand under "info", so argc/argv start at "diff", not "info"
 
     const auto printSyntax = [](){
@@ -174,7 +162,7 @@ static int cmd_info_diff_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_info_script_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_info_script_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     // this is a subcommand under "info", so argc/argv start at "script", not "info"
 
     const auto printSyntax = [](){
@@ -262,7 +250,15 @@ static int cmd_info_script_cmd(rec_set_t *rec_set, int argc, char **argv) {
  * Regular commands
  ********************************/
 
-static int cmd_build_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_build_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
+    if (!console) {
+        // unreachable?
+        // the only interpreter this command should be attached to is console.
+        PrintOutError("This command is only supported on the console interpreter.\n");
+        return Command::Failure;
+    }
+
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: build $script_name\n");
@@ -284,13 +280,13 @@ static int cmd_build_cmd(rec_set_t *rec_set, int argc, char **argv) {
     auto name = std::string{argv[1]+1};
     g_pendingScript = std::make_unique<script::data::Script>(name);
 
-    OldCmds = SetCommands(ScriptCmds.get());
+    console->push_commands(make_script_command_tree());
     cli_inc_prompt();
 
     return 1;
 }
 
-static int cmd_start_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_start_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Expected \"start $script_name\"\n");
         return 0;
@@ -354,7 +350,7 @@ static int cmd_start_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_stop_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (auto* script = script::getCurrentScript()) {
         script->uninstall();
     } else {
@@ -367,7 +363,7 @@ static int cmd_stop_cmd(rec_set_t *rec_set, int argc, char **argv) {
  * Alt commands
  ********************************/
 
-static int cmd_script_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_script_assert_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!g_pendingScript) {
         PrintOutError("Tried to add an assert to a nonexistant script.");
         return 0;
@@ -388,7 +384,15 @@ static int cmd_script_assert_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_script_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_script_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
+    if (!console) {
+        // unreachable?
+        // the only interpreter this command should be attached to is console.
+        PrintOutError("This command is only supported on the console interpreter.\n");
+        return Command::Failure;
+    }
+
     // should never be false...
     if (g_pendingScript) {
         auto name = g_pendingScript->name();
@@ -398,12 +402,13 @@ static int cmd_script_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
         // ...but just in case
         PrintOutError("Tried to compile a nonexistent assertion script.\n");
     }
+
     cli_dec_prompt();
-    SetCommands(OldCmds);
-    return 1;
+    console->pop_commands();
+    return Command::Success;
 }
 
-static void printTableEntry(const std::string& name, const script::settings::Item& state, const std::string& scope, const std::string& desc) {
+void printTableEntry(const std::string& name, const script::settings::Item& state, const std::string& scope, const std::string& desc) {
     std::stringstream out;
     
     struct Widths {
@@ -432,7 +437,7 @@ static void printTableEntry(const std::string& name, const script::settings::Ite
     PrintOutMsg("%s\n", out.str().c_str());
 }
 
-static void printSettingsTable() {
+void printSettingsTable() {
     PrintOutMsg("Current settings:\n");
     // header
     printTableEntry("Name", "Currently", "Scope", "Description");
@@ -442,7 +447,7 @@ static void printSettingsTable() {
     }
 }
 
-static int cmd_script_set_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_script_set_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set script setting with null script\n");
@@ -524,7 +529,7 @@ static int cmd_script_set_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_script_show_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_script_show_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set a script setting with null script\n");
@@ -556,10 +561,59 @@ static int cmd_script_show_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
+std::shared_ptr<Command> make_script_command_tree() {
+    auto root = std::make_shared<Command>(proc_ignore, nullptr);
+
+    root->addSubCmd({
+        .name = "assert", .ptype = proc_ignore,
+        .fn = cmd_script_assert_cmd, .help = cmd_script_assert_help,
+        .desc = "Create an assertion."});
+    root->addSubCmd({
+        .name = "end", .ptype = proc_ignore,
+        .fn = cmd_script_end_cmd, .help = cmd_script_end_help,
+        .desc = "Finish building the current assertion script."});
+    root->addSubCmd({
+        .name = "set", .ptype = proc_ignore,
+        .fn = cmd_script_set_cmd, .help = cmd_script_set_help,
+        .desc = "Set information about the debugger environment."});
+    root->addSubCmd({
+        .name = "show", .ptype = proc_ignore,
+        .fn = cmd_script_show_cmd, .help = cmd_script_show_help,
+        .desc = "Show information about the debugger environment."});
+
+    auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+        // help implementation lives in the interpreter,
+        // and this function should not actually be called
+        return Command::Failure;
+    };
+    root->addSubCmd({
+        .name = "help", .alias = "h", .ptype = proc_ignore,
+        .fn = dummy_help, .help = cmd_help_help,
+        .desc = "Display help information about build script mode commands."});
+
+    return root;
+}
+
+} // anonymous namespace
 
 /********************************
  * command init functions
  ********************************/
+
+void ConsoleCommandsFactory::insert_script_commands(Command& root) {
+    root.addSubCmd({
+        .name = "build", .ptype = proc_ignore,
+        .fn = cmd_build_cmd,
+        .help = cmd_build_help, .desc = "Build an assertion script."});
+    root.addSubCmd({
+        .name = "start", .ptype = proc_ignore,
+        .fn = cmd_start_cmd,
+        .help = cmd_start_help, .desc = "Start executing an assertion script."});
+    root.addSubCmd({
+        .name = "stop", .ptype = proc_ignore,
+        .fn = cmd_stop_cmd,
+        .help = cmd_stop_help, .desc = "Stop the currently executing assertion script."});
+}
 
 void InitCmd_script(void) {
     // info commands
@@ -571,32 +625,5 @@ void InitCmd_script(void) {
                    cmd_info_script_cmd,
                    cmd_info_script_help,
                    "Display built and active assertion scripts.");
-
-    // regular commands
-    AddCommand("build", NULL, proc_ignore, cmd_build_cmd,
-               cmd_build_help, "Build an assertion script.");
-    AddCommand("start", NULL, proc_ignore, cmd_start_cmd,
-               cmd_start_help, "Start executing an assertion script.");
-    AddCommand("stop", NULL, proc_ignore, cmd_stop_cmd,
-               cmd_stop_help, "Stop the currently executing assertion script.");
-
-    // graph alt commands
-    ScriptCmds = std::make_shared<Command>(proc_ignore, nullptr);
-    ScriptCmds->addSubCmd("assert", NULL, proc_ignore,
-                  cmd_script_assert_cmd,
-                  cmd_script_assert_help, "Create an assertion.");
-    ScriptCmds->addSubCmd("end", NULL, proc_ignore,
-                  cmd_script_end_cmd, cmd_script_end_help,
-                  "Finish building the current assertion script.");
-    ScriptCmds->addSubCmd("set", NULL, proc_ignore,
-                  cmd_script_set_cmd, cmd_script_set_help,
-                  "Set information about the debugger environment.");
-    ScriptCmds->addSubCmd("show", NULL, proc_ignore,
-                  cmd_script_show_cmd, cmd_script_show_help,
-                  "Show information about the debugger environment.");
-
-    // graph help commands
-    AddCommand("build assert", proc_ignore, nullptr,
-               cmd_script_assert_help, "Create an assertion.");
 }
 

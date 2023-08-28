@@ -79,7 +79,7 @@ int PrintMultiThreadMsg(const char *diName, const Bitset *group,
     return 0;
 }
 
-static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_print_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 2) return 1;
 
@@ -128,8 +128,7 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, char **argv) {
         
     return 1;
 }
-static int cmd_set_print_elements_cmd(rec_set_t *rec_set, int argc,
-                                               char **argv) {
+static int cmd_set_print_elements_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Usage: set print elements <positive integer or \"unlimited\">\n");
@@ -164,8 +163,7 @@ static int cmd_set_print_elements_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_show_print_elements_cmd(rec_set_t *rec_set, int argc,
-                                               char **argv) {
+static int cmd_show_print_elements_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (Client.print_elements == 0) {
         PrintOutMsg("Limit on string chars or array elements to print is unlimited.\n");
     } else {
@@ -175,8 +173,7 @@ static int cmd_show_print_elements_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_set_print_pretty_cmd(rec_set_t *rec_set, int argc,
-                                               char **argv) {
+static int cmd_set_print_pretty_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Usage: set print pretty on|off\n");
@@ -196,8 +193,7 @@ static int cmd_set_print_pretty_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_show_print_pretty_cmd(rec_set_t *rec_set, int argc,
-                                     char **argv) {
+static int cmd_show_print_pretty_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     PrintOutMsg("Pretty printing is %s.\n", Client.print_pretty ? "on" : "off");
     return 1;
 }

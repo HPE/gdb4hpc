@@ -22,7 +22,7 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_source_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     cli_stream_args_t *stream_args;
 
     if (argc < 2) {

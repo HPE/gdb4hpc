@@ -1,6 +1,4 @@
-1: maint set sync on
-2: # Test help command
-3: help 
+0: help
 assign          Change the value of an application or debugger variable.
 attach          Attach to an application.
 backtrace       Print backtrace of all stack frames.
@@ -55,5 +53,24 @@ up              Move up one or more stack frames.
 viewset         Display information about process sets.
 watch           Set watchpoint on specified expression.
 whatis          Print the data type of an expression.
-4: #exit lgdb
-5: q
+0: build $help_test
+0: help
+assert          Create an assertion.
+end             Finish building the current assertion script.
+help            Display help information about build script mode commands.
+set             Set information about the debugger environment.
+show            Show information about the debugger environment.
+0: end
+Assertion script $help_test compiled.
+0: decomposition $help_decomp
+0: help
+dim_order       Provide a dimension order definition.
+dimension       Provide a dimension definition.
+distribute      Provide a distribute definition.
+end             Finish defining the current decomposition scheme.
+help            Display help information about decomposition script mode commands.
+proc_grid       Provide a process grid definition.
+0: end
+Must provide a dimension definition before ending a decomposition.
+Exit script mode and destroy current decomposition? (y or n) Warning: No default given, assuming y
+0: q

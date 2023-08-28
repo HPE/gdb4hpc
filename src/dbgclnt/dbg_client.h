@@ -389,7 +389,7 @@ rep_set_t DbgDisableBreak(rec_set_t *, int);
 rep_set_t DbgEnableBreak(rec_set_t *, int, bool, bool);
 rep_set_t DbgIgnoreBreak(rec_set_t *, int, int);
 rep_set_t DbgConditionBreak(rec_set_t *, int, const std::string& cond);
-rep_set_t DbgList(rec_set_t *, char *);
+rep_set_t DbgList(rec_set_t *, const char *);
 rep_set_t DbgGetSources(rec_set_t *);
 // Not called on a Cray, might be useful on a cluster though
 rep_set_t DbgSetArgs(rec_set_t *, char *);
@@ -400,15 +400,15 @@ rep_set_t DbgShowFrame(rec_set_t *, int);
 rep_set_t DbgGetFrame(rec_set_t *, bool);
 rep_set_t DbgGetVars(rec_set_t *);
 rep_set_t DbgGetArgs(rec_set_t *);
-rep_set_t DbgGetScope(rec_set_t *, char *);
-rep_set_t DbgDirectCmd(rec_set_t *, int, char **);
+rep_set_t DbgGetScope(rec_set_t *, const char *);
+rep_set_t DbgDirectCmd(rec_set_t *, int, const char * const *);
 rep_set_t DbgStatus(rec_set_t *, int);
 rep_set_t DbgInterrupt(rec_set_t *, bool all);
 rep_set_t DbgQuit(DbgInvoke&, DbgQuitType type);
 rep_set_t DbgOpenSocket(rec_set_t *, char *, int);
 rep_set_t DbgCloseSocket(rec_set_t *);
 rep_set_t DbgSleep(rec_set_t* rec_set, int seconds);
-rep_set_t DbgShell(rec_set_t *, int argc, char **argv);
+rep_set_t DbgShell(rec_set_t *, int argc, const char * const * argv);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 

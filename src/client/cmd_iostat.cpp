@@ -63,7 +63,7 @@ int initialize_map (){
     return 1;
 }
 
-static int cmd_info_iostat_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_iostat_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     std::string arg = ArgsToString(&argv[1], argc - 1);
 
     if (!initialized_iostat_map){

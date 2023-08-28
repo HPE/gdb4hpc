@@ -88,8 +88,9 @@ void MiInterpreter::interpret(std::string_view line) {
         auto* procset = CurrentProcSet();
         auto argv = ArgvStream{};
         argv.parseAndAppendArgs(cmd->getShortName() + " " + args);
+        auto ctx = make_context();
 
-        if (!cmd->execute(procset, argv.argc(), const_cast<char**>(argv.c_strs().data()))) {
+        if (!cmd->execute(ctx, procset, argv.argc(), const_cast<char**>(argv.c_strs().data()))) {
             log("command returned an error");
             // XXX to maintain passing tests that specifically look for this behaviour,
             // set the stream error. but eventually this mechanism should be removed in
@@ -100,6 +101,8 @@ void MiInterpreter::interpret(std::string_view line) {
     } else if (m_console_intr.can_interpret(untagged_line)) {
         log("forwarding to console interpreter");
         m_console_intr.interpret(untagged_line);
+        // TODO print ^done/^running/^error/etc
+        // TODO print (gdb)
     } else {
         // fall back to execute command. even if we aren't deaing with a console
         // command, we still might have a valid command here. some unconverted
@@ -116,6 +119,12 @@ void MiInterpreter::interpret(std::string_view line) {
         log("falling back to ExecuteCommand");
         ExecuteCommand(line.data());
     }
+}
+
+Command::RunContext MiInterpreter::make_context() {
+    return Command::RunContext{
+        .caller = this
+    };
 }
 
 void MiInterpreter::print_help() {

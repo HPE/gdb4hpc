@@ -649,6 +649,7 @@ int main(int argc, char *argv[]) {
 
 void ForceQuit(void) {
     Client.quit = 1;
+    DbgMaskInput();
 }
 
 static void SigHandler(int sig) {

@@ -27,9 +27,9 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc, char **argv);
+static int cmd_info_threads_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]);
 
-static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_thread_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: thread <thread-number> or thread name <thread-name>,\n");
@@ -91,7 +91,7 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
             // special case: alias to "info thread" if user typed "thread info"
             if (strcmp(arg, "info") == 0) {
                 // info functions expect the "info" keyword to be removed from argv
-                return cmd_info_threads_cmd(rec_set, argc - 1, &argv[1]);
+                return cmd_info_threads_cmd(ctx, rec_set, argc - 1, &argv[1]);
             }
 
             PrintOutError("Thread ID must be an integer greater than 0.\n");
@@ -106,11 +106,11 @@ static int cmd_thread_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 // shortcut for thread apply all -s
-static int cmd_taas_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_taas_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 1) return 1;
     std::vector<const char*> newArgs{"thread", "apply", "all", "-s"};
     std::copy(argv+1, argv+argc, std::back_inserter(newArgs));
-    return cmd_thread_cmd(rec_set, newArgs.size(), const_cast<char**>(&newArgs[0]));
+    return cmd_thread_cmd(ctx, rec_set, newArgs.size(), const_cast<char**>(&newArgs[0]));
 }
 
 static void PrintMIThread(const std::string& line,
@@ -168,7 +168,7 @@ static void PrintMIThread(const std::string& line,
        << thread_state<<"\"}";
 }
 
-static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_threads_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (Client.MI_mode && !rec_set) {
         PrintOutOk();
         return 1;
@@ -216,7 +216,7 @@ static int cmd_info_threads_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_set_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int cmd_set_scheduler_locking_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[])
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on|step|replay.\n");
@@ -233,7 +233,7 @@ static int cmd_set_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **ar
     return 1;
 }
 
-static int cmd_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int cmd_show_scheduler_locking_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[])
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -254,7 +254,7 @@ static int cmd_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, char **a
 
 // enable/disable non-stop mode which lets other threads in a process continue
 // running instead of stopping every thread
-static int cmd_set_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int cmd_set_non_stop_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[])
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on.\n");
@@ -294,7 +294,7 @@ static int cmd_set_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 }
 
 // on means other threads can continue to run when one is stopped
-static int cmd_show_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
+static int cmd_show_non_stop_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[])
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -318,7 +318,7 @@ static int cmd_show_non_stop_cmd(rec_set_t *rec_set, int argc, char **argv)
 }
 
 // command to interface with the ompd plugin
-static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_ompd_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     auto arg = ArgsToString(&argv[1], argc - 1);
     auto rep_set = DbgOmpd(rec_set, arg.c_str());
@@ -343,7 +343,7 @@ static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, char **argv) {
 }
 
 // command to interface with the cuda-gdb extensions
-static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     auto arg = ArgsToString(&argv[1], argc - 1);
     auto rep_set = DbgCuda(rec_set, arg.c_str());
@@ -367,24 +367,24 @@ static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_info_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto args = ArgvStream{"cuda", "info"};
     args << ArgvStream{argc-1, argv+1};
-    return cmd_cuda_cmd(rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
+    return cmd_cuda_cmd(ctx, rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
     
 }
 
-static int cmd_set_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_set_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto args = ArgvStream{"cuda", "set"};
     args << ArgvStream{argc-1, argv+1};
-    return cmd_cuda_cmd(rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
+    return cmd_cuda_cmd(ctx, rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
     
 }
 
-static int cmd_show_cuda_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_show_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto args = ArgvStream{"cuda", "show"};
     args << ArgvStream{argc-1, argv+1};
-    return cmd_cuda_cmd(rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
+    return cmd_cuda_cmd(ctx, rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
     
 }
 

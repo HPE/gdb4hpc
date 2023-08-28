@@ -23,9 +23,9 @@ public:
     void interpret(std::string_view line) override;
 
 private:
-    std::shared_ptr<Command> m_mi_commands;
-    ConsoleInterpreter m_console_intr;
-
+    Command::RunContext make_context();
     void print_help();
 
+    std::shared_ptr<Command> m_mi_commands;
+    ConsoleInterpreter m_console_intr;
 };

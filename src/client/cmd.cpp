@@ -39,7 +39,7 @@ static Command* CurrentCmds = nullptr;  /* Current command list */
 static std::deque<std::string> pendingCommandQueue{}; /* Commands queued, waiting to be executed */
 
 void AddCommand(const char *name, const char *alias, cmdptype pt,
-                cmdfunc_t cmd, const char *const help[], const char *desc) {
+                Command::Func cmd, const char *const help[], const char *desc) {
     if (!Cmds) {
         // create the top level entry
         Cmds = std::make_shared<Command>("", nullptr, proc_optional,
@@ -51,13 +51,13 @@ void AddCommand(const char *name, const char *alias, cmdptype pt,
 }
 
 void AddCommand(const char *name, cmdptype pt,
-                cmdfunc_t cmd, const char *const help[], const char *desc) {
+                Command::Func cmd, const char *const help[], const char *desc) {
     return AddCommand(name, nullptr, pt, cmd, help, desc);
 }
 
 
 Command::Command(const std::string& name, const char* alias,
-                 cmdptype ptype, cmdfunc_t cmd,
+                 cmdptype ptype, Command::Func cmd,
                  const char* const* help,
                  const char* desc) :
     m_fullName(name), m_alias(alias), m_ptype(ptype),
@@ -74,7 +74,7 @@ Command::Command(Command::CtorArgs&& args)
     : Command(args.name, args.alias, args.ptype, args.fn, args.help, args.desc)
 {}
 
-Command::Command(cmdptype ptype, cmdfunc_t defaultCmd) :
+Command::Command(cmdptype ptype, Command::Func defaultCmd) :
     m_ptype(ptype), m_func(nullptr), m_help(nullptr), m_desc(nullptr)
 {
     if (defaultCmd) {
@@ -108,7 +108,7 @@ void Command::addSubCmd( std::shared_ptr<Command> sub) {
 }
 
 void Command::addSubCmd(const char* name, const char* alias, cmdptype ptype,
-                        cmdfunc_t cmd,
+                        Command::Func cmd,
                         const char* const* help, const char* desc) {
     addSubCmd(std::make_shared<Command>(name, alias, ptype, cmd, help, desc));
 }
@@ -118,7 +118,7 @@ void Command::addSubCmd(Command::CtorArgs&& args) {
 }
 
 // execute the command given a procset and arguments
-int Command::execute(dbgprocset_t *s, int argc, char *argv[]) {
+int Command::execute(Command::RunContext& ctx, dbgprocset_t *s, int argc, const char * const argv[]) {
 
     if (m_ptype == proc_required ||
         (m_ptype == proc_optional_mi && !Client.MI_mode)) {
@@ -157,7 +157,7 @@ int Command::execute(dbgprocset_t *s, int argc, char *argv[]) {
                     CreateRecSetForProcset(s) // handles nullptr
                     );
 
-    auto res = (*m_func)(rec_set, argc, argv);
+    auto res = m_func(ctx, rec_set, argc, argv);
     if (!res) {
         failed();
     }
@@ -221,16 +221,12 @@ void InitCommands() {
     InitCmd_go();
     InitCmd_script();
     InitCmd_list();
-    InitCmd_passthru();
     InitCmd_print();
     InitCmd_proc();
     InitCmd_procset();
     InitCmd_source();
     InitCmd_thread();
     InitCmd_whatis();
-#ifdef USE_PYTHON    
-    InitCmd_python();
-#endif    
 
     SetCommands(Cmds.get());
 };
@@ -340,8 +336,10 @@ void ExecuteCommand(const char *line) {
     auto argv = ArgvStream{};
     argv.parseAndAppendArgs(c->getShortName() + " " + args);
 
+    auto null_context = Command::RunContext{};
+
     // do the command
-    if (!c->execute(s, argv.argc(), const_cast<char**>(argv.c_strs().data()))) {
+    if (!c->execute(null_context, s, argv.argc(), argv.c_strs().data())) {
         Free(cmd);
         // set an error for the cli stream
         cli_set_error();
@@ -443,27 +441,28 @@ std::variant<Command*, Command::ErrStr> Command::findSubCmd(std::string_view cmd
     }
 }
 
-static int dummy_help_cmd(rec_set_t* rec_set, int argc, char* argv[]) {
-    // it's necessary to attach a function to the help command to satisfy the
-    // search algorithm in Command::findCmd, but this function should not
-    // actually be called. the interpreter should detect the help command
-    // and short circuit to its own implementation.
-    return Command::Failure;
-}
-
 std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
+
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
     insert_step_commands(*root);
+    insert_passthru_commands(*root);
+    insert_script_commands(*root);
+    insert_blockmap_commands(*root);
+    insert_env_commands(*root);
+    insert_python_commands(*root);
 
     // insert a fake help command so we get the niceness of the command tree
     // matching "h", "he", etc. to "help". printing the actual help requires
     // context only available in the interpreter itself, so the interpreter
     // will catch a match to this command and short circuit to the help output.
+    auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+        return Command::Failure;
+    };
     root->addSubCmd({
         .name = "help", .alias = "h", .ptype = proc_ignore,
-        .fn = dummy_help_cmd, .help = cmd_help_help,
+        .fn = dummy_help, .help = cmd_help_help,
         .desc = "Display help information about commands."});
 
     return root;
@@ -471,6 +470,7 @@ std::shared_ptr<Command> ConsoleCommandsFactory::make() {
 
 std::shared_ptr<Command> MiCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
+
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
     insert_step_commands(*root);
@@ -479,9 +479,12 @@ std::shared_ptr<Command> MiCommandsFactory::make() {
     // matching "h", "he", etc. to "help". printing the actual help requires
     // context only available in the interpreter itself, so the interpreter
     // will catch a match to this command and short circuit to the help output.
+    auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+        return Command::Failure;
+    };
     root->addSubCmd({
         .name = "-help", .ptype = proc_ignore,
-        .fn = dummy_help_cmd, .help = cmd_help_help,
+        .fn = dummy_help, .help = cmd_help_help,
         .desc = "Display help information about commands."});
 
     return root;

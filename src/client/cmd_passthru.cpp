@@ -18,21 +18,23 @@
 #include "client.h"
 #include "useful.h"
 
-static std::shared_ptr<Command> DirectModeCmds;
-static Command* OldCmds;
+#include "interpreter_console.h"
 
-static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
-                                         char **argv) {
-    char *cmd;
+#include <memory>
 
+namespace {
+
+std::shared_ptr<Command> make_gdbmode_command_tree();
+
+int cmd_maint_direct_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Usage: maint passthru <gdb command...>\n");
-        return 0;
+        return Command::Failure;
     }
 
     {
-    auto rep_set = DbgResetBeforeDirectCmd(rec_set);
-    ProcessErrorInRepSet(rep_set);
+        auto rep_set = DbgResetBeforeDirectCmd(rec_set);
+        ProcessErrorInRepSet(rep_set);
     }
 
     auto rep_set = DbgDirectCmd(rec_set, argc - 1, &argv[1]);
@@ -43,7 +45,7 @@ static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
     // process console messages
     for (auto&& reply : rep_set) {
         // Point at the cmd data
-        cmd = EVENT_CMD(reply->rep_event);
+        auto* cmd = EVENT_CMD(reply->rep_event);
 
         // make sure the cmd is not empty
         if (strlen(cmd) == 0) continue;
@@ -57,18 +59,19 @@ static int cmd_maint_direct_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
-
-    if (rec_set == NULL) {
-        PrintOutError("No processes in focus.\n");
-        return 0;
-    }
-
+int cmd_directmode_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc > 1) {
-        return cmd_maint_direct_cmd(rec_set, argc, argv);
+        return cmd_maint_direct_cmd(ctx, rec_set, argc, argv);
     }
 
-    OldCmds = SetCommands(DirectModeCmds.get());
+    if (auto console = dynamic_cast<ConsoleInterpreter*>(ctx.caller)) {
+        console->push_commands(make_gdbmode_command_tree());
+    } else {
+        // unreachable?
+        // the only interpreter this command should be attached to is console.
+        PrintOutError("This command is only supported on the console interpreter.\n");
+        return Command::Failure;
+    }
 
     cli_inc_prompt();
 
@@ -76,8 +79,8 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
         "Entering gdb pass-thru mode. Type \"end\" to exit mode...\n\n");
 
     {
-    auto rep_set = DbgResetBeforeDirectCmd(rec_set);
-    ProcessErrorInRepSet(rep_set);
+        auto rep_set = DbgResetBeforeDirectCmd(rec_set);
+        ProcessErrorInRepSet(rep_set);
     }
 
     // This won't work with a "generic" debug backend, but works with gdb.
@@ -103,43 +106,32 @@ static int cmd_directmode_cmd(rec_set_t *rec_set, int argc, char **argv) {
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
-static int cmd_directmode_end_cmd(rec_set_t *rec_set, int argc,
-                                      char **argv) {
+int cmd_directmode_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
+    if (!console) {
+        // unreachable?
+        PrintOutError("This command is only supported on the console interpreter.\n");
+        return Command::Failure;
+    }
+
     PrintOutMsg(
         "\nEnding gdb pass-thru mode. If program location has changed (i.e. "
         "continue) debugger is in an unknown state.\n");
 
     auto rep_set = DbgRestoreAfterDirectCmd(rec_set);
     ProcessErrorInRepSet(rep_set);
-    
+
     cli_dec_prompt();
-    SetCommands(OldCmds);
+
+    console->pop_commands();
 
     return 1;
 }
 
-static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
-                                         char **argv) {
-
-    if (Client.MI_mode) {
-        auto directCmds = SetCommands(OldCmds);
-        auto command = ArgsToString(argv, argc);
-        mi_log("forwarding %s to old interpreter\n", command.c_str());
-        ExecuteCommand(command.c_str());
-        OldCmds = SetCommands(directCmds);
-        return 1;
-    }
-
-    char *cmd;
-
-    if (rec_set == NULL) {
-        PrintOutError("No processes in focus.\n");
-        return 0;
-    }
-
+int cmd_directmode_direct_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto rep_set = DbgDirectCmd(rec_set, argc, argv);
 
     // process error
@@ -148,7 +140,7 @@ static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
     // process console messages
     for (auto&& reply : rep_set) {
         // Point at the cmd data
-        cmd = EVENT_CMD(reply->rep_event);
+        auto* cmd = EVENT_CMD(reply->rep_event);
 
         // make sure the cmd is not empty
         if (strlen(cmd) == 0) continue;
@@ -165,80 +157,35 @@ static int cmd_directmode_direct_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_directmode_interpreter_exec_cmd(rec_set_t *rec_set, int argc,
-                                               char **argv) {
-
-    if (argc > 2 || strstr(argv[1], "mi")) {
-        return cmd_directmode_direct_cmd(rec_set, argc, argv);
-    }
-        
-    auto command = std::string{};
-    if (argc > 3 || argv[2][0] != '"') {
-        command = ArgsToString(argv+2, argc-2);
-    } else {
-        auto len = strlen(argv[2]);
-        command = std::string{argv[2]+1, std::max(size_t(2),len)-2};
-    }
-
-    mi_log("forwarding directmode %s\n", command.c_str());
-    auto mi = false;
-    std::swap(Client.MI_mode, mi);
-    ExecuteCommand(command.c_str());
-    std::swap(Client.MI_mode, mi);
-    PrintOutOk();
-    return 1;
+int cmd_directmode_blacklist_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    const auto* this_command = argc > 0 ? argv[0] : "This command";
+    PrintOutError("\"%s\" is unsupported in gdbmode. Use \"end\" to exit gdbmode.\n", this_command);
+    return Command::Failure;
 }
 
-static int cmd_directmode_blacklist_cmd(rec_set_t *rec_set, int argc,
-                                            char **argv) {
-    if (argc > 0) {
-        PrintOutError("%s is unsupported.\n", argv[0]);
-    } else {
-        PrintOutError("This command is unsupported.\n");
-    }
-
-    return 1;
+int cmd_quit_cmd(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]) {
+    ForceQuit();
+    return Command::Success;
 }
 
-class DirectMode : public Command {
-public:
-    DirectMode();
-    void failed() override;
-};
+std::shared_ptr<Command> make_gdbmode_command_tree() {
+    auto root = std::make_shared<Command>(proc_optional, cmd_directmode_direct_cmd);
 
-DirectMode::DirectMode() : Command(proc_optional, cmd_directmode_direct_cmd) {}
+    // XXX: We can't set help strings for these commands. The help command is
+    // passed to the gdb backend while in gdbmode.
+    root->addSubCmd({.name = "end", .ptype = proc_ignore, .fn = cmd_directmode_end_cmd});
+    root->addSubCmd({.name = "quit", .alias = "q", .ptype = proc_ignore, .fn = cmd_quit_cmd});
+    root->addSubCmd({.name = "run", .alias = "r", .ptype = proc_ignore, .fn = cmd_directmode_blacklist_cmd});
+    root->addSubCmd({.name = "detach", .ptype = proc_ignore, .fn = cmd_directmode_blacklist_cmd});
+    root->addSubCmd({.name = "kill", .ptype = proc_ignore, .fn = cmd_directmode_blacklist_cmd});
 
-void DirectMode::failed()
-{
-    cli_dec_prompt();
-    SetCommands(OldCmds);
+    return root;
 }
 
-void InitCmd_passthru(void) {
-    // regular commands
-    AddCommand("gdbmode", proc_required, cmd_directmode_cmd,
-               cmd_directmode_help, "Send raw gdb commands.");
+} // anonymous namespace
 
-    // maint commands
-    AddCommand(
-        "maint passthru", proc_required, cmd_maint_direct_cmd,
-        cmd_maint_direct_help, "Pass command to gdb backend.");
-
-    // gdbmode alt commands
-    DirectModeCmds = std::make_shared<DirectMode>();
-
-    // XXX: The help strings below are not viewable. The help command is passed
-    // to the gdb backend while in gdbmode.
-    DirectModeCmds->addSubCmd("end", nullptr, proc_ignore, 
-                              cmd_directmode_end_cmd, nullptr, nullptr);
-    DirectModeCmds->addSubCmd("quit", nullptr, proc_ignore,
-                              cmd_quit_cmd, nullptr, nullptr );
-    DirectModeCmds->addSubCmd("run", "r", proc_ignore,
-                              cmd_directmode_blacklist_cmd, nullptr, nullptr);
-    DirectModeCmds->addSubCmd("detach", nullptr, proc_ignore,
-                              cmd_directmode_blacklist_cmd, nullptr, nullptr);
-    DirectModeCmds->addSubCmd("kill", nullptr, proc_ignore,
-                              cmd_directmode_blacklist_cmd, nullptr, nullptr);
-    DirectModeCmds->addSubCmd("interpreter-exec", nullptr, proc_required,
-                              cmd_directmode_interpreter_exec_cmd, nullptr, nullptr);
+void ConsoleCommandsFactory::insert_passthru_commands(Command& root) {
+    root.addSubCmd({
+        .name = "gdbmode", .ptype = proc_required, .fn = cmd_directmode_cmd,
+        .help = cmd_directmode_help, .desc = "Send raw gdb commands."});
 }

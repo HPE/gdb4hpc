@@ -28,7 +28,7 @@
 /*
 ** TODO: array assignment.
 */
-static int cmd_assign_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_assign_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");

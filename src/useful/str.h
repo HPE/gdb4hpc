@@ -88,7 +88,7 @@ char *TrimStrWithTarget(char *, char);
 int CountOccurence(char, char *);
 char *ReplaceStr(const char *, const char *, const char *);
 void formatSourceLine(std::string &line);
-int IsInteger(char *);
+int IsInteger(const char *);
 
 inline char* StrdupOpt(const char* s) { return (s ? strdup(s) : nullptr); };
 

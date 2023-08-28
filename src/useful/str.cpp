@@ -193,7 +193,7 @@ void formatSourceLine(std::string &line) {
     }
 };
 
-int IsInteger(char *s) {
+int IsInteger(const char *s) {
     if (s == NULL) return 0;
 
     for (; *s != '\0'; s++)

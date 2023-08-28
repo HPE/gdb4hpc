@@ -86,8 +86,7 @@ void PrintMIStoppedMsg(StoppedType type,const std::string& file, const std::stri
 }
 
 
-static int cmd_info_application_cmd(rec_set_t *rec_set, int argc,
-                                             char **argv) {
+static int cmd_info_application_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     PrintOutMsg("%-10s %-10s %-5s %s\n", "Handle", "Ranks", "Focus",
                 "Application");
 
@@ -169,7 +168,7 @@ static dbgprocset_t* getNewProcSet(const std::string& procName) {
                   [--gpu]
                   [--debug]
 */
-static int cmd_launch_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_launch_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     try {
         // throws if arguments are malformed
         auto args = LaunchOpts(argc, argv, Client);
@@ -623,7 +622,7 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
 /*
 ** attach $proc apid [--gpu] [--debug] [--vgdb]
 */
-static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_attach_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int opt_ind = 0;
     int opt;
 
@@ -657,11 +656,23 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
         return 0;
     }
 
+    // getopt can change argv so we work with a local copy
+    struct CStrVector {
+        // ensure memory is cleaned up if something throws
+        ~CStrVector() {
+            for (auto& str : v) free(str);
+        }
+        std::vector<char*> v;
+    };
+    CStrVector mut_argv;
+    std::transform(argv, argv + argc, std::back_inserter(mut_argv.v), [](const auto& strp) {
+        return strdup(strp);
+    });
 
     auto opts = AttachOpts{ .proto = Client.proto,
                             .backend = Client.backend };
     
-    while ((opt = getopt_long(argc, argv, "", attach_long_opts, &opt_ind)) !=
+    while ((opt = getopt_long(argc, mut_argv.v.data(), "", attach_long_opts, &opt_ind)) !=
            -1) {
         switch (opt) {
             case 0:
@@ -719,13 +730,13 @@ static int cmd_attach_cmd(rec_set_t *rec_set, int argc, char **argv) {
     }
 
     // parse the non-option arguments
-    const auto* psName = (Client.MI_mode ? "$a" : argv[optind++]);
+    const auto* psName = (Client.MI_mode ? "$a" : mut_argv.v[optind++]);
     dbgprocset_t *ps = getNewProcSet(psName);
     if (!ps) {
         return 0;
     }
 
-    opts.app_ident = argv[optind++];
+    opts.app_ident = mut_argv.v[optind++];
 
     if (!DoAttach(ps, opts)) {
         return 0;
@@ -816,7 +827,7 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     return 1;
 }
 
-static int cmd_halt_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_halt_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     dbgloc_t *halt_loc;
 
     bool all = false;
@@ -858,7 +869,7 @@ void PrintHaltedLocationSet(const char *setname, const Bitset *group, dbgloc_t *
     }
 }
 
-static int cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_kill_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: kill $proc\n");
@@ -878,7 +889,7 @@ static int cmd_kill_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_release_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_release_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: release $proc\n");
@@ -976,7 +987,7 @@ static void ReleaseProc(dbgprocset_t *p, DbgQuitType quit_type) {
     FreeProcSet(p);
 }
 
-static int cmd_rerun_cmd(rec_set_t* recSet, int argc, char* argv[]) {
+static int cmd_rerun_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, const char* const argv[]) {
     using namespace std::string_literals;
     dbgprocset_t* procSet = nullptr;
     const char* cloneName = nullptr;
@@ -1024,7 +1035,7 @@ static int cmd_rerun_cmd(rec_set_t* recSet, int argc, char* argv[]) {
 }
 
 
-static int cmd_run_cmd(rec_set_t* recSet, int argc, char* argv[]) {
+static int cmd_run_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, const char* const argv[]) {
 
     // the command handles launches and attach in addition to rerun.   Infer the
     // case from the arguments we get.
@@ -1046,11 +1057,11 @@ static int cmd_run_cmd(rec_set_t* recSet, int argc, char* argv[]) {
     }
 
     if (numProcArrs) {
-        return cmd_launch_cmd(recSet, argc, argv);
+        return cmd_launch_cmd(ctx, recSet, argc, argv);
     } else if (procs.size() == 1 && numNonProcs) {
-        return cmd_attach_cmd(recSet, argc, argv);
+        return cmd_attach_cmd(ctx, recSet, argc, argv);
     } else if (!numNonProcs && procs.size() < 3) {
-        return cmd_rerun_cmd(recSet, argc, argv);
+        return cmd_rerun_cmd(ctx, recSet, argc, argv);
     } else if (!numProcArrs && procs.empty()) {
         PrintOutError("A procset handle is required, see \"help run\".\n");
     } else {
@@ -1060,7 +1071,7 @@ static int cmd_run_cmd(rec_set_t* recSet, int argc, char* argv[]) {
     return 1;
 }
 
-static int set_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
+static int set_subcmd_args_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, const char* const argv[]) {
     bool onlyReset = (argc == 1);
 
     // collect dis to modify
@@ -1098,7 +1109,7 @@ static int set_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
     return 1;
 }
 
-static int show_subcmd_args_cmd(rec_set_t* recSet, int argc, char* argv[]) {
+static int show_subcmd_args_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, const char* const argv[]) {
     for (const auto* rec : recSet) {
         const auto& dargv = rec->rec_di.launchOptions().run_argv;
         // start printing args from argv[1]

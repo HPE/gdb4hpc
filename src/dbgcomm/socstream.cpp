@@ -140,7 +140,7 @@ OSocStream& OSocStream::operator<<(const std::string& s) {
     m_str << " " << s.size() << " " << s;
     return *this;
 }
-OSocStream& OSocStream::operator<<(const std::pair<int,char**>& args) {
+OSocStream& OSocStream::operator<<(const std::pair<int,const char* const*>& args) {
     int argc = args.first;
     *this << argc;
     for (int i=0; i<argc; ++i) {

@@ -20,8 +20,8 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
-    char *s = nullptr;
+static int cmd_list_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    const char *s = nullptr;
     dbglist_t *l;
     dbglist_t *lp;
 
@@ -50,8 +50,8 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_info_sources_cmd(rec_set_t *rec_set, int argc,
-                                         char **argv) {
+static int cmd_info_sources_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
+                                         const char * const argv[]) {
     if (!rec_set) return 1;
 
     auto rep_set = DbgGetSources(rec_set);
@@ -106,7 +106,7 @@ static int cmd_info_sources_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_info_source_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_info_source_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!rec_set) return 1;
 
     auto rep_set = DbgGetFrame(rec_set, false);

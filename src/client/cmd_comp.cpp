@@ -45,7 +45,7 @@ namespace {
     };
 }
         
-static int cmd_compare_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_compare_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");

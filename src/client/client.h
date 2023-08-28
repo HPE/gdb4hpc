@@ -42,16 +42,6 @@
 extern void ForceQuit(void);
 
 /*
-** Functions defined in cmd_env.c
-*/
-// Note that normally we don't want to expose command functions directly, but
-// for the quit command we want access to it from the passthru mode. I could
-// call the FindCommand function, but that requires that the env init be called
-// before the passthru init. I don't like this requirement, so I am exposing the
-// cmd_quit_cmd directly.
-extern int cmd_quit_cmd(rec_set_t *, int, char **);
-
-/*
 ** Functions defined in cmd_frame.c
 */
 extern void PrintFrameSet(const char *, Bitset *, const dbgframe_t *);

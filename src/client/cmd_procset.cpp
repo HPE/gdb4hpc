@@ -56,7 +56,7 @@ std::string ProcSetToString(dbgprocset_t *s) {
     return ss.str();
 }
 
-static int cmd_focus_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_focus_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -84,7 +84,7 @@ static int cmd_focus_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_viewset_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_viewset_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc > 1) {
         auto [procset, isTmp] = IdMap::getProcset(argv[1]);
@@ -126,7 +126,7 @@ static int cmd_viewset_cmd(rec_set_t *rec_set, int argc, char **argv) {
     return 1;
 }
 
-static int cmd_defset_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_defset_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");

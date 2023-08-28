@@ -6,6 +6,7 @@
 
 #include "client.h"
 #include "gram.h"
+#include "interpreter_console.h"
 
 #define PY_SSIZE_T_CLEAN
 #include "/usr/include/python3.6m/Python.h"
@@ -15,16 +16,13 @@ namespace {
 class PythonMode : public Command {
 public:
     PythonMode();
-    void failed() override { cli_dec_prompt(); SetCommands(m_oldCmds); }
-    
-    static void init();
-    static void enter();
-private:
-    static int executeLine(rec_set_t *rec_set, int argc, char**argv);
-    static int exit(rec_set_t* rec_set, int argc, char **argv);
 
-    static std::shared_ptr<Command> m_cmds;
-    static Command *m_oldCmds;
+    static void enter(ConsoleInterpreter& console);
+private:
+    static int executeLine(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]);
+    static int exit(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]);
+
+    static std::shared_ptr<Command> make_command_tree();
 };
 
 // liaison class to connect the python objects to the gdb4hpc functionality
@@ -78,60 +76,73 @@ private:
 
 }
 
-static int cmd_python_cmd(rec_set_t *rec_set, int argc, char **argv) {
+static int cmd_python_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
+    if (!console) {
+        // unreachable?
+        PrintOutError("This command is only supported on the console interpreter.\n");
+        return Command::Failure;
+    }
+
     if (argc < 2) {
-        PythonMode::enter();
-        return 1;
+        PythonMode::enter(*console);
+        return Command::Success;
     } else {
         PrintOutError("inline python mode is not set up.\n");
-        return 0;
+        return Command::Failure;
     }
 }
 
-std::shared_ptr<Command> PythonMode::m_cmds = nullptr;
-Command* PythonMode::m_oldCmds = nullptr;
-
 PythonMode::PythonMode() : Command(proc_optional, executeLine) {}
 
-void PythonMode::init() {
-    m_cmds = std::make_shared<PythonMode>();
+std::shared_ptr<Command> PythonMode::make_command_tree() {
+    auto root = std::make_shared<PythonMode>();
 
-    m_cmds->addSubCmd("exit", nullptr, proc_optional, exit,
-                      dummy_help, "Exit python mode");
+    root->addSubCmd({
+        .name = "exit", .ptype = proc_optional, .fn = exit,
+        .help = dummy_help, .desc = "Exit python mode"});
+
+    return root;
 }
 
 // Start python mode
-void PythonMode::enter() {
+void PythonMode::enter(ConsoleInterpreter& console) {
     PrintOutMsg("Entering python interpreter, use exit to leave.\n");
-    m_oldCmds = SetCommands(m_cmds.get());
+    console.push_commands(PythonMode::make_command_tree());
     cli_inc_prompt();
 }
 
 // Leave shell mode
-int PythonMode::exit(rec_set_t *rec_set, int argc, char**argv) {
+int PythonMode::exit(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
+    if (!console) {
+        // unreachable?
+        PrintOutError("This command is only supported on the console interpreter.\n");
+        return Command::Failure;
+    }
+
     PrintOutMsg("\nExiting python interpreter.\n");
     cli_dec_prompt();
-    SetCommands(m_oldCmds);
+    console->pop_commands();
     return 1;
 }
 
-int PythonMode::executeLine(rec_set_t *rec_set, int argc, char**argv) {
-    static std::unique_ptr<PyGdb> interpreter;
-    if (!interpreter)
-        interpreter.reset(new PyGdb());
+int PythonMode::executeLine(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    static std::unique_ptr<PyGdb> py_interpreter;
+    if (!py_interpreter)
+        py_interpreter.reset(new PyGdb());
 
     auto command = ArgsToStringUnquoted(argv, argc);
-    interpreter->executeLine(rec_set, command);
+    py_interpreter->executeLine(rec_set, command);
     return 1;
 }
 
-void InitCmd_python() {
-    AddCommand("python", nullptr, proc_optional,
-               cmd_python_cmd, cmd_python_help, "Enter python interpreter (experimental).");
-
-    PythonMode::init();
-
-};
+void ConsoleCommandsFactory::insert_python_commands(Command& root) {
+    root.addSubCmd({
+        .name = "python", .ptype = proc_optional,
+        .fn = cmd_python_cmd,
+        .help = cmd_python_help, .desc = "Enter python interpreter (experimental)."});
+}
 
 //===========================================================================
 // Connection between the python interface and the gdb4hpc engine

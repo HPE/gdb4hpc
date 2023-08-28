@@ -22,20 +22,24 @@
 #include "blockmap_client.h"
 #include "gram.h"
 
+#include "interpreter_console.h"
+
 /*
 ** Static global variables
 */
-static std::shared_ptr<Command> BlockMapCmds;
-static Command* OldBlockCmds = nullptr;
-static std::shared_ptr<BlockMap> CurrentBlockMap;
+
+namespace {
+
+// XXX: if the user creates 2 interpreters and both modify this at once, bad things will happen.
+std::shared_ptr<BlockMap> CurrentBlockMap;
+
+std::shared_ptr<Command> make_blockmap_command_tree();
 
 /********************************
  * Info class commands
  ********************************/
 
-static int cmd_info_decomposition_cmd(rec_set_t *rec_set, int argc,
-                                          char **argv) {
-
+int cmd_info_decomposition_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc > 1) {
         //currently a single decomposition does not need to be printed out in mi
         if (Client.MI_mode) return 1;
@@ -101,29 +105,25 @@ static int cmd_info_decomposition_cmd(rec_set_t *rec_set, int argc,
  * Usage class commands
  ********************************/
 
-static int cmd_usage_dimension_cmd(rec_set_t *rec_set, int argc,
-                                            char **argv) {
+int cmd_usage_dimension_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     PrintHelpEntry((char **)cmd_blockmap_dimension_help);
 
     return 1;
 }
 
-static int cmd_usage_distribute_cmd(rec_set_t *rec_set, int argc,
-                                             char **argv) {
+int cmd_usage_distribute_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     PrintHelpEntry((char **)cmd_blockmap_distribute_help);
 
     return 1;
 }
 
-static int cmd_usage_proc_grid_cmd(rec_set_t *rec_set, int argc,
-                                            char **argv) {
+int cmd_usage_proc_grid_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     PrintHelpEntry((char **)cmd_blockmap_proc_grid_help);
 
     return 1;
 }
 
-static int cmd_usage_dim_order_cmd(rec_set_t *rec_set, int argc,
-                                            char **argv) {
+int cmd_usage_dim_order_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     PrintHelpEntry((char **)cmd_blockmap_dim_order_help);
 
     return 1;
@@ -133,7 +133,7 @@ static int cmd_usage_dim_order_cmd(rec_set_t *rec_set, int argc,
  * Regular commands
  ********************************/
 
-static int cmd_decomposition_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_decomposition_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: decomposition $decomposition_name\n");
@@ -173,9 +173,16 @@ static int cmd_decomposition_cmd(rec_set_t *rec_set, int argc, char **argv) {
 
     if (argc == 2) {
         // Old modal form for decomposition definition
+
+        auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
+        if (!console) {
+            PrintOutError("Decomposition mode is only supported in the console interpreter.\n");
+            return Command::Failure;
+        }
+
         CurrentBlockMap = std::make_shared<BlockMap>(argv[1]);
 
-        OldBlockCmds = SetCommands(BlockMapCmds.get());
+        console->push_commands(make_blockmap_command_tree());
 
         cli_inc_prompt();
         return 1;
@@ -196,8 +203,7 @@ static int cmd_decomposition_cmd(rec_set_t *rec_set, int argc, char **argv) {
  * Alt commands
  ********************************/
 
-static int cmd_blockmap_dimension_cmd(rec_set_t *rec_set, int argc,
-                                          char **argv) {
+int cmd_blockmap_dimension_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: dimension 64,64,64\n");
@@ -236,8 +242,7 @@ static int cmd_blockmap_dimension_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_blockmap_distribute_cmd(rec_set_t *rec_set, int argc,
-                                           char **argv) {
+int cmd_blockmap_distribute_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: distribute block,block,*\n");
@@ -294,8 +299,7 @@ static int cmd_blockmap_distribute_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_blockmap_proc_grid_cmd(rec_set_t *rec_set, int argc,
-                                          char **argv) {
+int cmd_blockmap_proc_grid_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: proc_grid 32,64,*\n");
@@ -341,8 +345,7 @@ static int cmd_blockmap_proc_grid_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_blockmap_dim_order_cmd(rec_set_t *rec_set, int argc,
-                                          char **argv) {
+int cmd_blockmap_dim_order_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: dim_order 1,2,*\n");
@@ -391,7 +394,15 @@ static int cmd_blockmap_dim_order_cmd(rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_blockmap_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
+int cmd_blockmap_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
+    if (!console) {
+        // unreachable?
+        // the only interpreter this command should be attached to is console.
+        PrintOutError("This command is only supported on the console interpreter.\n");
+        return Command::Failure;
+    }
+
     if (CurrentBlockMap->verify()) {
         // add to the block map table
         RegisterBlockMap(CurrentBlockMap);
@@ -406,14 +417,87 @@ static int cmd_blockmap_end_cmd(rec_set_t *rec_set, int argc, char **argv) {
     // reset to normal command processing
     CurrentBlockMap.reset();
     cli_dec_prompt();
-    SetCommands(OldBlockCmds);
+    console->pop_commands();
 
     return 1;
 }
 
+std::shared_ptr<Command> make_blockmap_command_tree() {
+    // blockmap alt commands
+    auto root = std::make_shared<Command>("", nullptr, proc_ignore, nullptr, nullptr, nullptr);
+
+    root->addSubCmd({
+        .name = "dimension", .ptype = proc_ignore,
+        .fn = cmd_blockmap_dimension_cmd,
+        .help = cmd_blockmap_dimension_help,
+        .desc = "Provide a dimension definition."});
+    root->addSubCmd({
+        .name = "distribute", .ptype = proc_ignore,
+        .fn = cmd_blockmap_distribute_cmd,
+        .help = cmd_blockmap_distribute_help,
+        .desc = "Provide a distribute definition."});
+    root->addSubCmd({
+        .name = "proc_grid", .ptype = proc_ignore,
+        .fn = cmd_blockmap_proc_grid_cmd,
+        .help = cmd_blockmap_proc_grid_help,
+        .desc = "Provide a process grid definition."});
+    root->addSubCmd({
+        .name = "dim_order", .ptype = proc_ignore,
+        .fn = cmd_blockmap_dim_order_cmd,
+        .help = cmd_blockmap_dim_order_help,
+        .desc = "Provide a dimension order definition."});
+    root->addSubCmd({
+        .name = "end", .ptype = proc_ignore,
+        .fn = cmd_blockmap_end_cmd,
+        .help = cmd_blockmap_end_help,
+        .desc = "Finish defining the current decomposition scheme."});
+
+    auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+        // help implementation lives in the interpreter,
+        // and this function should not actually be called
+        return Command::Failure;
+    };
+    root->addSubCmd({
+        .name = "help", .alias = "h", .ptype = proc_ignore,
+        .fn = dummy_help, .help = cmd_help_help,
+        .desc = "Display help information about decomposition script mode commands."});
+
+    return root;
+}
+
+} // anonymous namespace
+
 /********************************
  * command init functions
  ********************************/
+
+void ConsoleCommandsFactory::insert_blockmap_commands(Command& root) {
+    root.addSubCmd({
+        .name = "decomposition", .ptype = proc_ignore,
+        .fn = cmd_decomposition_cmd, .help = cmd_decomposition_help,
+        .desc = "Define a decomposition scheme."});
+
+    root.addSubCmd({
+        .name = "decomposition dimension", .ptype = proc_ignore,
+        .fn = cmd_usage_dimension_cmd,
+        .help = cmd_blockmap_dimension_help,
+        .desc = "Display help about using decomposition \"dimension\" command."});
+    root.addSubCmd({
+        .name = "decomposition distribute", .ptype = proc_ignore,
+        .fn = cmd_usage_distribute_cmd,
+        .help = cmd_blockmap_distribute_help,
+        .desc = "Display help about using decomposition \"distribute\" command."});
+    root.addSubCmd({
+        .name = "decomposition proc_grid", .ptype = proc_ignore,
+        .fn = cmd_usage_proc_grid_cmd,
+        .help = cmd_blockmap_proc_grid_help,
+        .desc = "Display help about using decomposition \"proc_grid\" command."});
+    root.addSubCmd({
+        .name = "decomposition dim_order", .ptype = proc_ignore,
+        .fn = cmd_usage_dim_order_cmd,
+        .help = cmd_blockmap_dim_order_help,
+        .desc = "Display help about using decomposition \"dim_order\" command."});
+}
 
 void InitCmd_blockmap(void) {
     // info commands
@@ -421,58 +505,6 @@ void InitCmd_blockmap(void) {
                    cmd_info_decomposition_cmd,
                    cmd_info_decomposition_help,
                    "Display currently defined decomposition schemes.");
-
-    // regular commands
-    AddCommand("decomposition", NULL, proc_ignore,
-               cmd_decomposition_cmd, cmd_decomposition_help,
-               "Define a decomposition scheme.");
-
-    // extra help for decomposition commands
-    AddCommand(
-        "decomposition dimension", proc_ignore,
-        cmd_usage_dimension_cmd,
-        cmd_blockmap_dimension_help,
-        "Display help about using decomposition \"dimension\" command.");
-    AddCommand(
-        "decomposition distribute", proc_ignore,
-        cmd_usage_distribute_cmd,
-        cmd_blockmap_distribute_help,
-        "Display help about using decomposition \"distribute\" command.");
-    AddCommand(
-        "decomposition proc_grid", proc_ignore,
-        cmd_usage_proc_grid_cmd,
-        cmd_blockmap_proc_grid_help,
-        "Display help about using decomposition \"proc_grid\" command.");
-    AddCommand(
-        "decomposition dim_order", proc_ignore,
-        cmd_usage_dim_order_cmd,
-        cmd_blockmap_dim_order_help,
-        "Display help about using decomposition \"dim_order\" command.");
-
-    // blockmap alt commands
-    BlockMapCmds = std::make_shared<Command>("", nullptr, proc_ignore, nullptr,
-                                             nullptr, nullptr);
-        
-    BlockMapCmds->addSubCmd("dimension", NULL, proc_ignore,
-                  cmd_blockmap_dimension_cmd,
-                  cmd_blockmap_dimension_help,
-                  "Provide a dimension definition.");
-    BlockMapCmds->addSubCmd("distribute", NULL, proc_ignore,
-                  cmd_blockmap_distribute_cmd,
-                  cmd_blockmap_distribute_help,
-                  "Provide a distribute definition.");
-    BlockMapCmds->addSubCmd("proc_grid", NULL, proc_ignore,
-                  cmd_blockmap_proc_grid_cmd,
-                  cmd_blockmap_proc_grid_help,
-                  "Provide a process grid definition.");
-    BlockMapCmds->addSubCmd("dim_order", NULL, proc_ignore,
-                  cmd_blockmap_dim_order_cmd,
-                  cmd_blockmap_dim_order_help,
-                  "Provide a dimension order definition.");
-    BlockMapCmds->addSubCmd("end", NULL, proc_ignore,
-                  cmd_blockmap_end_cmd,
-                  cmd_blockmap_end_help,
-                  "Finish defining the current decomposition scheme.");
 }
 
 void FinishCmd_blockmap(void) {

@@ -25,9 +25,9 @@ void log(const char* fmt, ...) {
 
 } // anonymous namespace
 
-ConsoleInterpreter::ConsoleInterpreter()
-    : m_console_commands(ConsoleCommandsFactory::make())
-{}
+ConsoleInterpreter::ConsoleInterpreter() {
+    m_commands_stack.emplace_back(ConsoleCommandsFactory::make());
+}
 
 std::string_view ConsoleInterpreter::name() const {
     return "console";
@@ -73,8 +73,9 @@ void ConsoleInterpreter::interpret(std::string_view line) {
         auto* procset = CurrentProcSet();
         auto argv = ArgvStream{};
         argv.parseAndAppendArgs(cmd->getShortName() + " " + args);
+        auto ctx = make_context();
 
-        if (!cmd->execute(procset, argv.argc(), const_cast<char**>(argv.c_strs().data()))) {
+        if (!cmd->execute(ctx, procset, argv.argc(), const_cast<char**>(argv.c_strs().data()))) {
             log("command returned an error");
             // XXX to maintain passing tests that specifically look for this behaviour,
             // set the stream error. but eventually this mechanism should be removed in
@@ -88,11 +89,29 @@ void ConsoleInterpreter::interpret(std::string_view line) {
     }
 }
 
+void ConsoleInterpreter::push_commands(std::shared_ptr<Command> root) {
+    m_commands_stack.push_back(root);
+}
+
+void ConsoleInterpreter::pop_commands() {
+    if (m_commands_stack.size() > 1) {
+        m_commands_stack.pop_back();
+    } else {
+        // XXX: if this happens, it's a bug, not user error. the error
+        // message isn't very helpful, but there's not much that we *can*
+        // communicate to the user other than "something is wrong"
+        PrintOutError("Internal error: couldn't change commands.\n");
+    }
+}
+
 std::variant<Command::Parts, Command::ErrStr> ConsoleInterpreter::find_command(std::string_view line) const {
-    auto console_result = m_console_commands->findCmd(line);
+    auto console_result = m_commands_stack.back()->findCmd(line);
     auto legacy_result = shim::GetCommands()->findCmd(line);
     auto* console_parts = std::get_if<Command::Parts>(&console_result);
     auto* legacy_parts = std::get_if<Command::Parts>(&legacy_result);
+
+    // if we are in a subtree, don't include global commands
+    if (m_commands_stack.size() > 1) legacy_parts = nullptr;
 
     if (console_parts && console_parts->command && legacy_parts && legacy_parts->command) {
         // the command matched something in both trees, so we have to make an
@@ -113,8 +132,9 @@ std::variant<Command::Parts, Command::ErrStr> ConsoleInterpreter::find_command(s
             console_parts->command->getShortName().c_str(), legacy_parts->command->getShortName().c_str());
 
         auto first_word = line;
-        // calling function already trimmed off leading spaces for us
-        if (auto first_space = line.find_first_of(" \t\r\n"); first_space != std::string_view::npos) {
+        // calling function already trimmed off leading spaces for us.
+        // we include / as a space for print commands with formats e.g. "p/x foo"
+        if (auto first_space = line.find_first_of(" \t\r\n/"); first_space != std::string_view::npos) {
             first_word = line.substr(0, first_space);
         }
 
@@ -145,6 +165,12 @@ std::variant<Command::Parts, Command::ErrStr> ConsoleInterpreter::find_command(s
     return Command::ErrStr(std::move(error));
 }
 
+Command::RunContext ConsoleInterpreter::make_context() {
+    return {
+        .caller = this
+    };
+}
+
 void ConsoleInterpreter::print_help(std::string_view line) {
     auto argv = ArgvStream{};
     argv.parseAndAppendArgs(line);
@@ -154,17 +180,21 @@ void ConsoleInterpreter::print_help(std::string_view line) {
         struct Blurb { std::string name; const char* desc; };
         auto all_help_blurbs = std::vector<Blurb>{};
 
-        // collect help text from legacy commands
-        std::transform(shim::GetCommands()->getSubCmds().begin(),
-                       shim::GetCommands()->getSubCmds().end(),
-                       std::back_inserter(all_help_blurbs),
-                       [](auto cmd_ptr){
-                           return Blurb{.name = cmd_ptr->getShortName(),
-                                        .desc = cmd_ptr->getDesc()};
-                       });
+        // if we are in a subtree, don't fetch the global help text
+        if (m_commands_stack.size() == 1) {
+            // collect help text from legacy commands
+            std::transform(shim::GetCommands()->getSubCmds().begin(),
+                           shim::GetCommands()->getSubCmds().end(),
+                           std::back_inserter(all_help_blurbs),
+                           [](auto cmd_ptr){
+                               return Blurb{.name = cmd_ptr->getShortName(),
+                                            .desc = cmd_ptr->getDesc()};
+                           });
+        }
+
         // collect help text from console commands
-        std::transform(m_console_commands->getSubCmds().begin(),
-                       m_console_commands->getSubCmds().end(),
+        std::transform(m_commands_stack.back()->getSubCmds().begin(),
+                       m_commands_stack.back()->getSubCmds().end(),
                        std::back_inserter(all_help_blurbs),
                        [](auto cmd_ptr){
                            return Blurb{.name = cmd_ptr->getShortName(),

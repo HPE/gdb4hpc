@@ -370,7 +370,7 @@ rep_set_t::rep_set_t(rep_set_t&& expiring)
 }
 
 rep_set_t& rep_set_t::operator=(rep_set_t&& expiring) {
-    dealloc();
+    if (this != &expiring) dealloc();
 
     m_reps = std::move(expiring.m_reps);
     m_errs = std::move(expiring.m_errs);
@@ -2676,7 +2676,7 @@ rep_set_t DbgSleep(rec_set_t* rec_set, int seconds) {
     return result;
 }
 
-rep_set_t DbgShell(rec_set_t* recSet, int argc, char **argv){
+rep_set_t DbgShell(rec_set_t* recSet, int argc, const char * const * argv){
     auto request = CommandToSocProto(DBGCMD_SHELL, std::make_pair(argc, argv));
     auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_STRING);
     return result;
@@ -2969,7 +2969,7 @@ rep_set_t DbgConditionBreak(rec_set_t *set, int bp_set_num, const std::string& c
 /*
 ** DBG_LIST: List specified function or line.
 */
-rep_set_t DbgList(rec_set_t *set, char *str) {
+rep_set_t DbgList(rec_set_t *set, const char *str) {
     if (!set) return rep_set_t();
 
     auto result = rep_set_t();
@@ -3424,7 +3424,7 @@ rep_set_t DbgGetArgs(rec_set_t *set) {
 /*
 ** DBG_GETSCOPE: Return variables local to a scope.
 */
-rep_set_t DbgGetScope(rec_set_t *set, char *location) {
+rep_set_t DbgGetScope(rec_set_t *set, const char *location) {
     if (!set) return rep_set_t();
 
     rec_set_t *to_send = NewRecSet();
@@ -3489,7 +3489,7 @@ rep_set_t DbgGetScope(rec_set_t *set, char *location) {
 /*
 ** DBG_DIRECTCMD: Send direct command to debug backend
 */
-rep_set_t DbgDirectCmd(rec_set_t *set, int argc, char **argv) {
+rep_set_t DbgDirectCmd(rec_set_t *set, int argc, const char * const * argv) {
 
     auto request = CommandToSocProto(DBGCMD_DIRECT, std::make_pair(argc, argv));
 

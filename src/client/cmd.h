@@ -29,12 +29,12 @@
 #include <string>
 #include "client.h"
 #include "procset.h"
+#include "interpreter.h"
+
+#include <functional>
 
 // Definine whether or not a command requires an active launch
 enum cmdptype { proc_required, proc_optional, proc_optional_mi, proc_ignore };
-
-// Basic type for client functions
-using cmdfunc_t = int (*)(rec_set_t*, int, char**);
 
 // The command object links together the name to access a functions,
 // the client side function to call and its help information
@@ -46,9 +46,22 @@ public:
     static constexpr auto Success = 1;
     static constexpr auto Failure = 0;
 
+    // Passed to command implementations. Contains information about the context that the
+    // command was run under.
+    struct RunContext {
+        // The interpreter that initiated the command. It is valid for this value to be nullptr.
+        Interpreter* caller = nullptr;
+
+        // ...room to grow. TODO consider moving some clnt_settings here?
+    };
+
+    // Basic type for client functions. Return value is `int` for legacy reasons, but
+    // implementations should prefer to return Success or Failure only.
+    using Func = std::function<int(RunContext&, rec_set_t*, int, const char* const[])>;
+
     // standard function
     Command(const std::string& name, const char* alias,
-            cmdptype ptype, cmdfunc_t cmd,
+            cmdptype ptype, Func cmd,
             const char* const* help,
             const char* desc);
 
@@ -57,7 +70,7 @@ public:
         std::string name;
         const char* alias = nullptr;
         cmdptype ptype;
-        cmdfunc_t fn;
+        Func fn;
         const char* const* help = nullptr;
         const char* desc = nullptr;
     };
@@ -65,7 +78,7 @@ public:
     Command(CtorArgs&& args);
 
     // root node for a command tree. 
-    Command(cmdptype ptype, cmdfunc_t defaultCmd);
+    Command(cmdptype ptype, Func defaultCmd);
 
     // access properties of the command 
     const char* getAlias() const { return m_alias; }
@@ -81,7 +94,7 @@ public:
     void addSubCmd(std::shared_ptr<Command> sub);
 
     void addSubCmd(const char* name, const char* alias, cmdptype ptype,
-                   cmdfunc_t cmd,
+                   Func cmd,
                    const char* const* help, const char* desc);
     void addSubCmd(CtorArgs&& args);
 
@@ -93,7 +106,7 @@ public:
     std::variant<Parts, ErrStr> findCmd(std::string_view cmdLine);
 
     // run a command with set of arguments
-    int execute(dbgprocset_t *s, int argc, char *argv[]);
+    int execute(RunContext& ctx, dbgprocset_t *s, int argc, const char* const argv[]);
 
     virtual void failed();
     virtual ~Command();
@@ -106,7 +119,7 @@ private:
     std::string m_name;           // "elements" 
     const char* m_alias;          // optional 
     cmdptype m_ptype;
-    cmdfunc_t m_func;
+    Func m_func;
     const char* const* m_help;
     const char* m_desc;
     std::vector<std::shared_ptr<Command>> m_subCmds;
@@ -121,6 +134,11 @@ private:
     static void insert_interpreter_commands(Command& root);
     static void insert_frame_commands(Command& root);
     static void insert_step_commands(Command& root);
+    static void insert_passthru_commands(Command& root);
+    static void insert_script_commands(Command& root);
+    static void insert_blockmap_commands(Command& root);
+    static void insert_env_commands(Command& root);
+    static void insert_python_commands(Command& root);
 };
 
 class MiCommandsFactory {
@@ -148,11 +166,9 @@ extern void InitCmd_func();
 extern void InitCmd_go();
 extern void InitCmd_script();
 extern void InitCmd_list();
-extern void InitCmd_passthru();
 extern void InitCmd_print();
 extern void InitCmd_proc();
 extern void InitCmd_procset();
-extern void InitCmd_python();
 extern void InitCmd_source();
 extern void InitCmd_thread();
 extern void InitCmd_whatis();
@@ -171,10 +187,10 @@ extern void DestroyCommands();
 */
 
 extern void AddCommand(const char * cmd, const char * alias,
-                           cmdptype, cmdfunc_t,
+                           cmdptype, Command::Func,
                            const char *const[], const char *);
 
-extern void AddCommand(const char * cmd, cmdptype, cmdfunc_t,
+extern void AddCommand(const char * cmd, cmdptype, Command::Func,
                            const char *const[], const char *);
 
 extern Command* SetCommands(Command *);

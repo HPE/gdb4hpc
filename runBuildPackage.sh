@@ -39,7 +39,7 @@ echo "############################################"
 echo "#          Updating Changelog              #"
 echo "############################################"
 # Generate the release notes from DE template
-pip install -r external/changelog/requirements.txt
+pip3 install -r external/changelog/requirements.txt
 
 rpmbuilddir=$PWD/rpmbuild
 /usr/bin/python3 ./external/changelog/generate_release_notes.py \

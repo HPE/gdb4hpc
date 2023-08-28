@@ -58,6 +58,7 @@ src/gram/Makefile
 src/gram/expr.output
 src/gram/expr.y
 src/gram/tokens
+src/unittest/doctest.h
 src/useful/.deps
 src/useful/Makefile
 src/stamp-h1

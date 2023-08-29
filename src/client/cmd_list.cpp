@@ -47,12 +47,12 @@ static int cmd_list_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
-static int cmd_info_sources_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
+static int cmd_info_sources_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
                                          const char * const argv[]) {
-    if (!rec_set) return 1;
+    if (!rec_set) return Command::Success;
 
     auto rep_set = DbgGetSources(rec_set);
 
@@ -79,75 +79,117 @@ static int cmd_info_sources_cmd(Command::RunContext& ctx, rec_set_t *rec_set, in
             auto sp = EVENT_SOURCES(reply->rep_event);
 
             for (auto s = sp; s != nullptr; s = s->sources_next) {
-                if (!Client.MI_mode){
-                    PrintOutMsg("%s\n", s->sources_file);
-                }else{
-                    if (!ss.str().empty()){
-                        ss<<",";
-                    }else{
-                        ss<<"[";
-                    }
-
-                    ss<<"{file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
-
-                    //save fullpath to source list
-                    recv_ptr->rec_di.sourcePaths().storeSourcePath(s->sources_file);
-                }
-            }
-            if (Client.MI_mode) {
-                if (ss.str().empty()) ss << "[";
-                ss<<"]";
-                PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",files=%s\n%s",
-                                 recv_ptr->rec_di.handle().c_str(),ss.str().c_str(),GetMIEpilogue());
+                PrintOutMsg("%s\n", s->sources_file);
             }
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
-static int cmd_info_source_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    if (!rec_set) return 1;
+static int cmd_info_sources_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
+                                         const char * const argv[]) {
+    if (!rec_set) return Command::Success;
+
+    auto rep_set = DbgGetSources(rec_set);
+
+    ProcessErrorInRepSet(rep_set);
+
+    // Need to loop this over each di in the rec_set
+    for (auto&& recv_ptr : rec_set) {
+        auto print_header = true;
+
+        // process replies
+        for (auto&& reply : rep_set) {
+            std::stringstream ss;
+            if (recv_ptr->rec_di.handle() != reply->rep_di) {
+                continue;
+            }
+            // Only want to print the header message once
+            if (print_header) {
+                PrintOutMsg("\nSource files for $%s:\n",
+                            recv_ptr->rec_di.handle().c_str());
+                print_header = false;
+            }
+
+            // point at the sources data
+            auto sp = EVENT_SOURCES(reply->rep_event);
+
+            for (auto s = sp; s != nullptr; s = s->sources_next) {
+                if (!ss.str().empty()){
+                    ss<<",";
+                }else{
+                    ss<<"[";
+                }
+
+                ss<<"{file=\""<<s->sources_file<<"\",fullname=\""<<s->sources_file<<"\"}";
+
+                //save fullpath to source list
+                recv_ptr->rec_di.sourcePaths().storeSourcePath(s->sources_file);
+            }
+            if (ss.str().empty()) ss << "[";
+            ss<<"]";
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",files=%s\n%s",
+                             recv_ptr->rec_di.handle().c_str(),ss.str().c_str(),GetMIEpilogue());
+        }
+    }
+
+    return Command::Success;
+}
+
+static int cmd_info_source_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    if (!rec_set) return Command::Success;
 
     auto rep_set = DbgGetFrame(rec_set, false);
     ProcessErrorInRepSet(rep_set);
 
-    if (Client.MI_mode && rep_set.getNumReplies() > 0) {
-        auto reply = rep_set.getFirstReply();
-        auto f = EVENT_FRAME(reply->rep_event);
-        auto loc = f->getLoc();
-        std::string group = reply->rep_group.get()->toSetString();
-        PrintOutMIResult(MIResult::DONE,
-                         "proc_set=\"%s\",group=\"%s\",line=\"%d\",file=\"%s\",fullname=\"%s\"\n",
-                         reply->rep_di.name().c_str(), group.substr(1,group.length()-2).c_str(),
-                         loc.loc_line, loc.loc_file, loc.loc_file);
-    } else {
-        for (auto&& reply : rep_set) {
-            // Point at the frame data
-            auto fp = EVENT_FRAME(reply->rep_event);
-            auto loc = fp->getLoc();
-            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),"In file %s.\n",
-                                loc.loc_file);
-        }
+    for (auto&& reply : rep_set) {
+        // Point at the frame data
+        auto fp = EVENT_FRAME(reply->rep_event);
+        auto loc = fp->getLoc();
+        PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),"In file %s.\n",
+                            loc.loc_file);
     }
 
-    return 1;
+    return Command::Success;
 }
 
-void InitCmd_list(void) {
-    // Regular commands
-    AddCommand("list", "l", proc_required, cmd_list_cmd,
+static int cmd_info_source_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    if (!rec_set) return Command::Success;
+
+    auto rep_set = DbgGetFrame(rec_set, false);
+    ProcessErrorInRepSet(rep_set);
+
+    auto reply = rep_set.getFirstReply();
+    auto f = EVENT_FRAME(reply->rep_event);
+    auto loc = f->getLoc();
+    std::string group = reply->rep_group.get()->toSetString();
+    PrintOutMIResult(MIResult::DONE,
+                     "proc_set=\"%s\",group=\"%s\",line=\"%d\",file=\"%s\",fullname=\"%s\"\n",
+                     reply->rep_di.name().c_str(), group.substr(1,group.length()-2).c_str(),
+                     loc.loc_line, loc.loc_file, loc.loc_file);
+
+    return Command::Success;
+}
+
+void ConsoleCommandsFactory::insert_list_commands(Command& root) {
+    root.addSubCmd("list", "l", proc_required, cmd_list_cmd,
                cmd_list_help, "List source for specified function or line.");
 
-    // Info commands
-    AddCommand("info source", proc_required,
-                   cmd_info_source_cmd,
+    root.addSubCmd("info source", nullptr, proc_required,
+                   cmd_info_source_cmd_console,
                    cmd_info_source_help,
                    "Display information about the current source file.");
 
-    AddCommand("info sources", proc_required,
-                   cmd_info_sources_cmd,
+    root.addSubCmd("info sources", nullptr, proc_required,
+                   cmd_info_sources_cmd_console,
                    cmd_info_sources_help,
                    "Display the source files in the application.");
+}
 
+void MiCommandsFactory::insert_list_commands(Command& root) {
+    root.addSubCmd({
+        .name = "-file-list-exec-source-file", .ptype = proc_required, .fn = cmd_info_source_cmd_mi });
+    root.addSubCmd({
+        .name = "-file-list-exec-source-files", .ptype = proc_required, .fn = cmd_info_sources_cmd_mi });
 }

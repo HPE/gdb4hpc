@@ -34,10 +34,6 @@
 
 void InitCmd_class(void) {
     // class commands
-    AddCommand(
-        "info", "i", proc_ignore, nullptr,
-        class_info_help,
-        "Display information about the application being debugged.");
     AddCommand("maint", proc_ignore, nullptr,
                class_maint_help,
                "Commands for use by debugger maintainers.");

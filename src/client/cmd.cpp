@@ -120,12 +120,9 @@ void Command::addSubCmd(Command::CtorArgs&& args) {
 // execute the command given a procset and arguments
 int Command::execute(Command::RunContext& ctx, dbgprocset_t *s, int argc, const char * const argv[]) {
 
-    if (m_ptype == proc_required ||
-        (m_ptype == proc_optional_mi && !Client.MI_mode)) {
-        if (!s || s->s_nproc <= 0) {
-            PrintOutError("No process, use launch/attach first.\n");
-            return 0;
-        }
+    if (m_ptype == proc_required && (!s || s->s_nproc <= 0)) {
+        PrintOutError("No process, use launch/attach first.\n");
+        return 0;
     }
 
 
@@ -211,22 +208,14 @@ void InitCommands() {
     InitCmd_class();
 
     // Begin init of every other command
-    InitCmd_assign();
-    InitCmd_blockmap();
     InitCmd_break();
-    InitCmd_checkpoint();
     InitCmd_comp();
     InitCmd_env();
-    InitCmd_iostat();
     InitCmd_go();
-    InitCmd_script();
-    InitCmd_list();
     InitCmd_print();
     InitCmd_proc();
     InitCmd_procset();
-    InitCmd_source();
     InitCmd_thread();
-    InitCmd_whatis();
 
     SetCommands(Cmds.get());
 };
@@ -444,6 +433,11 @@ std::variant<Command*, Command::ErrStr> Command::findSubCmd(std::string_view cmd
 std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
 
+    root->addSubCmd({
+        .name = "info", .alias = "i", .ptype = proc_ignore,
+        .fn = nullptr, .help = class_info_help,
+        .desc = "Display information about the application being debugged."});
+
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
     insert_step_commands(*root);
@@ -452,6 +446,15 @@ std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     insert_blockmap_commands(*root);
     insert_env_commands(*root);
     insert_python_commands(*root);
+    insert_assign_commands(*root);
+    insert_checkpoint_commands(*root);
+    insert_source_commands(*root);
+    insert_whatis_commands(*root);
+    insert_break_commands(*root);
+    insert_proc_commands(*root);
+    insert_list_commands(*root);
+    insert_iostat_commands(*root);
+    insert_threads_commands(*root);
 
     // insert a fake help command so we get the niceness of the command tree
     // matching "h", "he", etc. to "help". printing the actual help requires
@@ -474,6 +477,12 @@ std::shared_ptr<Command> MiCommandsFactory::make() {
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
     insert_step_commands(*root);
+    insert_whatis_commands(*root);
+    insert_blockmap_commands(*root);
+    insert_break_commands(*root);
+    insert_script_commands(*root);
+    insert_list_commands(*root);
+    insert_threads_commands(*root);
 
     // insert a fake help command so we get the niceness of the command tree
     // matching "h", "he", etc. to "help". printing the actual help requires

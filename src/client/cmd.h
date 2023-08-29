@@ -34,7 +34,7 @@
 #include <functional>
 
 // Definine whether or not a command requires an active launch
-enum cmdptype { proc_required, proc_optional, proc_optional_mi, proc_ignore };
+enum cmdptype { proc_required, proc_optional, proc_ignore };
 
 // The command object links together the name to access a functions,
 // the client side function to call and its help information
@@ -139,6 +139,15 @@ private:
     static void insert_blockmap_commands(Command& root);
     static void insert_env_commands(Command& root);
     static void insert_python_commands(Command& root);
+    static void insert_assign_commands(Command& root);
+    static void insert_checkpoint_commands(Command& root);
+    static void insert_source_commands(Command& root);
+    static void insert_whatis_commands(Command& root);
+    static void insert_break_commands(Command& root);
+    static void insert_proc_commands(Command& root);
+    static void insert_list_commands(Command& root);
+    static void insert_iostat_commands(Command& root);
+    static void insert_threads_commands(Command& root);
 };
 
 class MiCommandsFactory {
@@ -149,29 +158,27 @@ private:
     static void insert_interpreter_commands(Command& root);
     static void insert_frame_commands(Command& root);
     static void insert_step_commands(Command& root);
+    static void insert_whatis_commands(Command& root);
+    static void insert_blockmap_commands(Command& root);
+    static void insert_break_commands(Command& root);
+    static void insert_list_commands(Command& root);
+    static void insert_threads_commands(Command& root);
+    static void insert_script_commands(Command& root);
 };
 
 
 /*
 ** Global Init command functions defined elsewhere
 */
-extern void InitCmd_assign();
-extern void InitCmd_blockmap();
 extern void InitCmd_break();
-extern void InitCmd_checkpoint();
 extern void InitCmd_comp();
 extern void InitCmd_env();
-extern void InitCmd_iostat();
 extern void InitCmd_func();
 extern void InitCmd_go();
-extern void InitCmd_script();
-extern void InitCmd_list();
 extern void InitCmd_print();
 extern void InitCmd_proc();
 extern void InitCmd_procset();
-extern void InitCmd_source();
 extern void InitCmd_thread();
-extern void InitCmd_whatis();
 extern void InitCmd_class();
 
 void FinishCmd_blockmap();

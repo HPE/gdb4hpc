@@ -29,7 +29,6 @@
 ** TODO: array assignment.
 */
 static int cmd_assign_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: assign $target 20\n");
@@ -37,7 +36,7 @@ static int cmd_assign_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
             "Where $target is the name of the target variable and the "
             "argument\n");
         PrintOutError("is the value to assign to the target.\n");
-        return 0;
+        return Command::Failure;
     }
 
     try {
@@ -48,7 +47,7 @@ static int cmd_assign_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
         auto rv = dynamic_cast<ReplyValue*>(val.get());
         if (!rv) {
             PrintOutError("Only assignment to program variables is supported.\n");
-            return 0;
+            return Command::Failure;
         }
 
         auto value = ArgsToString(&argv[2], argc - 2);
@@ -62,14 +61,14 @@ static int cmd_assign_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
         
     } catch (EvalError& err) {
         PrintOutError("Could not parse expression: %s\n", err.what());
-        return 0;
+        return Command::Failure;
     }
 
-    return 1;
+    return Command::Success;
 }
 
-void InitCmd_assign(void) {
-    AddCommand("assign", NULL, proc_optional, cmd_assign_cmd,
-               cmd_assign_help,
-               "Change the value of an application or debugger variable.");
+void ConsoleCommandsFactory::insert_assign_commands(Command& root) {
+    root.addSubCmd("assign", nullptr, proc_optional,
+                   cmd_assign_cmd, cmd_assign_help,
+                   "Change the value of an application or debugger variable.");
 }

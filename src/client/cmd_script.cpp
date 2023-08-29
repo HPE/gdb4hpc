@@ -162,7 +162,7 @@ int cmd_info_diff_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, co
     return 1;
 }
 
-int cmd_info_script_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_info_script_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     // this is a subcommand under "info", so argc/argv start at "script", not "info"
 
     const auto printSyntax = [](){
@@ -181,24 +181,9 @@ int cmd_info_script_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
                 ? " (running)"
                 : ""
             ;
-            if (Client.MI_mode){
-                if (ss.tellp()!=0){
-                    ss<<",";
-                }else{
-                    ss<<"[";
-                }
-                ss<<"{name=\""<<name<<"\",running=\""<<runningString<<"\"}";
-            }else{
-                PrintOutMsg("$%s%s\n", name.c_str(), runningString);
-            }
+            PrintOutMsg("$%s%s\n", name.c_str(), runningString);
         }
-        if (Client.MI_mode){
-            if (ss.tellp()==0)
-                ss<<"[";
-            ss<<"]";
-            PrintOutMIResult(MIResult::DONE, "scripts=%s\n%s",ss.str().c_str(),GetMIEpilogue());
-        }
-        return 1;
+        return Command::Success;
     }
 
     auto name = std::string_view(argv[1]);
@@ -209,7 +194,7 @@ int cmd_info_script_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
         if (name.length() == 0) {
             PrintOutError("Empty script name passed.\n");
             printSyntax();
-            return 0;
+            return Command::Failure;
         }
     }
 
@@ -218,7 +203,7 @@ int cmd_info_script_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
     if (!script) {
         PrintOutError("Assertion script \"$%s\" doesn't exist.\n", name.data());
         printSyntax();
-        return 0;
+        return Command::Failure;
     }
 
     if (argc < 3 || std::string_view(argv[2]) != "results") {
@@ -235,15 +220,81 @@ int cmd_info_script_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
     } else {
         // detailed summary
         // summary string has correct newlines
-        if (Client.MI_mode){
-            PrintOutMIResult(MIResult::DONE, "script_result=%s\n%s",script->summary().c_str(),GetMIEpilogue());
+        PrintOutMsg("%s", script->summary().c_str());
+    }
+
+    return Command::Success;
+}
+
+int cmd_info_script_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    const auto printSyntax = [argv](){
+        PrintOutError("Expected \"%s script $name\"\n", argv[0]);
+    };
+
+    if (argc < 2) {
+        auto runningScriptName = script::getCurrentScript()
+            ? script::getCurrentScript()->name()
+            : ""
+        ;
+        std::stringstream ss;
+        PrintOutMsg("Saved assertion scripts:\n");
+        for (const auto& [name, script] : script::scripts()) {
+            auto runningString = runningScriptName == name
+                ? " (running)"
+                : ""
+            ;
+            if (ss.tellp()!=0){
+                ss<<",";
+            }else{
+                ss<<"[";
+            }
+            ss<<"{name=\""<<name<<"\",running=\""<<runningString<<"\"}";
         }
-        else{
-            PrintOutMsg("%s", script->summary().c_str());
+        if (ss.tellp()==0)
+            ss<<"[";
+        ss<<"]";
+        PrintOutMIResult(MIResult::DONE, "scripts=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+        return Command::Success;
+    }
+
+    auto name = std::string_view(argv[1]);
+
+    // scripts are stored without leading $
+    if (name.at(0) == '$') {
+        name = name.substr(1);
+        if (name.length() == 0) {
+            PrintOutError("Empty script name passed.\n");
+            printSyntax();
+            return Command::Failure;
         }
     }
 
-    return 1;
+    auto script = script::getScript(name);
+
+    if (!script) {
+        PrintOutError("Assertion script \"$%s\" doesn't exist.\n", name.data());
+        printSyntax();
+        return Command::Failure;
+    }
+
+    if (argc < 3 || std::string_view(argv[2]) != "results") {
+        PrintOutMsg("Assertion script $%s:\n", script->name().c_str());
+        auto maxDigitLen = static_cast<int>(std::log10(script->asserts().size())) + 1;
+        for (const auto& assert : script->asserts()) {
+            auto ss = std::ostringstream{};
+            ss << "Assertion " << std::setw(maxDigitLen) << assert.id() << ": "
+               << assert.string()
+            ;
+            PrintOutMsg("%s\n", ss.str().c_str());
+        }
+        PrintOutMsg("Use \"info script $%s results\" for results.\n", script->name().c_str());
+    } else {
+        // detailed summary
+        // summary string has correct newlines
+        PrintOutMIResult(MIResult::DONE, "script_result=%s\n%s",script->summary().c_str(),GetMIEpilogue());
+    }
+
+    return Command::Success;
 }
 
 /********************************
@@ -613,17 +664,18 @@ void ConsoleCommandsFactory::insert_script_commands(Command& root) {
         .name = "stop", .ptype = proc_ignore,
         .fn = cmd_stop_cmd,
         .help = cmd_stop_help, .desc = "Stop the currently executing assertion script."});
-}
 
-void InitCmd_script(void) {
-    // info commands
-    AddCommand("info diff", proc_ignore,
+    root.addSubCmd("info diff", nullptr, proc_ignore,
                    cmd_info_diff_cmd,
                    cmd_info_diff_help,
                    "Display saved deltas from assertion script execution.");
-    AddCommand("info script", proc_ignore,
-                   cmd_info_script_cmd,
+    root.addSubCmd("info script", nullptr, proc_ignore,
+                   cmd_info_script_cmd_console,
                    cmd_info_script_help,
                    "Display built and active assertion scripts.");
 }
 
+void MiCommandsFactory::insert_script_commands(Command& root) {
+    root.addSubCmd({
+        .name = "-script-list", .ptype = proc_ignore, .fn = cmd_info_script_cmd_mi});
+}

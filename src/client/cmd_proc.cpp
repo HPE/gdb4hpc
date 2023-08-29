@@ -1517,14 +1517,15 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
     return 1;
 }
 
-void InitCmd_proc(void) {
-    // info commands
-    AddCommand(
-        "info application", proc_ignore,
+void ConsoleCommandsFactory::insert_proc_commands(Command& root) {
+    root.addSubCmd(
+        "info application", nullptr, proc_ignore,
         cmd_info_application_cmd,
         cmd_info_application_help,
         "Show attached/launched applications under debugger control.");
+}
 
+void InitCmd_proc(void) {
     // regular commands
     AddCommand("launch", NULL, proc_ignore, cmd_launch_cmd,
                cmd_launch_help, "Launch an application.");

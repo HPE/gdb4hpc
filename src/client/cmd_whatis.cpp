@@ -30,13 +30,13 @@ static int cmd_whatis_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: whatis var\n");
-        return 0;
+        return Command::Failure;
     }
 
     if (strcmp(argv[argp], "-type") == 0) {
         if (++argp == argc) {
             PrintOutError("Error: -type provided, but missing arguments.\n");
-            return 0;
+            return Command::Failure;
         }
 
         isType = 1;
@@ -67,12 +67,7 @@ static int cmd_whatis_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
         auto ev = reply->rep_event->ev_event;
         if (ev == DBGEV_TYPE) {
             type_str = EVENT_TYPE(reply->rep_event);
-            if (Client.MI_mode){
-                PrintOutMIResult(MIResult::DONE,"{name=\"var1\",numchild=\"0\", in_scope=\"true\", has_more=\"0\", type=\"%s\"}\n", type_str );
-            }else{
-                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s\n",
-                                type_str);
-            }
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s\n", type_str);
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
@@ -81,14 +76,14 @@ static int cmd_whatis_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
 static int cmd_ptype_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: ptype type\n");
-        return 0;
+        return Command::Failure;
     }
 
     auto args = ArgsToString(&argv[1], argc - 1);
@@ -115,16 +110,10 @@ static int cmd_ptype_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
-
-/*
-** NOTE: This used to be info globals, but with the upgrade to libmi, I changed
-** this to info locals instead. Now it displays the local variables of the
-** current frame.
-*/
-static int cmd_info_locals_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_locals_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto rep_set = DbgGetVars(rec_set);
     ProcessErrorInRepSet(rep_set);
 
@@ -136,26 +125,9 @@ static int cmd_info_locals_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int
             auto v = EVENT_VARS(reply->rep_event);
             std::stringstream ss;
             for (; v != (dbgvars_t *)NULL; v = v->var_next) {
-                if (Client.MI_mode){
-                    if (!ss.str().empty()){
-                        ss<<",";
-                    }else{
-                        ss<<"[";
-                    }
-                    std::string group = reply->rep_group.get()->toSetString();
-                    ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<reply->rep_di.c_str()
-                                    <<"\",group=\""<<group.substr(1,group.length()-2).c_str()<<"\"}";
-                }else{
-                    PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
-                                    "Name:%-25s\tType:%s\n", v->var_name,
-                                    v->var_type);
-                }
-            }
-            if (Client.MI_mode && !ss.str().empty()){
-                ss<<"]";
-                std::string group = reply->rep_group.get()->toSetString();
-                PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",group=\"%s\",variables=%s\n%s", reply->rep_di.c_str(),
-                                    group.substr(1,group.length()-2).c_str(),ss.str().c_str(), GetMIEpilogue());
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                "Name:%-25s\tType:%s\n", v->var_name,
+                                v->var_type);
             }
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
@@ -165,7 +137,43 @@ static int cmd_info_locals_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int
         }
     }
 
-    return 1;
+    return Command::Success;
+}
+
+static int cmd_info_locals_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto rep_set = DbgGetVars(rec_set);
+    ProcessErrorInRepSet(rep_set);
+
+    // Process the replies
+    for (auto&& reply : rep_set) {
+        auto ev = reply->rep_event->ev_event;
+        if (ev == DBGEV_VARS) {
+            // point at the vars data
+            auto v = EVENT_VARS(reply->rep_event);
+            std::stringstream ss;
+            for (; v != (dbgvars_t *)NULL; v = v->var_next) {
+                if (!ss.str().empty()){
+                    ss<<",";
+                }else{
+                    ss<<"[";
+                }
+                std::string group = reply->rep_group.get()->toSetString();
+                ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<reply->rep_di.c_str()
+                                <<"\",group=\""<<group.substr(1,group.length()-2).c_str()<<"\"}";
+            }
+            ss<<"]";
+            std::string group = reply->rep_group.get()->toSetString();
+            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",group=\"%s\",variables=%s\n%s", reply->rep_di.c_str(),
+                                group.substr(1,group.length()-2).c_str(),ss.str().c_str(), GetMIEpilogue());
+        } else if (ev == DBGEV_THREADINFO) {
+            PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
+                                reply->rep_event->ev_u.ev_u_string);
+        } else {
+            PrintOutError("unexpected result type.\n");
+        }
+    }
+
+    return Command::Success;
 }
 
 static int cmd_info_scope_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -174,7 +182,7 @@ static int cmd_info_scope_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: info scope arg\n");
-        return 0;
+        return Command::Failure;
     }
 
     auto rep_set = DbgGetScope(rec_set, argv[1]);
@@ -205,7 +213,7 @@ static int cmd_info_scope_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int 
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
 static int cmd_info_args_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -229,29 +237,29 @@ static int cmd_info_args_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int a
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
-
-void InitCmd_whatis(void) {
-    AddCommand("whatis", NULL, proc_required, cmd_whatis_cmd,
+void ConsoleCommandsFactory::insert_whatis_commands(Command& root) {
+    root.addSubCmd("whatis", nullptr, proc_required, cmd_whatis_cmd,
                cmd_whatis_help, "Print the data type of an expression.");
-    AddCommand("ptype", NULL, proc_required, cmd_ptype_cmd,
+    root.addSubCmd("ptype", nullptr, proc_required, cmd_ptype_cmd,
                cmd_ptype_help, "Print definition of a type.");
 
-
-    AddCommand("info locals", proc_required,
-                   cmd_info_locals_cmd,
-                   cmd_info_locals_help,
+    root.addSubCmd("info locals", nullptr, proc_required,
+                   cmd_info_locals_cmd_console, cmd_info_locals_help,
                    "List local variables of ranks in current process set.");
-
-    AddCommand("info args", proc_required,
+    root.addSubCmd("info args", nullptr, proc_required,
                    cmd_info_args_cmd,
                    cmd_info_args_help,
                    "List argument variables of the current frame.");
-
-    AddCommand("info scope", proc_required,
+    root.addSubCmd("info scope", nullptr, proc_required,
                    cmd_info_scope_cmd,
                    cmd_info_scope_help,
                    "List variables local to a scope in the application.");
+}
+
+void MiCommandsFactory::insert_whatis_commands(Command& root) {
+    root.addSubCmd({
+        .name = "-stack-list-variables", .ptype = proc_required, .fn = cmd_info_locals_cmd_mi });
 }

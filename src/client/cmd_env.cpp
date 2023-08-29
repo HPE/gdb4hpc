@@ -1046,6 +1046,11 @@ void ConsoleCommandsFactory::insert_env_commands(Command& root) {
     root.addSubCmd({
         .name = "shell", .ptype = proc_optional, .fn = cmd_shell_cmd,
         .help = cmd_shell_help, .desc = "Run a shell command."});
+
+    root.addSubCmd({
+        .name = "info status", .ptype = proc_required, .fn = cmd_info_status_cmd,
+        .help = cmd_info_status_help,
+        .desc = "Display the status of the debug servers."});
 }
 
 void InitCmd_env(void) {
@@ -1066,11 +1071,6 @@ void InitCmd_env(void) {
     AddCommand("maint sleep", proc_optional, cmd_maint_sleep_cmd,
                cmd_maint_sleep_help, "Pause the debugger.");
     
-    // info commands
-    AddCommand("info status", proc_required, cmd_info_status_cmd,
-                   cmd_info_status_help,
-                   "Display the status of the debug servers.");
-
     // set commands
     AddCommand("directory", "dir", proc_required, cmd_directory_cmd,
                   cmd_directory_help,

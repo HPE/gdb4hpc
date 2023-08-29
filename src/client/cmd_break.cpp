@@ -676,20 +676,14 @@ std::string BPCnts::get(const std::string &handle, const Bitset *group, int id) 
     return res.str();
 }
 
-
-static int cmd_info_breakpoints_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    if (Client.MI_mode && !rec_set) {
-        PrintOutMIResult(MIResult::DONE, "BreakpointTable={body=[]}\n%s",GetMIEpilogue());
-        return 1;
-    }
-
+static int cmd_info_breakpoints_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int bid = 0;
     std::stringstream ss;
 
     if (argc > 1) {
         if (!IsInteger(argv[1])) {
             PrintOutError("Numeric argument required (breakpoint number).\n");
-            return 0;
+            return Command::Failure;
         }
 
         bid = atoi(argv[1]);
@@ -765,41 +759,12 @@ static int cmd_info_breakpoints_cmd(Command::RunContext& ctx, rec_set_t *rec_set
         }
     };
 
-    // Add entry to breakpoint table string for MI mode
-    auto addMiEntry = [&ss]( const MappedBreakpoint& bpset,
-                             const std::string &disp, 
-                             const std::string &enabled,
-                             const std::string &fullpath)
-    {
-        auto id = bpset.id();
-        auto type = BPTypeToStr(bpset.type());
-        auto func = bpset.function();
-        auto file = bpset.file();
-        auto line = bpset.line();
-        
-        if (!ss.str().empty()){
-            ss<<",";
-        }
-
-        ss <<"bkpt={number=\""<<id
-           <<"\",type=\""<<type
-           <<"\",disp=\""<<disp
-           <<"\",enabled=\""<<enabled
-           <<"\",func=\""<<func
-           <<"\",file=\""<<file
-           <<"\",fullname=\""<<fullpath<<"\""
-           <<",line=\""<<line<<"\"}";
-    };
-
     // Print header
-    if (!Client.MI_mode){
-        printTableEntry("Procset", nullptr, "Num", "Type", "Disp", "Enb", "What");
-    }
-
+    printTableEntry("Procset", nullptr, "Num", "Type", "Disp", "Enb", "What");
 
     // Need to loop over each di in the rec_set
     for (auto&& recv_ptr : rec_set) {
-        if (!Client.MI_mode && recv_ptr->rec_di.breakpoints().isEmpty()) {
+        if (recv_ptr->rec_di.breakpoints().isEmpty()) {
             PrintMsgWithSetInfo(recv_ptr->rec_di.handle().c_str(), recv_ptr->rec_group.get(),
                                 "No breakpoints or watchpoints.\n");
             continue;
@@ -832,30 +797,110 @@ static int cmd_info_breakpoints_cmd(Command::RunContext& ctx, rec_set_t *rec_set
                     auto enabled = std::string{isEnabled ? "y" : "n"};
                     auto disp = BPDispToStr(disp_set.disp);
 
-                    if (Client.MI_mode) {
-                        addMiEntry(bpset,disp,enabled,
-                                   recv_ptr->rec_di.sourcePaths().getFullPath(bpset.file()));
-                    } else {
-                        printBP(bpset, recv_ptr->rec_di.handle().c_str(), 
-                                group, disp, enabled);
-                    }
+                    printBP(bpset, recv_ptr->rec_di.handle().c_str(), 
+                            group, disp, enabled);
+                } // for (isEnabled)
+            }
+            if (bid >= 0 && bpset.id() == bid) break;
+        } // for (const auto &bpset : recv_ptr->rec_di.breakpoints())
+    } // for (auto&& recv_ptr : rec_set) {
+
+    return Command::Success;
+}
+
+static int cmd_info_breakpoints_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    if (!rec_set) {
+        PrintOutMIResult(MIResult::DONE, "BreakpointTable={body=[]}\n%s",GetMIEpilogue());
+        return Command::Success;
+    }
+
+    int bid = 0;
+    std::stringstream ss;
+
+    if (argc > 1) {
+        if (!IsInteger(argv[1])) {
+            PrintOutError("Numeric argument required (breakpoint number).\n");
+            return Command::Failure;
+        }
+
+        bid = atoi(argv[1]);
+    }
+
+    BPCnts bpcnts;
+    bpcnts.retrieve(rec_set);
+
+    // Add entry to breakpoint table string for MI mode
+    auto addMiEntry = [&ss]( const MappedBreakpoint& bpset,
+                             const std::string &disp, 
+                             const std::string &enabled,
+                             const std::string &fullpath)
+    {
+        auto id = bpset.id();
+        auto type = BPTypeToStr(bpset.type());
+        auto func = bpset.function();
+        auto file = bpset.file();
+        auto line = bpset.line();
+        
+        if (!ss.str().empty()){
+            ss<<",";
+        }
+
+        ss <<"bkpt={number=\""<<id
+           <<"\",type=\""<<type
+           <<"\",disp=\""<<disp
+           <<"\",enabled=\""<<enabled
+           <<"\",func=\""<<func
+           <<"\",file=\""<<file
+           <<"\",fullname=\""<<fullpath<<"\""
+           <<",line=\""<<line<<"\"}";
+    };
+
+    // Need to loop over each di in the rec_set
+    for (auto&& recv_ptr : rec_set) {
+        if (bid > 0 && recv_ptr->rec_di.breakpoints().findByLogicalID(bid) == nullptr) {
+            PrintErrorWithSetInfo(
+                recv_ptr->rec_di.handle().c_str(), recv_ptr->rec_group.get(),
+                "No breakpoint or watchpoint number %d.\n", bid);
+            continue;
+        }
+
+        for (const auto &bpset : recv_ptr->rec_di.breakpoints()) {
+            if (bid > 0 && bpset.id() != bid) continue;
+
+            auto ranks = bitset::fromAnd(*bpset.ranksSet(), *recv_ptr->rec_group);
+            if (ranks->isEmpty()) continue;
+
+            // loop over the disposition list
+            for (const auto &disp_set : bpset.dispSetList()) {
+                auto disp_group = bitset::fromAnd(*disp_set.group, *ranks);
+                auto enabled_group = bitset::fromAnd(*bpset.enabledSet(), *disp_group);
+                auto disabled_group = disp_group->clone();
+                *disabled_group -= *enabled_group;
+
+                for (auto isEnabled = 2; isEnabled--; ) {
+                    const auto* group = isEnabled ? enabled_group.get() : disabled_group.get();
+                    if (group->isEmpty()) continue;
+
+                    auto enabled = std::string{isEnabled ? "y" : "n"};
+                    auto disp = BPDispToStr(disp_set.disp);
+
+                    addMiEntry(bpset,disp,enabled,
+                               recv_ptr->rec_di.sourcePaths().getFullPath(bpset.file()));
                 } // for (isEnabled)
             }
             if (bid >= 0 && bpset.id() == bid) break;
         } // for (const auto &bpset : recv_ptr->rec_di.breakpoints())
 
-        if (Client.MI_mode){
-            std::string group = recv_ptr->rec_group.get()->toSetString();
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", group=\"%s\",BreakpointTable={body=[%s]}\n%s",
-                                recv_ptr->rec_di.handle().c_str(),group.substr(1,group.length()-2).c_str(),
-                                ss.str().c_str(), GetMIEpilogue());
-            // clear ss stream for next recv_ptr 
-            ss.str("");
-        }
+        std::string group = recv_ptr->rec_group.get()->toSetString();
+        PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", group=\"%s\",BreakpointTable={body=[%s]}\n%s",
+                            recv_ptr->rec_di.handle().c_str(),group.substr(1,group.length()-2).c_str(),
+                            ss.str().c_str(), GetMIEpilogue());
+        // clear ss stream for next recv_ptr 
+        ss.str("");
 
     } // for (auto&& recv_ptr : rec_set) {
 
-    return 1;
+    return Command::Success;
 }
 
 static int cmd_set_break_pending_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -896,6 +941,17 @@ static int cmd_show_break_pending_cmd(Command::RunContext& ctx, rec_set_t *rec_s
     return 1;
 }
 
+void ConsoleCommandsFactory::insert_break_commands(Command& root) {
+    root.addSubCmd("info breakpoints", nullptr, proc_required,
+        cmd_info_breakpoints_cmd_console, cmd_info_breakpoints_help,
+        "Show status of breakpoints.");
+}
+
+void MiCommandsFactory::insert_break_commands(Command& root) {
+    root.addSubCmd({
+        .name = "-break-list", .ptype = proc_optional, .fn = cmd_info_breakpoints_cmd_mi});
+}
+
 void InitCmd_break(void) {
     AddCommand("break", "b", proc_required, cmd_break_cmd,
                cmd_break_help, "Set breakpoint at specified line or function.");
@@ -916,12 +972,6 @@ void InitCmd_break(void) {
                cmd_watch_help, "Set watchpoint on specified expression.");
     AddCommand("catch", proc_required, cmd_catch_cmd, 
                 cmd_catch_help, "Set catchpoint on specified event.");
-
-    // info commands
-    AddCommand("info breakpoints", proc_optional_mi,
-        cmd_info_breakpoints_cmd,
-        cmd_info_breakpoints_help,
-        "Show status of breakpoints.");
 
     // set breakpoint commands
     AddCommand("set breakpoint pending", proc_ignore,

@@ -27,7 +27,7 @@ static int cmd_source_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
 
     if (argc < 2) {
         PrintOutError("source command requires pathname of file to source.\n");
-        return 0;
+        return Command::Failure;
     }
 
     stream_args = NewCLIArgs(CLI_FILE_STREAM, argv[1], NULL, NULL);
@@ -35,13 +35,13 @@ static int cmd_source_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     // Create and set the new stream
     if (SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::CLI, stream_args, 0)) {
         PrintOutError("Could not create a cli stream from the given file.\n");
-        return 0;
+        return Command::Failure;
     }
 
-    return 1;
+    return Command::Success;
 }
 
-void InitCmd_source(void) {
-    AddCommand("source", NULL, proc_ignore, cmd_source_cmd,
+void ConsoleCommandsFactory::insert_source_commands(Command& root) {
+    root.addSubCmd("source", nullptr, proc_ignore, cmd_source_cmd,
                cmd_source_help, "Read debugger commands from a file.");
 }

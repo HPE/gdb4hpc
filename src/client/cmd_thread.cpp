@@ -27,7 +27,7 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_info_threads_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]);
+static int cmd_info_threads_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]);
 
 static int cmd_thread_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
@@ -91,7 +91,7 @@ static int cmd_thread_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
             // special case: alias to "info thread" if user typed "thread info"
             if (strcmp(arg, "info") == 0) {
                 // info functions expect the "info" keyword to be removed from argv
-                return cmd_info_threads_cmd(ctx, rec_set, argc - 1, &argv[1]);
+                return cmd_info_threads_cmd_console(ctx, rec_set, argc - 1, &argv[1]);
             }
 
             PrintOutError("Thread ID must be an integer greater than 0.\n");
@@ -168,10 +168,41 @@ static void PrintMIThread(const std::string& line,
        << thread_state<<"\"}";
 }
 
-static int cmd_info_threads_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    if (Client.MI_mode && !rec_set) {
+static int cmd_info_threads_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    // info threads if typically called with no arguments but it
+    // does take an optional list of thread ids
+    std::string arg = ArgsToString(&argv[1], argc - 1);
+    auto rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
+
+    ProcessErrorInRepSet(rep_set);
+
+    std::ostringstream ss;
+    std::string current_thread_id="current-thread-id=\"";
+
+    // process replies
+    for (auto&& reply : rep_set) {
+        auto handle = reply->rep_di.c_str();
+        const auto group = reply->rep_group.get();
+
+        const char* str = reply->rep_event->ev_u.ev_u_string;
+
+        std::istringstream is(str);
+        std::string line;
+
+        while (std::getline(is,line)) {
+            PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
+        }
+        // add a blank line to make the output more understandable
+        PrintMsgWithSetInfo(handle, group, "\n");
+    }
+
+    return Command::Success;
+}
+
+static int cmd_info_threads_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    if (!rec_set) {
         PrintOutOk();
-        return 1;
+        return Command::Success;
     }
 
     // info threads if typically called with no arguments but it
@@ -195,25 +226,17 @@ static int cmd_info_threads_cmd(Command::RunContext& ctx, rec_set_t *rec_set, in
         std::string line;
 
         while (std::getline(is,line)) {
-            if (Client.MI_mode){
-                PrintMIThread(line, ss, current_thread_id);
-            } else{
-                PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
-            }
-        }
-        // add a blank line to make the output more understandable
-        if (!Client.MI_mode) {
-            PrintMsgWithSetInfo(handle, group, "\n");
+            PrintMIThread(line, ss, current_thread_id);
         }
 
-        if (Client.MI_mode && !ss.str().empty()){
+        if (!ss.str().empty()){
             ss<<"],"<<current_thread_id<<"\"";
             PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",group=\"%s\",threads=%s\n%s",
                             handle, group->toSetString().c_str(),ss.str().c_str(), GetMIEpilogue());
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
 static int cmd_set_scheduler_locking_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[])
@@ -388,6 +411,25 @@ static int cmd_show_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int a
     
 }
 
+void ConsoleCommandsFactory::insert_threads_commands(Command& root) {
+    root.addSubCmd(
+        "info cuda", nullptr, proc_required,
+        cmd_info_cuda_cmd, cmd_info_cuda_help,
+        "Display cuda specific information.");
+    root.addSubCmd(
+        "info threads", nullptr, proc_required,
+        cmd_info_threads_cmd_console, cmd_info_threads_help,
+        "List currently known threads.");
+}
+
+void MiCommandsFactory::insert_threads_commands(Command& root) {
+    root.addSubCmd({
+        .name = "-thread-info", .ptype = proc_optional,
+        .fn = cmd_info_threads_cmd_mi});
+    root.addSubCmd({
+        .name = "-thread-select", .ptype = proc_optional,
+        .fn = cmd_thread_cmd});
+}
 
 void InitCmd_thread(void) {
     AddCommand("thread", "t", proc_required, cmd_thread_cmd,
@@ -398,21 +440,12 @@ void InitCmd_thread(void) {
                cmd_ompd_help, "OpenMP debugging functions.");
     AddCommand("cuda", "", proc_required, cmd_cuda_cmd,
                cmd_cuda_help, "Cuda debugging functions.");
-    AddCommand("info cuda", proc_required, cmd_info_cuda_cmd,
-                   cmd_info_cuda_help,
-                   "Display cuda specific information.");
     AddCommand("set cuda", proc_required, cmd_set_cuda_cmd,
                   cmd_set_cuda_help,
                   "Set cuda specific information.");
     AddCommand("show cuda", proc_required, cmd_show_cuda_cmd,
                    cmd_show_cuda_help,
                    "Show cuda specific settings.");
-
-
-    AddCommand("info threads", proc_optional_mi,
-                   cmd_info_threads_cmd,
-                   cmd_info_threads_help,
-                   "List currently known threads.");
 
     AddCommand("set scheduler-locking", proc_required,
                   cmd_set_scheduler_locking_cmd,

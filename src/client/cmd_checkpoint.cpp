@@ -16,11 +16,11 @@ static int cmd_checkpoint_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int 
 
     if (repSet.isEmpty()) {
         PrintOutError("Failed to create checkpoint: No response from compute nodes.\n");
-        return 0;
+        return Command::Failure;
     }
 
     if (ProcessErrorInRepSet(repSet)) {
-        return 0;
+        return Command::Failure;
     }
 
     for (const auto *rec : rec_set) {
@@ -33,7 +33,7 @@ static int cmd_checkpoint_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int 
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
 static int cmd_info_checkpoints_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -47,7 +47,7 @@ static int cmd_info_checkpoints_cmd(Command::RunContext& ctx, rec_set_t *rec_set
 
     if (idMap.size() == 0) {
         PrintOutMsg("No checkpoints.\n");
-        return 1;
+        return Command::Success;
     }
 
     // table formating values
@@ -119,7 +119,7 @@ static int cmd_info_checkpoints_cmd(Command::RunContext& ctx, rec_set_t *rec_set
         }
     }
 
-    return 1;
+    return Command::Success;
 }
 
 static int cmd_restart_cmd(Command::RunContext& ctx, rec_set_t *recSet, int argc, const char* const argv[]) {
@@ -129,19 +129,19 @@ static int cmd_restart_cmd(Command::RunContext& ctx, rec_set_t *recSet, int argc
     
     if (argc < 2 || !IsInteger(argv[1])) {
         usage();
-        return 0;
+        return Command::Failure;
     }
 
     errno = 0;
     auto id = strtoul(argv[1], nullptr, 10);
     if (errno) {
         usage();
-        return 0;
+        return Command::Failure;
     }
 
     if (auto repSet = DbgRestoreCheckpoint(recSet, id); repSet.hasError()) {
         ProcessErrorInRepSet(repSet);
-        return 0;
+        return Command::Failure;
     }
 
     PrintOutMsg("Checkpoint %lu restored:\n", id);
@@ -150,7 +150,7 @@ static int cmd_restart_cmd(Command::RunContext& ctx, rec_set_t *recSet, int argc
     auto frameRepSet = DbgGetFrame(recSet, false);
 
     if (ProcessErrorInRepSet(frameRepSet)) {
-        return 0;
+        return Command::Failure;
     }
 
     for (const auto* reply : frameRepSet) {
@@ -158,24 +158,22 @@ static int cmd_restart_cmd(Command::RunContext& ctx, rec_set_t *recSet, int argc
         PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), fp);
     }
 
-    return 1;
+    return Command::Success;
 }
 
-void InitCmd_checkpoint(void) {
-    AddCommand("checkpoint", "ch", proc_required, cmd_checkpoint_cmd,
-               cmd_checkpoint_help,
-               "Fork program for restoration at a later point.");
+void ConsoleCommandsFactory::insert_checkpoint_commands(Command& root) {
+    root.addSubCmd("info checkpoints", nullptr,
+                   proc_required, cmd_info_checkpoints_cmd,
+                   cmd_info_checkpoints_help, "Show status of checkpoints.");
 
-    AddCommand("restart", "res", proc_required, cmd_restart_cmd,
-               cmd_restart_help,
-               "Restore program to state of previously created checkpoint.");
+    root.addSubCmd("checkpoint", "ch", proc_required,
+                   cmd_checkpoint_cmd, cmd_checkpoint_help,
+                   "Fork program for restoration at a later point.");
+
+    root.addSubCmd("restart", "res", proc_required,
+                   cmd_restart_cmd, cmd_restart_help,
+                   "Restore program to state of previously created checkpoint.");
 
     // the delete checkpoint command lives in cmd_break.cpp, as a subcommand of
     // the delete command
-
-    // info commands
-    AddCommand(
-        "info checkpoints", proc_required,
-        cmd_info_checkpoints_cmd,
-        cmd_info_checkpoints_help, "Show status of checkpoints.");
 }

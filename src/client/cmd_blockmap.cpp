@@ -39,39 +39,34 @@ std::shared_ptr<Command> make_blockmap_command_tree();
  * Info class commands
  ********************************/
 
-int cmd_info_decomposition_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_info_decomposition_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc > 1) {
-        //currently a single decomposition does not need to be printed out in mi
-        if (Client.MI_mode) return 1;
-
         try {
             auto expr = ParseString(argv[1]);
 
             auto dsym = dynamic_cast<gram::DSym*>(expr.get());
             if (!dsym) {
                 PrintOutError("Expected a debugger variable.\n");
-                return 0;
+                return Command::Failure;
             }
 
             auto val = expr->eval(rec_set);
             if (auto bmv = dynamic_cast<BlockmapValue*>(val.get())) {
                 auto m = bmv->getBlockMap();
                 PrintOutMsg("%s", m->msg().c_str());
-                return 1;
+                return Command::Success;
             } else {
                 PrintOutError("No such decomposition \"%s\"\n", argv[1]);
-                return 0;
+                return Command::Failure;
             }
 
         } catch (EvalError& err) {
             PrintOutError("%s\n", err.what());
         }
 
-        return 1;
+        return Command::Success;
     }
-    if (!Client.MI_mode){
-        PrintOutMsg("Defined decompositions:\n");
-    }
+    PrintOutMsg("Defined decompositions:\n");
 
     auto ss = std::ostringstream{};
     
@@ -80,25 +75,32 @@ int cmd_info_decomposition_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int
         if (printed_blockmap.empty()){
             continue;
         }
-        if (Client.MI_mode){
-            if (ss.tellp()!=0){
-                ss<<",";
-            }else{
-                ss<<"[";
-            }
-            ss<<printed_blockmap;
-        }else{
-            PrintOutMsg("%s", printed_blockmap.c_str());
+        PrintOutMsg("%s", printed_blockmap.c_str());
+    }
+    return Command::Success;
+}
+
+int cmd_info_decomposition_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto ss = std::ostringstream{};
+    
+    for (auto m : GetBlockMapList()) {
+        std::string printed_blockmap = m->msg();
+        if (printed_blockmap.empty()){
+            continue;
         }
-    }
-    if (Client.MI_mode){
-        if (ss.tellp()==0)
+        if (ss.tellp()!=0){
+            ss<<",";
+        }else{
             ss<<"[";
-        ss<<"]";
-        PrintOutMIResult(MIResult::DONE,
-                         "decompositions=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+        }
+        ss<<printed_blockmap;
     }
-    return 1;
+    if (ss.tellp()==0)
+        ss<<"[";
+    ss<<"]";
+    PrintOutMIResult(MIResult::DONE,
+                     "decompositions=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+    return Command::Success;
 }
 
 /********************************
@@ -476,7 +478,6 @@ void ConsoleCommandsFactory::insert_blockmap_commands(Command& root) {
         .name = "decomposition", .ptype = proc_ignore,
         .fn = cmd_decomposition_cmd, .help = cmd_decomposition_help,
         .desc = "Define a decomposition scheme."});
-
     root.addSubCmd({
         .name = "decomposition dimension", .ptype = proc_ignore,
         .fn = cmd_usage_dimension_cmd,
@@ -497,14 +498,17 @@ void ConsoleCommandsFactory::insert_blockmap_commands(Command& root) {
         .fn = cmd_usage_dim_order_cmd,
         .help = cmd_blockmap_dim_order_help,
         .desc = "Display help about using decomposition \"dim_order\" command."});
+
+    root.addSubCmd({
+        .name = "info decomposition", .ptype = proc_ignore,
+        .fn = cmd_info_decomposition_cmd_console, .help = cmd_info_decomposition_help,
+        .desc = "Display currently defined decomposition schemes."});
 }
 
-void InitCmd_blockmap(void) {
-    // info commands
-    AddCommand("info decomposition", proc_ignore,
-                   cmd_info_decomposition_cmd,
-                   cmd_info_decomposition_help,
-                   "Display currently defined decomposition schemes.");
+void MiCommandsFactory::insert_blockmap_commands(Command& root) {
+    root.addSubCmd({
+        .name = "-decomposition-list", .ptype = proc_ignore,
+        .fn = cmd_info_decomposition_cmd_mi});
 }
 
 void FinishCmd_blockmap(void) {

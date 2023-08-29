@@ -39,7 +39,6 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-break-disable", "disable" },
  {"-break-enable", "enable" },
  {"-break-insert", "break" },
- {"-break-list", "info breakpoints"},
  {"-compare", "compare"},
  {"-show", "show"},
  {"-data-list-register-names", "ok,register-names=[]"},
@@ -48,17 +47,12 @@ static std::map<std::string, std::string> return_cmd_map=
  {"-exec-continue", "continue"},
  {"-exec-return", "finish"},
  {"-exec-run", "run"},
- {"-file-list-exec-source-file", "info source"},
- {"-file-list-exec-source-files", "info sources"},
  {"-gdb-exit", "quit"},
  {"-gdb-set", "set"},
  {"-gdb-show", "show"},
  {"-inferior-tty-set", "set inferior-tty"},
  {"-list-features", "ok,features=[]"},
  {"-list-target-features", "ok,features=[async]"}, 
- {"-stack-list-variables", "info locals"},
- {"-thread-info", "info threads"},
- {"-thread-select", "thread" },
 };
 
 int launch_count=0;

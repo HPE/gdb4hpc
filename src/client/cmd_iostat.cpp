@@ -101,8 +101,8 @@ static int cmd_info_iostat_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int
     return 1;
 }
 
-void InitCmd_iostat(void) {
-    AddCommand("info iostat", proc_optional, cmd_info_iostat_cmd,
-               cmd_info_iostat_help,
-               "Display table with iostat codes for Fortran.");
+void ConsoleCommandsFactory::insert_iostat_commands(Command& root) {
+    root.addSubCmd("info iostat", nullptr, proc_optional,
+                   cmd_info_iostat_cmd, cmd_info_iostat_help,
+                   "Display table with iostat codes for Fortran.");
 }

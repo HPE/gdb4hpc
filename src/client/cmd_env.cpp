@@ -992,24 +992,33 @@ static int class_new_ui_cmd(Command::RunContext& ctx, rec_set_t* rec_set, int ar
     return 1;
 }
 
-static int cmd_set_inferior_tty_cmd(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]) {
-    mi_log("in cmd_set_inferior_tty_cmd\n");
-    
+static int cmd_set_inferior_tty_cmd_console(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]) {
     const char* tty = nullptr;
     if (argc == 2) {
         tty = argv[1];
     } else if (argc != 1) {
         PrintOutError("Unexpected arguments, expected [TTY].\n");
-        return 0;
+        return Command::Failure;
     }
 
     if (!SetProgramOutputFile(tty)) {
         PrintOutError("Could not open %s for output.\n", tty ? tty : "default location");
-        return 0;
+        return Command::Failure;
     }
 
-    PrintOutOk();
-    return 1;
+    return Command::Success;
+}
+
+static int cmd_set_inferior_tty_cmd_mi(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]) {
+    mi_log("in cmd_set_inferior_tty_cmd\n");
+    // OK as long as it never checks argv[0]
+    const auto result = cmd_set_inferior_tty_cmd_console(ctx, rec_set, argc, argv);
+    if (result == Command::Success) {
+        PrintOutOk();
+    } else {
+        // error already printed
+    }
+    return Command::Success;
 }
 
 static int cmd_set_command_timeout_cmd(Command::RunContext& ctx, rec_set_t*, int argc, const char* const argv[]) {
@@ -1042,15 +1051,219 @@ static int cmd_show_command_timeout_cmd(Command::RunContext& ctx, rec_set_t*, in
     return 1;
 }
 
-void ConsoleCommandsFactory::insert_env_commands(Command& root) {
-    root.addSubCmd({
-        .name = "shell", .ptype = proc_optional, .fn = cmd_shell_cmd,
-        .help = cmd_shell_help, .desc = "Run a shell command."});
+static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+    root.addSubCmd(
+        set + " directories", nullptr, proc_required, cmd_set_directories_cmd,
+        cmd_set_directories_help, "Add directory to search path for source files.");
 
+    root.addSubCmd(
+        set + " substitute-path", nullptr, proc_required, cmd_set_substitute_path_cmd,
+        cmd_set_substitute_path_help, "Define a source path substitution rule.");
+
+    root.addSubCmd(
+        show + " substitute-path", nullptr, proc_required, cmd_show_substitute_path_cmd,
+        cmd_show_substitute_path_help, "Show a source path substitution rule.");
+
+    root.addSubCmd(
+        set + " error", nullptr, proc_ignore, cmd_set_error_cmd,
+        cmd_set_error_help, "Set warn and error epsilon for floating point comparison.");
+
+    root.addSubCmd(
+        set + " environment", nullptr, proc_ignore, cmd_set_environment_cmd,
+        cmd_set_environment_help, "Set environment variable value for launching applications.");
+
+    root.addSubCmd(
+        set + " logging", nullptr, proc_ignore, cmd_set_logging_cmd,
+        cmd_set_logging_help, "Redirect client side output.");
+
+    root.addSubCmd(
+        set + " pager", nullptr, proc_ignore, cmd_set_pager_cmd,
+        cmd_set_pager_help, "Set paging program");
+
+    root.addSubCmd(
+        show + " pager", nullptr, proc_ignore, cmd_show_pager_cmd,
+        cmd_show_pager_help, "Show paging program");
+
+    root.addSubCmd(
+        set + " height", nullptr, proc_ignore, cmd_set_height_cmd,
+        cmd_show_height_help, "Set paging height");
+
+    root.addSubCmd(
+        show + " height", nullptr, proc_ignore, cmd_show_height_cmd,
+        cmd_show_height_help, "Show paging height");
+
+    root.addSubCmd(
+        set + " print entry-frame", nullptr, proc_ignore,
+        cmd_set_print_entryframe_cmd,
+        cmd_set_print_entryframe_help,
+        "Enable/disable printing of entry frames on launch/attach.");
+
+    root.addSubCmd(
+        set + " print source-on-step", nullptr, proc_ignore,
+        cmd_set_print_sourceonstep_cmd,
+        cmd_set_print_sourceonstep_help,
+        "Enable/disable printing of source on step/next.");
+
+    root.addSubCmd(
+        show + " directories", nullptr, proc_required,
+        cmd_show_directories_cmd,
+        cmd_show_directories_help,
+        "Show current search path for finding source files.");
+
+    root.addSubCmd(
+        show + " error", nullptr, proc_ignore,
+        cmd_show_error_cmd,
+        cmd_show_error_help,
+        "Show warn and error epsilon for floating point comparison.");
+
+    root.addSubCmd(
+        show + " environment", nullptr, proc_ignore,
+        cmd_show_environment_cmd,
+        cmd_show_environment_help,
+        "Show environment variables that were set.");
+
+    root.addSubCmd(
+        show + " version", nullptr, proc_ignore, cmd_show_version_cmd,
+        cmd_show_version_help, "Show the debugger version number.");
+
+    root.addSubCmd(
+        show + " prompt", nullptr, proc_ignore, class_show_sub_cmd_prompt_cmd,
+        cmd_show_prompt_help, "Show the prompt.");
+
+    root.addSubCmd(
+        show + " print entry-frame", nullptr, proc_ignore,
+         cmd_show_print_entryframe_cmd,
+         cmd_show_print_entryframe_help,
+         "Show setting of print entry-frame mode.");
+
+    root.addSubCmd(
+        show + " source-on-step", nullptr, proc_ignore,
+         cmd_show_print_sourceonstep_cmd,
+         cmd_show_print_sourceonstep_help,
+         "Show setting of print source-on-step mode.");
+
+    root.addSubCmd(
+        set + " inferior-tty", nullptr, proc_ignore, cmd_set_inferior_tty_cmd_console,
+        nullptr, "set the tty for the application i/o");
+
+    root.addSubCmd(
+        set + " command-timeout", nullptr, proc_ignore,
+        cmd_set_command_timeout_cmd, cmd_set_command_timeout_help,
+        "Set timeout for synchronous commands.");
+
+    root.addSubCmd(
+        show + " command-timeout", nullptr, proc_ignore,
+         cmd_show_command_timeout_cmd, cmd_show_command_timeout_help,
+        "Show timeout for synchronous commands.");
+}
+
+void ConsoleCommandsFactory::insert_env_commands(Command& root) {
+    insert_setshow_commands(root, "set", "show");
+
+    root.addSubCmd(
+        "shell", nullptr, proc_optional, cmd_shell_cmd,
+        cmd_shell_help, "Run a shell command.");
+
+    root.addSubCmd(
+        "info status", nullptr, proc_required, cmd_info_status_cmd,
+        cmd_info_status_help, "Display the status of the debug servers.");
+
+    root.addSubCmd(
+        "maint echo", nullptr, proc_ignore, cmd_maint_echo_cmd,
+        cmd_maint_echo_help, "Echo a string.");
+
+    root.addSubCmd(
+        "maint system", nullptr, proc_ignore, cmd_shell_cmd,
+        cmd_shell_help, "Run a shell command.");
+
+    root.addSubCmd(
+        "maint sleep", nullptr, proc_optional, cmd_maint_sleep_cmd,
+        cmd_maint_sleep_help, "Pause the debugger.");
+
+    root.addSubCmd(
+        "unset substitute-path", nullptr, proc_required, cmd_unset_substitute_path_cmd,
+        cmd_unset_substitute_path_help, "Unset a source path substitution rule.");
+
+    root.addSubCmd(
+        "maint set earlyentry", nullptr, proc_ignore,
+        cmd_maint_set_earlyentry_cmd,
+        cmd_maint_set_earlyentry_help,
+        "Enable early entry mode.");
+
+    root.addSubCmd(
+        "maint set unsafe", nullptr, proc_ignore, cmd_maint_set_unsafe_cmd,
+        cmd_maint_set_unsafe_help, "Enable unsafe functionality.");
+
+    root.addSubCmd(
+        "maint set sync", nullptr, proc_ignore, cmd_maint_set_sync_cmd,
+        cmd_maint_set_sync_help, "Enable synchronous event mode.");
+
+    root.addSubCmd(
+        "maint show earlyentry", nullptr, proc_ignore,
+        cmd_maint_show_earlyentry_cmd,
+        cmd_maint_show_earlyentry_help,
+        "Show setting of early entry mode.");
+
+    root.addSubCmd(
+        "maint show unsafe", nullptr, proc_ignore, cmd_maint_show_unsafe_cmd,
+        cmd_maint_show_unsafe_help, "Show setting of unsafe mode.");
+
+    root.addSubCmd(
+        "maint show sync", nullptr, proc_ignore,
+        cmd_maint_show_sync_cmd,
+        cmd_maint_show_sync_help,
+        "Show setting of synchronous event mode.");
+
+    root.addSubCmd(
+        "unset environment", nullptr, proc_ignore,
+        cmd_unset_environment_cmd,
+        cmd_unset_environment_help,
+        "Remove a previously set environment variable.");
+}
+
+void MiCommandsFactory::insert_env_commands(Command& root) {
     root.addSubCmd({
-        .name = "info status", .ptype = proc_required, .fn = cmd_info_status_cmd,
-        .help = cmd_info_status_help,
-        .desc = "Display the status of the debug servers."});
+        .name = "-inferior-tty-set", .ptype = proc_ignore, .fn = cmd_set_inferior_tty_cmd_mi });
+
+    // TODO
+    // -gdb-set and -gdb-show at first glance appear to map directly to set and
+    // show, but their output formats do have differences. For example, in mi
+    // gdb:
+    //
+    //   show print elements -> ~"Limit on array elements to print is 23.\n",
+    //   ^done -gdb-show print elements -> ^done,value="23"
+    //
+    // Every "show" command has a verbose human readable version and a terse mi
+    // readable version. We will probably have to implement them separately if
+    // we want to be 100% "compliant"
+    //
+    // "set" has some subtleties too. In mi gdb, "set" and "-gdb-set" produce
+    // this output:
+    //
+    //   (gdb)
+    //   -gdb-set print elements 2000
+    //   ^done
+    //   (gdb)
+    //   set print elements 2000
+    //   &"set print elements 2000\n"
+    //   ^done
+    //   (gdb)
+    //   set print elements 2001
+    //   &"set print elements 2001\n"
+    //   =cmd-param-changed,param="print elements",value="2001"
+    //   ^done
+    //
+    // When running in the console fallback, "set print elements" produces an
+    // async record, and only if the value actually changed. "-gdb-set" is
+    // silent.
+    //
+    // Previous "set" and "show" behavior simply mapped "-gdb-set" to "set" and
+    // "-gdb-show" to "show". For the reasons above, this is "wrong" (or rather
+    // "noncompliant"). But in the interest of breaking ccdb (etc.) slowly
+    // instead of quickly, I am preserving the old behavior with the intention
+    // to revisit it later.
+
+    insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 }
 
 void InitCmd_env(void) {
@@ -1061,138 +1274,11 @@ void InitCmd_env(void) {
     AddCommand("pipe", proc_optional, cmd_pipe_cmd,
                cmd_pipe_help, "Send the output of a gdb command to a shell command.");
 
-    // maint commands
-    AddCommand("maint echo", proc_ignore, cmd_maint_echo_cmd,
-               cmd_maint_echo_help, "Echo a string.");
-
-    AddCommand("maint system", proc_ignore, cmd_shell_cmd,
-                cmd_shell_help, "Run a shell command.");
-
-    AddCommand("maint sleep", proc_optional, cmd_maint_sleep_cmd,
-               cmd_maint_sleep_help, "Pause the debugger.");
-    
     // set commands
     AddCommand("directory", "dir", proc_required, cmd_directory_cmd,
                   cmd_directory_help,
                   "Add directory to search path for source files.");
-    AddCommand("set directories", proc_required, cmd_set_directories_cmd,
-                  cmd_set_directories_help,
-                  "Add directory to search path for source files.");
-
-    AddCommand("set substitute-path", proc_required, cmd_set_substitute_path_cmd,
-                  cmd_set_substitute_path_help,
-                  "Define a source path substitution rule.");
-
-    AddCommand("show substitute-path", proc_required, cmd_show_substitute_path_cmd,
-               cmd_show_substitute_path_help,
-               "Show a source path substitution rule.");
-
-    AddCommand("unset substitute-path", proc_required, cmd_unset_substitute_path_cmd,
-               cmd_unset_substitute_path_help,
-               "Unset a source path substitution rule.");
-
-    AddCommand("set error", proc_ignore, cmd_set_error_cmd,
-                  cmd_set_error_help,
-                  "Set warn and error epsilon for floating point comparison.");
-    AddCommand("set environment", proc_ignore, cmd_set_environment_cmd,
-                  cmd_set_environment_help,
-                  "Set environment variable value for launching applications.");
-    AddCommand("set logging", proc_ignore, cmd_set_logging_cmd,
-                  cmd_set_logging_help,
-                  "Redirect client side output.");
-    AddCommand("set pager", proc_ignore, cmd_set_pager_cmd,
-               cmd_set_pager_help, "Set paging program");
-    AddCommand("show pager", proc_ignore, cmd_show_pager_cmd,
-               cmd_show_pager_help, "Show paging program");
-    AddCommand("set height", proc_ignore, cmd_set_height_cmd,
-               cmd_show_height_help, "Set paging height");
-    AddCommand("show height", proc_ignore, cmd_show_height_cmd,
-               cmd_show_height_help, "Show paging height");
-
-    // set print commands
-    AddCommand(
-        "set print entry-frame", proc_ignore,
-        cmd_set_print_entryframe_cmd,
-        cmd_set_print_entryframe_help,
-        "Enable/disable printing of entry frames on launch/attach.");
-    AddCommand(
-        "set print source-on-step", proc_ignore,
-        cmd_set_print_sourceonstep_cmd,
-        cmd_set_print_sourceonstep_help,
-        "Enable/disable printing of source on step/next.");
-
-    // maint set commands
-    AddCommand("maint set earlyentry", proc_ignore,
-                       cmd_maint_set_earlyentry_cmd,
-                       cmd_maint_set_earlyentry_help,
-                       "Enable early entry mode.");
-    AddCommand(
-        "maint set unsafe", proc_ignore, cmd_maint_set_unsafe_cmd,
-        cmd_maint_set_unsafe_help, "Enable unsafe functionality.");
-    AddCommand(
-        "maint set sync", proc_ignore, cmd_maint_set_sync_cmd,
-        cmd_maint_set_sync_help, "Enable synchronous event mode.");
-
-    // show commands
-    AddCommand("show directories", proc_required,
-                   cmd_show_directories_cmd,
-                   cmd_show_directories_help,
-                   "Show current search path for finding source files.");
-    AddCommand(
-        "show error", proc_ignore, cmd_show_error_cmd,
-        cmd_show_error_help,
-        "Show warn and error epsilon for floating point comparison.");
-    AddCommand("show environment", proc_ignore,
-                   cmd_show_environment_cmd,
-                   cmd_show_environment_help,
-                   "Show environment variables that were set.");
-    AddCommand(
-        "show version", proc_ignore, cmd_show_version_cmd,
-        cmd_show_version_help, "Show the debugger version number.");
-
-    AddCommand(
-        "show prompt", proc_ignore, class_show_sub_cmd_prompt_cmd,
-        cmd_show_prompt_help, "Show the prompt.");
-
-    // show print commands
-    AddCommand("show print entry-frame", proc_ignore,
-                        cmd_show_print_entryframe_cmd,
-                        cmd_show_print_entryframe_help,
-                        "Show setting of print entry-frame mode.");
-    AddCommand("show source-on-step", proc_ignore,
-                        cmd_show_print_sourceonstep_cmd,
-                        cmd_show_print_sourceonstep_help,
-                        "Show setting of print source-on-step mode.");
-
-    // maint show commands
-    AddCommand("maint show earlyentry", proc_ignore,
-                        cmd_maint_show_earlyentry_cmd,
-                        cmd_maint_show_earlyentry_help,
-                        "Show setting of early entry mode.");
-    AddCommand(
-        "maint show unsafe", proc_ignore, cmd_maint_show_unsafe_cmd,
-        cmd_maint_show_unsafe_help, "Show setting of unsafe mode.");
-    AddCommand("maint show sync", proc_ignore,
-                        cmd_maint_show_sync_cmd,
-                        cmd_maint_show_sync_help,
-                        "Show setting of synchronous event mode.");
-
-    // unset commands
-    AddCommand("unset environment", proc_ignore,
-                    cmd_unset_environment_cmd,
-                    cmd_unset_environment_help,
-                    "Remove a previously set environment variable.");
 
     // MI related commands - not documented
     AddCommand("new-ui", proc_ignore, class_new_ui_cmd, nullptr, nullptr);
-
-    AddCommand("set inferior-tty", proc_ignore, cmd_set_inferior_tty_cmd,
-                  nullptr,  "set the tty for the application i/o");
-
-    AddCommand("set command-timeout", proc_ignore,
-                  cmd_set_command_timeout_cmd, cmd_set_command_timeout_help,
-                  "Set timeout for synchronous commands.");
-    AddCommand("show command-timeout", proc_ignore,
-                   cmd_show_command_timeout_cmd, cmd_show_command_timeout_help,
-                   "Show timeout for synchronous commands.");
 }

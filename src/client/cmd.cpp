@@ -107,7 +107,7 @@ void Command::addSubCmd( std::shared_ptr<Command> sub) {
             
 }
 
-void Command::addSubCmd(const char* name, const char* alias, cmdptype ptype,
+void Command::addSubCmd(const std::string& name, const char* alias, cmdptype ptype,
                         Command::Func cmd,
                         const char* const* help, const char* desc) {
     addSubCmd(std::make_shared<Command>(name, alias, ptype, cmd, help, desc));
@@ -204,10 +204,6 @@ void PrintHelpEntry(const char *const * helpStrArray) {
  * command initialization
  */
 void InitCommands() {
-    // init the class commands
-    InitCmd_class();
-
-    // Begin init of every other command
     InitCmd_break();
     InitCmd_comp();
     InitCmd_env();
@@ -246,7 +242,7 @@ size_t ExecuteQueuedCommands() {
     while (pendingCommandQueue.size()) {
         auto command = std::move(pendingCommandQueue.front());
         pendingCommandQueue.pop_front();
-        ExecuteCommand(command.c_str());
+        DbgInterpret(command.c_str());
     }
     
     cli_restore_stream();
@@ -433,11 +429,7 @@ std::variant<Command*, Command::ErrStr> Command::findSubCmd(std::string_view cmd
 std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
 
-    root->addSubCmd({
-        .name = "info", .alias = "i", .ptype = proc_ignore,
-        .fn = nullptr, .help = class_info_help,
-        .desc = "Display information about the application being debugged."});
-
+    insert_class_commands(*root);
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
     insert_step_commands(*root);
@@ -455,7 +447,22 @@ std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     insert_list_commands(*root);
     insert_iostat_commands(*root);
     insert_threads_commands(*root);
+    insert_print_commands(*root);
 
+    return root;
+}
+
+static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+    root.addSubCmd(set, nullptr, proc_ignore,
+                   nullptr, class_set_help,
+                   "Set information about the debugger environment.");
+
+    root.addSubCmd(show, nullptr, proc_ignore,
+                   nullptr, class_show_help,
+                   "Show information about the debugger environment.");
+}
+
+void ConsoleCommandsFactory::insert_class_commands(Command& root) {
     // insert a fake help command so we get the niceness of the command tree
     // matching "h", "he", etc. to "help". printing the actual help requires
     // context only available in the interpreter itself, so the interpreter
@@ -463,17 +470,37 @@ std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
         return Command::Failure;
     };
-    root->addSubCmd({
-        .name = "help", .alias = "h", .ptype = proc_ignore,
-        .fn = dummy_help, .help = cmd_help_help,
-        .desc = "Display help information about commands."});
+    root.addSubCmd("help", "h", proc_ignore,
+                    dummy_help, cmd_help_help,
+                    "Display help information about commands.");
 
-    return root;
+    root.addSubCmd("info", "i", proc_ignore,
+                   nullptr, class_info_help,
+                   "Display information about the application being debugged.");
+
+    root.addSubCmd("maint", nullptr, proc_ignore,
+                   nullptr, class_maint_help,
+                   "Commands for use by debugger maintainers.");
+
+    root.addSubCmd("maint set", nullptr, proc_ignore,
+                   nullptr, class_maint_set_help,
+                   "Set information about the debugger environment.");
+
+    root.addSubCmd("maint show", nullptr, proc_ignore,
+                   nullptr, class_maint_show_help,
+                   "Show information about the debugger environment.");
+
+    root.addSubCmd("unset", nullptr, proc_ignore,
+                   nullptr, class_unset_help,
+                   "Unset information in the debugger environment.");
+
+    insert_setshow_commands(root, "set", "show");
 }
 
 std::shared_ptr<Command> MiCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
 
+    insert_class_commands(*root);
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
     insert_step_commands(*root);
@@ -483,7 +510,14 @@ std::shared_ptr<Command> MiCommandsFactory::make() {
     insert_script_commands(*root);
     insert_list_commands(*root);
     insert_threads_commands(*root);
+    insert_print_commands(*root);
+    insert_env_commands(*root);
+    insert_proc_commands(*root);
 
+    return root;
+}
+
+void MiCommandsFactory::insert_class_commands(Command& root) {
     // insert a fake help command so we get the niceness of the command tree
     // matching "h", "he", etc. to "help". printing the actual help requires
     // context only available in the interpreter itself, so the interpreter
@@ -491,10 +525,10 @@ std::shared_ptr<Command> MiCommandsFactory::make() {
     auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
         return Command::Failure;
     };
-    root->addSubCmd({
+    root.addSubCmd({
         .name = "-help", .ptype = proc_ignore,
         .fn = dummy_help, .help = cmd_help_help,
         .desc = "Display help information about commands."});
 
-    return root;
+    insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 }

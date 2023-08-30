@@ -128,6 +128,7 @@ static int cmd_print_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
         
     return 1;
 }
+
 static int cmd_set_print_elements_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -189,8 +190,20 @@ static int cmd_set_print_pretty_cmd(Command::RunContext& ctx, rec_set_t *rec_set
         return 0;
     }
 
-    PrintOutOk();
     return 1;
+}
+
+static int cmd_enable_pretty_printing_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    // due to how subcommands work, the sub function expects to receive only the
+    // "pretty on" part of "set print pretty on".
+    const char* const sub_argv[] = {"pretty", "on", nullptr};
+    const auto result = cmd_set_print_pretty_cmd(ctx, rec_set, 2, sub_argv);
+    if (result == Command::Success) {
+        PrintOutOk();
+    } else {
+        // error already printed
+    }
+    return result;
 }
 
 static int cmd_show_print_pretty_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -237,27 +250,48 @@ std::string GetMiValue(const std::string& expression, const std::string& ps_str)
     return "";
 }
 
-void InitCmd_print(void) {
-    AddCommand("print", "p", proc_optional, cmd_print_cmd, cmd_print_help,
-               "Print the value of an expression.");
+static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+    root.addSubCmd(
+        set + " print", nullptr, proc_ignore,
+        nullptr, class_set_print_help,
+        "Set information about how things get printed.");
 
-    AddCommand(
-        "set print elements", proc_optional, cmd_set_print_elements_cmd,
+    root.addSubCmd(
+        show + " print", nullptr, proc_ignore,
+        nullptr, class_show_print_help,
+        "Show information about how things get printed.");
+
+    root.addSubCmd(
+        set + " print elements", nullptr, proc_optional, cmd_set_print_elements_cmd,
         cmd_set_print_elements_help,
         "Specify number of elements to be printed in arrays or c-strings.");
 
-    AddCommand(
-        "show print elements", proc_optional, cmd_show_print_elements_cmd,
+    root.addSubCmd(
+        show + " print elements", nullptr, proc_optional, cmd_show_print_elements_cmd,
         cmd_show_print_elements_help,
         "Show number of elements to print when an array is printed.");
 
-    AddCommand(
-        "set print pretty", proc_optional, cmd_set_print_pretty_cmd,
+    root.addSubCmd(
+        set + " print pretty", nullptr, proc_optional, cmd_set_print_pretty_cmd,
         cmd_set_print_pretty_help,
         "Enable or disable pretty printing of structures.");
 
-    AddCommand(
-        "show print pretty", proc_optional, cmd_show_print_pretty_cmd,
+    root.addSubCmd(
+        show + " print pretty", nullptr, proc_optional, cmd_show_print_pretty_cmd,
         cmd_show_print_pretty_help,
         "Show if pretty printing of structures is enabled.");
+}
+
+void ConsoleCommandsFactory::insert_print_commands(Command& root) {
+    insert_setshow_commands(root, "set", "show");
+}
+
+void MiCommandsFactory::insert_print_commands(Command& root) {
+    root.addSubCmd({.name = "-enable-pretty-printing", .ptype = proc_optional, .fn = cmd_enable_pretty_printing_mi });
+    insert_setshow_commands(root, "-gdb-set", "-gdb-show");
+}
+
+void InitCmd_print(void) {
+    AddCommand("print", "p", proc_optional, cmd_print_cmd, cmd_print_help,
+               "Print the value of an expression.");
 }

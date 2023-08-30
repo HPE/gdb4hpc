@@ -487,13 +487,20 @@ int main(int argc, char *argv[]) {
                 if (optarg == nullptr) {
                     PrintOutMsg("Warning: --command-timeout specified without argument. Ignoring.\n");
                 } else {
+                    // XXX: this only works if the chosen interpreter supports
+                    // it. right now, that happens to be the case for both
+                    // console and mi, but it's fragile, especially because the
+                    // test runner does this for all tests.
                     QueueCommand(std::string{"set command-timeout "} + optarg);
                 }
 
                 break;
             }
 
-            case 'T': 
+            case 'T':
+                // XXX: this only works if the chosen interpreter supports it.
+                // right now, that happens to be the case for both console and
+                // mi, but it's fragile.
                 QueueCommand(std::string{"set inferior-tty "} + optarg);
                 break; 
 

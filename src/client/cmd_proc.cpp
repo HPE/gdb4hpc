@@ -1517,12 +1517,25 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
     return 1;
 }
 
+static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+    root.addSubCmd(set + " args", nullptr, proc_required, set_subcmd_args_cmd,
+               set_subcmd_args_help, "Set program arguments to be used when re-launching with the run command.");
+    root.addSubCmd(show + " args", nullptr, proc_required, show_subcmd_args_cmd,
+               show_subcmd_args_help, "Show program arguments to be used when re-launching with the run command.");
+}
+
 void ConsoleCommandsFactory::insert_proc_commands(Command& root) {
     root.addSubCmd(
         "info application", nullptr, proc_ignore,
         cmd_info_application_cmd,
         cmd_info_application_help,
         "Show attached/launched applications under debugger control.");
+
+    insert_setshow_commands(root, "set", "show");
+}
+
+void MiCommandsFactory::insert_proc_commands(Command& root) {
+    insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 }
 
 void InitCmd_proc(void) {
@@ -1541,10 +1554,4 @@ void InitCmd_proc(void) {
                cmd_kill_help, "Kill attached/launched application.");
     AddCommand("run", "r", proc_optional, cmd_run_cmd,
                cmd_run_help, "Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.");
-
-    // set/show commands
-    AddCommand("set args", proc_required, set_subcmd_args_cmd,
-               set_subcmd_args_help, "Set program arguments to be used when re-launching with the run command.");
-    AddCommand("show args", proc_required, show_subcmd_args_cmd,
-               show_subcmd_args_help, "Show program arguments to be used when re-launching with the run command.");
 }

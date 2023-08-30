@@ -411,6 +411,41 @@ static int cmd_show_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int a
     
 }
 
+static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+    root.addSubCmd(
+        set + " cuda", nullptr, proc_required,
+        cmd_set_cuda_cmd,
+        cmd_set_cuda_help,
+        "Set cuda specific information.");
+    root.addSubCmd(
+        show + " cuda", nullptr, proc_required,
+        cmd_show_cuda_cmd,
+        cmd_show_cuda_help,
+        "Show cuda specific settings.");
+
+    root.addSubCmd(
+        set + " scheduler-locking", nullptr, proc_required,
+        cmd_set_scheduler_locking_cmd,
+        cmd_set_scheduler_locking_help,
+        "Set mode for locking scheduler during execution.");
+    root.addSubCmd(
+        show + " scheduler-locking", nullptr, proc_required,
+        cmd_show_scheduler_locking_cmd,
+        cmd_show_scheduler_locking_help,
+        "Show mode for locking scheduler during execution.");
+
+    root.addSubCmd(
+        set + " non-stop", nullptr, proc_optional,
+        cmd_set_non_stop_cmd,
+        cmd_set_non_stop_help,
+        "Set mode for thread stopping during execution.");
+    root.addSubCmd(
+        show + " non-stop", nullptr, proc_optional,
+        cmd_show_non_stop_cmd,
+        cmd_show_non_stop_help,
+        "Show mode for thread stopping during execution.");
+}
+
 void ConsoleCommandsFactory::insert_threads_commands(Command& root) {
     root.addSubCmd(
         "info cuda", nullptr, proc_required,
@@ -420,6 +455,8 @@ void ConsoleCommandsFactory::insert_threads_commands(Command& root) {
         "info threads", nullptr, proc_required,
         cmd_info_threads_cmd_console, cmd_info_threads_help,
         "List currently known threads.");
+
+    insert_setshow_commands(root, "set", "show");
 }
 
 void MiCommandsFactory::insert_threads_commands(Command& root) {
@@ -429,6 +466,8 @@ void MiCommandsFactory::insert_threads_commands(Command& root) {
     root.addSubCmd({
         .name = "-thread-select", .ptype = proc_optional,
         .fn = cmd_thread_cmd});
+
+    insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 }
 
 void InitCmd_thread(void) {
@@ -440,28 +479,4 @@ void InitCmd_thread(void) {
                cmd_ompd_help, "OpenMP debugging functions.");
     AddCommand("cuda", "", proc_required, cmd_cuda_cmd,
                cmd_cuda_help, "Cuda debugging functions.");
-    AddCommand("set cuda", proc_required, cmd_set_cuda_cmd,
-                  cmd_set_cuda_help,
-                  "Set cuda specific information.");
-    AddCommand("show cuda", proc_required, cmd_show_cuda_cmd,
-                   cmd_show_cuda_help,
-                   "Show cuda specific settings.");
-
-    AddCommand("set scheduler-locking", proc_required,
-                  cmd_set_scheduler_locking_cmd,
-                  cmd_set_scheduler_locking_help,
-                  "Set mode for locking scheduler during execution.");
-    AddCommand("show scheduler-locking", proc_required,
-                   cmd_show_scheduler_locking_cmd,
-                   cmd_show_scheduler_locking_help,
-                   "Show mode for locking scheduler during execution.");
-
-    AddCommand("set non-stop", proc_optional,
-                  cmd_set_non_stop_cmd,
-                  cmd_set_non_stop_help,
-                  "Set mode for thread stopping during execution.");
-    AddCommand("show non-stop", proc_optional,
-                   cmd_show_non_stop_cmd,
-                   cmd_show_non_stop_help,
-                   "Show mode for thread stopping during execution.");
 }

@@ -93,7 +93,7 @@ public:
     // a Command object for each sub-command: args, breakpoint, cuda, etc.
     void addSubCmd(std::shared_ptr<Command> sub);
 
-    void addSubCmd(const char* name, const char* alias, cmdptype ptype,
+    void addSubCmd(const std::string& name, const char* alias, cmdptype ptype,
                    Func cmd,
                    const char* const* help, const char* desc);
     void addSubCmd(CtorArgs&& args);
@@ -130,6 +130,10 @@ class ConsoleCommandsFactory {
 public:
     static std::shared_ptr<Command> make();
 private:
+    // internal or base commands that don't live in cmd_*.cpp files.
+    // e.g. the base "set" node which all other set commands are under.
+    static void insert_class_commands(Command& root);
+
     // these are defined in their respective cmd_*.cpp files
     static void insert_interpreter_commands(Command& root);
     static void insert_frame_commands(Command& root);
@@ -148,12 +152,17 @@ private:
     static void insert_list_commands(Command& root);
     static void insert_iostat_commands(Command& root);
     static void insert_threads_commands(Command& root);
+    static void insert_print_commands(Command& root);
 };
 
 class MiCommandsFactory {
 public:
     static std::shared_ptr<Command> make();
 private:
+    // internal or base commands that don't live in cmd_*.cpp files.
+    // e.g. the base "set" node which all other set commands are under.
+    static void insert_class_commands(Command& root);
+
     // these are defined in their respective cmd_*.cpp files
     static void insert_interpreter_commands(Command& root);
     static void insert_frame_commands(Command& root);
@@ -164,6 +173,9 @@ private:
     static void insert_list_commands(Command& root);
     static void insert_threads_commands(Command& root);
     static void insert_script_commands(Command& root);
+    static void insert_print_commands(Command& root);
+    static void insert_env_commands(Command& root);
+    static void insert_proc_commands(Command& root);
 };
 
 
@@ -179,7 +191,6 @@ extern void InitCmd_print();
 extern void InitCmd_proc();
 extern void InitCmd_procset();
 extern void InitCmd_thread();
-extern void InitCmd_class();
 
 void FinishCmd_blockmap();
 

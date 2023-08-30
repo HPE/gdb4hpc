@@ -8,7 +8,6 @@
 namespace {
 
 int cmd_set_interpreter(Command::RunContext& ctx, rec_set_t* _, int argc, const char* const argv[]) {
-    // this argc value will change when "interpreter-set" is changed to "set interpreter"
     if (argc < 2) {
         PrintOutError("Usage: %s console|mi\n", argv[0]);
         return Command::Failure;

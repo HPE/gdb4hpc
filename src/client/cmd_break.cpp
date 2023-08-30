@@ -941,15 +941,44 @@ static int cmd_show_break_pending_cmd(Command::RunContext& ctx, rec_set_t *rec_s
     return 1;
 }
 
+void insert_setshow_commands(Command& root, std::string set, std::string show) {
+    root.addSubCmd(
+        set + " breakpoint", nullptr, proc_ignore,
+         nullptr, class_set_break_help,
+         "Set information about breakpoints.");
+
+    root.addSubCmd(
+        set + " breakpoint pending", nullptr, proc_ignore,
+        cmd_set_break_pending_cmd,
+        cmd_set_break_pending_help,
+        "Set behavior for pending breakpoints.");
+
+    root.addSubCmd(
+        show + " breakpoint", nullptr, proc_ignore,
+         nullptr, class_show_break_help,
+         "Show information about breakpoints.");
+
+    root.addSubCmd(
+        show + " breakpoint pending", nullptr, proc_ignore,
+        cmd_show_break_pending_cmd,
+        cmd_show_break_pending_help,
+        "Show behavior for pending breakpoints.");
+}
+
 void ConsoleCommandsFactory::insert_break_commands(Command& root) {
-    root.addSubCmd("info breakpoints", nullptr, proc_required,
+    root.addSubCmd(
+        "info breakpoints", nullptr, proc_required,
         cmd_info_breakpoints_cmd_console, cmd_info_breakpoints_help,
         "Show status of breakpoints.");
+
+    insert_setshow_commands(root, "set", "show");
 }
 
 void MiCommandsFactory::insert_break_commands(Command& root) {
     root.addSubCmd({
         .name = "-break-list", .ptype = proc_optional, .fn = cmd_info_breakpoints_cmd_mi});
+
+    insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 }
 
 void InitCmd_break(void) {
@@ -973,15 +1002,4 @@ void InitCmd_break(void) {
     AddCommand("catch", proc_required, cmd_catch_cmd, 
                 cmd_catch_help, "Set catchpoint on specified event.");
 
-    // set breakpoint commands
-    AddCommand("set breakpoint pending", proc_ignore,
-        cmd_set_break_pending_cmd,
-        cmd_set_break_pending_help,
-        "Set behavior for pending breakpoints.");
-
-    // show breakpoint commands
-    AddCommand("show breakpoint pending", proc_ignore,
-        cmd_show_break_pending_cmd,
-        cmd_show_break_pending_help,
-        "Show behavior for pending breakpoints.");
 }

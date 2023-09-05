@@ -112,7 +112,12 @@ static int cmd_print_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
         if (auto pe = getenv("PRINT_EXPR"); pe && pe[0] != '0') expr->print();
 
         {
-            auto pager = Client.MI_mode ? nullptr : std::make_unique<cli_pager>();
+            // TODO disable the pager if an mi client is listening. this will
+            // require a new field to RunContext be added.
+            //
+            // for now, a nonconditional pager is fine since it will be a
+            // no-op unless explicitly enabled.
+            auto pager = std::make_unique<cli_pager>();
             auto val = expr->evalTop(rec_set);
             val->print(Client.cli_out->ostream(), rec_set, format);
         }
@@ -284,14 +289,11 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
 
 void ConsoleCommandsFactory::insert_print_commands(Command& root) {
     insert_setshow_commands(root, "set", "show");
+    root.addSubCmd("print", "p", proc_optional, cmd_print_cmd, cmd_print_help,
+               "Print the value of an expression.");
 }
 
 void MiCommandsFactory::insert_print_commands(Command& root) {
     root.addSubCmd({.name = "-enable-pretty-printing", .ptype = proc_optional, .fn = cmd_enable_pretty_printing_mi });
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
-}
-
-void InitCmd_print(void) {
-    AddCommand("print", "p", proc_optional, cmd_print_cmd, cmd_print_help,
-               "Print the value of an expression.");
 }

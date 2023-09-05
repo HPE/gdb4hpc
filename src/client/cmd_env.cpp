@@ -292,7 +292,7 @@ static int cmd_pipe_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
         return 0;
     }
 
-    ExecuteCommand(gdbCommand.c_str());
+    DbgInterpret(gdbCommand.c_str());
 
     return 1;
 }
@@ -709,15 +709,17 @@ static int cmd_show_version_cmd(Command::RunContext& ctx, rec_set_t *rec_set, in
     return 1;
 }
 
-static int class_show_sub_cmd_prompt_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    if (!Client.MI_mode) {
-        PrintOutMsg("dbg all>\n");
-    } else {
-        PrintOutMIResult(MIResult::DONE, "value=\"(gdb) \"\n");
-    }
-    return 1;
+// TODO delegate these show prompt commands to the interpreter
+
+static int cmd_show_prompt_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    PrintOutMsg("dbg all>\n");
+    return Command::Success;
 }
 
+static int cmd_show_prompt_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    PrintOutMIResult(MIResult::DONE, "value=\"(gdb) \"\n");
+    return Command::Success;
+}
 
 static int cmd_set_error_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 3) {
@@ -759,17 +761,18 @@ static int cmd_set_error_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int a
     return 1;
 }
 
-static int cmd_show_error_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    if (!Client.MI_mode){
-        PrintOutMsg("Warning epsilon: ");
-        PrintOutMsg("%.16lg", Client.cmp_lower_eps);
-        PrintOutMsg("\nError epsilon: ");
-        PrintOutMsg("%.16lg", Client.cmp_upper_eps);
-        PrintOutMsg("\n");
-    }else{
-        PrintOutMIResult(MIResult::DONE,"epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}\n", Client.cmp_lower_eps, Client.cmp_upper_eps);
-    }
-    return 1;
+static int cmd_show_error_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    PrintOutMsg("Warning epsilon: ");
+    PrintOutMsg("%.16lg", Client.cmp_lower_eps);
+    PrintOutMsg("\nError epsilon: ");
+    PrintOutMsg("%.16lg", Client.cmp_upper_eps);
+    PrintOutMsg("\n");
+    return Command::Success;
+}
+
+static int cmd_show_error_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    PrintOutMIResult(MIResult::DONE,"epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}\n", Client.cmp_lower_eps, Client.cmp_upper_eps);
+    return Command::Success;
 }
 
 // Check if given string is found in vector of strings
@@ -1111,12 +1114,6 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
         "Show current search path for finding source files.");
 
     root.addSubCmd(
-        show + " error", nullptr, proc_ignore,
-        cmd_show_error_cmd,
-        cmd_show_error_help,
-        "Show warn and error epsilon for floating point comparison.");
-
-    root.addSubCmd(
         show + " environment", nullptr, proc_ignore,
         cmd_show_environment_cmd,
         cmd_show_environment_help,
@@ -1125,10 +1122,6 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
     root.addSubCmd(
         show + " version", nullptr, proc_ignore, cmd_show_version_cmd,
         cmd_show_version_help, "Show the debugger version number.");
-
-    root.addSubCmd(
-        show + " prompt", nullptr, proc_ignore, class_show_sub_cmd_prompt_cmd,
-        cmd_show_prompt_help, "Show the prompt.");
 
     root.addSubCmd(
         show + " print entry-frame", nullptr, proc_ignore,
@@ -1159,6 +1152,16 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
 
 void ConsoleCommandsFactory::insert_env_commands(Command& root) {
     insert_setshow_commands(root, "set", "show");
+
+    root.addSubCmd(
+        "show error", nullptr, proc_ignore,
+        cmd_show_error_console,
+        cmd_show_error_help,
+        "Show warn and error epsilon for floating point comparison.");
+
+    root.addSubCmd(
+        "show prompt", nullptr, proc_ignore, cmd_show_prompt_console,
+        cmd_show_prompt_help, "Show the prompt.");
 
     root.addSubCmd(
         "shell", nullptr, proc_optional, cmd_shell_cmd,
@@ -1219,11 +1222,26 @@ void ConsoleCommandsFactory::insert_env_commands(Command& root) {
         cmd_unset_environment_cmd,
         cmd_unset_environment_help,
         "Remove a previously set environment variable.");
+
+    root.addSubCmd("quit", "q", proc_ignore, cmd_quit_cmd,
+               cmd_quit_help, "Exit the debugger.");
+
+    root.addSubCmd("pipe", nullptr, proc_optional, cmd_pipe_cmd,
+               cmd_pipe_help, "Send the output of a gdb command to a shell command.");
+
+    root.addSubCmd("directory", "dir", proc_required, cmd_directory_cmd,
+                  cmd_directory_help,
+                  "Add directory to search path for source files.");
+
+    // undocumented
+    root.addSubCmd({ .name = "new-ui", .ptype = proc_ignore, .fn = class_new_ui_cmd });
 }
 
 void MiCommandsFactory::insert_env_commands(Command& root) {
     root.addSubCmd({
         .name = "-inferior-tty-set", .ptype = proc_ignore, .fn = cmd_set_inferior_tty_cmd_mi });
+
+    root.addSubCmd({ .name = "-gdb-exit", .ptype = proc_ignore, .fn = cmd_quit_cmd });
 
     // TODO
     // -gdb-set and -gdb-show at first glance appear to map directly to set and
@@ -1264,21 +1282,9 @@ void MiCommandsFactory::insert_env_commands(Command& root) {
     // to revisit it later.
 
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
-}
 
-void InitCmd_env(void) {
-    // regular commands
-    AddCommand("quit", "q", proc_ignore, cmd_quit_cmd,
-               cmd_quit_help, "Exit the debugger.");
-    
-    AddCommand("pipe", proc_optional, cmd_pipe_cmd,
-               cmd_pipe_help, "Send the output of a gdb command to a shell command.");
-
-    // set commands
-    AddCommand("directory", "dir", proc_required, cmd_directory_cmd,
-                  cmd_directory_help,
-                  "Add directory to search path for source files.");
-
-    // MI related commands - not documented
-    AddCommand("new-ui", proc_ignore, class_new_ui_cmd, nullptr, nullptr);
+    root.addSubCmd({
+        .name = "-gdb-show error", .ptype = proc_ignore, .fn = cmd_show_error_mi });
+    root.addSubCmd({
+        .name = "-gdb-show prompt", .ptype = proc_ignore, .fn = cmd_show_prompt_mi });
 }

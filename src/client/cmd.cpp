@@ -204,13 +204,7 @@ void PrintHelpEntry(const char *const * helpStrArray) {
  * command initialization
  */
 void InitCommands() {
-    InitCmd_break();
-    InitCmd_comp();
-    InitCmd_env();
-    InitCmd_go();
-    InitCmd_print();
     InitCmd_proc();
-    InitCmd_procset();
     InitCmd_thread();
 
     SetCommands(Cmds.get());
@@ -331,13 +325,6 @@ void ExecuteCommand(const char *line) {
         return;
     }
 
-    // Inform the cli layer that we are done executing a command
-    if (Client.MI_mode){
-        if (strstr(cmd, "-exec-continue")){
-            PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
-        } 
-    }
-
     // If Quit is true after executing the command, remove the input handler.
     if (Client.quit) {
         DbgHandleInput(-1, nullptr, NULL);
@@ -448,6 +435,9 @@ std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     insert_iostat_commands(*root);
     insert_threads_commands(*root);
     insert_print_commands(*root);
+    insert_comp_commands(*root);
+    insert_go_commands(*root);
+    insert_procset_commands(*root);
 
     return root;
 }
@@ -513,6 +503,9 @@ std::shared_ptr<Command> MiCommandsFactory::make() {
     insert_print_commands(*root);
     insert_env_commands(*root);
     insert_proc_commands(*root);
+    insert_comp_commands(*root);
+    insert_go_commands(*root);
+    insert_procset_commands(*root);
 
     return root;
 }

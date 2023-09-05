@@ -153,6 +153,9 @@ private:
     static void insert_iostat_commands(Command& root);
     static void insert_threads_commands(Command& root);
     static void insert_print_commands(Command& root);
+    static void insert_comp_commands(Command& root);
+    static void insert_go_commands(Command& root);
+    static void insert_procset_commands(Command& root);
 };
 
 class MiCommandsFactory {
@@ -176,20 +179,17 @@ private:
     static void insert_print_commands(Command& root);
     static void insert_env_commands(Command& root);
     static void insert_proc_commands(Command& root);
+    static void insert_comp_commands(Command& root);
+    static void insert_go_commands(Command& root);
+    static void insert_procset_commands(Command& root);
 };
 
 
 /*
 ** Global Init command functions defined elsewhere
 */
-extern void InitCmd_break();
-extern void InitCmd_comp();
-extern void InitCmd_env();
 extern void InitCmd_func();
-extern void InitCmd_go();
-extern void InitCmd_print();
 extern void InitCmd_proc();
-extern void InitCmd_procset();
 extern void InitCmd_thread();
 
 void FinishCmd_blockmap();

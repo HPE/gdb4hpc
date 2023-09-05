@@ -25,38 +25,61 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_continue_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_continue_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     bool continueAll = false;
     if (argc == 2 && strcmp(argv[1],"-a") == 0) {
         continueAll = true;
     } else if (argc > 1) {
         PrintOutError("unrecognized command arguments.\n");
         PrintOutError("expected continue or continue -a.\n");
-        return 0;
+        return Command::Failure;
     }
         
     if (auto rep_set = DbgGo(rec_set, continueAll); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        return 0;
+        return Command::Failure;
     }
 
-    return 1;
+    return Command::Success;
 }
 
-static int cmd_finish_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_finish_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (auto rep_set = DbgFinishFunc(rec_set); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        return 0;
+        return Command::Failure;
     }
 
-    return 1;
+    return Command::Success;
 }
 
-void InitCmd_go(void) {
-    AddCommand("continue", "c", proc_required, cmd_continue_cmd,
-               cmd_continue_help, "Continue execution of application.");
-    AddCommand(
-        "finish", NULL, proc_required, cmd_finish_cmd,
+static int cmd_continue_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    // ok as long as it doesn't check argv[0]
+    const auto result = cmd_continue_console(ctx, rec_set, argc, argv);
+    if (result == Command::Success)
+        PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
+    return result;
+}
+
+static int cmd_finish_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    // ok as long as it doesn't check argv[0]
+    const auto result = cmd_finish_console(ctx, rec_set, argc, argv);
+    if (result == Command::Success)
+        PrintOutMIResult(MIResult::CONTINUATION, "^running\n%s", GetMIEpilogue());
+    return result;
+}
+
+void ConsoleCommandsFactory::insert_go_commands(Command& root) {
+    root.addSubCmd(
+        "continue", "c", proc_required, cmd_continue_console,
+        cmd_continue_help, "Continue execution of application.");
+
+    root.addSubCmd(
+        "finish", nullptr, proc_required, cmd_finish_console,
         cmd_finish_help,
         "Execute application until each rank's current function returns.");
+}
+
+void MiCommandsFactory::insert_go_commands(Command& root) {
+    root.addSubCmd({ .name = "-exec-continue", .ptype = proc_required, .fn = cmd_continue_mi });
+    root.addSubCmd({ .name = "-exec-return", .ptype = proc_required, .fn = cmd_finish_mi });
 }

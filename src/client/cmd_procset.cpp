@@ -56,89 +56,118 @@ std::string ProcSetToString(dbgprocset_t *s) {
     return ss.str();
 }
 
-static int cmd_focus_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-
+static dbgprocset_t* cmd_focus_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: focus $set\n");
-        return 0;
+        return nullptr;
     }
 
     auto [procset, isTmp] = IdMap::getProcset(argv[1]);
 
     if (!procset) {
         PrintOutError("Invalid process set argument %s.\n", argv[1]);
-        return 0;
+        return nullptr;
     }
     SetCurrentProcSet(procset);
 
-    if (Client.MI_mode) {
-        std::string proc_str = ProcSetToString(procset);
-        std::stringstream ss;
-        ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str<<"\"}";
-
-        PrintOutMIResult(MIResult::DONE, "focus=%s\n%s",ss.str().c_str(),
-                         GetMIEpilogue());
-    }
-
-    return 1;
+    return procset;
 }
 
-static int cmd_viewset_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_focus_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    return cmd_focus_cmd(ctx, rec_set, argc, argv) != nullptr ? Command::Success : Command::Failure;
+}
 
+static int cmd_focus_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto* pset = cmd_focus_cmd(ctx, rec_set, argc, argv);
+    if (pset) {
+        std::string proc_str = ProcSetToString(pset);
+        std::stringstream ss;
+        ss<<"{name=\""<<pset->s_name<<"\",proc_set=\""<<proc_str<<"\"}";
+
+        PrintOutMIResult(MIResult::DONE, "focus=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+        return Command::Success;
+    } else {
+        // error message already printed
+        return Command::Failure;
+    }
+}
+
+static std::vector<dbgprocset_t*>
+cmd_viewset_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc > 1) {
-        auto [procset, isTmp] = IdMap::getProcset(argv[1]);
+        auto [procset, _] = IdMap::getProcset(argv[1]);
 
         if (!procset) {
             PrintOutError("Invalid process set argument %s.\n", argv[1]);
-            return 0;
+            return {};
         }
 
-        PrintOutMsg("Name       Procs\n");
+        return { procset };
+    }
+
+    // IdMap::getProcset above returns a raw dbgprocset*, so we need to make the return
+    // type of this function the lowest common denominator.
+    auto raws = std::vector<dbgprocset_t*>{};
+    std::ranges::transform(GetProcSets(), std::back_inserter(raws), [](auto& sh_ptr){ return sh_ptr.get(); });
+    return raws;
+}
+
+
+static int cmd_viewset_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto procsets = cmd_viewset_cmd(ctx, rec_set, argc, argv);
+
+    if (procsets.empty()) {
+        // error message already printed
+        return Command::Failure;
+    }
+
+    PrintOutMsg("Name       Procs\n");
+    for (auto* procset : procsets) {
         PrintOutMsg("%-10s ", procset->s_name.c_str());
         PrintProcSet(procset);
         PrintOutMsg("\n");
-
-        return 1;
     }
 
-    if (Client.MI_mode){
-        std::stringstream ss;
-        for (auto procset : GetProcSets()) {
-            if (!ss.str().empty()){
-                ss<<",";
-            }else{
-                ss<<"[";
-            }
-            std::string proc_str = ProcSetToString(procset.get());
-            ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str.c_str()<<"\"}";
-        }
-        ss<<"]";
-        PrintOutMIResult(MIResult::DONE, "pe_sets=%s\n%s",ss.str().c_str(),GetMIEpilogue());
-    }else{
-        PrintOutMsg("Name       Procs\n");
-        for (auto procset : GetProcSets()) {
-            PrintOutMsg("%-10s ", procset->s_name.c_str());
-            PrintProcSet(procset.get());
-            PrintOutMsg("\n");
-        }
+    return Command::Success;
+}
+
+static int cmd_viewset_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto procsets = cmd_viewset_cmd(ctx, rec_set, argc, argv);
+
+    if (procsets.empty()) {
+        // error message already printed
+        return Command::Failure;
     }
-    return 1;
+
+    std::stringstream ss;
+    for (auto* procset : procsets) {
+        if (!ss.str().empty()){
+            ss<<",";
+        }else{
+            ss<<"[";
+        }
+        std::string proc_str = ProcSetToString(procset);
+        ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str.c_str()<<"\"}";
+    }
+    ss<<"]";
+    PrintOutMIResult(MIResult::DONE, "pe_sets=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+
+    return Command::Success;
 }
 
 static int cmd_defset_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: defset $setname $proc1,$proc2\n");
-        return 0;
+        return Command::Failure;
     }
 
     static const std::regex psRE{R"(\$\w+)"};
 
     if (!std::regex_match(argv[1], psRE)) {
         PrintOutError("%s is a not a valid procset name.\n", argv[1]);
-        return 0;
+        return Command::Failure;
     }
 
     auto procDef = ArgsToString(&argv[2], argc-2);
@@ -146,20 +175,26 @@ static int cmd_defset_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     try {
         auto defExpr = ParseString(procDef);
         if (!CreateProcSet(argv[1], *defExpr))
-            return 0;
+            return Command::Failure;
     } catch (EvalError& err) {
         PrintOutError("%s\n", err.what());
-        return 0;
+        return Command::Failure;
     }
 
-    return 1;
+    return Command::Success;
 }
 
-void InitCmd_procset(void) {
-    AddCommand("defset", proc_ignore, cmd_defset_cmd,
-               cmd_defset_help, "Create a set of processes.");
-    AddCommand("viewset", proc_ignore, cmd_viewset_cmd,
-               cmd_viewset_help, "Display information about process sets.");
-    AddCommand("focus", proc_ignore, cmd_focus_cmd,
-               cmd_focus_help, "Set the current process set.");
+void ConsoleCommandsFactory::insert_procset_commands(Command& root) {
+    root.addSubCmd("defset", nullptr, proc_ignore, cmd_defset_cmd,
+                   cmd_defset_help, "Create a set of processes.");
+    root.addSubCmd("viewset", nullptr, proc_ignore, cmd_viewset_console,
+                   cmd_viewset_help, "Display information about process sets.");
+    root.addSubCmd("focus", nullptr, proc_ignore, cmd_focus_console,
+                   cmd_focus_help, "Set the current process set.");
+}
+
+void MiCommandsFactory::insert_procset_commands(Command& root) {
+    root.addSubCmd({ .name = "-procset-define", .ptype = proc_ignore, .fn = cmd_defset_cmd });
+    root.addSubCmd({ .name = "-procset-view", .ptype = proc_ignore, .fn = cmd_viewset_mi });
+    root.addSubCmd({ .name = "-procset-focus", .ptype = proc_ignore, .fn = cmd_focus_mi });
 }

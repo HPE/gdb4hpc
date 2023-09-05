@@ -22,59 +22,84 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_break_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    char *s;
-    char *file;
-    char *arg;
-    dbgbp_t *bp;
+struct BreakArgs {
+    // XXX symbol_or_number should probably be split into two members. emulating old behavior for now...
+    std::string symbol_or_number;
+    std::string file;
+    std::string thread_set;
+    PendingBrkType pending_val = PendingBrkType::Auto;
+};
 
-    std::string threadSet;
+static std::optional<BreakArgs> parse_break_args(rec_set_t* rec_set, int argc, const char* const argv[]) {
+    auto result = BreakArgs{};
 
-    if (rec_set->getThreads()) threadSet = rec_set->getThreads();
+    if (rec_set->getThreads()) result.thread_set = rec_set->getThreads();
 
     if (argc < 2) {
-        /* get current loc */
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: break main.c:20\n");
-        return 1;
-    } else if (argc >= 4 &&
-               strcmp(argv[2],"thread") == 0) {
-        threadSet = ArgsToString(&argv[3], argc - 3);
+        return {};
+    } else if (argc >= 4 && strcmp(argv[2],"thread") == 0) {
+        result.thread_set = ArgsToString(&argv[3], argc - 3);
     } else if (argc > 2) {
         PrintOutError("Too many command arguments.\n");
         PrintOutError("Expected: break main.c:20\n");
         PrintOutError("or: break main.c:20 thread 2\n");
-        return 0;
+        return {};
     }
 
-    // Grab state of brk_pending, we will try setting breakpoint again on error
-    PendingBrkType pending_val = Client.brk_pending;
+    result.pending_val = Client.brk_pending;
+    auto location = std::string_view(argv[1]);
 
-    arg = strdup(argv[1]);
-
-    if ((s = strchr(arg, ':')) != nullptr) {
-        file = arg;
-        *s++ = '\0';
+    if (auto colon = location.find(':'); colon != std::string_view::npos) {
+        result.file = location.substr(0, colon);
+        result.symbol_or_number = location.substr(colon + 1);
     } else {
-        file = nullptr;
-        s = arg;
+        result.symbol_or_number = location;
     }
 
-force_pending_break:
+    return result;
+}
 
-    auto rep_set = rep_set_t();
-    if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On), file, atoi(s), threadSet.c_str());
+static rep_set_t send_break_command(rec_set_t *rec_set, const BreakArgs& args) {
+    // XXX emulating legacy behavior here... could definitely use a touch up one day
+    if (IsInteger(args.symbol_or_number.c_str())) {
+        return DbgSetLineBreak(
+            rec_set,
+            (args.pending_val == PendingBrkType::On),
+            !args.file.empty() ? args.file.c_str() : nullptr,
+            atoi(args.symbol_or_number.c_str()),
+            args.thread_set.c_str());
     } else {
-        rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On), file, s,
-                                  threadSet.c_str());
+        return DbgSetFuncBreak(
+            rec_set,
+            (args.pending_val == PendingBrkType::On),
+            !args.file.empty() ? args.file.c_str() : nullptr,
+            args.symbol_or_number.c_str(),
+            args.thread_set.c_str());
     }
+}
 
-    // Process replies
+// returns true on success
+static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args);
+
+static int cmd_break_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto maybe_args = parse_break_args(rec_set, argc, argv);
+    if (!maybe_args) {
+        // error message already printed
+        return Command::Failure;
+    }
+    auto& args = *maybe_args;
+
+    return do_set_break_console(rec_set, args) ? Command::Success : Command::Failure;
+}
+
+static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args) {
+    auto rep_set = send_break_command(rec_set, args);
 
     for (auto&& reply : rep_set) {
         // point at the breakpoint data
-        bp = EVENT_BP(reply->rep_event);
+        auto* bp = EVENT_BP(reply->rep_event);
         auto* di = reply->rep_di.lock();
         auto bpset = di->breakpoints().findByDbgBreakpoint(*bp);
         if (!bpset)  // this is not supposed to happen
@@ -96,26 +121,81 @@ force_pending_break:
             PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
                                 "Breakpoint %d: Pending at %s%s.\n",
                                 bpset->id(), bpset->statement().c_str(), bpThread.c_str());
+        } else if (bpset->line() >= 0) {
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                "Breakpoint %d: file %s, line %d%s.\n",
+                                bpset->id(), bpset->file().c_str(),
+                                bpset->line(), bpThread.c_str());
+        } else {
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                "Breakpoint %d in %s%s\n", bpset->id(),
+                                bpset->function().c_str(), bpThread.c_str());
+        }
+    }
+
+    // If we had errors, query the user to set a pending breakpoint if in auto mode
+    if (ProcessErrorInRepSet(rep_set) && args.pending_val == PendingBrkType::Auto) {
+        // XXX: in gdb, this query defaults to no. but in gdb mi mode, when using the
+        // console interpreter fallback, it defaults to yes.
+        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
+            // Force pending_val to on and try again
+            args.pending_val = PendingBrkType::On;
+            return do_set_break_console(rec_set, args);
+        }
+    }
+
+    return true;
+}
+
+static int cmd_break_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto maybe_args = parse_break_args(rec_set, argc, argv);
+    if (!maybe_args) {
+        // error message already printed
+        return Command::Failure;
+    }
+    auto& args = *maybe_args;
+
+    auto rep_set = send_break_command(rec_set, args);
+
+    for (auto&& reply : rep_set) {
+        // point at the breakpoint data
+        auto* bp = EVENT_BP(reply->rep_event);
+        auto* di = reply->rep_di.lock();
+        auto bpset = di->breakpoints().findByDbgBreakpoint(*bp);
+        if (!bpset)  // this is not supposed to happen
+        {
+            PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                  "ERROR: cannot find breakpoint [%d: file %s, "
+                                  "line %d] in BPSetList.\n",
+                                  bp->bp_fe_id, bp->bp_loc.loc_file,
+                                  bp->bp_loc.loc_line);
+            continue;
+        }
+
+        // XXX: lots of leftover console behavior here, leaving it in for now to match old behavior
+
+        std::string bpThread;
+        if (!bpset->threadId().empty()) {
+            bpThread = " thread " + bpset->threadId();
+        }
+
+        if (bpset->isPending()) {
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                "Breakpoint %d: Pending at %s%s.\n",
+                                bpset->id(), bpset->statement().c_str(), bpThread.c_str());
         }
         else if (bpset->line() >= 0) {
-            if (Client.MI_mode){
-                std::stringstream ss;
-                std::string group = reply->rep_group.get()->toSetString();
-                auto fullpath = reply->rep_di.lock()->sourcePaths().getFullPath(bpset->file());
-                ss << "proc_set=\"" << reply->rep_di.name()
-                   << "\",group=\"" << group.substr(1,group.length()-2)
-                   << "\",bkpt={number=\"" << bpset->id()
-                   << "\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""
-                   << bpset->address() << "\",func=\"" << bpset->function()
-                   << "\",file=\"" << bpset->file() <<"\",fullname=\"" << fullpath
-                   << "\",line=\"" <<bpset->line() << "\"}";
-                PrintOutMIResult(MIResult::DONE, "%s\n(gdb)\n", ss.str().c_str());
-            }else{
-                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
-                                    "Breakpoint %d: file %s, line %d%s.\n",
-                                    bpset->id(), bpset->file().c_str(),
-                                    bpset->line(), bpThread.c_str());
-            }
+            std::stringstream ss;
+            std::string group = reply->rep_group.get()->toSetString();
+            auto fullpath = reply->rep_di.lock()->sourcePaths().getFullPath(bpset->file());
+            ss << "proc_set=\"" << reply->rep_di.name()
+               << "\",group=\"" << group.substr(1,group.length()-2)
+               << "\",bkpt={number=\"" << bpset->id()
+               << "\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""
+               << bpset->address() << "\",func=\"" << bpset->function()
+               << "\",file=\"" << bpset->file() <<"\",fullname=\"" << fullpath
+               << "\",line=\"" <<bpset->line() << "\"}";
+            PrintOutMIResult(MIResult::DONE, "%s\n(gdb)\n", ss.str().c_str());
         }
         else {
             PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
@@ -124,78 +204,34 @@ force_pending_break:
         }
     }
 
-    // If we had errors, query the user to set a pending breakpoint if in auto mode
-    if (ProcessErrorInRepSet(rep_set) && pending_val == PendingBrkType::Auto) {
-        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
-            // Force pending_val to on and try again
-            pending_val = PendingBrkType::On;
-            goto force_pending_break;
-        }
-    }
-
-    Free(arg);
-
-    return 1;
+    return ProcessErrorInRepSet(rep_set) == 0 ? Command::Success : Command::Failure;
 }
 
+// returns true on success
+static bool do_set_tbreak(rec_set_t *rec_set, BreakArgs& args);
+
 static int cmd_tbreak_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    char *s;
-    char *file;
-    char *arg;
-    dbgbp_t *bp;
-    rec_set_t *new_rec;
-    std::string threadSet;
-
-    if (argc < 2) {
-        /* get current loc */
-        PrintOutError("Not enough command arguments.\n");
-        PrintOutError("Expected: tbreak main.c:20\n");
-        return 1;
-    } else if (argc >= 4 &&
-               strcmp(argv[2],"thread") == 0) {
-        threadSet = ArgsToString(&argv[3], argc - 3);
-    } else if (argc > 2) {
-        PrintOutError("Too many command arguments.\n");
-        PrintOutError("Expected: tbreak main.c:20\n");
-        PrintOutError("or: tbreak main.c:20 thread 2\n");
-        return 0;
+    auto maybe_args = parse_break_args(rec_set, argc, argv);
+    if (!maybe_args) {
+        // error message already printed
+        return Command::Failure;
     }
+    auto& args = *maybe_args;
 
-    // Grab state of brk_pending, we will try setting breakpoint again on error
-    PendingBrkType pending_val = Client.brk_pending;
+    return do_set_tbreak(rec_set, args) ? Command::Success : Command::Failure;
+}
 
-    arg = strdup(argv[1]);
-
-    if ((s = strchr(arg, ':')) != nullptr) {
-        file = arg;
-        *s++ = '\0';
-    } else {
-        file = nullptr;
-        s = arg;
-    }
-
-force_pending_tbreak:
-
-    auto rep_set = rep_set_t();
-    // Set the breakpoint
-    if (IsInteger(s)) {
-        rep_set = DbgSetLineBreak(rec_set, (pending_val == PendingBrkType::On),
-                                  file, atoi(s), threadSet.c_str());
-    } else {
-        rep_set = DbgSetFuncBreak(rec_set, (pending_val == PendingBrkType::On),
-                                  file, s, threadSet.c_str());
-    }
-
-    // Process the replies
+static bool do_set_tbreak(rec_set_t* rec_set, BreakArgs& args) {
+    auto rep_set = send_break_command(rec_set, args);
 
     for (auto&& reply : rep_set) {
         // point at the breakpoint data
-        bp = EVENT_BP(reply->rep_event);
+        auto* bp = EVENT_BP(reply->rep_event);
         auto* di = reply->rep_di.lock();
 
         // Now set this to a temporary breakpoint using the enable command for
         // this reply group
-        new_rec = NewRecSet();
+        auto new_rec = NewRecSet();
         AddReceiverToSet(new_rec,
                          NewGroupReceiver(*di, reply->rep_group.get()));
 
@@ -245,17 +281,17 @@ force_pending_tbreak:
     }
 
     // If we had errors, query the user to set a pending breakpoint if in auto mode
-    if (ProcessErrorInRepSet(rep_set) && pending_val == PendingBrkType::Auto) {
+    if (ProcessErrorInRepSet(rep_set) && args.pending_val == PendingBrkType::Auto) {
+        // XXX: in gdb, this query defaults to no. but in gdb mi mode, when using the
+        // console interpreter fallback, it defaults to yes.
         if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
             // Force pending_val to on and try again
-            pending_val = PendingBrkType::On;
-            goto force_pending_tbreak;
+            args.pending_val = PendingBrkType::On;
+            return do_set_tbreak(rec_set, args);
         }
     }
 
-    Free(arg);
-
-    return 1;
+    return true;
 }
 
 static int cmd_watch_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -971,6 +1007,35 @@ void ConsoleCommandsFactory::insert_break_commands(Command& root) {
         cmd_info_breakpoints_cmd_console, cmd_info_breakpoints_help,
         "Show status of breakpoints.");
 
+    root.addSubCmd(
+        "break", "b", proc_required, cmd_break_cmd_console,
+        cmd_break_help, "Set breakpoint at specified line or function.");
+    root.addSubCmd(
+        "delete", "d", proc_required, cmd_delete_cmd,
+        cmd_delete_help, "Delete a breakpoint or checkpoint.");
+    root.addSubCmd(
+        "disable", nullptr, proc_required, cmd_disable_cmd,
+        cmd_disable_help, "Disable a breakpoint.");
+    root.addSubCmd(
+        "enable", nullptr, proc_required, cmd_enable_cmd,
+        cmd_enable_help, "Enable a breakpoint.");
+    root.addSubCmd(
+        "ignore", nullptr, proc_required, cmd_ignore_cmd,
+        cmd_ignore_help, "Ignore a breakpoint a number of times.");
+    root.addSubCmd(
+        "condition", nullptr, proc_required, cmd_condition_cmd,
+        cmd_condition_help, "Stop only if a condition is met.");
+
+    root.addSubCmd(
+        "tbreak", nullptr, proc_required, cmd_tbreak_cmd, cmd_tbreak_help,
+        "Set a temporary breakpoint at specified line or function.");
+    root.addSubCmd(
+        "watch", nullptr, proc_required, cmd_watch_cmd,
+        cmd_watch_help, "Set watchpoint on specified expression.");
+    root.addSubCmd(
+        "catch", nullptr, proc_required, cmd_catch_cmd, 
+        cmd_catch_help, "Set catchpoint on specified event.");
+
     insert_setshow_commands(root, "set", "show");
 }
 
@@ -978,28 +1043,22 @@ void MiCommandsFactory::insert_break_commands(Command& root) {
     root.addSubCmd({
         .name = "-break-list", .ptype = proc_optional, .fn = cmd_info_breakpoints_cmd_mi});
 
+    // note that the only breakpoint function that had an "if (Client.mi_mode)" was
+    // cmd_break_cmd, so I'm mapping the rest to their console versions for now.
+    // this will probably change later as we add more mi-specific behavior.
+
+    root.addSubCmd({
+        .name = "-break-insert", .ptype = proc_required, .fn = cmd_break_cmd_mi });
+    root.addSubCmd({
+        .name = "-break-delete", .ptype = proc_required, .fn = cmd_delete_cmd });
+    root.addSubCmd({
+        .name = "-break-disable", .ptype = proc_required, .fn = cmd_disable_cmd });
+    root.addSubCmd({
+        .name = "-break-enable", .ptype = proc_required, .fn = cmd_enable_cmd });
+    root.addSubCmd({
+        .name = "-break-after", .ptype = proc_required, .fn = cmd_ignore_cmd });
+    root.addSubCmd({
+        .name = "-break-condition", .ptype = proc_required, .fn = cmd_condition_cmd });
+
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
-}
-
-void InitCmd_break(void) {
-    AddCommand("break", "b", proc_required, cmd_break_cmd,
-               cmd_break_help, "Set breakpoint at specified line or function.");
-    AddCommand("delete", "d", proc_required, cmd_delete_cmd,
-               cmd_delete_help, "Delete a breakpoint or checkpoint.");
-    AddCommand("disable", proc_required, cmd_disable_cmd,
-               cmd_disable_help, "Disable a breakpoint.");
-    AddCommand("enable", proc_required, cmd_enable_cmd,
-               cmd_enable_help, "Enable a breakpoint.");
-    AddCommand("ignore", proc_required, cmd_ignore_cmd,
-               cmd_ignore_help, "Ignore a breakpoint a number of times.");
-    AddCommand("condition", proc_required, cmd_condition_cmd,
-               cmd_condition_help, "Stop only if a condition is met.");
-
-    AddCommand("tbreak", proc_required, cmd_tbreak_cmd, cmd_tbreak_help,
-               "Set a temporary breakpoint at specified line or function.");
-    AddCommand("watch", proc_required, cmd_watch_cmd,
-               cmd_watch_help, "Set watchpoint on specified expression.");
-    AddCommand("catch", proc_required, cmd_catch_cmd, 
-                cmd_catch_help, "Set catchpoint on specified event.");
-
 }

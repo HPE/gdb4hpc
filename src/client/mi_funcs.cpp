@@ -33,19 +33,9 @@ static std::map<std::string, fp> func_cmd_map =
 //map for commands that have a default cli command
 static std::map<std::string, std::string> return_cmd_map=
 {
- {"-break-after", "ignore"},
- {"-break-condition", "condition"},
- {"-break-delete", "delete"},
- {"-break-disable", "disable" },
- {"-break-enable", "enable" },
- {"-break-insert", "break" },
- {"-compare", "compare"},
  {"-data-list-register-names", "ok,register-names=[]"},
  {"-enable-frame-filters", "ok"},
- {"-exec-continue", "continue"},
- {"-exec-return", "finish"},
  {"-exec-run", "run"},
- {"-gdb-exit", "quit"},
  {"-list-features", "ok,features=[]"},
  {"-list-target-features", "ok,features=[async]"}, 
 };

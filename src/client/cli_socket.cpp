@@ -271,7 +271,7 @@ static int cli_socket_handle_input(cli_stream_t **stream) {
         Free(cs->cs_buf);
         cs->cs_buf = NULL;
         DPRINT("cli_socket_handle_input: line is \"%s\"\n", cmd_buf);
-        ExecuteCommand(cmd_buf);
+        DbgInterpret(cmd_buf);
         // Free the cmd_buf
         Free(cmd_buf);
         if (cs->cs_nprom > 0) {

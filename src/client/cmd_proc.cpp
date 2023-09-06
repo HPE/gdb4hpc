@@ -35,6 +35,8 @@
 #include "common_tools_fe.h"
 #include "useful.h"
 #include "gram.h"
+#include "interpreter_mi.h"
+
 extern dbgprocset_t *CreateProcSetForInvoke(const std::string& name);
 
 static dbgprocset_t* DoLaunch(LaunchOpts&& opts);
@@ -1517,6 +1519,33 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
     return 1;
 }
 
+static int file_exec_and_sym_mi(Command::RunContext& ctx, rec_set_t* r, int argc, const char* const argv[]) {
+    auto* mi = dynamic_cast<MiInterpreter*>(ctx.caller);
+    if (!mi) {
+        PrintOutError("Interpreter error\n"); // unreachable
+        return Command::Failure;
+    }
+
+    //check a procset was received
+    if (mi->m_procset.empty()){
+        // create a default if one wasn't specified
+        mi->m_procset = "$App";
+    }
+
+    auto app=mi->m_procset;
+    //add rank information if available
+    if (!mi->m_num_ranks.empty()){
+        app.append("{");
+        app.append(mi->m_num_ranks);
+        app.append("}");
+    }
+
+    auto launch_str = "launch " + app + mi->m_launcher_args + ArgsToString(&argv[1], argc - 1);
+    auto launch_args = ArgvStream();
+    launch_args.parseAndAppendArgs(launch_str);
+    return cmd_launch_cmd(ctx, r, launch_args.argc(), launch_args.c_strs().data());
+}
+
 static void insert_setshow_commands(Command& root, std::string set, std::string show) {
     root.addSubCmd(set + " args", nullptr, proc_required, set_subcmd_args_cmd,
                set_subcmd_args_help, "Set program arguments to be used when re-launching with the run command.");
@@ -1530,28 +1559,32 @@ void ConsoleCommandsFactory::insert_proc_commands(Command& root) {
         cmd_info_application_cmd,
         cmd_info_application_help,
         "Show attached/launched applications under debugger control.");
+    root.addSubCmd(
+        "launch", nullptr, proc_ignore, cmd_launch_cmd,
+        cmd_launch_help, "Launch an application.");
+    root.addSubCmd(
+        "attach", nullptr, proc_ignore, cmd_attach_cmd,
+        cmd_attach_help, "Attach to an application.");
+    root.addSubCmd(
+        "halt", nullptr, proc_required, cmd_halt_cmd,
+        cmd_halt_help, "Halt execution of attached/launched application.");
+    root.addSubCmd(
+        "release", nullptr, proc_ignore, cmd_release_cmd,
+        cmd_release_help, "Release attached/launched application from debugger control.");
+    root.addSubCmd(
+        "kill", nullptr, proc_ignore, cmd_kill_cmd,
+        cmd_kill_help, "Kill attached/launched application.");
+    root.addSubCmd(
+        "run", "r", proc_optional, cmd_run_cmd,
+        cmd_run_help, "Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.");
 
     insert_setshow_commands(root, "set", "show");
 }
 
 void MiCommandsFactory::insert_proc_commands(Command& root) {
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
-}
 
-void InitCmd_proc(void) {
-    // regular commands
-    AddCommand("launch", NULL, proc_ignore, cmd_launch_cmd,
-               cmd_launch_help, "Launch an application.");
-    AddCommand("attach", NULL, proc_ignore, cmd_attach_cmd,
-               cmd_attach_help, "Attach to an application.");
-    AddCommand("halt", NULL, proc_required, cmd_halt_cmd,
-               cmd_halt_help,
-               "Halt execution of attached/launched application.");
-    AddCommand("release", NULL, proc_ignore, cmd_release_cmd,
-               cmd_release_help,
-               "Release attached/launched application from debugger control.");
-    AddCommand("kill", NULL, proc_ignore, cmd_kill_cmd,
-               cmd_kill_help, "Kill attached/launched application.");
-    AddCommand("run", "r", proc_optional, cmd_run_cmd,
-               cmd_run_help, "Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.");
+    root.addSubCmd({ .name = "-exec-run", .ptype = proc_optional, .fn = cmd_run_cmd });
+    root.addSubCmd({
+        .name = "-file-exec-and-symbols", .ptype = proc_ignore, .fn = file_exec_and_sym_mi});
 }

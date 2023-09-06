@@ -10,7 +10,7 @@ Launch complete.
 ^done
 *stopped,reason="breakpoint-hit",bkptno="0",proc_set="two",group="0..4",frame={func="main",args=[],file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="20"}
 two{0..4}: Initial breakpoint, main at /src/C++/cpp_bt.cpp:20
-0: break merge
+0: -break-insert merge
 ^done,proc_set="two",group="0..4",bkpt={number="1",type="breakpoint",disp="keep",enabled="y",addr="0x0000000000202107",func="merge(int)",file="/src/C++/cpp_bt.cpp",fullname="/src/C++/cpp_bt.cpp",line="58"}
 (gdb)
 0: continue

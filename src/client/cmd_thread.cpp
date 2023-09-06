@@ -455,6 +455,18 @@ void ConsoleCommandsFactory::insert_threads_commands(Command& root) {
         "info threads", nullptr, proc_required,
         cmd_info_threads_cmd_console, cmd_info_threads_help,
         "List currently known threads.");
+    root.addSubCmd(
+        "thread", "t", proc_required, cmd_thread_cmd,
+        cmd_thread_help, "Thread control functions.");
+    root.addSubCmd(
+        "taas", "", proc_required, cmd_taas_cmd,
+        cmd_thread_help, nullptr);
+    root.addSubCmd(
+        "ompd", "", proc_required, cmd_ompd_cmd,
+        cmd_ompd_help, "OpenMP debugging functions.");
+    root.addSubCmd(
+        "cuda", "", proc_required, cmd_cuda_cmd,
+        cmd_cuda_help, "Cuda debugging functions.");
 
     insert_setshow_commands(root, "set", "show");
 }
@@ -468,15 +480,4 @@ void MiCommandsFactory::insert_threads_commands(Command& root) {
         .fn = cmd_thread_cmd});
 
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
-}
-
-void InitCmd_thread(void) {
-    AddCommand("thread", "t", proc_required, cmd_thread_cmd,
-               cmd_thread_help, "Thread control functions.");
-    AddCommand("taas", "", proc_required, cmd_taas_cmd,
-               cmd_thread_help, nullptr);
-    AddCommand("ompd", "", proc_required, cmd_ompd_cmd,
-               cmd_ompd_help, "OpenMP debugging functions.");
-    AddCommand("cuda", "", proc_required, cmd_cuda_cmd,
-               cmd_cuda_help, "Cuda debugging functions.");
 }

@@ -883,6 +883,30 @@ static int cmd_show_pager_cmd(Command::RunContext& ctx, rec_set_t* _, int argc, 
     return 1;
 }
 
+static int cmd_set_pagination_cmd(Command::RunContext& ctx, rec_set_t* rset, int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("usage: set pagination [on|off]\n");
+        return Command::Failure;
+    }
+
+    const auto arg = std::string_view{argv[1]};
+
+    if (arg == "on") {
+        // alias to "set pager more". sub function expects argv[0] to be "pager".
+        const char* const sub_argv[] = {"pager", "more", nullptr};
+        return cmd_set_pager_cmd(ctx, rset, 2, sub_argv);
+    } else if (arg == "off") {
+        // alias to "set pager none". sub function expects argv[0] to be "pager".
+        const char* const sub_argv[] = {"pager", "none", nullptr};
+        return cmd_set_pager_cmd(ctx, rset, 2, sub_argv);
+    } else {
+        PrintOutError("usage: set pagination [on|off]\n");
+        return Command::Failure;
+    }
+
+    return Command::Success;
+}
+
 static int cmd_set_height_cmd(Command::RunContext& ctx, rec_set_t* _, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("set height <n>\n");
@@ -1085,6 +1109,15 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
 
     root.addSubCmd(
         show + " pager", nullptr, proc_ignore, cmd_show_pager_cmd,
+        cmd_show_pager_help, "Show paging program");
+
+    root.addSubCmd(
+        set + " pagination", nullptr, proc_ignore, cmd_set_pagination_cmd,
+        cmd_set_pager_help, "Set paging program");
+
+    // alias for show pager
+    root.addSubCmd(
+        show + " pagination", nullptr, proc_ignore, cmd_show_pager_cmd,
         cmd_show_pager_help, "Show paging program");
 
     root.addSubCmd(

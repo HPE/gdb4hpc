@@ -28,7 +28,6 @@ public:
     void pop_commands();
 
 private:
-    std::variant<Command::Parts, Command::ErrStr> find_command(std::string_view line) const;
     void print_help(std::string_view line);
     Command::RunContext make_context();
 

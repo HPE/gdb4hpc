@@ -2269,6 +2269,7 @@ const char* const cmd_show_command_timeout_help[] = {
 const char *const cmd_set_pager_help[] = {
     "Summary: Set external pager program.",
     "Usage: set pager <path/to/pager> <arg1> ... <argn>",
+    "       set pagination [on|off]",
     "Example commands: set pager less -S",
     "                  set pager none",
     "",
@@ -2278,18 +2279,21 @@ const char *const cmd_set_pager_help[] = {
     "height setting (see set/show height command), the external pager will be",
     "started and used to display the result.",
     "",
-    "Use \"set pager none\" to disable paging.",
+    "Use \"set pager none\" or \"set pagination off\" to disable paging.",
     "",
     "The pager is assumed to have an api like /usr/bin/less and /usr/bin/more,",
     "but non-interactive programs like /usr/bin/cat are also valid. A paged",
     "message is written into the pager's stdin, and gdb4hpc waits for the user",
     "to terminate the pager. As long as the pager eventually exits, it is",
     "compatible with gdb4hpc.",
+    "",
+    "\"set pagination on\" is the same as \"set pager more\".",
     0};
 
 const char *const cmd_show_pager_help[] = {
     "Summary: Show current external pager program.",
     "Usage: show pager",
+    "       show pagination",
     "",
     "Description:",
     "Show the current external pager for gdb4hpc to use for certain large",

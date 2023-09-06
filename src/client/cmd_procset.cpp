@@ -195,6 +195,6 @@ void ConsoleCommandsFactory::insert_procset_commands(Command& root) {
 
 void MiCommandsFactory::insert_procset_commands(Command& root) {
     root.addSubCmd({ .name = "-procset-define", .ptype = proc_ignore, .fn = cmd_defset_cmd });
-    root.addSubCmd({ .name = "-procset-view", .ptype = proc_ignore, .fn = cmd_viewset_mi });
+    root.addSubCmd({ .name = "-procset-list", .ptype = proc_ignore, .fn = cmd_viewset_mi });
     root.addSubCmd({ .name = "-procset-focus", .ptype = proc_ignore, .fn = cmd_focus_mi });
 }

@@ -22,6 +22,13 @@ public:
     bool can_interpret(std::string_view line) const override;
     void interpret(std::string_view line) override;
 
+    // XXX: the public member variables here used to be global. the usage pattern should
+    // be improved, but just preserving old behavior for now.
+
+    std::string m_launcher_args;
+    std::string m_num_ranks;
+    std::string m_procset;
+
 private:
     Command::RunContext make_context();
     void print_help();

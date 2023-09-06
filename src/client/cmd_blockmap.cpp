@@ -510,7 +510,3 @@ void MiCommandsFactory::insert_blockmap_commands(Command& root) {
         .name = "-decomposition-list", .ptype = proc_ignore,
         .fn = cmd_info_decomposition_cmd_mi});
 }
-
-void FinishCmd_blockmap(void) {
-    FinishBlockMap();
-}

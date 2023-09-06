@@ -39,7 +39,7 @@ std::string ConsoleInterpreter::complete_text(std::string_view line) const {
 }
 
 bool ConsoleInterpreter::can_interpret(std::string_view line) const {
-    auto find_result = find_command(line);
+    auto find_result = m_commands_stack.back()->findCmd(line);
     return std::get_if<Command::Parts>(&find_result) != nullptr;
 }
 
@@ -50,7 +50,7 @@ void ConsoleInterpreter::interpret(std::string_view line) {
         return;
     }
 
-    auto find_result = find_command(line);
+    auto find_result = m_commands_stack.back()->findCmd(line);
 
     if (auto* parts = std::get_if<Command::Parts>(&find_result)) {
         auto& [cmd, args] = *parts;
@@ -104,67 +104,6 @@ void ConsoleInterpreter::pop_commands() {
     }
 }
 
-std::variant<Command::Parts, Command::ErrStr> ConsoleInterpreter::find_command(std::string_view line) const {
-    auto console_result = m_commands_stack.back()->findCmd(line);
-    auto legacy_result = shim::GetCommands()->findCmd(line);
-    auto* console_parts = std::get_if<Command::Parts>(&console_result);
-    auto* legacy_parts = std::get_if<Command::Parts>(&legacy_result);
-
-    // if we are in a subtree, don't include global commands
-    if (m_commands_stack.size() > 1) legacy_parts = nullptr;
-
-    if (console_parts && console_parts->command && legacy_parts && legacy_parts->command) {
-        // the command matched something in both trees, so we have to make an
-        // educated guess to which one the user meant.
-        //
-        // a command is most commonly found in both trees when the user is using
-        // a single letter alias. for example, "n" will match "next" in the
-        // console tree, but also "new-ui" in the legacy tree. "b" will match
-        // "break" in the legacy tree and "backtrace" in the console tree. notice that in
-        // these two examples, the correct choice is the console tree in one, and the
-        // legacy tree in the other, so we can't just blindly favor one tree.
-        //
-        // we try to detect if a single letter alias was used and prefer that match. if
-        // not, prefer the console tree.
-        //
-        // this logic can be removed when all commands are converted to the new tree.
-        log("found in both trees (console: %s) (legacy: %s)",
-            console_parts->command->getShortName().c_str(), legacy_parts->command->getShortName().c_str());
-
-        auto first_word = line;
-        // calling function already trimmed off leading spaces for us.
-        // we include / as a space for print commands with formats e.g. "p/x foo"
-        if (auto first_space = line.find_first_of(" \t\r\n/"); first_space != std::string_view::npos) {
-            first_word = line.substr(0, first_space);
-        }
-
-        log("first word is %.*s", (int)first_word.size(), first_word.data());
-
-        if (console_parts->command->getAlias() && std::string_view{console_parts->command->getAlias()} == first_word) {
-            log("matched console alias: %s (%s)", console_parts->command->getAlias(), console_parts->command->getShortName().c_str());
-            return *console_parts;
-        } else if (legacy_parts->command->getAlias() && std::string_view{legacy_parts->command->getAlias()} == first_word) {
-            log("matched legacy alias: %s (%s)", legacy_parts->command->getAlias(), legacy_parts->command->getShortName().c_str());
-            return *legacy_parts;
-        } else {
-            log("no alias, best guess is the console tree (%s)", console_parts->command->getShortName().data());
-            return *console_parts;
-        }
-    } else if (console_parts && console_parts->command) {
-        log("found in console tree (%s)", console_parts->command->getShortName().c_str());
-        return *console_parts;
-    } else if (legacy_parts && legacy_parts->command) {
-        log("found in legacy tree (%s)", legacy_parts->command->getShortName().c_str());
-        return *legacy_parts;
-    }
-
-    // TODO make this more specific about how many commands and sub commands were matched.
-    // i.e. improve the error reporting of "Unknown command: set foo" to "Unknown command: foo"
-    auto error = std::string{"Unknown command: "};
-    error.append(line);
-    return Command::ErrStr(std::move(error));
-}
-
 Command::RunContext ConsoleInterpreter::make_context() {
     return {
         .caller = this
@@ -177,42 +116,11 @@ void ConsoleInterpreter::print_help(std::string_view line) {
 
     // show all available help
     if (argv.argc() < 2) {
-        struct Blurb { std::string name; const char* desc; };
-        auto all_help_blurbs = std::vector<Blurb>{};
-
-        // if we are in a subtree, don't fetch the global help text
-        if (m_commands_stack.size() == 1) {
-            // collect help text from legacy commands
-            std::transform(shim::GetCommands()->getSubCmds().begin(),
-                           shim::GetCommands()->getSubCmds().end(),
-                           std::back_inserter(all_help_blurbs),
-                           [](auto cmd_ptr){
-                               return Blurb{.name = cmd_ptr->getShortName(),
-                                            .desc = cmd_ptr->getDesc()};
-                           });
-        }
-
-        // collect help text from console commands
-        std::transform(m_commands_stack.back()->getSubCmds().begin(),
-                       m_commands_stack.back()->getSubCmds().end(),
-                       std::back_inserter(all_help_blurbs),
-                       [](auto cmd_ptr){
-                           return Blurb{.name = cmd_ptr->getShortName(),
-                                        .desc = cmd_ptr->getDesc()};
-                       });
-
-        // XXX: commands are already sorted in their trees, but since we're
-        // combining two trees naively, we need to sort again. this can be
-        // removed once we no longer have to gather commands from multiple
-        // trees.
-        std::sort(all_help_blurbs.begin(), all_help_blurbs.end(),
-                  [](auto l, auto r){ return l.name < r.name; });
-
-        for (auto [name, desc] : all_help_blurbs) {
+        for (auto cmd : m_commands_stack.back()->getSubCmds()) {
             // we mark undocumented commands as undocumented by setting their description
             // to nullptr, e.g. the select-frame command.
-            if (desc) {
-                PrintOutMsg("%-15s %s\n", name.c_str(), desc);
+            if (cmd && cmd->getDesc()) {
+                PrintOutMsg("%-15s %s\n", cmd->getShortName().c_str(), cmd->getDesc());
             }
         }
         return;
@@ -220,7 +128,7 @@ void ConsoleInterpreter::print_help(std::string_view line) {
 
     // show specific help
     auto cmdStr = argv.asString(1);
-    auto find_result = find_command(cmdStr);
+    auto find_result = m_commands_stack.back()->findCmd(cmdStr);
 
     if (std::holds_alternative<Command::Parts>(find_result)) {
         auto [cmd, argv] = std::get<Command::Parts>(find_result);

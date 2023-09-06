@@ -166,6 +166,12 @@ private:
     // e.g. the base "set" node which all other set commands are under.
     static void insert_class_commands(Command& root);
 
+    // dummy commands that don't actually do anything except return a fake "ok" result
+    static void insert_dummy_commands(Command& root);
+
+    // in mi_funcs.cpp
+    static void insert_mi_commands(Command& root);
+
     // these are defined in their respective cmd_*.cpp files
     static void insert_interpreter_commands(Command& root);
     static void insert_frame_commands(Command& root);
@@ -184,53 +190,14 @@ private:
     static void insert_procset_commands(Command& root);
 };
 
-
-/*
-** Global Init command functions defined elsewhere
-*/
-extern void InitCmd_func();
-extern void InitCmd_proc();
-extern void InitCmd_thread();
-
-void FinishCmd_blockmap();
-
-/*
- * External command init funcs
- */
-extern void InitCommands();
-extern void DestroyCommands();
-
 /*
 ** Function prototypes
 */
 
-extern void AddCommand(const char * cmd, const char * alias,
-                           cmdptype, Command::Func,
-                           const char *const[], const char *);
-
-extern void AddCommand(const char * cmd, cmdptype, Command::Func,
-                           const char *const[], const char *);
-
-extern Command* SetCommands(Command *);
-
 extern void QueueCommand(const std::string &command);
 extern size_t ExecuteQueuedCommands();
-extern void ExecuteCommand(const char *);
 
 // external access to the help command
 extern void PrintHelpEntry(const char *const *);
-
-namespace shim {
-// these functions are temporary and will be removed when the new interpreters
-// implementation is done. they are needed to allow the interpreters
-// implementation access to internal cmd.cpp values to better switch between the
-// new and old implementations.
-//
-// TODO remove the need for all shim:: functions
-
-// get current legacy command tree
-Command* GetCommands();
-
-} // namespace shim
 
 #endif /* ! _CMD_H */

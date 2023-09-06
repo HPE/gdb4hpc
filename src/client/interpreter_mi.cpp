@@ -82,6 +82,7 @@ void MiInterpreter::interpret(std::string_view line) {
         // tree doesn't actually point to a command function.
         if (cmd->getShortName() == "-help") {
             print_help();
+            PrintOutOk();
             return;
         }
 
@@ -104,20 +105,9 @@ void MiInterpreter::interpret(std::string_view line) {
         // TODO print ^done/^running/^error/etc
         // TODO print (gdb)
     } else {
-        // fall back to execute command. even if we aren't deaing with a console
-        // command, we still might have a valid command here. some unconverted
-        // mi commands, e.g. "-break-after", won't show up in any command tree
-        // until they've been transformed by ExecuteCommand.
-        //
-        // note that we pass the original line with the tag since ExecuteCommand does its
-        // own tag extraction logic. once the need to fall back to ExecuteCommand is
-        // removed, we can clean up this funny untagged_line business.
-        //
-        // XXX: there is no guarantee that .data() is valid here. the
-        // string_view might not be null terminated. in practice, that is never
-        // a problem though.
-        log("falling back to ExecuteCommand");
-        ExecuteCommand(line.data());
+        log("unknown to both mi and console interpreter");
+        static_assert(std::variant_size_v<decltype(find_result)> == 2, "Assuming there are only two alternatives");
+        PrintOutError("%s\n", std::get<Command::ErrStr>(find_result).c_str());
     }
 }
 

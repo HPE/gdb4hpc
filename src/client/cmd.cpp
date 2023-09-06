@@ -34,27 +34,7 @@
 /*
 ** Internal global variables
 */
-static std::shared_ptr<Command> Cmds;
-static Command* CurrentCmds = nullptr;  /* Current command list */
 static std::deque<std::string> pendingCommandQueue{}; /* Commands queued, waiting to be executed */
-
-void AddCommand(const char *name, const char *alias, cmdptype pt,
-                Command::Func cmd, const char *const help[], const char *desc) {
-    if (!Cmds) {
-        // create the top level entry
-        Cmds = std::make_shared<Command>("", nullptr, proc_optional,
-                                         nullptr, nullptr, nullptr);
-        CurrentCmds = Cmds.get();
-    }
-
-    Cmds->addSubCmd(name, alias, pt, cmd, help, desc);
-}
-
-void AddCommand(const char *name, cmdptype pt,
-                Command::Func cmd, const char *const help[], const char *desc) {
-    return AddCommand(name, nullptr, pt, cmd, help, desc);
-}
-
 
 Command::Command(const std::string& name, const char* alias,
                  cmdptype ptype, Command::Func cmd,
@@ -167,21 +147,6 @@ int Command::execute(Command::RunContext& ctx, dbgprocset_t *s, int argc, const 
 
 void Command::failed() {}
 
-Command *SetCommands(Command *cmds) {
-    auto old = CurrentCmds;
-    CurrentCmds = cmds;
-    return old;
-}
-
-// TODO remove the need for all shim:: functions
-namespace shim {
-
-Command *GetCommands() {
-    return CurrentCmds;
-}
-
-} // namespace shim
-
 void PrintHelpEntry(const char *const * helpStrArray) {
     if (helpStrArray == NULL) return;
 
@@ -198,22 +163,6 @@ void PrintHelpEntry(const char *const * helpStrArray) {
     PrintOutMsg("\n");
 
     return;
-}
-
-/*
- * command initialization
- */
-void InitCommands() {
-    InitCmd_proc();
-    InitCmd_thread();
-
-    SetCommands(Cmds.get());
-};
-
-void DestroyCommands(void) {
-    // destroy the internal help class list
-    FinishCmd_blockmap();
-    Cmds.reset();
 }
 
 // queue a command to later be executed by ExecuteQueuedCommands
@@ -243,100 +192,6 @@ size_t ExecuteQueuedCommands() {
 
     return r;
 }
-
-/*
-** Execute command - used to parse a char buf into a command and execute it
-*/
-
-void ExecuteCommand(const char *line) {
-
-    while (*line && std::isspace(*line)) ++line;
-    if (!*line || *line == '#') return;
-
-    dbgprocset_t *s = CurrentProcSet();
-    auto exiter = OnScopeExit([](){DPRINT("Exit ExecuteCommand\n");});
-
-    DPRINT("In ExecuteCommand\n");
-
-    if (!line) return;
-
-    auto cmd = strdup(line);
-
-    if (Client.MI_mode) {
-        //Convert mi to cli command
-        try {
-            auto cliCmd = convertMiToCli(cmd);
-            free(cmd);
-
-            if (cliCmd == "ok") {
-                PrintOutOk();
-                return;
-            } else if (cliCmd.rfind("ok,", 0) == 0) {
-                PrintOutMIResult(MIResult::DONE, "%s\n%s", cliCmd.substr(3).c_str(),GetMIEpilogue());
-                return;
-            } else if (cliCmd.rfind("error,", 0) == 0) {
-                PrintOutError("%s", cliCmd.substr(6).c_str());
-                return;
-            }
-            cmd = strdup(cliCmd.c_str());
-        } catch (std::string msg) {
-            PrintOutError("%s\n", msg.c_str());
-            free(cmd);
-            return;
-        }
-
-        std::string cmd_str = cmd;
-    }
-
-    DPRINT("ExecuteCommand: cmd is \"%s\"\n", cmd);
-
-    auto find_result = CurrentCmds->findCmd(cmd);
-
-    if (auto* err = std::get_if<Command::ErrStr>(&find_result)) {
-        // command not found
-        PrintOutError("%s\n", err->c_str());
-        Free(cmd);
-        // set an error for the cli stream
-        cli_set_error();
-        return;
-    }
-
-    static_assert(std::variant_size_v<decltype(find_result)> == 2, "Assuming there are only two alternatives");
-
-    auto [c,args] = std::get<Command::Parts>(find_result);
-    if (!c) {
-        // command not found
-        Free(cmd);
-        // set an error for the cli stream
-        cli_set_error();
-        return;
-    }
-
-    auto argv = ArgvStream{};
-    argv.parseAndAppendArgs(c->getShortName() + " " + args);
-
-    auto null_context = Command::RunContext{};
-
-    // do the command
-    if (!c->execute(null_context, s, argv.argc(), argv.c_strs().data())) {
-        Free(cmd);
-        // set an error for the cli stream
-        cli_set_error();
-        return;
-    }
-
-    // If Quit is true after executing the command, remove the input handler.
-    if (Client.quit) {
-        DbgHandleInput(-1, nullptr, NULL);
-    }
-
-    Free(cmd);
-
-    DPRINT("ExecuteCommand: Command ok!\n");
-
-    return;
-}
-
 
 // Locate a command from user input.
 // If a matching command is found, return the command object and the
@@ -491,6 +346,8 @@ std::shared_ptr<Command> MiCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
 
     insert_class_commands(*root);
+    insert_dummy_commands(*root);
+    insert_mi_commands(*root);
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
     insert_step_commands(*root);
@@ -524,4 +381,32 @@ void MiCommandsFactory::insert_class_commands(Command& root) {
         .desc = "Display help information about commands."});
 
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
+}
+
+void MiCommandsFactory::insert_dummy_commands(Command& root) {
+    const auto read_from_dummy_map = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+        static const std::map<std::string, std::string> dummy_map = {
+             {"-data-list-register-names", "register-names=[]"},
+             {"-enable-frame-filters", ""},
+             {"-list-features", "features=[]"},
+             {"-list-target-features", "features=[async]"},
+        };
+
+        // assume it will never miss because we only enter this function if we have a
+        // known command
+        auto [key, value] = *dummy_map.find(argv[0]);
+
+        if (value.empty()) {
+            PrintOutOk();
+        } else {
+            PrintOutMIResult(MIResult::DONE, "%s\n%s", value.c_str(), GetMIEpilogue());
+        }
+
+        return Command::Success;
+    };
+
+    root.addSubCmd({ .name = "-data-list-register-names", .ptype = proc_ignore, .fn = read_from_dummy_map });
+    root.addSubCmd({ .name = "-enable-frame-filters", .ptype = proc_ignore, .fn = read_from_dummy_map });
+    root.addSubCmd({ .name = "-list-features", .ptype = proc_ignore, .fn = read_from_dummy_map });
+    root.addSubCmd({ .name = "-list-target-features", .ptype = proc_ignore, .fn = read_from_dummy_map });
 }

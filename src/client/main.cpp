@@ -43,6 +43,7 @@
 
 #include "client.h"
 #include "script_client.h"
+#include "blockmap_client.h"
 #include "useful.h"
 
 /*
@@ -562,7 +563,6 @@ int main(int argc, char *argv[]) {
     }
 
     InitProcSet();
-    InitCommands();
 
     auto interpreter = interpreter_type::CLI;
     if (Client.MI_mode) interpreter = interpreter_type::MI;
@@ -642,7 +642,7 @@ int main(int argc, char *argv[]) {
     EndAll();
     DbgFinalize();
     FinishProcSet();
-    DestroyCommands();
+    FinishBlockMap();
     DestroyCLI();
 
     // Reset signal dispositions that used SigHandler

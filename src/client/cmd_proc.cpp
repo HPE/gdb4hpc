@@ -1163,6 +1163,7 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
             if (!doPrintLocation) {
                 // no-op
             } else if (listResult && listResult->ev_event == DBGEV_LIST &&
+                       listResult->ev_list &&
                        listResult->ev_list->list_lno == frameLoc.loc_line) {
                 // Print a frame if the last step event changed functions
                 if (frame_changed) {

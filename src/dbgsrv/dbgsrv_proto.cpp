@@ -50,7 +50,8 @@ static void linkProtos() {
     #endif
 
     // avoid "unused function" warning
-    linkProtos();
+    if (false)
+        linkProtos();
 }
 
 std::unordered_map<std::string, DebugServerProtocol *> DebugServerProtocol::registry;

@@ -1,12 +1,15 @@
 [submodule "external/cdst_build_library"]
 	path = external/cdst_build_library
 	url = git@github.hpe.com:hpcde/cdst-cdst-build-library.git
+	branch = master
 [submodule "external/libmi"]
 	path = external/libmi
 	url = git@github.hpe.com:hpcde/cdst-libmi.git
+	branch = master
 [submodule "external/ddt_gdb-10.0"]
 	path = external/ddt_gdb-10.0
 	url = git@github.hpe.com:hpcde/cdst-ddt-gdb-10.0.git
+	branch = hpe
 [submodule "tests/function/cdst-test"]
 	path = tests/function/cdst-test
 	branch = master
@@ -14,24 +17,29 @@
 [submodule "external/python_extras"]
 	path = external/python_extras
 	url = git@github.hpe.com:hpcde/cdst-python-extras.git
+	branch = master
 [submodule "external/zmqnet"]
 	path = external/zmqnet
-	branch = cdst-external
-    url = git@github.hpe.com:hpcde/cdst-zmqnet.git
+	branch = master
+	url = git@github.hpe.com:hpcde/cdst-zmqnet.git
 [submodule "external/changelog"]
 	path = external/changelog
 	url = git@github.hpe.com:hpcde/devops-changlog.git
+	branch = master
 [submodule "external/doctest"]
 	path = external/doctest
 	url = git@github.hpe.com:hpcde/cdst-doctest.git
+	branch = hpe
 [submodule "external/openmp"]
 	path = external/openmp
 	url = git@github.hpe.com:hpcde/cdst-openmp.git
-	branch = ompd-plugin-fixes
+	branch = hpe
 [submodule "external/pebuildenv"]
 	path = external/pebuildenv
 	url = git@github.hpe.com:hpcde/mpt-pebuildenv.git
+	branch = master
 [submodule "rpmbuild/SOURCES/set_default"]
 	path = rpmbuild/SOURCES/set_default
 	url = git@github.hpe.com:hpcde/cdeux-set-default.git
+	branch = master
 

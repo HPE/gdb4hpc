@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #include <unordered_map>
 #include <optional>
 #include <filesystem>
@@ -886,7 +887,37 @@ static int cmd_kill_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
 
     // We always want to kill, not detach, the application when the user
     // issues the kill command.
-    ReleaseProc(ps, DbgQuitType::Kill);
+    if ((argc == 2)
+     || (::strncmp(argv[2], "SIGKILL", 6) == 0)
+     || (::strncmp(argv[2], "KILL", 4) == 0)) {
+        ReleaseProc(ps, DbgQuitType::Kill);
+
+    // Send signal to application
+    } else {
+
+        // Get recset from procset
+        auto ps_rec_set = CreateRecSetForProcset(ps);
+
+        // Send request
+        auto rep_set = DbgSignal(ps_rec_set, argv[2]);
+        ProcessErrorInRepSet(rep_set);
+
+        // Print response
+        for (auto&& reply : rep_set){
+            auto ev = reply->rep_event->ev_event;
+            if (ev != DBGEV_STRING){
+                PrintOutError("unexpected result type.\n");
+                continue;
+            }
+            auto is = std::istringstream{reply->rep_event->ev_u.ev_u_string};
+            auto line = std::string{};
+            while (std::getline(is, line)){
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s\n", line.c_str());
+            }
+        }
+
+        FreeRecSet(ps_rec_set);
+    }
 
     return 1;
 }
@@ -1574,7 +1605,7 @@ void ConsoleCommandsFactory::insert_proc_commands(Command& root) {
         cmd_release_help, "Release attached/launched application from debugger control.");
     root.addSubCmd(
         "kill", nullptr, proc_ignore, cmd_kill_cmd,
-        cmd_kill_help, "Kill attached/launched application.");
+        cmd_kill_help, "Send signal to attached/launched application (default SIGKILL).");
     root.addSubCmd(
         "run", "r", proc_optional, cmd_run_cmd,
         cmd_run_help, "Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.");

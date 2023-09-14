@@ -559,17 +559,17 @@ const char* const cmd_run_help[] = {
     0};
 
 const char* const cmd_kill_help[] = {
-    "Summary: Kill attached/launched application.",
-    "Usage: kill <app_handle>",
-    "Example command: kill $a",
+    "Summary: Send signal to attached/launched application.",
+    "Usage: kill <app_handle> [signal]",
+    "Example command: kill $a SIGCONT",
     "",
-    "Arguments: app_handle (process set handle)",
+    "Arguments: app_handle (process set handle), signal (name or number)",
     "",
     "Description:",
-    "Kill previously attached/launched application specified by app_handle.",
+    "Send signal to previously attached/launched application specified by app_handle.",
     "",
-    "The entire application will be killed with SIGKILL, even if individual",
-    "ranks are specified in the app_handle.",
+    "If no signal is specified, The entire application will be killed with SIGKILL, "
+    "even if individual ranks are specified in the app_handle.",
     0};
 
 const char* const cmd_list_help[] = {

@@ -99,6 +99,7 @@ public:
     dbgevent_t *cuda(const char* op);
     dbgevent_t *sleep(int seconds);
     dbgevent_t *shell(int argc, char **argv);
+    dbgevent_t *signal(char const* signame);
 
     MIEvent* waitForAsyncEvent();
     dbgevent_t* waitAndProcessAsyncEvent();

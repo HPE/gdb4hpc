@@ -1,0 +1,28 @@
+0: # Test signal send command
+1: launch $a{2} ./bin/CRAY/c/c_signal.x
+Starting application, please wait...
+Launched application...
+0/2 ranks connected... (timeout in 299 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /src/c/c_signal.c:21
+2: maint set sync on
+3: b c_signal.c:28
+a{0..1}: Breakpoint 1: file /src/c/c_signal.c, line 28.
+4: c
+<$a>: Registered signal handlers
+<$a>: Registered signal handlers
+a{0..1}: Breakpoint 1, main at /src/c/c_signal.c:28
+5: d 1
+6: kill $a SIGUSR1
+a{0..1}: Queued signal SIGUSR1
+7: c
+<$a>: Received SIGUSR1
+<$a>: Loop exited
+<$a>: Received SIGUSR1
+<$a>: Loop exited
+a{0..1}: The application has reached an exit breakpoint.
+8: q
+Shutting down debugger and killing application for 'a'.

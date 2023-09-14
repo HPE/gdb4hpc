@@ -409,6 +409,7 @@ rep_set_t DbgOpenSocket(rec_set_t *, char *, int);
 rep_set_t DbgCloseSocket(rec_set_t *);
 rep_set_t DbgSleep(rec_set_t* rec_set, int seconds);
 rep_set_t DbgShell(rec_set_t *, int argc, const char * const * argv);
+rep_set_t DbgSignal(rec_set_t *, const char* signame);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 

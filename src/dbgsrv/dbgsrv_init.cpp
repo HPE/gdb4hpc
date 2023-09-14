@@ -179,11 +179,11 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
     // set in DbgGdbMI::init
     //Status = DBGSTAT_INITIALISING;
 
-    signal(SIGTERM, Finish);
-    signal(SIGHUP, Finish);
-    signal(SIGINT, Finish);
-    signal(SIGPIPE, Finish);
-    signal(SIGQUIT, Finish);
+    ::signal(SIGTERM, Finish);
+    ::signal(SIGHUP, Finish);
+    ::signal(SIGINT, Finish);
+    ::signal(SIGPIPE, Finish);
+    ::signal(SIGQUIT, Finish);
 
     DBEPERFLOG(SetTimerStart("DbgInitBackend: setup_gdbmi_environment"));
 

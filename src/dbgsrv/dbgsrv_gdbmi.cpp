@@ -2469,6 +2469,31 @@ dbgevent_t *DbgGdbMI::shell(int argc, char **argv){
     return e;
 }
 
+dbgevent_t *DbgGdbMI::signal(char const* signame) {
+
+    using CommandPtr = std::unique_ptr<MICommand, decltype(&MICommandFree)>;
+
+    DVPRINT("Sending signal %s\n", signame);
+
+    // Create queued signal command
+    const char* argv[] = {"queue-signal", signame};
+    CommandPtr signalCmd(CLIBypassc(2, argv), MICommandFree);
+
+    // Send queued signal
+    SendMICommand(GDBMISession, signalCmd.get());
+    if (!MICommandResultOK(signalCmd.get())) {
+        DVPRINT("Signal command failed\n");
+        auto msg = MICommandResultErrorMessage(signalCmd.get());
+        return NewErrorEvent(DBGERR_DEBUGGER, "%s", (msg) ? msg : "Signal failed");
+    }
+
+    // Report success
+    auto e = NewEvent(DBGEV_STRING);
+    auto resultStr = std::string{"Queued signal "} + signame;
+    e->ev_string = ::strdup(resultStr.c_str());
+
+    return e;
+}
 
 /*
 ** List variables in the current stack frame

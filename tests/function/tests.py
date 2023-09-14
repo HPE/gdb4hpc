@@ -519,6 +519,10 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_half_exit"
         runTest(self)
 
+    def test_c_signal(self):
+        self.base_name = "c_signal"
+        runTest(self)
+
     @avocado.skipIf(not os.path.isfile("bin/CRAY/c/c_ompd.x") , "No OMPD")
     def test_c_ompd(self):
         self.base_name = "c_ompd"

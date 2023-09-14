@@ -73,7 +73,8 @@ enum dbgcmd {
     DBGCMD_CUDA,
     DBGCMD_SLEEP,
     DBGCMD_SHELL,
-    DBGCMD_GETARGS
+    DBGCMD_GETARGS,
+    DBGCMD_SIGNAL
 };
 
 enum class DbgFrameDir { DOWN, UP, ABSOLUTE };

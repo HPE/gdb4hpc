@@ -413,6 +413,11 @@ dbgevent_t *DbgShell(int argc, char **argv){
     return DbgBackendSW->shell(argc, argv);
 }
 
+dbgevent_t *DbgSignal(char const* signame) {
+    DBG_READY();
+    return DbgBackendSW->signal(signame);
+}
+
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     DBG_READY();
     return DbgBackendSW->directCmd(cmd_argc, cmd_argv);

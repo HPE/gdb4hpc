@@ -2682,6 +2682,12 @@ rep_set_t DbgShell(rec_set_t* recSet, int argc, const char * const * argv){
     return result;
 }
 
+rep_set_t DbgSignal(rec_set_t* recSet, const char* signame) {
+    auto request = CommandToSocProto(DBGCMD_SIGNAL, signame);
+    auto result = DbgSendCmdAndRecvReply(recSet, request, DBGEV_STRING);
+    return result;
+}
+
 /*
 ** DBG_DELETEBREAK: Delete a breakpoint.
 */

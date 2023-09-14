@@ -429,6 +429,12 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             break;
         }
 
+        case DBGCMD_SIGNAL: {
+            std::string signame;
+            is.get(signame);
+            e = DbgSignal(signame.c_str());
+            break;
+        }
 
     }
 

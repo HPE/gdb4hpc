@@ -531,6 +531,14 @@ const char* const cmd_launch_help[] = {
     "--debug writes gdb4hpc logging information to a directory defined by",
     "the enviroment variable $CRAY_DBG_LOG_DIR, the directory needs to be",
     "a location writable from the compute nodes.",
+    "",
+    "When using the Slurm workload manager, GDB4hpc supports launching heterogeneous",
+    "MPMD jobs using syntax similar to Slurm's native MPMD launch, with job steps",
+    "separated by a colon :. The rank count for each individual step must be",
+    "supplied via --launcher-args, and sum to the ranks specified in the process",
+    "set definition. For example:",
+    "launch $a{5} --launcher-args=\"-n3\" a.out --args=\"a_arg\" : ",
+    "    --launcher-args=\"-n2\" b.out --args=\"b_arg\"",
     0};
 
 const char* const cmd_run_help[] = {

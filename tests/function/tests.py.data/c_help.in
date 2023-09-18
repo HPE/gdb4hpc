@@ -25,7 +25,7 @@ halt            Halt execution of attached/launched application.
 help            Display help information about commands.
 ignore          Ignore a breakpoint a number of times.
 info            Display information about the application being debugged.
-kill            Kill attached/launched application.
+kill            Send signal to attached/launched application (default SIGKILL).
 launch          Launch an application.
 list            List source for specified function or line.
 maint           Commands for use by debugger maintainers.

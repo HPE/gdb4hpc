@@ -5,11 +5,35 @@
 
 // Bundle up the launch time setting and arguments into a single object 
 class LaunchOpts {
+ public: // types
+
+  // Most launches will have a single JobOpts that contains the launcher and application arguments
+  // However, Slurm MPMD launches can contain multiple JobOpts that apply different launcher
+  // arguments to each slice of the MPMD job
+  struct JobOpt {
+
+    ArgvStream launcher_args;        // --launcher-args="launcher argv"
+                                     // if processType() == DBG_LAUNCHED, stores passed WLM launcher
+                                     // arguments. These arguments can't be changed by the user
+                                     // after launch.
+                                     //
+    ArgvStream app_argv;             // --args="application argv"
+                                     // if processType() == DBG_LAUNCHED, holds app's argv,
+                                     // with the name of the binary as argv[0].
+                                     //
+    ArgvStream run_argv;             // args to apply when a `run` command is invoked. initially
+                                     // holds app_argv, but args can be changed with "set args" 
+                                     // command. argv[0] should never change.
+                                     //
+    bool non_mpi_flag = false;       // --non-mpi
+  };
+
  public:
   LaunchOpts() = default;
 
   // throws std::runtime_error upon parse error
   LaunchOpts(int argc, const char* const argv[], ClientSettingsInterface& csi);
+
   // throws std::runtime_error if a held argument is invalid. examples of invalid
   // arguments are a path to a nonexistent binary set as the binary name, a gdb set
   // by --gdb that can't be found in PATH, etc.
@@ -17,21 +41,9 @@ class LaunchOpts {
   // after calling enforceValid, any stored relative paths will be replaced with full paths.
   void enforceValid();
 
-  ArgvStream launcher_argv;          // --launcher="custom_launcher"
-                                     // --launcher-args="launcher argv"
-                                     // if processType() == DBG_LAUNCHED, stores passed WLM launcher
-                                     // arguments. if the user passes --launcher, argv[0] will
-                                     // be set and CTI_LAUNCHER_NAME_ENV_VAR should be set before
-                                     // launch. these arguments can't be changed by the user after launch.
-                                     //
-  ArgvStream app_argv;               // --args="application argv"
-                                     // if processType() == DBG_LAUNCHED, holds app's argv,
-                                     // with the name of the binary as argv[0].
-                                     //
-  ArgvStream run_argv;               // args to apply when a `run` command is invoked. initially
-                                     // holds app_argv, but args can be changed with "set args" 
-                                     // command. argv[0] should never change.
-                                     //
+  std::string launcher_name;         // --launcher="custom_launcher"
+  std::vector<JobOpt> job_opts;      // Pack of launcher and application arguments (multiple for MPMD)
+
   std::string gdb_path = "";         // "--gdb /path/to/custom/gdb" or "--gdb my_gdb" to be found in PATH
   std::string gdb_data_dir;          // --gdb-data-dir
   std::string input_file_path = "";  // --launcher-input /path/to/input/file
@@ -41,7 +53,6 @@ class LaunchOpts {
                                      // the actual binary file is located in.
   ArgvStream env;                    // --env "name=value"
   bool gpu_flag = false;             // --gpu
-  bool non_mpi_flag = false;         // --non-mpi
   bool debug_flag = false;           // --debug
   std::string qsub_file_path = "";   // --qsub /path/to/script
   std::string sbatch_file_path = ""; // --sbatch /path/to/script

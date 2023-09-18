@@ -347,12 +347,22 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
                             return str.empty() ? nullptr : str.c_str();
                         };
 
-    auto arch_args = opts.launcher_argv.c_strs(1);
-    const auto prog = opts.app_argv[0];
-    auto argv = opts.app_argv.c_strs(1);
+    auto launcherArgs = ArgvStream{};
 
-    auto launcherArgs = ArgvStream("-n", di->numRanks(), arch_args.data(),
-                                   prog.c_str(), argv.data());
+    // Non-MPMD launches will use rank count from launch command
+    // MPMD rank counts must be specified for each subjob
+    if (opts.job_opts.size() == 1) {
+        launcherArgs << "-n" << di->numRanks();
+    }
+    auto first = true;
+    for (auto&& job_opt : opts.job_opts) {
+        if (first) {
+            first = false;
+        } else {
+            launcherArgs << ":";
+        }
+        launcherArgs << job_opt.launcher_args.c_strs().data() << job_opt.app_argv.c_strs().data();
+    }
 
     // Print an informational message that launch is still pending if WLM hasn't
     // launched job within a few seconds.
@@ -407,8 +417,14 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
                             
 
     // attach to launched application
-    if (internalAttach(di, prog.c_str(), di->appId(), std::move(output), attachOpts,
-                       opts.early_entry_flag, opts.non_stop_flag, opts.non_mpi_flag)) {
+    auto prog = (opts.job_opts.size() == 1)
+        ? opts.job_opts[0].app_argv[0].c_str()
+        : nullptr;
+    auto non_mpi = (opts.job_opts.size() == 1)
+        ? opts.job_opts[0].non_mpi_flag
+        : false;
+    if (internalAttach(di, prog, di->appId(), std::move(output), attachOpts,
+                       opts.early_entry_flag, opts.non_stop_flag, non_mpi)) {
         PrintOutError("Failed to attach to application. Cleaning up...\n");
 
         if (di->appId() != 0) {

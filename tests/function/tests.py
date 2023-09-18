@@ -523,6 +523,11 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_signal"
         runTest(self)
 
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_c_mpmd(self):
+        self.base_name = "c_mpmd"
+        runTest(self)
+
     @avocado.skipIf(not os.path.isfile("bin/CRAY/c/c_ompd.x") , "No OMPD")
     def test_c_ompd(self):
         self.base_name = "c_ompd"

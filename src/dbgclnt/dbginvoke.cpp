@@ -124,7 +124,8 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
         auto csi = MockClientSettings();
         auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
-        CHECK(opts.launcher_argv[0] == "/tmp/fake_mpiexec");
+        REQUIRE(opts.job_opts.size() == 1);
+        CHECK(opts.launcher_name == "/tmp/fake_mpiexec");
         CHECK(opts.input_file_path == "/tmp/fake_input");
         CHECK(opts.gdb_path == "/tmp/fake_gdb");
         CHECK(opts.cwd == "/tmp/fake_workdir");
@@ -150,7 +151,8 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
         auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         // quotes should be removed
-        CHECK(opts.launcher_argv[0] == "/tmp/fake mpiexec");
+        REQUIRE(opts.job_opts.size() == 1);
+        CHECK(opts.launcher_name == "/tmp/fake mpiexec");
         CHECK(opts.input_file_path == "/tmp/fake input");
         CHECK(opts.gdb_path == "/tmp/fake gdb");
         CHECK(opts.cwd == "/tmp/fake workdir");
@@ -167,7 +169,6 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
         auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         CHECK(opts.gpu_flag == true);
-        CHECK(opts.non_mpi_flag == true);
         CHECK(opts.debug_flag == true);
         CHECK(opts.set_default_cwd == true);
     }
@@ -181,12 +182,12 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
         auto csi = MockClientSettings();
         auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
-        REQUIRE(opts.launcher_argv.argc() == 5);
-        CHECK(opts.launcher_argv[0] == "/tmp/fake_mpiexec");
-        CHECK(opts.launcher_argv[1] == "-n3");
-        CHECK(opts.launcher_argv[2] == "-N1");
-        CHECK(opts.launcher_argv[3] == "--exclusive");
-        CHECK(opts.launcher_argv[4] == "multi word arg"); // should have no quotes
+        REQUIRE(opts.job_opts.size() == 1);
+        REQUIRE(opts.job_opts[0].launcher_args.argc() == 4);
+        CHECK(opts.job_opts[0].launcher_args[0] == "-n3");
+        CHECK(opts.job_opts[0].launcher_args[1] == "-N1");
+        CHECK(opts.job_opts[0].launcher_args[2] == "--exclusive");
+        CHECK(opts.job_opts[0].launcher_args[3] == "multi word arg"); // should have no quotes
     }
 
     SUBCASE("App args") {
@@ -197,20 +198,51 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
         auto csi = MockClientSettings();
         auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
-        REQUIRE(opts.app_argv.argc() == 5);
-        REQUIRE(opts.run_argv.argc() == 5);
+        REQUIRE(opts.job_opts.size() == 1);
+        REQUIRE(opts.job_opts[0].app_argv.argc() == 5);
+        REQUIRE(opts.job_opts[0].run_argv.argc() == 5);
 
-        CHECK(opts.app_argv[0] == "./bin/c_inc");
-        CHECK(opts.app_argv[1] == "input_file");
-        CHECK(opts.app_argv[2] == "output_file");
-        CHECK(opts.app_argv[3] == "44");
-        CHECK(opts.app_argv[4] == "multi word arg"); // should have no quotes
+        CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
+        CHECK(opts.job_opts[0].app_argv[1] == "input_file");
+        CHECK(opts.job_opts[0].app_argv[2] == "output_file");
+        CHECK(opts.job_opts[0].app_argv[3] == "44");
+        CHECK(opts.job_opts[0].app_argv[4] == "multi word arg"); // should have no quotes
                                                      //
-        CHECK(opts.run_argv[0] == "./bin/c_inc");
-        CHECK(opts.run_argv[1] == "input_file");
-        CHECK(opts.run_argv[2] == "output_file");
-        CHECK(opts.run_argv[3] == "44");
-        CHECK(opts.run_argv[4] == "multi word arg");
+        CHECK(opts.job_opts[0].run_argv[0] == "./bin/c_inc");
+        CHECK(opts.job_opts[0].run_argv[1] == "input_file");
+        CHECK(opts.job_opts[0].run_argv[2] == "output_file");
+        CHECK(opts.job_opts[0].run_argv[3] == "44");
+        CHECK(opts.job_opts[0].run_argv[4] == "multi word arg");
+    }
+
+    SUBCASE("MPMD args") {
+        const char* const argv[] = {
+            "launch", "$a{1}",
+            "--launcher=/tmp/fake_mpiexec",
+            "--launcher-args=\"-n1 -N1\"",  "./bin/c_inc", "--non-mpi", "--args=\"inc_arg1 inc_arg2\"", ":",
+            "--launcher-args=\"-n2 -N2\"",  "./bin/c_dec", "--args=\"dec_arg1 dec_arg2\"",
+        };
+        auto csi = MockClientSettings();
+        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+        CHECK(opts.launcher_name == "/tmp/fake_mpiexec");
+        REQUIRE(opts.job_opts.size() == 2);
+        CHECK(opts.job_opts[0].non_mpi_flag == true);
+        REQUIRE(opts.job_opts[0].launcher_args.argc() == 2);
+        CHECK(opts.job_opts[0].launcher_args[0] == "-n1");
+        CHECK(opts.job_opts[0].launcher_args[1] == "-N1");
+        REQUIRE(opts.job_opts[0].app_argv.argc() == 3);
+        CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
+        CHECK(opts.job_opts[0].app_argv[1] == "inc_arg1");
+        CHECK(opts.job_opts[0].app_argv[2] == "inc_arg2");
+        CHECK(opts.job_opts[1].non_mpi_flag == false);
+        REQUIRE(opts.job_opts[1].launcher_args.argc() == 2);
+        CHECK(opts.job_opts[1].launcher_args[0] == "-n2");
+        CHECK(opts.job_opts[1].launcher_args[1] == "-N2");
+        REQUIRE(opts.job_opts[1].app_argv.argc() == 3);
+        CHECK(opts.job_opts[1].app_argv[0] == "./bin/c_dec");
+        CHECK(opts.job_opts[1].app_argv[1] == "dec_arg1");
+        CHECK(opts.job_opts[1].app_argv[2] == "dec_arg2");
     }
 }
 
@@ -257,7 +289,7 @@ TEST_CASE("DbgInvoke: LaunchArgs enforceValid() validates that files are present
 
         REQUIRE_NOTHROW(opts.enforceValid());
 
-        CHECK(opts.app_argv[0] == cwd / path{"mockfs/unittest_binary"});
+        CHECK(opts.job_opts[0].app_argv[0] == cwd / path{"mockfs/unittest_binary"});
         CHECK(opts.cwd == cwd / path{"mockfs"});
         CHECK(opts.gdb_path == cwd / path{"mockfs/unittest_gdb"});
     } else {
@@ -287,9 +319,9 @@ TEST_CASE("DbgInvoke: launch args enforceValid replaces relative paths with full
 
         REQUIRE_NOTHROW(opts.enforceValid());
 
-        CHECK(opts.app_argv[0] == cwd / path{"mockfs/unittest_binary"});
-        CHECK(opts.run_argv[0] == cwd / path{"mockfs/unittest_binary"});
-        CHECK(opts.launcher_argv[0] == cwd / path{"mockfs/unittest_binary"});
+        CHECK(opts.launcher_name == cwd / path{"mockfs/unittest_binary"});
+        CHECK(opts.job_opts[0].app_argv[0] == cwd / path{"mockfs/unittest_binary"});
+        CHECK(opts.job_opts[0].run_argv[0] == cwd / path{"mockfs/unittest_binary"});
         CHECK(opts.input_file_path == cwd / path{"mockfs/unittest_txt"});
         CHECK(opts.gdb_path == cwd / path{"mockfs/unittest_gdb"});
         CHECK(opts.cwd == cwd / path{"mockfs"});
@@ -612,10 +644,10 @@ DbgInvoke* DbgInvoke::Handle::lock() const {
     return m_ptr.lock().get();
 }
 
-LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsInterface& csi) {
-    if (argc < 3) {
-        throw std::runtime_error("Not enough command arguments.\nExpected: launch $handle ./program <args>");
-    }
+// Parse a section of MPMD arguments
+// Update `opts` with any parsed global flags,
+// Return a JobOpt object with parsed job options
+static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
 
     const auto withoutQuotes = [](const std::string& str) {
         const auto quotes = {'"', '\''};
@@ -630,11 +662,12 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
         return std::string_view{str};
     };
 
-    int parsed_gpu_flag, parsed_debug_flag, parsed_non_mpi_flag;
-    parsed_gpu_flag = parsed_debug_flag = parsed_non_mpi_flag = 0;
+    int parsed_gpu_flag = -1;
+    int parsed_debug_flag = -1;
+    int parsed_non_mpi_flag = 0;
 
-    launcher_argv << ""; // reserve launcher name
-    app_argv << "";      // reserve binary name
+    LaunchOpts::JobOpt job_opt;
+    job_opt.app_argv << "";      // reserve binary name
 
     const struct option launch_long_opts[] = {
         {"args", required_argument, 0, 'a'},
@@ -656,21 +689,8 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
     int opt;
     /* extern int */ optind = 0;
 
-    // getopt can change argv so we work with a local copy
-    struct CStrVector {
-        // ensure memory is cleaned up if something throws
-        ~CStrVector() {
-            for (auto& str : v) free(str);
-        }
-        std::vector<char*> v;
-    };
-    CStrVector argv;
-    std::transform(constArgv, constArgv + argc, std::back_inserter(argv.v), [](const auto& strp) {
-        return strdup(strp);
-    });
-
     // This will permute the non-option stuff to the end, so parse that stuff last.
-    while ((opt = getopt_long(argc, argv.v.data(), "a:g:i:d::b:l:e:q:s:", launch_long_opts, nullptr)) != -1) {
+    while ((opt = getopt_long(argc, argv, "a:g:i:d::b:l:e:q:s:", launch_long_opts, nullptr)) != -1) {
         switch (opt) {
             case 0:
                 // if this is a flag, do nothing
@@ -680,11 +700,11 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
                 if (optarg == nullptr) {
                     throw std::runtime_error("--args provided, but missing arguments.");
                 }
-                app_argv.parseAndAppendArgs(withoutQuotes(optarg));
+                job_opt.app_argv.parseAndAppendArgs(withoutQuotes(optarg));
 
                 // remove quotes from individual args
-                for (size_t i = 0; i < app_argv.argc(); i++) {
-                    app_argv[i] = withoutQuotes(app_argv[i]);
+                for (size_t i = 0; i < job_opt.app_argv.argc(); i++) {
+                    job_opt.app_argv[i] = withoutQuotes(job_opt.app_argv[i]);
                 }
 
                 break;
@@ -695,8 +715,8 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
                 }
 
                 // replace on first instance of --launcher only
-                if (launcher_argv[0] == "") {
-                    launcher_argv[0] = withoutQuotes(optarg);
+                if (opts.launcher_name.empty()) {
+                    opts.launcher_name = withoutQuotes(optarg);
                 }
                 break;
 
@@ -704,11 +724,12 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
                 if (optarg == nullptr) {
                     throw std::runtime_error("--launcher-args provided, but missing arguments.");
                 }
-                launcher_argv.parseAndAppendArgs(withoutQuotes(optarg));
+
+                job_opt.launcher_args.parseAndAppendArgs(withoutQuotes(optarg));
 
                 // remove quotes from individual args
-                for (size_t i = 0; i < launcher_argv.argc(); i++) {
-                    launcher_argv[i] = withoutQuotes(launcher_argv[i]);
+                for (size_t i = 0; i < job_opt.launcher_args.argc(); i++) {
+                    job_opt.launcher_args[i] = withoutQuotes(job_opt.launcher_args[i]);
                 }
                 break;
 
@@ -716,16 +737,16 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
                 if (optarg == nullptr) {
                     throw std::runtime_error("--launcher-input provided, but missing arguments.");
                 }
-                input_file_path = withoutQuotes(optarg);
+                opts.input_file_path = withoutQuotes(optarg);
                 break;
 
             case 'd':
                 if (optarg == nullptr) {
                     // --workdir provided without argument, so default to chdir
                     // to the directory that the binary is located in.
-                    set_default_cwd = true;
+                    opts.set_default_cwd = true;
                 } else {
-                    cwd = withoutQuotes(optarg);
+                    opts.cwd = withoutQuotes(optarg);
                 }
                 break;
 
@@ -742,7 +763,7 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
                         + "\". Expected \"KEY=VALUE\"");
                 }
 
-                env << optarg;
+                opts.env << optarg;
                 break;
             }
 
@@ -750,12 +771,12 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
                 if (optarg == nullptr) {
                     throw std::runtime_error("--gdb provided, but missing argument.");
                 }
-                gdb_path = withoutQuotes(optarg);
+                opts.gdb_path = withoutQuotes(optarg);
                 break;
 
             case 'B':
                 if (std::filesystem::is_directory(optarg)) {
-                    gdb_data_dir = optarg;
+                    opts.gdb_data_dir = optarg;
                 } else {
                     throw std::runtime_error("--gdb-data-dir is not a directory.");
                 }
@@ -766,14 +787,14 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
                 if (optarg == nullptr) {
                     throw std::runtime_error("--qsub provided, but missing arguments.");
                 }
-                qsub_file_path = withoutQuotes(optarg);
+                opts.qsub_file_path = withoutQuotes(optarg);
                 break;
 
             case 's':
                 if (optarg == nullptr) {
                     throw std::runtime_error("--sbatch provided, but missing arguments.");
                 }
-                sbatch_file_path = withoutQuotes(optarg);
+                opts.sbatch_file_path = withoutQuotes(optarg);
                 break;
 
             default:
@@ -781,40 +802,106 @@ LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsIn
         }
     }
 
-    // Ensure the user provided two non-option arguments
-    if (argc - optind != 2) {
-        using namespace std::string_literals;
-        throw std::runtime_error(
-            "Invalid number of non-option arguments. See \"help launch\" for usage.\n"s
-            + "Expected 2, found " + std::to_string(argc - optind) + "."
-        );
-    }
+    if (opts.procset_name.empty()) {
+        if (argc - optind != 2) {
+            using namespace std::string_literals;
+            throw std::runtime_error(
+                "Invalid number of non-option arguments. See \"help launch\" for usage.\n"s
+                + "Expected 2 (process set name and application binary), found " + std::to_string(argc - optind) + "."
+            );
+        }
 
-    // The first argument should be the name of the process set
-    if (auto procset_name_cstr = argv.v[optind++]) {
-        procset_name = procset_name_cstr;
+        // The first argument should be the name of the process set
+        if (auto procset_name_cstr = argv[optind++]) {
+            opts.procset_name = procset_name_cstr;
+        } else {
+            throw std::runtime_error("No process set specified");
+        }
+
+        // The second argument is the name of the a.out
+        if (auto binary_path_cstr = argv[optind++]) {
+            job_opt.app_argv[0] = binary_path_cstr;
+        } else {
+            throw std::runtime_error("Invalid binary (No binary passed)");
+        }
+
+    // Already got the procset name from a previous parse
     } else {
-        throw std::runtime_error("No process set specified");
+
+        if (argc - optind != 1) {
+            using namespace std::string_literals;
+            throw std::runtime_error(
+                "Invalid number of non-option arguments. See \"help launch\" for usage.\n"s
+                + "Expected 1 (application binary), found " + std::to_string(argc - optind) + "."
+            );
+        }
+
+        // The argument is the name of the a.out
+        if (auto binary_path_cstr = argv[optind++]) {
+            job_opt.app_argv[0] = binary_path_cstr;
+        } else {
+            throw std::runtime_error("Invalid binary (No binary passed)");
+        }
     }
 
-    // The second argument is the name of the a.out
-    if (auto binary_path_cstr = argv.v[optind++]) {
-        app_argv[0] = binary_path_cstr;
-    } else {
-        throw std::runtime_error("Invalid binary (No binary passed)");
-    }
-
-    if (set_default_cwd) {
+    if (opts.set_default_cwd) {
         // --workdir provided without argument, so default to chdir to
         // the directory that the binary is located in.
-        auto binary_path = std::filesystem::path{app_argv[0]};
-        cwd = binary_path.parent_path();
+        auto binary_path = std::filesystem::path{job_opt.app_argv[0]};
+        opts.cwd = binary_path.parent_path();
     }
 
-    gpu_flag = parsed_gpu_flag;
-    debug_flag = parsed_debug_flag;
-    non_mpi_flag = parsed_non_mpi_flag;
-    run_argv = app_argv;
+    // Set flags if updated
+    if (parsed_gpu_flag >= 0) {
+        opts.gpu_flag = parsed_gpu_flag;
+    }
+    if (parsed_debug_flag >= 0) {
+        opts.debug_flag = parsed_debug_flag;
+    }
+
+    // Update job options
+    job_opt.non_mpi_flag = parsed_non_mpi_flag;
+    job_opt.run_argv = job_opt.app_argv;
+
+    return job_opt;
+}
+
+LaunchOpts::LaunchOpts(int argc, const char* const constArgv[], ClientSettingsInterface& csi) {
+    if (argc < 3) {
+        throw std::runtime_error("Not enough command arguments.\nExpected: launch $handle ./program <args>");
+    }
+
+    // getopt can change argv so we work with a local copy
+    struct CStrVector {
+        std::vector<char*> v;
+        // ensure memory is cleaned up if something throws
+        CStrVector() : v{} {}
+        ~CStrVector() {
+            for (auto& str : v) { if (str) { ::free(str); } }
+        }
+        CStrVector(CStrVector&& expiring) : v{std::move(expiring.v)} {
+            for (auto&& str : expiring.v) { str = nullptr; }
+        }
+        CStrVector(CStrVector&) = delete;
+        CStrVector(CStrVector const&) = delete;
+    };
+
+    // Break up MPMD launch parameters delimited by :
+    std::vector<CStrVector> argv_sections;
+    argv_sections.push_back(CStrVector());
+    for (int i = 0; i < argc; i++) {
+        if ((constArgv[i][0] == ':') && (constArgv[i][1] == '\0')) {
+            argv_sections.push_back(CStrVector());
+            argv_sections.back().v.push_back(::strdup(":"));
+        } else {
+            argv_sections.back().v.push_back(::strdup(constArgv[i]));
+        }
+    }
+
+    for (auto&& argv_section : argv_sections) {
+        auto job_opt = parse_argv_section(*this, argv_section.v.size(), argv_section.v.data());
+        job_opts.push_back(std::move(job_opt));
+    }
 
     non_stop_flag = csi.isNonStop();
     early_entry_flag = csi.isEarlyEntry();
@@ -858,9 +945,11 @@ void LaunchOpts::enforceValid() {
         }
     };
 
-    canonFile(app_argv[0]);
-    canonFile(run_argv[0]);
-    canonFile(launcher_argv[0]);
+    for (auto&& job_opt : job_opts) {
+        canonFile(job_opt.app_argv[0]);
+        canonFile(job_opt.run_argv[0]);
+    }
+    canonFile(launcher_name);
     canonFile(input_file_path);
     canonFile(qsub_file_path);
     canonFile(sbatch_file_path);

@@ -725,7 +725,6 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     std::optional<std::string> serverGdb = {};
 
     auto backend = opts.backend_name;
-    auto prog = opts.app_argv[0];
 
     const auto optStr = [](const std::string& str) {
                             return str != "" ? str.c_str() : nullptr;
@@ -791,8 +790,22 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     // ignorant of the starter applications real name.
     snprintf(sn, sizeof(sn), "%d", di->numRanks());
 
-    app_argv = ArgvStream("-n", sn, opts.launcher_argv.c_strs(1).data(), prog,
-                          opts.app_argv.c_strs(1).data());
+    // Non-MPMD launches will use rank count from launch command
+    // MPMD rank counts must be specified for each subjob
+    if (opts.job_opts.size() == 1) {
+        app_argv << "-n" << di->numRanks();
+    }
+    { auto first = true;
+        for (auto&& job_opt : opts.job_opts) {
+            if (first) {
+                first = false;
+            } else {
+               app_argv << ":";
+            }
+            app_argv << job_opt.launcher_args.c_strs(0) << job_opt.app_argv.c_strs(0);
+        }
+    }
+
 #ifdef DEBUG
     DPRINT("application launcher args: ");
     DPRINT("%s\n", app_argv.asString().c_str());
@@ -1080,11 +1093,13 @@ OMPD support will not be available.\n");
                                   di->proto().name(), "-e", backend);
     if (opts.gpu_flag)    dbgsrv_alps_argv << "--gpu";
     if (dbg)              dbgsrv_alps_argv << "--debug";
-    if (opts.non_mpi_flag)     dbgsrv_alps_argv << "--non-mpi";
     if (opts.early_entry_flag) dbgsrv_alps_argv << "--early-entry";
     if (opts.non_stop_flag)        dbgsrv_alps_argv << "--non-stop";
     if (!opts.gdb_path.empty() && serverGdb) dbgsrv_alps_argv << "--gdb" << *serverGdb;
-    dbgsrv_alps_argv << "-f" << prog;
+    if (opts.job_opts.size() == 1) {
+        if (opts.job_opts[0].non_mpi_flag)     dbgsrv_alps_argv << "--non-mpi";
+        dbgsrv_alps_argv << "-f" << opts.job_opts[0].app_argv[0];
+    }
 
 #ifdef DEBUG
     DPRINT("Starting dbgsrv_alps with argv: \n");

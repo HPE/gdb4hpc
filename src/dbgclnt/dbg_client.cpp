@@ -1491,7 +1491,9 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
 
     // Set the debug frontend a.out directly.
     if (auto fe = di->frontendGdb()) {
-        e = fe->setFile(args.app_argv[0].c_str());
+
+        // XXX: only checking first MPMD binary
+        e = fe->setFile(args.job_opts[0].app_argv[0].c_str());
 
         // handle the error case
         if (e->ev_event == DBGEV_ERROR) {
@@ -1504,7 +1506,7 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
     }
 
     // Check for startup function presence if unsafe is false
-    if (!args.unsafe_flag && !args.non_mpi_flag) {
+    if (!args.unsafe_flag && !args.job_opts[0].non_mpi_flag) {
         if (auto fe = di->frontendGdb()) {
             e = fe->checkStartupFunc();
 
@@ -1535,16 +1537,18 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
         }
     }
 
-    std::pair<std::string,std::unique_ptr<const char*[]>> trampolineArgs;
-    if (args.non_mpi_flag) {
-        trampolineArgs = GetTrampolineArgs(args.app_argv[0].c_str(), args.app_argv.c_strs(1).data());
-        if (trampolineArgs.first.empty()) {
-            args.non_mpi_flag = false;
-        } else {
-            ArgvStream newArgv;
-            newArgv << trampolineArgs.first << trampolineArgs.second.get();
-            args.app_argv = newArgv;
-            args.run_argv = std::move(newArgv);
+    for (auto&& job_opt : args.job_opts) {
+        std::pair<std::string,std::unique_ptr<const char*[]>> trampolineArgs;
+        if (job_opt.non_mpi_flag) {
+            trampolineArgs = GetTrampolineArgs(job_opt.app_argv[0].c_str(), job_opt.app_argv.c_strs(1).data());
+            if (trampolineArgs.first.empty()) {
+                job_opt.non_mpi_flag = false;
+            } else {
+                ArgvStream newArgv;
+                newArgv << trampolineArgs.first << trampolineArgs.second.get();
+                job_opt.app_argv = newArgv;
+                job_opt.run_argv = std::move(newArgv);
+            }
         }
     }
 

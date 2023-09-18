@@ -31,6 +31,7 @@
 #include <optional>
 #include <filesystem>
 #include <regex>
+#include <sstream>
 
 #include "client.h"
 #include "common_tools_fe.h"
@@ -120,13 +121,22 @@ static int cmd_info_application_cmd(Command::RunContext&, rec_set_t *, int, cons
                 PrintOutMsg("%-5s ", "n");
             }
 
-            PrintOutMsg("%s\n", di->launchOptions().app_argv.asString().c_str());
+            auto first = true;
+            for (auto&& job_opt : di->launchOptions().job_opts) {
+                if (first) {
+                    first = false;
+                } else {
+                    PrintOutMsg(" : ");
+                }
+                PrintOutMsg("%s", job_opt.app_argv.asString().c_str());
+            }
+            PrintOutMsg("\n");
         }
     }
 
     if (num_ps == 0) {
         PrintOutError(
-            "There are currently no lauched/attached applications.\n");
+            "There are currently no launched/attached applications.\n");
         return 1;
     }
 
@@ -234,7 +244,10 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
             PrintOutMsg("Starting application, please wait...\n");
 
             // Submit PBS script and get PBS job ID
-            auto launcherArgs = args.launcher_argv.c_strs(1);
+            if (args.job_opts.size() != 1) {
+                throw std::runtime_error("PBS batch launch cannot start an MPMD job");
+            }
+            auto launcherArgs = args.job_opts[0].launcher_args.c_strs(0);
             auto envList = args.env.c_strs(0);
             auto pbs_job_id = ops->submitJobScript(args.qsub_file_path.c_str(),
                 launcherArgs.data(), envList.data());
@@ -292,7 +305,10 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
             PrintOutMsg("Starting application, please wait...\n");
 
             // Submit sbatch script and get Slurm job / step ID
-            auto launcherArgs = args.launcher_argv.c_strs(1);
+            if (args.job_opts.size() != 1) {
+                throw std::runtime_error("Slurm batch launch cannot start an MPMD job");
+            }
+            auto launcherArgs = args.job_opts[0].launcher_args.c_strs(0);
             auto envList = args.env.c_strs(0);
             auto slurmJobStep = std::string{};
             if (auto slurm_job_step_id = ops->submitBatchScript(args.sbatch_file_path.c_str(),
@@ -330,8 +346,8 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
     // Launch normally
     } else {
 
-        if (args.launcher_argv[0] != "") {
-            setenv(CTI_LAUNCHER_NAME_ENV_VAR, args.launcher_argv[0].c_str(), 1);
+        if (args.launcher_name != "") {
+            setenv(CTI_LAUNCHER_NAME_ENV_VAR, args.launcher_name.c_str(), 1);
         }
 
         // Call the invoke in the dbg_client layer
@@ -444,7 +460,9 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
     newArgs.procset_name = (cloneName ? cloneName : "$tmp_clone");
     newArgs.procset_name += "{" + std::to_string(oldProcset->s_nproc) + "}";
 
-    newArgs.app_argv = oldDi->launchOptions().run_argv;
+    for (size_t i = 0; i < oldDi->launchOptions().job_opts.size(); i++) {
+        newArgs.job_opts[i].app_argv = oldDi->launchOptions().job_opts[i].run_argv;
+    }
 
     try {
         newArgs.enforceValid();
@@ -1124,12 +1142,21 @@ static int set_subcmd_args_cmd(Command::RunContext&, rec_set_t* recSet, int argc
         dis.insert(&rec->rec_di);
     }
 
+    // Check for MPMD
+    for (auto di : dis) {
+        if (di->launchOptions().job_opts.size() != 1) {
+            PrintOutError("This command cannot be used with an MPMD job");
+            return 0;
+        }
+    }
+
+
     // set args
     for (auto di : dis) {
         // remember argv[0]
-        auto argv0 = di->launchOptions().run_argv[0];
-        di->launchOptions().run_argv.clear();
-        di->launchOptions().run_argv << argv0;
+        auto argv0 = di->launchOptions().job_opts[0].run_argv[0];
+        di->launchOptions().job_opts[0].run_argv.clear();
+        di->launchOptions().job_opts[0].run_argv << argv0;
         if (!onlyReset) {
             for (int i = 1 /* because argv[0] == "args" */; i < argc; i++) {
                 // the command layer above will correctly parse quoted
@@ -1141,7 +1168,7 @@ static int set_subcmd_args_cmd(Command::RunContext&, rec_set_t* recSet, int argc
                 if (window.size() > 1 && window.front() == '"' && window.back() == '"') {
                     window = window.substr(1, window.size() - 2);
                 }
-                di->launchOptions().run_argv << window;
+                di->launchOptions().job_opts[0].run_argv << window;
             }
         }
     }
@@ -1155,10 +1182,19 @@ static int set_subcmd_args_cmd(Command::RunContext&, rec_set_t* recSet, int argc
 
 static int show_subcmd_args_cmd(Command::RunContext&, rec_set_t* recSet, int, const char* const []) {
     for (const auto* rec : recSet) {
-        const auto& dargv = rec->rec_di.launchOptions().run_argv;
-        // start printing args from argv[1]
+        auto all_args = std::stringstream{};
+
+        auto first = true;
+        for (auto&& job_opt : rec->rec_di.launchOptions().job_opts) {
+            if (first) { first = false; } else { all_args << " : "; }
+
+            // start printing args from argv[1]
+            const auto& dargv = job_opt.run_argv;
+            all_args << dargv.asString(1);
+        }
+
         PrintMsgWithSetInfo(rec->rec_di.handle().c_str(), rec->rec_group.get(), 
-            "\"%s\"\n", dargv.asString(1).c_str());
+            "\"%s\"\n", all_args.str().c_str());
     }
 
     return 1;

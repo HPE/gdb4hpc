@@ -86,7 +86,7 @@ void PrintFrameSet(const char *setname, Bitset *group, const dbgframe_t *frame) 
     }
 }
 
-static int movecmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int movecmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int count = 1;
 
     auto dir = [&](){
@@ -118,7 +118,7 @@ static int movecmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const
     return Command::Success;
 }
 
-static int cmd_backtrace_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_backtrace_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int count = 0;
     if (argc >= 2) count = atoi(argv[1]);
     auto rep_set = DbgShowFrame(rec_set, count);
@@ -169,7 +169,7 @@ static int cmd_backtrace_console(Command::RunContext& ctx, rec_set_t *rec_set, i
     return Command::Success;
 }
 
-static int cmd_backtrace_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_backtrace_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int count = 0;
     if (argc >= 2) count = atoi(argv[1]);
 
@@ -224,7 +224,7 @@ static std::optional<FrameArgs> cmd_frame_parse_args(int argc, const char* const
     return result;
 }
 
-static int cmd_frame_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_frame_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_frame_args = cmd_frame_parse_args(argc, argv);
     if (!maybe_frame_args) return Command::Failure; // error already emitted in parse
     auto& frame_args = *maybe_frame_args;
@@ -244,7 +244,7 @@ static int cmd_frame_console(Command::RunContext& ctx, rec_set_t *rec_set, int a
     return Command::Success;
 }
 
-static int cmd_frame_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_frame_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_frame_args = cmd_frame_parse_args(argc, argv);
     if (!maybe_frame_args) return Command::Failure; // error already emitted in parse
     auto& frame_args = *maybe_frame_args;

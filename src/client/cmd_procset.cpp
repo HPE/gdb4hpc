@@ -56,7 +56,7 @@ std::string ProcSetToString(dbgprocset_t *s) {
     return ss.str();
 }
 
-static dbgprocset_t* cmd_focus_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static dbgprocset_t* cmd_focus_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: focus $set\n");
@@ -94,7 +94,7 @@ static int cmd_focus_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
 }
 
 static std::vector<dbgprocset_t*>
-cmd_viewset_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+cmd_viewset_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc > 1) {
         auto [procset, _] = IdMap::getProcset(argv[1]);
 
@@ -156,7 +156,7 @@ static int cmd_viewset_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     return Command::Success;
 }
 
-static int cmd_defset_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_defset_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: defset $setname $proc1,$proc2\n");

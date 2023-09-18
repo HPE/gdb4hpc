@@ -247,7 +247,7 @@ void BreakpointManager::fixupPendingBreakpoints(const dbgbp_t &bp, const Bitset 
         // found (nullptr otherwise) and the bitset corresponding to the bitset
         // that should be removed from the logical breakpoint below
         const auto findMatchingLBP =
-            [](const dbgbp_t &bp, const Bitset *group,
+            [](const dbgbp_t &bp, 
                const std::unique_ptr<Bitset> &search_group,
                std::list<MappedBreakpoint> &set_list)
             -> std::tuple<MappedBreakpoint *, std::unique_ptr<Bitset>> 
@@ -273,7 +273,7 @@ void BreakpointManager::fixupPendingBreakpoints(const dbgbp_t &bp, const Bitset 
             return std::tuple(nullptr, std::move(remove_group));
         };
 
-        auto [bp_set, remove_group] = findMatchingLBP(bp, group, search_group, m_breakpoints);
+        auto [bp_set, remove_group] = findMatchingLBP(bp, search_group, m_breakpoints);
 
         // See if we found a matching bp_set, if so we need to clean it up
         if (bp_set) {

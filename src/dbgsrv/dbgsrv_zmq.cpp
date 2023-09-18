@@ -52,8 +52,8 @@ const char *ZMQNetServerProtocol::name() {
 }
 
 // Callbacks
-int ZMQNetServerProtocol::invokeCallback(const char *chost, int cport, 
-    const char *host, int prog, int pnum, int port, dbgevent_t *e) {
+int ZMQNetServerProtocol::invokeCallback(const char *, int, 
+    const char *, int, int, int, dbgevent_t *) {
     // we have nothing to do here
     LOG("ZMQNetServerProtocol::invokeCallback\n");
     return 1;
@@ -71,7 +71,7 @@ int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
 }
 
 int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char * const * argv,
-                              const char *key, const char *host, int port) {
+                              const char *, const char *, int) {
     LOG("ZMQNetServerProtocol::initProto\n");
 
     LOG("argc: %d\n", argc);
@@ -201,7 +201,7 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
 
         // register internal command stream
         const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::InternalCommandStream);
-        const auto internalCmdCallback = [this, commandCallback, eventCallback](zmqnet::Stream::Id const& sId, zmqnet::ByteArray packedCommand) {
+        const auto internalCmdCallback = [this, commandCallback, eventCallback](zmqnet::Stream::Id const&, zmqnet::ByteArray packedCommand) {
             LOG("zmqnet: new stream cmd\n");
             
             // unpack command
@@ -248,17 +248,17 @@ bool ZMQNetServerProtocol::checkEvents() const {
     return m_pending_command != nullptr;
 }
 
-int ZMQNetServerProtocol::setupIo(int *fd, int *port) { 
+int ZMQNetServerProtocol::setupIo(int *, int *) { 
     LOG("ZMQNetServerProtocol::setupIo\n");
     return 0; 
 }
 
-int ZMQNetServerProtocol::transferIo(int fd, char *buffer, int size) {
+int ZMQNetServerProtocol::transferIo(int, char *, int) {
     LOG("ZMQNetServerProtocol::transferIo\n");
     return 0;
 }
 
-void ZMQNetServerProtocol::runProto(fd_set *fds) {
+void ZMQNetServerProtocol::runProto(fd_set *) {
     LOG("ZMQNetServerProtocol::runProto\n");
     std::scoped_lock<std::mutex> lock(m_command_lock);
 
@@ -290,7 +290,7 @@ dbgevent_t* ZMQNetServerProtocol::invokeNetwork(int num_be) {
     return NewEvent(DBGEV_OK);
 }
 
-int ZMQNetServerProtocol::sendReply(const char *response) {
+int ZMQNetServerProtocol::sendReply(const char *) {
     LOG("ZMQNetServerProtocol::sendReply\n");
     // this is done asynchronously by the zmqnet callbacks
     return 0;

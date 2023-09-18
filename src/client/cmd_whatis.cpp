@@ -20,7 +20,7 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_whatis_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_whatis_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int i;
     int argp = 1;
     int isType = 0;
@@ -79,7 +79,7 @@ static int cmd_whatis_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     return Command::Success;
 }
 
-static int cmd_ptype_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_ptype_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: ptype type\n");
@@ -113,7 +113,7 @@ static int cmd_ptype_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
     return Command::Success;
 }
 
-static int cmd_info_locals_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_locals_cmd_console(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     auto rep_set = DbgGetVars(rec_set);
     ProcessErrorInRepSet(rep_set);
 
@@ -140,7 +140,7 @@ static int cmd_info_locals_cmd_console(Command::RunContext& ctx, rec_set_t *rec_
     return Command::Success;
 }
 
-static int cmd_info_locals_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_locals_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     auto rep_set = DbgGetVars(rec_set);
     ProcessErrorInRepSet(rep_set);
 
@@ -176,7 +176,7 @@ static int cmd_info_locals_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, 
     return Command::Success;
 }
 
-static int cmd_info_scope_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_scope_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     dbgvars_t *v;
 
     if (argc < 2) {
@@ -216,7 +216,7 @@ static int cmd_info_scope_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int 
     return Command::Success;
 }
 
-static int cmd_info_args_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_args_cmd(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     auto rep_set = DbgGetArgs(rec_set);
 
     ProcessErrorInRepSet(rep_set);

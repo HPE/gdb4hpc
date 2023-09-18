@@ -89,7 +89,7 @@ void PrintMIStoppedMsg(StoppedType type,const std::string& file, const std::stri
 }
 
 
-static int cmd_info_application_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_application_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     PrintOutMsg("%-10s %-10s %-5s %s\n", "Handle", "Ranks", "Focus",
                 "Application");
 
@@ -171,7 +171,7 @@ static dbgprocset_t* getNewProcSet(const std::string& procName) {
                   [--gpu]
                   [--debug]
 */
-static int cmd_launch_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_launch_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     try {
         // throws if arguments are malformed
         auto args = LaunchOpts(argc, argv, Client);
@@ -246,6 +246,8 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                                          .app_ident = pbs_job_id,
                                          .backend = Client.backend,
                                          .gdb = args.gdb_path,
+                                         .gdb_data_dir = args.gdb_data_dir,
+                                         .vgdb_file = "",
                                          .gpu_flag = args.gpu_flag,
                                          .debug_flag = args.debug_flag };
 
@@ -308,6 +310,8 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                                          .app_ident = slurmJobStep,
                                          .backend = Client.backend,
                                          .gdb = args.gdb_path,
+                                         .gdb_data_dir = args.gdb_data_dir,
+                                         .vgdb_file = "",
                                          .gpu_flag = args.gpu_flag,
                                          .debug_flag = args.debug_flag };
 
@@ -625,7 +629,7 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
 /*
 ** attach $proc apid [--gpu] [--debug] [--vgdb]
 */
-static int cmd_attach_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_attach_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     int opt_ind = 0;
     int opt;
 
@@ -673,7 +677,14 @@ static int cmd_attach_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     });
 
     auto opts = AttachOpts{ .proto = Client.proto,
-                            .backend = Client.backend };
+                            .app_ident = "",
+                            .backend = Client.backend,
+                            .gdb = "",
+                            .gdb_data_dir = "",
+                            .vgdb_file = "",
+                            .gpu_flag = false,
+                            .debug_flag = false
+    };
     
     while ((opt = getopt_long(argc, mut_argv.v.data(), "", attach_long_opts, &opt_ind)) !=
            -1) {
@@ -830,7 +841,7 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     return 1;
 }
 
-static int cmd_halt_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_halt_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     dbgloc_t *halt_loc;
 
     bool all = false;
@@ -872,7 +883,7 @@ void PrintHaltedLocationSet(const char *setname, const Bitset *group, dbgloc_t *
     }
 }
 
-static int cmd_kill_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_kill_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: kill $proc\n");
@@ -922,7 +933,7 @@ static int cmd_kill_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
     return 1;
 }
 
-static int cmd_release_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_release_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: release $proc\n");
@@ -1020,7 +1031,7 @@ static void ReleaseProc(dbgprocset_t *p, DbgQuitType quit_type) {
     FreeProcSet(p);
 }
 
-static int cmd_rerun_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, const char* const argv[]) {
+static int cmd_rerun_cmd(Command::RunContext&, rec_set_t* recSet, int argc, const char* const argv[]) {
     using namespace std::string_literals;
     dbgprocset_t* procSet = nullptr;
     const char* cloneName = nullptr;
@@ -1104,7 +1115,7 @@ static int cmd_run_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, co
     return 1;
 }
 
-static int set_subcmd_args_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, const char* const argv[]) {
+static int set_subcmd_args_cmd(Command::RunContext&, rec_set_t* recSet, int argc, const char* const argv[]) {
     bool onlyReset = (argc == 1);
 
     // collect dis to modify
@@ -1142,7 +1153,7 @@ static int set_subcmd_args_cmd(Command::RunContext& ctx, rec_set_t* recSet, int 
     return 1;
 }
 
-static int show_subcmd_args_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, const char* const argv[]) {
+static int show_subcmd_args_cmd(Command::RunContext&, rec_set_t* recSet, int, const char* const []) {
     for (const auto* rec : recSet) {
         const auto& dargv = rec->rec_di.launchOptions().run_argv;
         // start printing args from argv[1]
@@ -1166,7 +1177,8 @@ void EndAll(void) {
 }
 
 // Prints program location after a step event is received
-static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *group) {
+// Lookat: why was the Bitset* group argument not used here?
+static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *) {
     if (!ev_set || !ev_set->event()) {
         return;
     }

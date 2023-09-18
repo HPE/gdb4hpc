@@ -396,9 +396,12 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
 
     PrintOutMsg("Launched application...\n");
 
-    auto attachOpts = AttachOpts{.backend = opts.backend_name,
+    auto attachOpts = AttachOpts{.proto = "",
+                                 .app_ident = "",
+                                 .backend = opts.backend_name,
                                  .gdb = opts.gdb_path,
                                  .gdb_data_dir = opts.gdb_data_dir,
+                                 .vgdb_file = "",
                                  .gpu_flag = bool(opts.gpu_flag),
                                  .debug_flag = bool(opts.debug_flag) };
                             

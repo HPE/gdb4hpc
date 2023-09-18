@@ -423,7 +423,7 @@ void AIFStream::print(std::ostream& os, const std::string& label, const std::str
 
 template <class T>
 inline AIFStream* AIFStreamFromBinaryOp(AIFStream* a, AIFStream* b, T op) {
-    auto strOp = [](const std::string& a, const std::string& b) { return a; };
+    auto strOp = [](const std::string& a, const std::string&) { return a; };
     auto binOp = new ais::FBinaryOperator{op, strOp};
     auto vs = ais::makeBinaryOpStream(a->getVStreamPtr(),
                                       b->getVStreamPtr(),

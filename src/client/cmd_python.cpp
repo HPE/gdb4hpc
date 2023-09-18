@@ -76,7 +76,7 @@ private:
 
 }
 
-static int cmd_python_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_python_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const char* const []) {
     auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
     if (!console) {
         // unreachable?
@@ -113,7 +113,7 @@ void PythonMode::enter(ConsoleInterpreter& console) {
 }
 
 // Leave shell mode
-int PythonMode::exit(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int PythonMode::exit(Command::RunContext& ctx, rec_set_t *, int, const char* const []) {
     auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
     if (!console) {
         // unreachable?
@@ -127,7 +127,7 @@ int PythonMode::exit(Command::RunContext& ctx, rec_set_t *rec_set, int argc, con
     return 1;
 }
 
-int PythonMode::executeLine(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int PythonMode::executeLine(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     static std::unique_ptr<PyGdb> py_interpreter;
     if (!py_interpreter)
         py_interpreter.reset(new PyGdb());
@@ -151,7 +151,7 @@ void ConsoleCommandsFactory::insert_python_commands(Command& root) {
 
 PyGdb* PyImpl::m_gdb = nullptr;
 
-PyObject* PyImpl::eval(PyObject* self, PyObject* args) {
+PyObject* PyImpl::eval(PyObject* /*self*/, PyObject* args) {
     if (!PyTuple_Check(args)) {
         PrintOutMsg("Python arguments is invalid");
         Py_RETURN_NONE;
@@ -205,7 +205,11 @@ static struct PyModuleDef gdb4hpcModule = {
                                        "gdb4hpc",
                                        nullptr,
                                        -1,
-                                       gdb4hpcMethods
+                                       gdb4hpcMethods,
+                                       nullptr,  // m_slots
+                                       nullptr, // m_travers
+                                       nullptr, // m_clear
+                                       nullptr  // m_free
 };
 
 PyMODINIT_FUNC PyInit_gdb4hpc() {

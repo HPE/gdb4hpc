@@ -572,7 +572,7 @@ void rep_set_t::writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream
 }
 
 void rep_set_t::writeDataReply(std::unique_ptr<Bitset>&& group, AIFStream*&& data) {
-    writeTransformedReply(std::move(group), std::move(data), [](AIFStream *_, AIFStream *newData) {
+    writeTransformedReply(std::move(group), std::move(data), [](AIFStream *, AIFStream *newData) {
         return newData;
     });
 }
@@ -1639,7 +1639,7 @@ static rep_set_t DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_t
             case DBGEV_DATA_CHUNK:
                 ev = DBGEV_DATA;
                 isFinal = false;
-                // intentionally falling through
+                [[fallthrough]];
 
             default:
                 if (ev != req_type && ev != alt_req_type) {
@@ -2955,7 +2955,7 @@ rep_set_t DbgEnableBreak(rec_set_t *set, int bp_set_num, bool once, bool del) {
 rep_set_t DbgIgnoreBreak(rec_set_t *set, int bp_set_num, int n) {
     auto makeRequest = [n](int id) {
                            return CommandToSocProto(DBGCMD_IGNOREBREAK, id, n); };
-    auto ignoreBP = [n](MappedBreakpoint& bp_set, const Bitset* group) {
+    auto ignoreBP = [n](MappedBreakpoint&, const Bitset*) {
                         // not marking it locally yet
                     };
     return DbgModifyBreak(set, bp_set_num, makeRequest, ignoreBP);
@@ -2964,7 +2964,7 @@ rep_set_t DbgIgnoreBreak(rec_set_t *set, int bp_set_num, int n) {
 rep_set_t DbgConditionBreak(rec_set_t *set, int bp_set_num, const std::string& cond) {
     auto makeRequest = [cond](int id) {
                            return CommandToSocProto(DBGCMD_CONDITIONBREAK, id, cond); };
-    auto conditionBP = [cond](MappedBreakpoint& bp_set, const Bitset* group) {
+    auto conditionBP = [cond](MappedBreakpoint& bp_set, const Bitset*) {
                            bp_set.setCondition(cond);
                     };
     return DbgModifyBreak(set, bp_set_num, makeRequest, conditionBP);

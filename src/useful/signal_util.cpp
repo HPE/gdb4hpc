@@ -12,7 +12,7 @@ int global_test_int = 0;
 TEST_CASE("TmpSignalHandler: modify data") {
     global_test_int = 0;
 
-    auto changeIt = [](int signal) {
+    auto changeIt = [](int) {
         global_test_int = 6;
     };
 
@@ -23,8 +23,8 @@ TEST_CASE("TmpSignalHandler: modify data") {
 }
 
 TEST_CASE("TmpSignalHandler: restore old signal handler") {
-    auto oldChangeIt = [](int signal) { global_test_int = 2; };
-    auto newChangeIt = [](int signal) { global_test_int = 3; };
+    auto oldChangeIt = [](int) { global_test_int = 2; };
+    auto newChangeIt = [](int) { global_test_int = 3; };
 
     global_test_int = 0;
 
@@ -47,8 +47,8 @@ TEST_CASE("TmpSignalHandler: restore old signal handler") {
 }
 
 TEST_CASE("TmpSignalHandler: don't interfere with unrelated signals") {
-    auto oldChangeIt = [](int signal) { global_test_int = 4; };
-    auto newChangeIt = [](int signal) { global_test_int = 5; };
+    auto oldChangeIt = [](int) { global_test_int = 4; };
+    auto newChangeIt = [](int) { global_test_int = 5; };
 
     global_test_int = 0;
 

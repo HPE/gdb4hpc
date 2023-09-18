@@ -39,7 +39,7 @@ std::shared_ptr<Command> make_blockmap_command_tree();
  * Info class commands
  ********************************/
 
-int cmd_info_decomposition_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_info_decomposition_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc > 1) {
         try {
             auto expr = ParseString(argv[1]);
@@ -80,7 +80,7 @@ int cmd_info_decomposition_cmd_console(Command::RunContext& ctx, rec_set_t *rec_
     return Command::Success;
 }
 
-int cmd_info_decomposition_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_info_decomposition_cmd_mi(Command::RunContext&, rec_set_t *, int, const char* const []) {
     auto ss = std::ostringstream{};
     
     for (auto m : GetBlockMapList()) {
@@ -107,25 +107,25 @@ int cmd_info_decomposition_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, 
  * Usage class commands
  ********************************/
 
-int cmd_usage_dimension_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_usage_dimension_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     PrintHelpEntry((char **)cmd_blockmap_dimension_help);
 
     return 1;
 }
 
-int cmd_usage_distribute_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_usage_distribute_cmd(Command::RunContext&, rec_set_t *, int, const char* const[]) {
     PrintHelpEntry((char **)cmd_blockmap_distribute_help);
 
     return 1;
 }
 
-int cmd_usage_proc_grid_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_usage_proc_grid_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     PrintHelpEntry((char **)cmd_blockmap_proc_grid_help);
 
     return 1;
 }
 
-int cmd_usage_dim_order_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_usage_dim_order_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     PrintHelpEntry((char **)cmd_blockmap_dim_order_help);
 
     return 1;
@@ -205,7 +205,7 @@ int cmd_decomposition_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
  * Alt commands
  ********************************/
 
-int cmd_blockmap_dimension_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_blockmap_dimension_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: dimension 64,64,64\n");
@@ -244,7 +244,7 @@ int cmd_blockmap_dimension_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int
     return 1;
 }
 
-int cmd_blockmap_distribute_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_blockmap_distribute_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: distribute block,block,*\n");
@@ -301,7 +301,7 @@ int cmd_blockmap_distribute_cmd(Command::RunContext& ctx, rec_set_t *rec_set, in
     return 1;
 }
 
-int cmd_blockmap_proc_grid_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_blockmap_proc_grid_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: proc_grid 32,64,*\n");
@@ -347,7 +347,7 @@ int cmd_blockmap_proc_grid_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int
     return 1;
 }
 
-int cmd_blockmap_dim_order_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_blockmap_dim_order_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: dim_order 1,2,*\n");
@@ -396,7 +396,7 @@ int cmd_blockmap_dim_order_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int
     return 1;
 }
 
-int cmd_blockmap_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_blockmap_end_cmd(Command::RunContext& ctx, rec_set_t *, int, const char* const []) {
     auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
     if (!console) {
         // unreachable?
@@ -454,7 +454,7 @@ std::shared_ptr<Command> make_blockmap_command_tree() {
         .help = cmd_blockmap_end_help,
         .desc = "Finish defining the current decomposition scheme."});
 
-    auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
         // help implementation lives in the interpreter,
         // and this function should not actually be called
         return Command::Failure;

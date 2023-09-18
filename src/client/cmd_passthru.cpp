@@ -26,7 +26,7 @@ namespace {
 
 std::shared_ptr<Command> make_gdbmode_command_tree();
 
-int cmd_maint_direct_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_maint_direct_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Usage: maint passthru <gdb command...>\n");
         return Command::Failure;
@@ -109,7 +109,7 @@ int cmd_directmode_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, c
     return Command::Success;
 }
 
-int cmd_directmode_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_directmode_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int, const char* const []) {
     auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
     if (!console) {
         // unreachable?
@@ -131,7 +131,7 @@ int cmd_directmode_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int arg
     return 1;
 }
 
-int cmd_directmode_direct_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_directmode_direct_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto rep_set = DbgDirectCmd(rec_set, argc, argv);
 
     // process error
@@ -157,13 +157,13 @@ int cmd_directmode_direct_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int 
     return 1;
 }
 
-int cmd_directmode_blacklist_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_directmode_blacklist_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     const auto* this_command = argc > 0 ? argv[0] : "This command";
     PrintOutError("\"%s\" is unsupported in gdbmode. Use \"end\" to exit gdbmode.\n", this_command);
     return Command::Failure;
 }
 
-int cmd_quit_cmd(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]) {
+int cmd_quit_cmd(Command::RunContext&, rec_set_t*, int, const char* const []) {
     ForceQuit();
     return Command::Success;
 }

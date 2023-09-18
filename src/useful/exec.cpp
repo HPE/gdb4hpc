@@ -73,7 +73,7 @@ size_t Pipe::read(char* buffer, size_t len) {
     return bytes_read;
 }
 
-void ignoreSIGPIPE(int sig) {
+void ignoreSIGPIPE(int) {
     // ignore...
 }
 

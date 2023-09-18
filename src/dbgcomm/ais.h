@@ -1206,7 +1206,7 @@ class OpVisitor : public FVisitor<OpVisitorFunc<UNARY_OP>> {
 public:
     OpVisitor(UNARY_OP op, Visitor& out) :
         FVisitor<OpVisitorFunc<UNARY_OP>>(OpVisitorFunc(op,out)), m_out(out) {}
-    void nest(const Type* t, int refIdx) override { m_out.nest(t); }
+    void nest(const Type* t, int /*refIdx*/) override { m_out.nest(t); }
     void start(const Type* t) override { m_out.start(t); }
     void addMetaInfo(const Type* t, std::pair<int,int> info) override {m_out.addMetaInfo(t,info);}
     void end() override { m_out.end(); }

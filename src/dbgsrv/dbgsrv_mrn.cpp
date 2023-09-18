@@ -65,8 +65,7 @@ const char *MRNServerProtocol::name() {
 }
 
 // Callbacks
-int MRNServerProtocol::invokeCallback(const char *chost, int cport, 
-    const char *host, int prog, int pnum, int port, dbgevent_t *e) {
+int MRNServerProtocol::invokeCallback(const char *, int, const char *, int, int, int, dbgevent_t *) {
     // we have nothing to do here
     return 1;
 }
@@ -90,8 +89,8 @@ int MRNServerProtocol::eventCallback(dbgevent_t *ev) {
     return res;
 }
 
-int MRNServerProtocol::initProto(int &procnum, int &pid, int argc, const char * const * argv,
-                              const char *key, const char *host, int port) {
+int MRNServerProtocol::initProto(int &procnum, int &pid, int, const char * const * argv,
+                              const char *, const char *, int) {
     int res;
 
     int pmi_rank = procnum;
@@ -200,9 +199,9 @@ fd_set *MRNServerProtocol::getFdSet() {
     return &fds;
 }
 
-int MRNServerProtocol::setupIo(int *fd, int *port) { return 0; }
+int MRNServerProtocol::setupIo(int*, int*) { return 0; }
 
-int MRNServerProtocol::transferIo(int fd, char *buffer, int size) {
+int MRNServerProtocol::transferIo(int, char *buffer, int size) {
     buffer[size] = '\0';
 
     DVPRINT("DbgSRVMRNTransferIO: %s\n", buffer);

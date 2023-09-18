@@ -378,6 +378,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/src/cti_launch.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cti_launch.cpp
 
 %{__cp} -a %{tests_source_dir}/function/src/c/c_cmp_diff.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_cmp_diff.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_signal.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_signal.c
 %{__cp} -a %{tests_source_dir}/function/src/c/c_type_pause.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_type_pause.c
 %{__cp} -a %{tests_source_dir}/function/src/c/c_type_test.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_type_test.c
 %{__cp} -a %{tests_source_dir}/function/src/c/mtest.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/mtest.c
@@ -469,6 +470,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_run.in                ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_run.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_set_unset.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_set_unset.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_show.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_show.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_signal.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_signal.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_sizeof.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_sizeof.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_step.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_step.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_up_down.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_up_down.in
@@ -774,6 +776,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_dlopen_test.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libdlopen_test.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_segv.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_signal.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_list.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_half_exit.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_ompd.c
@@ -863,6 +866,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_whatis.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_segv.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_shmem.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_signal.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_arrays.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_decomp.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/ftn_rocmGpu.in

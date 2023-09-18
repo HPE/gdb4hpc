@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -22,7 +22,7 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_source_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_source_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     cli_stream_args_t *stream_args;
 
     if (argc < 2) {

@@ -140,7 +140,7 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(DbgInvoke *di, const Bits
 }
 
 std::variant<ProtoMessageSet, ProtoNothing>
-MRNClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono::seconds _, Bitset &received) {
+MRNClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono::seconds, Bitset &received) {
     auto &network = getNetwork<MRNetNetwork>(di);
     int full = 0;
 

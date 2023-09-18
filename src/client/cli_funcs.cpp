@@ -663,7 +663,7 @@ bool cli_query(const char *s, cli_query_default defaultVal,
     return cli_query_interactive(s, defaultVal);
 }
 
-static void ProgOutMITarget(DbgInvoke *di, const char* line) {
+static void ProgOutMITarget(DbgInvoke *, const char* line) {
     // ignoring embedded quotes for the moment
     auto f = CurrentStream->cs_fpprog;
     auto new_line=std::string{line};

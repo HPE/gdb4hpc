@@ -65,12 +65,12 @@ private:
     
 // struct for negotiating a common set of ranks for a binary operation
 struct ResultPair {
-    std::unique_ptr<Bitset> ranks;
+    std::unique_ptr<Bitset> ranks = std::unique_ptr<Bitset>{};
     bool ranksAreEq = false;
     bool isRankToRank = true;
     AIFStream* a = nullptr;
     AIFStream* b = nullptr;
-    std::string label;
+    std::string label = "";
 };
 
 // visitor for AIS based operations on a value

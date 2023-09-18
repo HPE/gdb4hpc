@@ -544,8 +544,7 @@ int create_balanced_topology(int num_be, char *root, char **hosts,
     return 0;
 }
 
-int create_knominal_topology(int num_be, char *root, char **hosts,
-                             int attaching) {
+int create_knominal_topology(int num_be, char *root, char **hosts, int) {
     char **tmp;
     int L, N,
         K;  // the number of leaves, the total number of tree nodes, and fanout

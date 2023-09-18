@@ -900,7 +900,7 @@ std::shared_ptr<ais::Type> stdTuple(Mi2Aif& mi, TypeName t) {
 }
 
 
-std::shared_ptr<ais::Type> stdString(Mi2Aif& mi, TypeName t) {
+std::shared_ptr<ais::Type> stdString(Mi2Aif&, TypeName t) {
     DVPRINT("parsing stdString container type %s\n", t.decoration.c_str());
 
     auto [containedType, templateArgs, decoration] = getContainerTypes(t);
@@ -953,7 +953,7 @@ std::shared_ptr<ais::Type> stdConditional(Mi2Aif& mi, TypeName t) {
     return cppWrap(vtype, t2);
 }
 
-std::shared_ptr<ais::Type> ftnCharacter(Mi2Aif& mi, TypeName t) {
+std::shared_ptr<ais::Type> ftnCharacter(Mi2Aif&, TypeName t) {
     DVPRINT("parsing fortran CHARACTER type %s\n", t.decoration.c_str());
 
     if (auto star = t.decoration.find('*'); star != std::string::npos) {
@@ -971,7 +971,7 @@ std::shared_ptr<ais::Type> ftnCharacter(Mi2Aif& mi, TypeName t) {
 }
     
 
-std::shared_ptr<ais::Type> smartPointer(Mi2Aif& mi, TypeName t) {
+std::shared_ptr<ais::Type> smartPointer(Mi2Aif&, TypeName t) {
     DVPRINT("parsing smartPointer type %s\n", t.decoration.c_str());
 
     auto [containedType, templateArgs, decoration] = getContainerTypes(t);
@@ -1210,7 +1210,7 @@ std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t) {
     return unimplemented(mi, t);
 }
 
-std::shared_ptr<ais::Type> unimplemented(Mi2Aif& mi, TypeName t) {
+std::shared_ptr<ais::Type> unimplemented(Mi2Aif&, TypeName t) {
     return std::make_unique<ais::Unimplemented>(t.type + t.decoration);
 }
 

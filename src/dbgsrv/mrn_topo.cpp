@@ -41,7 +41,7 @@
 
 int ProcRankToMRNRank(int procRank) { return (procRank + ATTACHBE_RANK_SKEW); }
 
-int get_myparent_info(int id, char *host, char *par_addr, unsigned *par_port,
+int get_myparent_info(int id, char *, char *par_addr, unsigned *par_port,
                       unsigned *par_rank) {
     FILE *conn;
     int dbgsrv_id;

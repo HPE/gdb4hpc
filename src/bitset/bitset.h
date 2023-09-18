@@ -116,6 +116,10 @@ public:
     // XXX: Can't make a proper "std like" interface (begin(), end()) because
     // those need to return iterators by value, not reference, and therefore can't use polymorphism
     virtual std::unique_ptr<SetBitsIterator> iterator() const = 0;
+
+protected:
+    Bitset() {}
+    Bitset(const Bitset&) = default;
 };
 
 struct BitsetHasher {

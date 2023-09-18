@@ -82,8 +82,8 @@ public:
     virtual int init() { return 1; }; // success by default
     virtual void finish() {};
     
-    virtual int checkEvents(DbgInvoke *di) { return 0; };
-    virtual void dispatchEvents(DbgInvoke *di, int ev_fd) {};
+    virtual int checkEvents(DbgInvoke*) { return 0; };
+    virtual void dispatchEvents(DbgInvoke *, int) {};
 
     void resetProtocolEventHandler();
 protected:
@@ -119,7 +119,7 @@ private:
 /*
 ** Function definitions
 */
-DebugClientProtocol * const findClientProtoByName(const char* protoName);
+DebugClientProtocol * findClientProtoByName(const char* protoName);
 
 extern int WaitForProtoStartupEvent(DbgInvoke *);
 

@@ -32,7 +32,7 @@ static int handle_result_string(std::string result) {
     }
 }
 
-static int exec_args_cmd(Command::RunContext& ctx, rec_set_t* r, int argc, const char* const argv[]) {
+static int exec_args_cmd(Command::RunContext& ctx, rec_set_t*, int argc, const char* const argv[]) {
     static std::regex procRE{R"((\$\w+)\{(\d+)\})"};
 
     auto* mi = dynamic_cast<MiInterpreter*>(ctx.caller);
@@ -221,7 +221,7 @@ std::string Vars::update(const std::string& name, bool allValues) {
     return os.str();
 }
 
-static int var_create_cmd(Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) {
+static int var_create_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     // XXX: preserving old behavior
     auto args = ArgsToString(&argv[1], argc - 1);
     auto is = std::istringstream{args};
@@ -230,12 +230,12 @@ static int var_create_cmd(Command::RunContext& c, rec_set_t* r, int argc, const 
     return handle_result_string(miVars.create(name, frame, expression));
 }
 
-static int var_delete_cmd(Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) {
-    miVars.remove(argv[1]);
+static int var_delete_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
+    if (argc >= 2) miVars.remove(argv[1]);
     return handle_result_string("ok");
 }
 
-static int var_update_cmd(Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) {
+static int var_update_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     auto allValues = false;
     for (auto i = 1; i < argc; i++) {
         auto arg = std::string_view{argv[i]};

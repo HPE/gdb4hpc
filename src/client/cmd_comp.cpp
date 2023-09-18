@@ -45,7 +45,7 @@ namespace {
     };
 }
 
-static int cmd_compare_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_compare_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: compare expr1 == expr2\n");
@@ -83,7 +83,7 @@ static int cmd_compare_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set,
     return Command::Success;
 }
 
-static int cmd_compare_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_compare_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: compare expr1 == expr2\n");

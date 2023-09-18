@@ -175,6 +175,7 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
 
         case DBGEV_VARS:
             e->ev_vars = DupVars(event->ev_vars);
+            break;
 
         case DBGEV_HALT:
         case DBGEV_LOC:

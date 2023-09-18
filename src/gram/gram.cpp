@@ -28,7 +28,7 @@ gram::Expression* gram::Expression::negate() {
 
 gram::Int::Int(int val) : m_val(val) {}
 
-void gram::Int::printL(int level) const {
+void gram::Int::printL(int) const {
     std::cout << "Int: " << m_val << "\n";
 }
 
@@ -43,7 +43,7 @@ gram::Expression* gram::Int::negate() {
 
 gram::Float::Float(double val) : m_val(val) {}
 
-void gram::Float::printL(int level) const {
+void gram::Float::printL(int) const {
     std::cout << "Float: " << m_val << "\n";
 }
 
@@ -58,7 +58,7 @@ gram::Expression* gram::Float::negate() {
 
 gram::String::String(const std::string& val) : m_val(val) {}
 
-void gram::String::printL(int level) const {
+void gram::String::printL(int) const {
     std::cout << "String: \"" << m_val << "\"\n";
 }
 
@@ -68,7 +68,7 @@ std::string gram::String::toString() const {
 
 gram::Sym::Sym(const std::string& sym) : m_sym(sym) {}
 
-void gram::Sym::printL(int level) const {
+void gram::Sym::printL(int) const {
     std::cout << "Sym: \"" << m_sym << "\"\n";
 }
 
@@ -78,7 +78,7 @@ std::string gram::Sym::toString() const {
 
 gram::DSym::DSym(const std::string& sym) : m_sym(sym) {}
 
-void gram::DSym::printL(int level) const {
+void gram::DSym::printL(int) const {
     std::cout << "DSym: \"" << m_sym << "\"\n";
 }
 

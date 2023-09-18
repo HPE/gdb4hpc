@@ -51,8 +51,8 @@ endif
 dbgsrv_trampoline_SOURCES = dbgsrv_trampoline.c
 dbgsrv_trampoline_LDFLAGS = -O0
 
-dbgsrv_alps_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(USEFUL)/libuseful.a $(CRAYTOOL_LIBS) \
-					  $(DBGCOMM)/libdbg.a
+dbgsrv_alps_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(CRAYTOOL_LIBS) \
+					  $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a 
 dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
 					  -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 \
 					  -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags
@@ -65,8 +65,8 @@ endif
 libexec_PROGRAMS= dbgsrv $(CRAY_PROGS) dbgsrv_trampoline
 dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp \
 				  $(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
-dbgsrv_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(USEFUL)/libuseful.a $(GRAM)/libgram.a \
-				  $(DBGCOMM)/libdbg.a $(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) -lm \
+dbgsrv_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
+				  $(USEFUL)/libuseful.a $(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) -lm \
 				  $(CRAYTOOL_LIBS) -lstdc++ -lstdc++fs -lpthread
 dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
 				  -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 \

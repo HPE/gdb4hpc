@@ -114,14 +114,14 @@ bool DenseBitset::isFull() const {
 }
 
 void DenseBitset::set(size_t bit) {
-	if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
+	if (bit >= m_bs_nbits)
 		return;
 
 	m_bs_bits[BIT_INDEX(bit)] |= (1 << BIT_IN_OBJ(bit));
 }
 
 void DenseBitset::unset(size_t bit) {
-	if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
+	if ((unsigned int)bit >= m_bs_nbits)
 		return;
 
 	m_bs_bits[BIT_INDEX(bit)] &= ~(1 << BIT_IN_OBJ(bit));
@@ -130,7 +130,7 @@ void DenseBitset::unset(size_t bit) {
 bool DenseBitset::test(size_t bit) const {
 	Bits mask = (1 << BIT_IN_OBJ(bit));
 
-	if (bit < 0 || (unsigned int)bit >= m_bs_nbits)
+	if (bit >= m_bs_nbits)
 		return 0;
 
 	return (m_bs_bits[BIT_INDEX(bit)] & mask) == mask;

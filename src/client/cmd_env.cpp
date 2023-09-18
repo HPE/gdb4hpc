@@ -31,7 +31,7 @@
 #include "useful.h"
 #include "interpreter_console.h"
 
-static int cmd_set_environment_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_set_environment_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc != 3) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: set environment <key> <value>\n");
@@ -45,7 +45,7 @@ static int cmd_set_environment_cmd(Command::RunContext& ctx, rec_set_t *rec_set,
     return 1;
 }
 
-static int cmd_unset_environment_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_unset_environment_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc != 2) {
         PrintOutError("Incorrect number of command arguments.\n");
         PrintOutError("Expected: unset environment <key>\n");
@@ -64,7 +64,7 @@ static int cmd_unset_environment_cmd(Command::RunContext& ctx, rec_set_t *rec_se
     return 1;
 }
 
-static int cmd_show_environment_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_environment_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     // if the user didn't provide an argument, print out the entire list
     if (argc < 2) {
         for (const auto& [key, value] : Client.launch_env ) {
@@ -86,12 +86,12 @@ static int cmd_show_environment_cmd(Command::RunContext& ctx, rec_set_t *rec_set
     return 1;
 }
 
-static int cmd_quit_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_quit_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     ForceQuit();
     return Command::Success;
 }
 
-static int cmd_maint_echo_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_maint_echo_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     char *echo_str;
 
     if (argc < 2) return 0;
@@ -106,7 +106,7 @@ static int cmd_maint_echo_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int 
     return 1;
 }
 
-static int cmd_maint_sleep_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_maint_sleep_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int time = 5;
 
     if (argc > 1) time = atoi(argv[1]);
@@ -232,7 +232,7 @@ static int cmd_shell_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_pipe_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_pipe_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
 
     if (argc < 2) {
         PrintOutError("No command given.\n");
@@ -301,7 +301,7 @@ ShellMode::ShellMode() : Command(proc_optional, sendToShell) {}
 
 std::unique_ptr<SubShell> ShellMode::m_subshell;
 
-int ShellMode::sendToShell(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int ShellMode::sendToShell(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (!m_subshell)
         m_subshell.reset(new SubShell);
 
@@ -322,7 +322,7 @@ void ShellMode::enter(ConsoleInterpreter& console)
 }
 
 // Leave shell mode
-int ShellMode::exit(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int ShellMode::exit(Command::RunContext& ctx, rec_set_t *, int, const char* const []) {
     auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
     if (!console) {
         // unreachable?
@@ -338,7 +338,7 @@ int ShellMode::exit(Command::RunContext& ctx, rec_set_t *rec_set, int argc, cons
     return Command::Success;
 }
 
-int ShellMode::suspend(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int ShellMode::suspend(Command::RunContext& ctx, rec_set_t *, int, const char* const []) {
     auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
     if (!console) {
         // unreachable?
@@ -479,7 +479,7 @@ void SubShell::readThread(int fid) {
     return;
 }
 
-static int cmd_maint_set_earlyentry_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_maint_set_earlyentry_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: maint set earlyentry [on|off]\n");
@@ -500,7 +500,7 @@ static int cmd_maint_set_earlyentry_cmd(Command::RunContext& ctx, rec_set_t *rec
     return 1;
 }
 
-static int cmd_maint_show_earlyentry_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_maint_show_earlyentry_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     if (Client.early_entry)
         PrintOutMsg("Early entry mode enabled.\n");
     else
@@ -509,7 +509,7 @@ static int cmd_maint_show_earlyentry_cmd(Command::RunContext& ctx, rec_set_t *re
     return 1;
 }
 
-static int cmd_maint_set_unsafe_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_maint_set_unsafe_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: maint set unsafe [on|off]\n");
@@ -531,7 +531,7 @@ static int cmd_maint_set_unsafe_cmd(Command::RunContext& ctx, rec_set_t *rec_set
     return 1;
 }
 
-static int cmd_maint_show_unsafe_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_maint_show_unsafe_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     if (Client.unsafe)
         PrintOutMsg("Unsafe mode enabled.\n");
     else
@@ -540,7 +540,7 @@ static int cmd_maint_show_unsafe_cmd(Command::RunContext& ctx, rec_set_t *rec_se
     return 1;
 }
 
-static int cmd_maint_set_sync_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_maint_set_sync_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: maint set sync [on|off]\n");
@@ -572,7 +572,7 @@ static int cmd_maint_set_sync_cmd(Command::RunContext& ctx, rec_set_t *rec_set, 
     return 1;
 }
 
-static int cmd_maint_show_sync_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_maint_show_sync_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     if (Client.sync_wait)
         PrintOutMsg("Synchronous event mode enabled.\n");
     else
@@ -581,7 +581,7 @@ static int cmd_maint_show_sync_cmd(Command::RunContext& ctx, rec_set_t *rec_set,
     return 1;
 }
 
-static int cmd_info_status_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_status_cmd(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     dbgstatus_t *s;
 
     // We do not want to get the location info with this status command
@@ -654,14 +654,14 @@ static int dir_cmd(rec_set_t *rec_set, DbgDirOp op, int argc, char const * const
 }
 
 
-static int cmd_directory_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_directory_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc == 1 && !cli_query("clear source path", cli_query_default::NO, cli_query_default::YES)) return 1;
     return dir_cmd(rec_set, DbgDirOp::ADD, argc, argv);
 }
-static int cmd_set_directories_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_set_directories_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     return dir_cmd(rec_set, DbgDirOp::SET, argc, argv);
 }
-static int cmd_set_substitute_path_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_set_substitute_path_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc != 3) {
         PrintOutError("Wrong number of arguments.\n");
         PrintOutError("Expected: set substitute-path <from-path> <to-path>\n");
@@ -670,7 +670,7 @@ static int cmd_set_substitute_path_cmd(Command::RunContext& ctx, rec_set_t *rec_
     return dir_cmd(rec_set, DbgDirOp::SUB, argc, argv);
 }
 
-static int cmd_show_substitute_path_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_substitute_path_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc > 2) {
         PrintOutError("Wrong number of arguments.\n");
         PrintOutError("Expected: show substitute-path [path]\n");
@@ -678,7 +678,7 @@ static int cmd_show_substitute_path_cmd(Command::RunContext& ctx, rec_set_t *rec
     }
     return dir_cmd(rec_set, DbgDirOp::SHOW_SUB, argc, argv);
 }
-static int cmd_unset_substitute_path_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_unset_substitute_path_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc > 2) {
         PrintOutError("Wrong number of arguments.\n");
         PrintOutError("Expected: unset substitute-path [path]\n");
@@ -688,7 +688,7 @@ static int cmd_unset_substitute_path_cmd(Command::RunContext& ctx, rec_set_t *re
 }
 
 
-static int cmd_show_directories_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_directories_cmd(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     auto rep_set = DbgGetSourcePath(rec_set);
     ProcessErrorInRepSet(rep_set);
 
@@ -704,24 +704,24 @@ static int cmd_show_directories_cmd(Command::RunContext& ctx, rec_set_t *rec_set
 
 
 
-static int cmd_show_version_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_version_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     PrintOutMsg("Version %s\n", GUARD_VERSION);
     return 1;
 }
 
 // TODO delegate these show prompt commands to the interpreter
 
-static int cmd_show_prompt_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_prompt_console(Command::RunContext&, rec_set_t*, int, const char* const []) {
     PrintOutMsg("dbg all>\n");
     return Command::Success;
 }
 
-static int cmd_show_prompt_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_prompt_mi(Command::RunContext&, rec_set_t *, int, const char* const []) {
     PrintOutMIResult(MIResult::DONE, "value=\"(gdb) \"\n");
     return Command::Success;
 }
 
-static int cmd_set_error_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_set_error_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: set error [warn] [error]\n");
@@ -761,7 +761,7 @@ static int cmd_set_error_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int a
     return 1;
 }
 
-static int cmd_show_error_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_error_console(Command::RunContext&, rec_set_t *, int, const char* const []) {
     PrintOutMsg("Warning epsilon: ");
     PrintOutMsg("%.16lg", Client.cmp_lower_eps);
     PrintOutMsg("\nError epsilon: ");
@@ -770,7 +770,7 @@ static int cmd_show_error_console(Command::RunContext& ctx, rec_set_t *rec_set, 
     return Command::Success;
 }
 
-static int cmd_show_error_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_error_mi(Command::RunContext&, rec_set_t *, int, const char* const []) {
     PrintOutMIResult(MIResult::DONE,"epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}\n", Client.cmp_lower_eps, Client.cmp_upper_eps);
     return Command::Success;
 }
@@ -786,7 +786,7 @@ static bool get_on_off(const char *val){
 }
 
 // Set output redirection for logging purposes
-static int cmd_set_logging_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]){
+static int cmd_set_logging_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]){
 
     // Constant vector of valid arguments
     const static std::vector<std::string> valid_args = {"on", "off"};
@@ -859,7 +859,7 @@ static int cmd_set_logging_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int
     return 1;
 }
 
-static int cmd_set_pager_cmd(Command::RunContext& ctx, rec_set_t* _, int argc, const char* const argv[]) {
+static int cmd_set_pager_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("usage: set pager <path/to/pager/binary> <arg1> <arg2> ... <argn>\n");
         return 0;
@@ -874,7 +874,7 @@ static int cmd_set_pager_cmd(Command::RunContext& ctx, rec_set_t* _, int argc, c
     return 1;
 }
 
-static int cmd_show_pager_cmd(Command::RunContext& ctx, rec_set_t* _, int argc, const char* const argv[]) {
+static int cmd_show_pager_cmd(Command::RunContext&, rec_set_t*, int, const char* const []) {
     if (!Client.pager.empty()) {
         PrintOutMsg("%s\n", Client.pager.c_str());
     } else {
@@ -907,7 +907,7 @@ static int cmd_set_pagination_cmd(Command::RunContext& ctx, rec_set_t* rset, int
     return Command::Success;
 }
 
-static int cmd_set_height_cmd(Command::RunContext& ctx, rec_set_t* _, int argc, const char* const argv[]) {
+static int cmd_set_height_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("set height <n>\n");
         return 0;
@@ -917,7 +917,7 @@ static int cmd_set_height_cmd(Command::RunContext& ctx, rec_set_t* _, int argc, 
     return 1;
 }
 
-static int cmd_show_height_cmd(Command::RunContext& ctx, rec_set_t* _, int argc, const char* const argv[]) {
+static int cmd_show_height_cmd(Command::RunContext&, rec_set_t*, int, const char* const []) {
     if (Client.height == 0) {
         PrintOutMsg("0 lines (no paging)\n");
     } else {
@@ -927,7 +927,7 @@ static int cmd_show_height_cmd(Command::RunContext& ctx, rec_set_t* _, int argc,
     return 1;
 }
 
-static int cmd_set_print_entryframe_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_set_print_entryframe_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -952,7 +952,7 @@ static int cmd_set_print_entryframe_cmd(Command::RunContext& ctx, rec_set_t *rec
     return 1;
 }
 
-static int cmd_show_print_entryframe_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_print_entryframe_cmd(Command::RunContext&, rec_set_t*, int, const char* const []) {
     if (Client.print_entry_frame)
         PrintOutMsg("print entry-frame enabled.\n");
     else
@@ -961,7 +961,7 @@ static int cmd_show_print_entryframe_cmd(Command::RunContext& ctx, rec_set_t *re
     return 1;
 }
 
-static int cmd_set_print_sourceonstep_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_set_print_sourceonstep_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -987,7 +987,7 @@ static int cmd_set_print_sourceonstep_cmd(Command::RunContext& ctx, rec_set_t *r
     return 1;
 }
 
-static int cmd_show_print_sourceonstep_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_print_sourceonstep_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     if (Client.print_source_on_step)
         PrintOutMsg("print source-on-step enabled.\n");
     else
@@ -996,7 +996,7 @@ static int cmd_show_print_sourceonstep_cmd(Command::RunContext& ctx, rec_set_t *
     return 1;
 }
 
-static int class_new_ui_cmd(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]) {
+static int class_new_ui_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     if (argc != 3) {
         PrintOutError("Wrong number of arguments to new-ui interpreter tty.\n");
         return 0;
@@ -1019,7 +1019,7 @@ static int class_new_ui_cmd(Command::RunContext& ctx, rec_set_t* rec_set, int ar
     return 1;
 }
 
-static int cmd_set_inferior_tty_cmd_console(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]) {
+static int cmd_set_inferior_tty_cmd_console(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     const char* tty = nullptr;
     if (argc == 2) {
         tty = argv[1];
@@ -1048,7 +1048,7 @@ static int cmd_set_inferior_tty_cmd_mi(Command::RunContext& ctx, rec_set_t* rec_
     return Command::Success;
 }
 
-static int cmd_set_command_timeout_cmd(Command::RunContext& ctx, rec_set_t*, int argc, const char* const argv[]) {
+static int cmd_set_command_timeout_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Usage: set command-timeout <seconds>\n");
         return 0;
@@ -1065,7 +1065,7 @@ static int cmd_set_command_timeout_cmd(Command::RunContext& ctx, rec_set_t*, int
     }
 }
 
-static int cmd_show_command_timeout_cmd(Command::RunContext& ctx, rec_set_t*, int argc, const char* const argv[]) {
+static int cmd_show_command_timeout_cmd(Command::RunContext&, rec_set_t*, int, const char* const []) {
     auto seconds = DbgGetSyncCommandTimeout().count();
 
     if (seconds <= 0) {

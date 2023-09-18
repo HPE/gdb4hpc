@@ -168,7 +168,7 @@ static void PrintMIThread(const std::string& line,
        << thread_state<<"\"}";
 }
 
-static int cmd_info_threads_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_threads_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     // info threads if typically called with no arguments but it
     // does take an optional list of thread ids
     std::string arg = ArgsToString(&argv[1], argc - 1);
@@ -199,7 +199,7 @@ static int cmd_info_threads_cmd_console(Command::RunContext& ctx, rec_set_t *rec
     return Command::Success;
 }
 
-static int cmd_info_threads_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_threads_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!rec_set) {
         PrintOutOk();
         return Command::Success;
@@ -239,7 +239,7 @@ static int cmd_info_threads_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set,
     return Command::Success;
 }
 
-static int cmd_set_scheduler_locking_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[])
+static int cmd_set_scheduler_locking_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[])
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on|step|replay.\n");
@@ -256,7 +256,7 @@ static int cmd_set_scheduler_locking_cmd(Command::RunContext& ctx, rec_set_t *re
     return 1;
 }
 
-static int cmd_show_scheduler_locking_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[])
+static int cmd_show_scheduler_locking_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const [])
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -277,7 +277,7 @@ static int cmd_show_scheduler_locking_cmd(Command::RunContext& ctx, rec_set_t *r
 
 // enable/disable non-stop mode which lets other threads in a process continue
 // running instead of stopping every thread
-static int cmd_set_non_stop_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[])
+static int cmd_set_non_stop_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[])
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on.\n");
@@ -317,7 +317,7 @@ static int cmd_set_non_stop_cmd(Command::RunContext& ctx, rec_set_t *rec_set, in
 }
 
 // on means other threads can continue to run when one is stopped
-static int cmd_show_non_stop_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[])
+static int cmd_show_non_stop_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const [])
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -341,7 +341,7 @@ static int cmd_show_non_stop_cmd(Command::RunContext& ctx, rec_set_t *rec_set, i
 }
 
 // command to interface with the ompd plugin
-static int cmd_ompd_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_ompd_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     auto arg = ArgsToString(&argv[1], argc - 1);
     auto rep_set = DbgOmpd(rec_set, arg.c_str());
@@ -366,7 +366,7 @@ static int cmd_ompd_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
 }
 
 // command to interface with the cuda-gdb extensions
-static int cmd_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_cuda_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     auto arg = ArgsToString(&argv[1], argc - 1);
     auto rep_set = DbgCuda(rec_set, arg.c_str());

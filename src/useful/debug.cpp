@@ -257,7 +257,7 @@ void PrintDebugTimeLog(char* fmt, ...) {
 
     if (gethostname(hostname, MAXHOSTNAMELEN) < 0) sprintf(hostname, "unknown");
 
-    if ((userid = getuid()) < 0) userid = -1;
+    userid = getuid();
 
     envDir = getenv("GUARD_LOG_DIR");
     rootDir = envDir ? envDir : "/tmp";

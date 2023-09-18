@@ -83,7 +83,7 @@ static rep_set_t send_break_command(rec_set_t *rec_set, const BreakArgs& args) {
 // returns true on success
 static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args);
 
-static int cmd_break_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_break_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_args = parse_break_args(rec_set, argc, argv);
     if (!maybe_args) {
         // error message already printed
@@ -147,7 +147,7 @@ static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args) {
     return true;
 }
 
-static int cmd_break_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_break_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_args = parse_break_args(rec_set, argc, argv);
     if (!maybe_args) {
         // error message already printed
@@ -210,7 +210,7 @@ static int cmd_break_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int ar
 // returns true on success
 static bool do_set_tbreak(rec_set_t *rec_set, BreakArgs& args);
 
-static int cmd_tbreak_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_tbreak_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_args = parse_break_args(rec_set, argc, argv);
     if (!maybe_args) {
         // error message already printed
@@ -294,7 +294,7 @@ static bool do_set_tbreak(rec_set_t* rec_set, BreakArgs& args) {
     return true;
 }
 
-static int cmd_watch_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_watch_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -382,7 +382,7 @@ static int cmd_watch_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
     return 1;
 }
 
-static int cmd_catch_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_catch_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     // There is no special reason that we are limited to these events. dbgsrv
     // is set up to send a generic "catch _____" command with CLIBypass, so
     // any valid event type could work. These are just the few that have been
@@ -446,7 +446,7 @@ static int cmd_catch_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
 }
 
 // called via the delete command: "delete checkpoint x"
-static int cmd_delete_checkpoint_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_delete_checkpoint_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     const auto usage = [](){
         PrintOutError("Usage: delete checkpoint <id>\n");
     };
@@ -507,7 +507,7 @@ static int cmd_delete_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     return 1;
 }
 
-static int cmd_disable_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_disable_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int bp_id = 0;
 
     if (argc > 1) {
@@ -528,7 +528,7 @@ static int cmd_disable_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int arg
     return 1;
 }
 
-static int cmd_enable_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_enable_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int argp = 1;
     int once = 0;
     int delete_cmd = 0;
@@ -575,7 +575,7 @@ static int cmd_enable_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     return 1;
 }
 
-static int cmd_ignore_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_ignore_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc != 3) {
         PrintOutError("Arguments required <breakpoint-number> <ignore-count>.\n");
@@ -603,7 +603,7 @@ static int cmd_ignore_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     return 1;
 }
 
-static int cmd_condition_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_condition_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 2) {
         PrintOutError("Breakpoint number required.\n");
@@ -712,7 +712,7 @@ std::string BPCnts::get(const std::string &handle, const Bitset *group, int id) 
     return res.str();
 }
 
-static int cmd_info_breakpoints_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_breakpoints_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int bid = 0;
     std::stringstream ss;
 
@@ -844,7 +844,7 @@ static int cmd_info_breakpoints_cmd_console(Command::RunContext& ctx, rec_set_t 
     return Command::Success;
 }
 
-static int cmd_info_breakpoints_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_breakpoints_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!rec_set) {
         PrintOutMIResult(MIResult::DONE, "BreakpointTable={body=[]}\n%s",GetMIEpilogue());
         return Command::Success;
@@ -939,7 +939,7 @@ static int cmd_info_breakpoints_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_
     return Command::Success;
 }
 
-static int cmd_set_break_pending_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_set_break_pending_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
 
 
     if (argc < 2) {
@@ -966,7 +966,7 @@ static int cmd_set_break_pending_cmd(Command::RunContext& ctx, rec_set_t *rec_se
     return 1;
 }
 
-static int cmd_show_break_pending_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_break_pending_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     if (Client.brk_pending == PendingBrkType::Auto)
         PrintOutMsg("Allow setting of pending breakpoints will ask user first. (auto)\n");
     else if (Client.brk_pending == PendingBrkType::On)

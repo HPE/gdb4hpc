@@ -30,7 +30,7 @@ static const char* skipspace(const char* s) {
 
 static std::unique_ptr<ais::Writer> makeNullWriter();
 
-void ais::Type::printIndex(int idx, std::ostream& os) const {}
+void ais::Type::printIndex(int, std::ostream&) const {}
 
 int ais::Type::getTypeId(ais::Writer& writer) const
 {
@@ -893,7 +893,7 @@ namespace ais {
                      const std::string& asep,
                      const std::string& aclose) : Printer(parent),
                                                   open(aopen), sep(asep), close(aclose) {}
-        void addMetaInfo(const Type* t, std::pair<int,int> info) {
+        void addMetaInfo(const Type*, std::pair<int,int> info) {
             m_idx0 = info.first;
             m_len = info.second;
         }
@@ -1104,13 +1104,13 @@ namespace {
     // as an array of characters
     class CharArrayBuffer : public ais::WriteBuffer {
     public:
-        void writeLong(long val) override {}
-        void writeLongLong(long long val) override {}
-        void writeFloat(float val) override {}
-        void writeDouble(double val) override {}
-        void writeLongDouble(long double val) override {}
-        void writeString(const std::string& str) override {}
-        void writePointer(const std::string& type, void* val) override {}
+        void writeLong(long) override {}
+        void writeLongLong(long long) override {}
+        void writeFloat(float) override {}
+        void writeDouble(double) override {}
+        void writeLongDouble(long double) override {}
+        void writeString(const std::string&) override {}
+        void writePointer(const std::string&, void*) override {}
         void writeInt(int val) override { str << char(val); }
         void writeError(const std::string& str) override { if (err.empty()) err = str; }
 
@@ -1235,7 +1235,7 @@ ais::DecompArray::DecompArray(std::shared_ptr<ais::Array> array,
     }
 }
 
-void ais::DecompArray::parseL(InterpretStream& in, Writer& out) const {
+void ais::DecompArray::parseL(InterpretStream&, Writer&) const {
     // DecompArray is a client side feature, the parsing should happen as
     // normal array (or vector) types on the back end.
     std::cerr << "DecompArray::parse";
@@ -1281,7 +1281,7 @@ void ais::DecompArray::applyL(Reader& reader, Visitor& f) const {
     std::vector<std::vector<ais::Array::ApplyOneIdx>> inputLocs;
 
     // applyOp forwards the action to f
-    auto applyOp = [&f,&reader](const Type& t, Reader& r) { t.apply(reader, f); };
+    auto applyOp = [&f,&reader](const Type& t, Reader&) { t.apply(reader, f); };
 
     // now iterator over the unified array 
     bool first = true;
@@ -1345,7 +1345,7 @@ void ais::Array1::applyL(Reader& reader, Visitor& f) const {
     f.unnest();
 }
 
-void ais::Array1::applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, int level,
+void ais::Array1::applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, int,
                            const std::function<void(const Type&,Reader&)>& f) {
     location.push_back(ApplyOneIdx{0, 1, false});
     f(*m_elemType, reader);
@@ -1358,15 +1358,15 @@ namespace {
 // dummy writer to drop output into the aether
 class NullBuffer : public ais::WriteBuffer {
 public:
-    void writeInt(int val) override {}
-    void writeLong(long val) override {}
-    void writeLongLong(long long val) override {}
-    void writeFloat(float val) override {}
-    void writeDouble(double val) override {}
-    void writeLongDouble(long double val) override {}
-    void writeString(const std::string& str) override {}
-    void writePointer(const std::string& type, void* val) override {}
-    void writeError(const std::string& str) override {}
+    void writeInt(int) override {}
+    void writeLong(long) override {}
+    void writeLongLong(long long) override {}
+    void writeFloat(float) override {}
+    void writeDouble(double) override {}
+    void writeLongDouble(long double) override {}
+    void writeString(const std::string&) override {}
+    void writePointer(const std::string&, void*) override {}
+    void writeError(const std::string&) override {}
 
 };
 }
@@ -2125,7 +2125,7 @@ namespace {
         void writeDouble(double val) override { f->writeDouble(val); }
         void writeLongDouble(long double val) override { f->writeLongDouble(val); }
         void writeString(const std::string& str) override { f->writeString(str); }
-        void writePointer(const std::string& type, void* val) override { suppress(); }
+        void writePointer(const std::string&, void*) override { suppress(); }
         void writeError(const std::string& str) override { f->writeError(str); }
     private:
         void suppress();
@@ -2886,10 +2886,10 @@ void ais::Visitor::operator()(int  val) { operator()(long(val)); }
 void ais::Visitor::operator()(long val) { operator()(static_cast<long long>(val)); }
 void ais::Visitor::operator()(float val) { operator()(double(val)); }
 void ais::Visitor::operator()(double val) { operator()(static_cast<long double>(val)); }
-void ais::Visitor::start(const Type* t) {}
-void ais::Visitor::addMetaInfo(const Type* t, std::pair<int,int> info) {}
+void ais::Visitor::start(const Type*) {}
+void ais::Visitor::addMetaInfo(const Type*, std::pair<int,int>) {}
 void ais::Visitor::end() {}
-void ais::Visitor::nest(const Type* t, int refIdx) {}
+void ais::Visitor::nest(const Type*, int) {}
 void ais::Visitor::unnest() {}
 void ais::Visitor::eof() {}
 
@@ -3171,12 +3171,12 @@ void ais::Printer::operator()(const ais::Error& val) {
 }
 
 
-void ais::Printer::nest(const ais::Type* t, int refIdx) {
+void ais::Printer::nest(const ais::Type* t, int) {
     child = t->makePrinter(*this);
     master.setTop(child.get());
 }
-void ais::Printer::start(const ais::Type* t) { if (parent) parent->startChild(); }
-void ais::Printer::addMetaInfo(const ais::Type* t, std::pair<int,int> info) {}
+void ais::Printer::start(const ais::Type*) { if (parent) parent->startChild(); }
+void ais::Printer::addMetaInfo(const ais::Type*, std::pair<int,int>) {}
 void ais::Printer::end() { if (parent) parent->endChild(); }
 void ais::Printer::unnest() {
     if (parent) {

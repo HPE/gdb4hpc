@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -70,7 +70,7 @@ DbgGdbMI::Initializer::Initializer(DbgGdbMI& dbg)
     : m_dbg(dbg), m_session(nullptr), m_pid(0)
 {}
 
-dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **env) {
+dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
     dbgevent_t *e;
     gdb_vers = GdbVersion::GDB;
 
@@ -780,14 +780,14 @@ static void target_callback(char *str) {
     DVPRINT("*** Dbg %s, %s, str %s\n", __FILE__, __func__, str);
 }
 
-static void notification_callback(char *className, MIList *results) {
+static void notification_callback(char *className, MIList *) {
     DVPRINT("NEWGDBMI notification> %s\n", className);
 }
 
 /*
 ** Signal handler.
 */
-static void Finish(int sig) {
+static void Finish(int) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     Shutdown++;
 }
@@ -1594,7 +1594,7 @@ dbgevent_t *DbgGdbMI::Initializer::setArgs(const char *arg) {
 /*
 ** Quit debugger.
 */
-dbgevent_t *DbgGdbMI::Initializer::quit(bool detach) {
+dbgevent_t *DbgGdbMI::Initializer::quit(bool) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     /*
     ** Interrupt the process if it is running. This will generate an async event.

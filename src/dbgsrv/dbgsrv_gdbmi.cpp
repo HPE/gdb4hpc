@@ -163,7 +163,7 @@ dbgevent_t *DbgGdbMI::startup(void) {
 ** LibMI consumer call. This will have the libmi progress its session
 ** and perform any necessary callbacks.
 */
-int DbgGdbMI::read(int fd) {
+int DbgGdbMI::read(int) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     int error = 0;
 
@@ -2864,9 +2864,9 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
     return m_initializer->interrupt(all);
 }
 
-dbgevent_t *DbgGdbMI::launch(const char *host, int cb, const char *proto,
+dbgevent_t *DbgGdbMI::launch(const char *, int, const char *,
                              const char *prog, const char *args,
-                             char **env) {
+                             char **) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
@@ -2882,7 +2882,7 @@ dbgevent_t *DbgGdbMI::launch(const char *host, int cb, const char *proto,
 /*
 ** Attach debugger to running process.
 */
-dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *args, char **env) {
+dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *, char **) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
@@ -3281,8 +3281,10 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
     switch (evt->type) {
         case MIEventTypeCatchpointHit:
             DVPRINT("MIEventTypeCatchpointHit, falling through to WatchpointTrigger (and then Breakpoint hit)\n");
+            [[fallthrough]];
         case MIEventTypeWatchpointTrigger:
             DVPRINT("MIEventTypeWatchpointHit, falling through to BreakpointHit\n");
+            [[fallthrough]];
         case MIEventTypeBreakpointHit: {
             DVPRINT("MIEventTypeBreakpointHit\n");
 
@@ -3423,8 +3425,10 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
 
         case MIEventTypeSuspended:
             DVPRINT("MIEventTypeSuspended, falling through to FunctionFinished, then SteppingRange\n");
+            [[fallthrough]];
         case MIEventTypeFunctionFinished:
             DVPRINT("MIEventTypeFunctionFinished, falling through to SteppingRange\n");
+            [[fallthrough]];
         case MIEventTypeSteppingRange:
             DVPRINT("MIEventTypeSteppingRange\n");
             e->ev_event = DBGEV_STEP;
@@ -3933,7 +3937,7 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
 // are still running.
 // As per the libMI interface, returning non-zero indicates that libMI can stop waiting for
 // more responses.
-static int thread_stopped_callback(int threadId) {
+static int thread_stopped_callback(int) {
     if (numBackgroundThreads && !--numBackgroundThreads) {
         return 1;  // we've heard back from all threads
     }

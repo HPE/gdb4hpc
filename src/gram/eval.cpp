@@ -12,7 +12,7 @@
 #include "procset.h"
 
 std::unique_ptr<Value>
-gram::Expression::eval(rec_set_t* rec_set) const {
+gram::Expression::eval(rec_set_t*) const {
     std::cout << "evaluator unimplemented\n";
     print();
     throw EvalError{"unimplemented evaluator"};
@@ -24,7 +24,7 @@ gram::Expression::evalTop(rec_set_t* rec_set) const {
 }
 
 std::unique_ptr<ComparisonValue>
-gram::Expression::evalCompare(rec_set_t* rec_set) const {
+gram::Expression::evalCompare(rec_set_t*) const {
     throw EvalError{"Comparison expression is not a binary operator"};
 }
 
@@ -253,7 +253,7 @@ std::unique_ptr<Value> gram::CastExpr::eval(rec_set_t* rec_set) const {
     }
 }
 
-std::unique_ptr<Value> gram::ThreadedProcsetExpr::eval(rec_set_t* rec_set) const {
+std::unique_ptr<Value> gram::ThreadedProcsetExpr::eval(rec_set_t*) const {
     // This one just used toString() since the procset does all the processing.
     throw EvalError("Procset expression does have a value type");
 }

@@ -73,20 +73,20 @@ bool LRunLEBitset::isFull() const {
 }
 
 void LRunLEBitset::set(size_t bit) {
-    if (bit < 0 || bit >= m_nbits) return;
+    if (bit >= m_nbits) return;
 
     // create new set with single bit
     auto rhs = LRunLEBitset(m_nbits, bit);
     *this |= rhs;
 }
 
-void LRunLEBitset::unset(size_t bit) {
+void LRunLEBitset::unset(size_t) {
     // we have no easy way to do this with the current api and a lack of invert()
     throw std::runtime_error("unsupported lrle bitset operation: unset()");
 }
 
 bool LRunLEBitset::test(size_t bit) const {
-    if (bit < 0 || bit >= m_nbits) return false;
+    if (bit >= m_nbits) return false;
 
     return lrle_contains(m_compressed.data(), m_compressed.size(), bit);
 }
@@ -283,7 +283,7 @@ SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits)
     ++*this;
 }
 
-SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits, SetBitsIterator::End end)
+SetBitsIterator::SetBitsIterator(const LRunLEBitset &bits, SetBitsIterator::End)
     : m_bits{bits}
     , m_context(nullptr)
     , m_current_bit{Bitset::None}

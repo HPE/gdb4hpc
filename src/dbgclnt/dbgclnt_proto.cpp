@@ -60,7 +60,7 @@ const std::unordered_map<std::string, DebugClientProtocol *>& DebugClientProtoco
     return DebugClientProtocol::registry;
 }
 
-DebugClientProtocol * const findClientProtoByName(const char* protoName) {
+DebugClientProtocol * findClientProtoByName(const char* protoName) {
     if (DebugClientProtocol::getRegistry().find(protoName) != DebugClientProtocol::getRegistry().end()) {
         return DebugClientProtocol::getRegistry().at(protoName);
     }

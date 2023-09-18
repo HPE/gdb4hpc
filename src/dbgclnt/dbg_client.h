@@ -51,7 +51,7 @@ enum class DbgQuitType { Default, Kill, Detach };
 struct group_recv {
     DbgInvoke& rec_di;
     std::unique_ptr<Bitset> rec_group;
-    std::unique_ptr<Bitset> _cmd_sent;  // Internal to dbg_clnt layer - DO NOT USE!!!
+    std::unique_ptr<Bitset> _cmd_sent = std::unique_ptr<Bitset>{};  // Internal to dbg_clnt layer - DO NOT USE!!!
 };
 typedef struct group_recv group_recv_t;
 

@@ -113,13 +113,13 @@ std::string Value::getExpr() const {
     throw EvalError("type is not a program value");
 }
 
-void Value::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+void Value::print(std::ostream& os, rec_set_t*, const std::string&) {
     os << "Value::print is undefined\n";
 }
 
-void Value::addMetaInfo(const std::string& metaInfo) {}
+void Value::addMetaInfo(const std::string&) {}
 
-void Value::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
+void Value::apply(rec_set_t*, ValueVisitor& visitor) {
     auto os = std::ostringstream{};
     print(os, nullptr, "");
     visitor(os.str());
@@ -128,14 +128,14 @@ void Value::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
 std::pair<size_t, bool> Value::getNumResults() {
     throw EvalError("Type does not support operations");
 }
-std::optional<ResultPair> Value::getNextSet(bool rankToRank) {
+std::optional<ResultPair> Value::getNextSet(bool) {
     throw EvalError("Type does not support operations");
 }
 
-void Value::getCommonRanks(ResultPair& ranks) {
+void Value::getCommonRanks(ResultPair&) {
     throw EvalError("Type does not support operations");
 }
-void Value::getCommonSet(ResultPair& ranks) {
+void Value::getCommonSet(ResultPair&) {
     throw EvalError("Type does not support operations");
 }
 
@@ -364,7 +364,7 @@ void DecompValue::addIndex(const std::string& idx) {
     m_idx += idx;
 }
 
-void DecompValue::print(std::ostream& os, rec_set_t* rec_set,
+void DecompValue::print(std::ostream& os, rec_set_t*,
                         const std::string& format) {
 
     auto aif = getAIF();
@@ -407,7 +407,7 @@ rep_set_t DistributedBlockMapValue::retrieve() const {
     return val->retrieve();
 }
 
-void DistributedBlockMapValue::print(std::ostream& os, rec_set_t* rec_set,
+void DistributedBlockMapValue::print(std::ostream& os, rec_set_t*,
                                      const std::string& format) {
 
     auto rep_set = retrieve();
@@ -431,7 +431,7 @@ AIFStream* AIFValue::getAIF() {
     return m_aif;
 }
 
-void AIFValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+void AIFValue::print(std::ostream& os, rec_set_t*, const std::string& format) {
     m_aif->print(os, "", format);
     os << "\n";
 }
@@ -442,7 +442,7 @@ SingleValue::SingleValue(rec_set_t* rec_set) : Value(rec_set) {}
 SingleValue::~SingleValue() { delete m_aif; }
 
 std::pair<size_t, bool> SingleValue::getNumResults() { return std::make_pair(1,true); }
-std::optional<ResultPair> SingleValue::getNextSet(bool rankToRank) {
+std::optional<ResultPair> SingleValue::getNextSet(bool) {
     if (m_processed) return std::optional<ResultPair>{};
     m_processed = true;
     // the rankToRank argument is the *intent* to be rank-to-rank, but a single value
@@ -479,7 +479,7 @@ ProcsetValue::~ProcsetValue() {
     FreeProcSet(m_tmpProcset);
 }
 
-void ProcsetValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+void ProcsetValue::print(std::ostream& os, rec_set_t*, const std::string&) {
     os << m_rec_set << "\n";
 }
 
@@ -501,8 +501,7 @@ std::string ProcsetValue::getThreads() const {
 BlockmapValue::BlockmapValue(rec_set_t* rec_set, const std::string& name)
     : Value(rec_set), m_name(name) {}
 
-void BlockmapValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
-}
+void BlockmapValue::print(std::ostream& , rec_set_t*, const std::string&) {}
 
 BlockMap* BlockmapValue::getBlockMap() const { return FindBlockMap(m_name); }
 
@@ -512,7 +511,7 @@ BinaryFuncValue::BinaryFuncValue(std::unique_ptr<Value>&& a,
     Value(a->getRecSet()), m_a(std::move(a)), m_op(op), m_b(std::move(b))
 {}
 
-void BinaryFuncValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+void BinaryFuncValue::print(std::ostream& os, rec_set_t*, const std::string& format) {
     // check if the values can be matched up.
     auto [ NA, uniqueNA ] = m_a->getNumResults();
     auto [ NB, uniqueNB ] = m_b->getNumResults();
@@ -716,7 +715,7 @@ static void getDiffStr(std::ostream& os,
     os << "\n";
 }
 
-void ComparisonValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+void ComparisonValue::print(std::ostream& os, rec_set_t*, const std::string&) {
     std::optional<std::string> passed, failed, warn;
     auto deltaSS = std::ostringstream{};
 
@@ -742,7 +741,7 @@ void ComparisonValue::print(std::ostream& os, rec_set_t* rec_set, const std::str
 }
 
 std::pair<CompareResult, std::string>
-ComparisonValue::getSimpleResult(rec_set_t* rec_set) {
+ComparisonValue::getSimpleResult(rec_set_t*) {
     std::optional<std::string> passed, failed, warn;
     auto deltaSS = std::ostringstream{};
 

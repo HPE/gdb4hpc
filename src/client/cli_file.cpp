@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cli_file.c - External file CLI routines.
  *
- * Copyright 2013-2014,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2014,2020,2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -191,7 +191,7 @@ static int cli_file_get_line(cli_stream_t **stream) {
     return 0;
 }
 
-static int cli_file_handle_error(cli_stream_t **stream) {
+static int cli_file_handle_error(cli_stream_t **) {
     // Call the destroy current stream function and restore the previous stream
     DestroyCurrentCLIStream();
 

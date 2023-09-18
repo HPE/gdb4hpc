@@ -145,7 +145,7 @@ ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &
     : m_parentNetwork{parentNetwork}
 {
     // create "sync" stream
-    const auto command_callback = [&](zmqnet::Stream::Id const &streamId, zmqnet::ByteArrayPtr resultPtr) {
+    const auto command_callback = [&](zmqnet::Stream::Id const &, zmqnet::ByteArrayPtr resultPtr) {
         LOG("command_callback: %d %s\n", streamId, resultPtr.begin());
 
         auto result =
@@ -350,7 +350,7 @@ ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &pare
     , m_parentQueue{parentQueue}
 {
     // create async event stream
-    const auto event_callback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr result) {
+    const auto event_callback = [this](zmqnet::Stream::Id const&, zmqnet::ByteArrayPtr result) {
         LOG("event_callback %d %s\n", streamId, result.begin());
 
         // unpack and enqueue

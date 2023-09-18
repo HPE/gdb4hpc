@@ -20,7 +20,7 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_list_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_list_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     const char *s = nullptr;
     dbglist_t *l;
     dbglist_t *lp;
@@ -50,8 +50,8 @@ static int cmd_list_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
     return Command::Success;
 }
 
-static int cmd_info_sources_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
-                                         const char * const argv[]) {
+static int cmd_info_sources_cmd_console(Command::RunContext&, rec_set_t *rec_set, int,
+                                         const char * const []) {
     if (!rec_set) return Command::Success;
 
     auto rep_set = DbgGetSources(rec_set);
@@ -87,8 +87,8 @@ static int cmd_info_sources_cmd_console(Command::RunContext& ctx, rec_set_t *rec
     return Command::Success;
 }
 
-static int cmd_info_sources_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc,
-                                         const char * const argv[]) {
+static int cmd_info_sources_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int,
+                                         const char * const []) {
     if (!rec_set) return Command::Success;
 
     auto rep_set = DbgGetSources(rec_set);
@@ -137,7 +137,7 @@ static int cmd_info_sources_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set,
     return Command::Success;
 }
 
-static int cmd_info_source_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_source_cmd_console(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     if (!rec_set) return Command::Success;
 
     auto rep_set = DbgGetFrame(rec_set, false);
@@ -154,7 +154,7 @@ static int cmd_info_source_cmd_console(Command::RunContext& ctx, rec_set_t *rec_
     return Command::Success;
 }
 
-static int cmd_info_source_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_source_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     if (!rec_set) return Command::Success;
 
     auto rep_set = DbgGetFrame(rec_set, false);

@@ -222,7 +222,7 @@ static int cli_readline_restore_stream(cli_stream_t **stream) {
     return 0;
 }
 
-static int cli_readline_reset_stream(cli_stream_t **stream) {
+static int cli_readline_reset_stream(cli_stream_t **) {
     rl_prep_terminal(0);
     rl_set_prompt(cli_get_prompt());
     rl_replace_line("", 0);
@@ -231,7 +231,7 @@ static int cli_readline_reset_stream(cli_stream_t **stream) {
     return 0;
 }
 
-static int cli_readline_clear_line(cli_stream_t **stream) {
+static int cli_readline_clear_line(cli_stream_t **) {
     rl_set_prompt("");
     rl_replace_line("", 0);
     rl_forced_update_display();

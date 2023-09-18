@@ -312,7 +312,7 @@ void ConsoleCommandsFactory::insert_class_commands(Command& root) {
     // matching "h", "he", etc. to "help". printing the actual help requires
     // context only available in the interpreter itself, so the interpreter
     // will catch a match to this command and short circuit to the help output.
-    auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
         return Command::Failure;
     };
     root.addSubCmd("help", "h", proc_ignore,
@@ -372,7 +372,7 @@ void MiCommandsFactory::insert_class_commands(Command& root) {
     // matching "h", "he", etc. to "help". printing the actual help requires
     // context only available in the interpreter itself, so the interpreter
     // will catch a match to this command and short circuit to the help output.
-    auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
         return Command::Failure;
     };
     root.addSubCmd({
@@ -384,7 +384,7 @@ void MiCommandsFactory::insert_class_commands(Command& root) {
 }
 
 void MiCommandsFactory::insert_dummy_commands(Command& root) {
-    const auto read_from_dummy_map = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+    const auto read_from_dummy_map = [](Command::RunContext&, rec_set_t*, int, const char* const argv[]) -> int {
         static const std::map<std::string, std::string> dummy_map = {
              {"-data-list-register-names", "register-names=[]"},
              {"-enable-frame-filters", ""},

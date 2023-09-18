@@ -36,7 +36,7 @@ void DbgMessageAggregation(std::vector<PacketPtr>& packets_in,
                            std::vector<PacketPtr>& packets_out,
                            std::vector<PacketPtr>& /* packets_out_reverse */,
                            void** /* client data */, PacketPtr& /* params */,
-                           const TopologyLocalInfo& localInfo) {
+                           const TopologyLocalInfo&) {
     PriorityQueue<MessageVector, MessageComparison> merger;
     MessageVector reductionMVector(false);
     MessageVector** inputMVector;

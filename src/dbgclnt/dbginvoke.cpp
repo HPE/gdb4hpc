@@ -63,7 +63,7 @@ TEST_CASE("DbgInvoke: set/get/unset frontendGdb") {
 }
 
 TEST_CASE("DbgInvoke: set/call/unset event callback function") {
-    auto fn = [](DbgInvoke::EventSet& es, const Bitset& bitset) {
+    auto fn = [](DbgInvoke::EventSet&, const Bitset&) {
         return 1;
     };
     auto Launched = DbgInvoke::ProcessType::Launched;

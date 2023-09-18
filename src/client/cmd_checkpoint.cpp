@@ -11,7 +11,7 @@
 
 using namespace std::string_literals;
 
-static int cmd_checkpoint_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_checkpoint_cmd(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     auto repSet = DbgSetCheckpoint(rec_set);
 
     if (repSet.isEmpty()) {
@@ -36,7 +36,7 @@ static int cmd_checkpoint_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int 
     return Command::Success;
 }
 
-static int cmd_info_checkpoints_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_checkpoints_cmd(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     // combine all checkpoints from all dis into single ID-indexed map
     std::map<unsigned int, std::vector<std::pair<DbgInvoke::Handle, const MappedCheckpoint *>>> idMap;
     for (const auto *rec : rec_set) {
@@ -122,7 +122,7 @@ static int cmd_info_checkpoints_cmd(Command::RunContext& ctx, rec_set_t *rec_set
     return Command::Success;
 }
 
-static int cmd_restart_cmd(Command::RunContext& ctx, rec_set_t *recSet, int argc, const char* const argv[]) {
+static int cmd_restart_cmd(Command::RunContext&, rec_set_t *recSet, int argc, const char* const argv[]) {
     const auto usage = [](){
         PrintOutError("Usage: restart <checkpoint id>\n");
     };

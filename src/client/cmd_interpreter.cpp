@@ -7,7 +7,7 @@
 
 namespace {
 
-int cmd_set_interpreter(Command::RunContext& ctx, rec_set_t* _, int argc, const char* const argv[]) {
+int cmd_set_interpreter(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Usage: %s console|mi\n", argv[0]);
         return Command::Failure;
@@ -21,7 +21,7 @@ int cmd_set_interpreter(Command::RunContext& ctx, rec_set_t* _, int argc, const 
     return Command::Success;
 }
 
-int cmd_interpreter_exec(Command::RunContext& ctx, rec_set_t* _, int argc, const char* const argv[]) {
+int cmd_interpreter_exec(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     if (argc < 3) {
         PrintOutError("Usage: %s console|mi <command>\n", argv[0]);
         return Command::Failure;

@@ -127,7 +127,7 @@ bool shipOmpd(cti_manifest_id_t mid) {
     return true;
 }
 
-bool shipCommonFiles(cti_manifest_id_t manifest, bool gpu_flag) {
+bool shipCommonFiles(cti_manifest_id_t manifest, bool /*gpu_flag*/) {
     if (cti_addManifestBinary(manifest, "dbgsrv")) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to add dbgsrv to manifest.\n");

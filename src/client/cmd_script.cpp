@@ -52,7 +52,7 @@ std::shared_ptr<Command> make_script_command_tree();
  * Info class commands
  ********************************/
 
-int cmd_info_diff_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_info_diff_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     // this is a subcommand under "info", so argc/argv start at "diff", not "info"
 
     const auto printSyntax = [](){
@@ -162,7 +162,7 @@ int cmd_info_diff_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, co
     return 1;
 }
 
-int cmd_info_script_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_info_script_cmd_console(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     // this is a subcommand under "info", so argc/argv start at "script", not "info"
 
     const auto printSyntax = [](){
@@ -226,7 +226,7 @@ int cmd_info_script_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, in
     return Command::Success;
 }
 
-int cmd_info_script_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_info_script_cmd_mi(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     const auto printSyntax = [argv](){
         PrintOutError("Expected \"%s script $name\"\n", argv[0]);
     };
@@ -301,7 +301,7 @@ int cmd_info_script_cmd_mi(Command::RunContext& ctx, rec_set_t *rec_set, int arg
  * Regular commands
  ********************************/
 
-int cmd_build_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_build_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const char* const argv[]) {
     auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
     if (!console) {
         // unreachable?
@@ -337,7 +337,7 @@ int cmd_build_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const 
     return 1;
 }
 
-int cmd_start_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_start_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Expected \"start $script_name\"\n");
         return 0;
@@ -401,7 +401,7 @@ int cmd_start_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const 
     return 1;
 }
 
-int cmd_stop_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_stop_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
     if (auto* script = script::getCurrentScript()) {
         script->uninstall();
     } else {
@@ -414,7 +414,7 @@ int cmd_stop_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const c
  * Alt commands
  ********************************/
 
-int cmd_script_assert_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_script_assert_cmd(Command::RunContext&, rec_set_t *, int, const char* const argv[]) {
     if (!g_pendingScript) {
         PrintOutError("Tried to add an assert to a nonexistant script.");
         return 0;
@@ -435,7 +435,7 @@ int cmd_script_assert_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     return 1;
 }
 
-int cmd_script_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_script_end_cmd(Command::RunContext& ctx, rec_set_t *, int, const char* const []) {
     auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
     if (!console) {
         // unreachable?
@@ -498,7 +498,7 @@ void printSettingsTable() {
     }
 }
 
-int cmd_script_set_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_script_set_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set script setting with null script\n");
@@ -580,7 +580,7 @@ int cmd_script_set_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, c
     return 1;
 }
 
-int cmd_script_show_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_script_show_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set a script setting with null script\n");
@@ -632,7 +632,7 @@ std::shared_ptr<Command> make_script_command_tree() {
         .fn = cmd_script_show_cmd, .help = cmd_script_show_help,
         .desc = "Show information about the debugger environment."});
 
-    auto dummy_help = [](Command::RunContext& c, rec_set_t* r, int argc, const char* const argv[]) -> int {
+    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
         // help implementation lives in the interpreter,
         // and this function should not actually be called
         return Command::Failure;

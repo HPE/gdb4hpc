@@ -753,7 +753,7 @@ std::pair<std::string,bool> SubArray::removeRngs(Mi2Aif& mi, const std::string& 
     return std::make_pair(s,false);
 }
 
-SubArray::SubArray(Mi2Aif& mi, const std::string& expr) : m_mi(mi) {}
+SubArray::SubArray(Mi2Aif& mi, const std::string&) : m_mi(mi) {}
 
 
 CSubArray::CSubArray(Mi2Aif& mi, const std::string& expr) : SubArray(mi, expr) {
@@ -1744,7 +1744,7 @@ void PTypeFields::initFortranFields(MICommand& cmd) {
 // break a data member string into its name and
 // type describe the current class/struct, fieldStr is the description of a member
 std::pair<std::string, std::string>
-PTypeFields::parseField(const std::string& type, const std::string& fieldStr) {
+PTypeFields::parseField(const std::string&, const std::string& fieldStr) {
     using RetType = std::pair<std::string, std::string>;
 
     // the field is type followed by name
@@ -2283,8 +2283,7 @@ private:
     long m_chunk;               // stride for the chunking index.
 };
 
-Chunker::Chunker(Mi2Aif& mi, std::shared_ptr<MIVar> var,
-                         std::shared_ptr<ais::Type> varType)
+Chunker::Chunker(Mi2Aif& mi, std::shared_ptr<MIVar> var, std::shared_ptr<ais::Type>)
     : m_mi{mi}, m_var(std::make_shared<LazyMIVar>(mi, var))
     , m_buf(nullptr), m_blockSize(determineBlockSize())
     , m_subIdx(0), m_maxSubIdx(0), m_chunk(0)
@@ -2481,7 +2480,7 @@ void WriteBuffer::writeError(const std::string& val) {
     m_out  << " @" << std::quoted(val);
 }
 
-void WriteBuffer::writePointer(const std::string& type, void* val) {
+void WriteBuffer::writePointer(const std::string& type, void*) {
     // base does not support pointers
     m_out << " " << std::quoted(type) << " 0";
 }

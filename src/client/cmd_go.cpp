@@ -25,7 +25,7 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_continue_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_continue_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     bool continueAll = false;
     if (argc == 2 && strcmp(argv[1],"-a") == 0) {
         continueAll = true;
@@ -43,7 +43,7 @@ static int cmd_continue_console(Command::RunContext& ctx, rec_set_t *rec_set, in
     return Command::Success;
 }
 
-static int cmd_finish_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_finish_console(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
     if (auto rep_set = DbgFinishFunc(rec_set); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
         return Command::Failure;

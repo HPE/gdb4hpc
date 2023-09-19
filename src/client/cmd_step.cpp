@@ -15,6 +15,8 @@
 
 #include "client.h"
 
+#include "interpreter_mi.h"
+
 /*
 ** This function is able to handle both next and step by examining the first
 ** character of the command. If its an s, we set in to 1.
@@ -46,13 +48,9 @@ static int cmd_stepnext_mi(Command::RunContext&, rec_set_t* rec_set, int argc, c
 
     if (auto error_rep_set = DbgStep(rec_set, count, in); error_rep_set.hasError()) {
         (void)ProcessErrorInRepSet(error_rep_set);
-        // XXX: PrintOutOk is probably wrong for the error case, but is the old behavior.
-        // leaving it for now...
-        PrintOutOk();
         return Command::Failure;
     }
 
-    // XXX: PrintOutOk should probably be here instead...
     return Command::Success;
 }
 

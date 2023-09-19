@@ -165,7 +165,6 @@ public:
     // Returns this DbgInvoke's list of file descriptors used for protocol events. If
     // initializeEventFds is not called before this, returns nullptr.
     //
-    // TODO change to std::list or std::vector
     // TODO export a more fine-grained API for this
     void addEventFd(int fd);
     const std::vector<int>& eventFds() const;

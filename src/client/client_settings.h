@@ -31,8 +31,6 @@ enum class PendingBrkType {
 struct clnt_settings : public ClientSettingsInterface {
     int confirm;                                   /* Confirm dangerous commands */
     int quit;                                      /* Quit the debugger? */
-    int interactive;                               /* Interactive mode? */
-    int silent;                                    /* Print banner? */
     bool echo;                                     /* Echo each command in batch mode? */
     bool keep_going;                               /* Ignore errors in batch mode? */
     int unsafe;                                    // Attempt to work with a non-mpi application
@@ -47,11 +45,8 @@ struct clnt_settings : public ClientSettingsInterface {
     int sync_blocked;                              /* Current blocked on async cmd? */
     const char* proto;                             /* Default debugger protocol */
     const char* backend;                           /* Default debug backend*/
-    cli_type_t cli_mode;                           /* CLI mode */
                                                    // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
-    cli_out_t* cli_out;                            /* output stream-like object */
-    FILE* cli_fpprog;
-    bool MI_mode;                                  /* MI output mode */
+    FILE* cli_fpprog; // TODO this should live in cli_stream_t
     std::map<std::string, std::string> launch_env; /* Env vars applied to future job launches, modified by the set env cmd */
     double cmp_lower_eps;                          /* Lower eps limit */
     double cmp_upper_eps;                          /* upper eps limit */

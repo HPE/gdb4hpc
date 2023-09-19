@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
+#include <iostream>
 
 #include "client.h"
 #include "useful.h"
@@ -36,16 +37,17 @@ static cli_stream_t *NewCLIStream(cli_type_t, interpreter_type, cli_stream_args_
 static void cli_handle_error(void);
 static void ProgOutLineStream(DbgInvoke *, FILE *);
 static void ProgOutLineStrings(DbgInvoke *, const std::vector<std::string> &lines);
-static void vPrintOutMIMsg(const char *format, va_list arg_list);
-static void vPrintOutMIError(const char *format, va_list arg_list);
 
 /*
  * Static Global Variables
  */
 static cli_stream_t *CurrentStream; /* Current cli stream */
 static std::vector<cli_stream_t*> AllStreams;
-static bool MIPrintToConsole = false;
-static bool MIPrintConsoleToMI = false;
+
+// connection to interpreter printing functions
+Interpreter::Printer& cli_get_current_printer() {
+    return CurrentStream->cs_current_interpreter->get_printer();
+}
 
 void InitCLI(cli_type_t default_type, interpreter_type interpreter,
              cli_stream_args_t *default_args) {
@@ -100,9 +102,6 @@ void DbgSwitchCurrentStream(cli_stream_t* stream){
     if (stream != CurrentStream) {
         if (CurrentStream) CurrentStream->cs_out.flush();
         CurrentStream = stream;
-        Client.cli_out = &CurrentStream->cs_out;
-        // TODO eliminate the need for Client.MI_mode
-        Client.MI_mode = (CurrentStream->cs_current_interpreter->name() == "mi");
     }
 }
 
@@ -114,7 +113,7 @@ static std::shared_ptr<Interpreter> getOrCreateInterpreter(std::string_view name
     }
 
     // not found, so try to create it
-    if (auto new_intr = Interpreter::make(name)) {
+    if (auto new_intr = Interpreter::make(name, *CurrentStream, { .async = false })) {
         auto [iter, success] = CurrentStream->cs_interpreters.insert({name_str, new_intr});
         // success should always be true after the .contains check above
         return iter->second;
@@ -125,30 +124,25 @@ static std::shared_ptr<Interpreter> getOrCreateInterpreter(std::string_view name
 
 bool DbgInterpreterExec(std::string_view interpreter_name, std::string_view text) {
     if (auto intr = getOrCreateInterpreter(interpreter_name)) {
-        intr->interpret(text);
-        return true;
+        return intr->interpret(text);
     }
 
-    // TODO make this function have a more meaningful return value - how does the caller
-    // know if the command succeeded?
+    PrintOutError("No such interpreter: %*s\n", (int)interpreter_name.size(), interpreter_name.data());
     return false;
 }
 
-// TODO consider if this belongs in cli_funcs
-void DbgInterpret(std::string_view text) {
+bool DbgInterpret(std::string_view text) {
     // cs_current_interpreter will never be null after the cli_stream_t ctor
-    CurrentStream->cs_current_interpreter->interpret(text);
-    // TODO better return value
+    return CurrentStream->cs_current_interpreter->interpret(text);
 }
 
 bool DbgInterpreterSet(std::string_view name) {
     if (auto intr = getOrCreateInterpreter(name)) {
         CurrentStream->cs_current_interpreter = intr;
-        // TODO make this implicit in the interpreter instead of a global variable
-        Client.MI_mode = (CurrentStream->cs_current_interpreter->name() == "mi");
         return true;
     }
 
+    PrintOutError("No such interpreter: %*s\n", (int)name.size(), name.data());
     return false;
 }
 
@@ -246,22 +240,19 @@ cli_stream_t::cli_stream_t(cli_type_t type, interpreter_type interpreter,cli_str
     , cs_args(args)
     , cs_logging(cs_out)
 {
-    // TODO eventually the interpreter_type member will be removed and this switch will
-    // depend on something else
-    // TODO if this switch statement gets one line bigger it should become a static function
-    switch (interpreter) {
-        case interpreter_type::CLI: {
-            auto intr = Interpreter::make("console"); // blindly assuming this doesn't fail
-            cs_current_interpreter = intr;
-            cs_interpreters.insert({std::string{"console"}, intr});
-            break;
+    // create interpreter
+    {
+        auto intr = std::shared_ptr<Interpreter>{};
+
+        switch (interpreter) {
+            case interpreter_type::CLI: intr = Interpreter::make("console", *this, { .async = true }); break;
+            case interpreter_type::MI: intr = Interpreter::make("mi", *this, { .async = true }); break;
         }
-        case interpreter_type::MI: {
-            auto intr = Interpreter::make("mi"); // blindly assuming this doesn't fail
-            cs_current_interpreter = intr;
-            cs_interpreters.insert({std::string{"mi"}, intr});
-            break;
-        }
+
+        if (!intr) throw std::runtime_error("Invalid interpreter");
+
+        cs_current_interpreter = intr;
+        cs_interpreters.insert({std::string{intr->name()}, intr});
     }
 
     // Set the prompts if the user supplied any
@@ -378,6 +369,7 @@ cli_stream_args_t *NewCLIArgs(cli_type_t type, ...) {
             if ((tmpstr = va_arg(args, char *)) != NULL) {
                 rtn->file_err_path = strdup(tmpstr);
             }
+            rtn->file_fallback_stream = CurrentStream;
             break;
     }
 
@@ -432,13 +424,6 @@ void cli_handle_input(void) {
     }
 }
 
-void cli_set_error(void) {
-    if (CurrentStream == NULL) return;
-
-    // set the error condition flag on the CurrentStream
-    CurrentStream->cs_err++;
-}
-
 static void cli_handle_error(void) {
     int rtn;
 
@@ -457,51 +442,45 @@ static void cli_handle_error(void) {
 }
 
 void cli_save_stream(void) {
-    int rtn;
     if (CurrentStream == NULL) return;
 
     // not thread safe
-    // If we currently have a stream saved or if we are handling a line, return.
+    // If we currently have a stream saved, return.
     // We don't want to save a stream without first restoring.
-    // We don't want to save a stream if we are handling a completed line.
-    if (CurrentStream->cs_saved || CurrentStream->cs_handling) return;
+    if (CurrentStream->cs_saved) return;
 
-    ++CurrentStream->cs_saved;
-
-    // we need to disable input processing while we are printing
-    DbgMaskInput();
+    CurrentStream->cs_saved = true;
 
     // call to external save stream function
     if (CurrentStream->cs_ext_funcs->external_save_stream != NULL) {
-        rtn = (*CurrentStream->cs_ext_funcs->external_save_stream)(
+        int rtn = (*CurrentStream->cs_ext_funcs->external_save_stream)(
             &CurrentStream);
         if (rtn) {
-            PrintOutError("Warning: external_save_stream() failed.\n");
+            // hopefully unreachable. his needs to go directly through the
+            // printer since PrintOutMsg calls cli_save_stream.
+            cli_get_current_printer().print_message("Warning: external_save_stream() failed.\n");
         }
     }
-    // restore input processing
-    DbgUnmaskInput();
 }
 
 void cli_restore_stream(void) {
-    int rtn;
     if (CurrentStream == NULL) return;
 
-    // ensure there is a saved stream and we are not handling a line.
-    // If we are handling a line, we need to wait until the line has been
-    // parsed and handled before restoring.
-    if (!CurrentStream->cs_saved || CurrentStream->cs_handling) return;
+    // ensure there is a saved stream.
+    if (!CurrentStream->cs_saved) return;
 
     // call to external restore stream function
     if (CurrentStream->cs_ext_funcs->external_restore_stream != NULL) {
-        rtn = (*CurrentStream->cs_ext_funcs->external_restore_stream)(
+        int rtn = (*CurrentStream->cs_ext_funcs->external_restore_stream)(
             &CurrentStream);
         if (rtn) {
-            PrintOutError("Warning: external_restore_stream() failed.\n");
+            // hopefully unreachable. this needs to go directly through the
+            // printer since PrintOutMsg calls cli_restore_stream.
+            cli_get_current_printer().print_message("Warning: external_restore_stream() failed.\n");
         }
     }
 
-    CurrentStream->cs_saved = 0;
+    CurrentStream->cs_saved = false;
 }
 
 void cli_reset_stream(void) {
@@ -663,26 +642,9 @@ bool cli_query(const char *s, cli_query_default defaultVal,
     return cli_query_interactive(s, defaultVal);
 }
 
-static void ProgOutMITarget(DbgInvoke *, const char* line) {
-    // ignoring embedded quotes for the moment
-    auto f = CurrentStream->cs_fpprog;
-    auto new_line=std::string{line};
-    for (std::size_t pos=0; (pos=new_line.find_first_of("\"\n\r",pos)) != std::string::npos; ) {
-        new_line.erase(pos,1);
-    }
-    fprintf(f, "@\"%s\"\n%s", new_line.c_str(), GetMIEpilogue());
-}
-
-
 // common code between ProgOutLineStream and ProgOutLineStrings
-static void ProgOutLine(DbgInvoke *di, const char* line) {
-    auto f = CurrentStream->cs_fpprog;
-    if (Client.MI_mode && !Client.cli_fpprog) {
-        ProgOutMITarget(di,line);
-    } else {
-        if (Client.cli_fpprog) f = Client.cli_fpprog;
-        fprintf(f, "<$%s>: %s", di->handle().c_str(), line);
-    }
+static void ProgOutLine(const DbgInvoke& di, const char* line) {
+    cli_get_current_printer().print_inferior_output(di, line, Client.cli_fpprog);
 }
 
 /*
@@ -694,44 +656,44 @@ static void ProgOutLineStream(DbgInvoke *di, FILE *o_stream) {
 
     char line[BUFSIZ];
 
-    cli_save_stream();
-
-    while (fgets(line, BUFSIZ, o_stream)) {
-        ProgOutLine(di, line);
+    if (di) {
+        while (fgets(line, BUFSIZ, o_stream)) {
+            ProgOutLine(*di, line);
+        }
+    } else {
+        while (fgets(line, BUFSIZ, o_stream)) {
+            // hopefully unreachable. line is assumed to have newline
+            PrintOutMsg("%s", line);
+        }
     }
-
-    cli_restore_stream();
 }
 
 static void ProgOutLineStrings(DbgInvoke *di, const std::vector<std::string> &lines) {
     // ensure that there is an output stream to print to in the current stream
     if (!CurrentStream || !CurrentStream->cs_fpprog) return;
 
-    cli_save_stream();
-
-    for (const auto &line : lines) {
-        ProgOutLine(di, line.c_str());
+    if (di) {
+        for (const auto &line : lines) {
+            ProgOutLine(*di, line.c_str());
+        }
+    } else {
+        for (const auto &line : lines) {
+            // hopefully unreachable. line is assumed to have newline
+            PrintOutMsg("%s", line.c_str());
+        }
     }
-
-    cli_restore_stream();
 }
 
-/*
-** fprintf a line to stdout.
-*/
-void PrintOutLine(const char *format, ...) {
+void PrintOutUnformatted(const char *format, ...) {
     va_list arg_list;
 
-    // ensure that there is an output stream to print to in the current stream
-    if (!CurrentStream) return;
-
-    cli_save_stream();
-
     va_start(arg_list, format);
-    CurrentStream->cs_out.vprintf(format, arg_list);
+    if (CurrentStream) {
+        CurrentStream->cs_out.vprintf(format, arg_list);
+    } else {
+        ::vfprintf(stdout, format, arg_list);
+    }
     va_end(arg_list);
-
-    cli_restore_stream();
 }
 
 /*
@@ -750,32 +712,14 @@ void PrintOutError(const char *format, ...) {
 }
 
 void vPrintOutError(const char *format, va_list arg_list) {
-     // we need to disable input processing while we are printing
-    DbgMaskInput();
-
-    // ensure that there is an error stream to print to in the current stream
-    if ((!CurrentStream || !CurrentStream->cs_fperr) && !Client.MI_mode) {
+    // ensure that there is an output stream to print to in the current stream. we might
+    // not have one yet if this function is called in main before setting up streams.
+    if (!CurrentStream || !CurrentStream->cs_fperr) {
         // otherwise default to stderr
         vfprintf(stderr, format, arg_list);
-
-        // restore input processing
-        DbgUnmaskInput();
-
-        return;
+    } else {
+        cli_get_current_printer().print_error_v(format, arg_list);
     }
-
-    // clear the current line this should contain a prompt
-    cli_clear_line();
-
-    if (Client.MI_mode) {
-        vPrintOutMIError(format, arg_list);
-    } else if (CurrentStream->cs_fperr) {
-        // vfprintf the line we recieved
-        vfprintf(CurrentStream->cs_fperr, format, arg_list);
-    }
-
-    // restore input processing
-    DbgUnmaskInput();
 }
 
 
@@ -783,8 +727,6 @@ void vPrintOutError(const char *format, va_list arg_list) {
 ** fprintf a line to stdout without saving input
 */
 void PrintOutMsg(const char *format, ...) {
-    
-    
     va_list arg_list;
 
     // setup the va_list
@@ -797,123 +739,19 @@ void PrintOutMsg(const char *format, ...) {
 }
 
 void vPrintOutMsg(const char *format, va_list arg_list) {
-
-    // ensure that there is an output stream to print to in the current stream
-    if (!CurrentStream) {
-        // we need to disable input processing while we are printing
-        DbgMaskInput();
-
+    // ensure that there is an output stream to print to in the current stream. we might
+    // not have one yet if this function is called in main before setting up streams.
+    if (CurrentStream) {
+        cli_get_current_printer().print_message_v(format, arg_list);
+    } else {
         // otherwise default to stdout
         vfprintf(stdout, format, arg_list);
-
-        // restore input processing
-        DbgUnmaskInput();
-
-        return;
-    }
-
-    if (Client.MI_mode && MIPrintToConsole && !MIPrintConsoleToMI) {
-        int currStream=CurrentStream->cs_num;
-        DbgSwitchCurrentStream(AllStreams[0]);
-        // vfprintf the line we recieved
-        cli_clear_line();
-        CurrentStream->cs_out.vprintf(format, arg_list);
-        cli_reset_stream();
-        DbgSwitchCurrentStream(AllStreams[currStream]);
-        return;
-    } else if (Client.MI_mode || MIPrintConsoleToMI) {
-        vPrintOutMIMsg(format, arg_list);
-        return;
-    }
-
-    // vfprintf the line we recieved
-    CurrentStream->cs_out.vprintf(format, arg_list);
-}
-
-void PrintOutOk() {
-    if (Client.MI_mode) {
-        //CurrentStream->cs_out("^done\n(gdb)\n");
-        CurrentStream->cs_out("%s^done\n%s", cli_get_prefix().c_str(), GetMIEpilogue());
     }
 }
 
-// Print out synchronous debugging output messages in MI format.  This includes
-// things like the output from print, info, frame and backtrace.  This should
-// not include asynchronous messages (like "breakpoint hit" or "stepping completed")
-// or output from the program itself.  Those are output with a different prefix.
-static void vPrintOutMIMsg(const char *format, va_list arg_list) {
-    // the output is line oriented to we use os to cache any partial lines
-    static auto os = std::ostringstream{};
-
-    // the arg_list may well contain quotes or newlines, so we have to
-    // just get the final output form so we can know they're being properly
-    // escaped.
-    char *cstr = nullptr;
-    if (vasprintf(&cstr, format, arg_list) < 0) return;
-
-    if (!os.tellp()) os << "~\"";  // the MI form is ~"..."
-
-    for (const auto *p = cstr; *p; ++p) {
-        switch (*p) {
-        case '"': os << "\\\""; break;   
-        case '\n':
-            // escape the newline and flush the result
-            os << "\\n\"\n";  
-            CurrentStream->cs_out("%s", os.str().c_str());
-            // GetMIEpilogue();
-            os.str("");
-            os << "~\"";
-            break;
-        default: os << *p;
-        }
-    }
-
-    free(cstr);
-}
-
-static void vPrintOutMIError(const char *format, va_list arg_list) {
-    static auto os = std::ostringstream{};
-
-    // the arg_list may well contain quotes or newlines, so we have to
-    // just get the final output form so we can know they're being properly
-    // escaped.
-    char *cstr = nullptr;
-    if (vasprintf(&cstr, format, arg_list) < 0) return;
-
-    mi_log("in vPrintOutMIError %s : %s\n", cli_get_prefix().c_str(), cstr);
-
-    if (!os.tellp()) os << cli_get_prefix() << "^error,msg=\"" ;  // the MI error form
-
-    for (const auto *p = cstr; *p; ++p) {
-        switch (*p) {
-        case '"': os << "\\\""; break;   
-        case '\n':
-            // escape the newline and flush the result
-            os << "\\n\"\n";
-            if (CurrentStream->cs_fperr) fprintf(CurrentStream->cs_fperr, "%s", os.str().c_str());
-            mi_log("output mi: %s", os.str().c_str());
-            os.str("");
-            break;
-        default:
-            if (!os.tellp()) os << cli_get_prefix() << "^error,msg=\"" ;
-            os << *p;
-            break;
-        }
-    }
-
-    free(cstr);
-}
-
-void PrintOutMIResult(MIResult res, const char* format, ...)
-{
-    if (res == MIResult::DONE) CurrentStream->cs_out("%s^done,", cli_get_prefix().c_str());
-    else if (res == MIResult::STOPPED) CurrentStream->cs_out("%s*stopped,", cli_get_prefix().c_str());
-
-
-    va_list args;
-    va_start(args, format);
-    CurrentStream->cs_out.vprintf(format, args);
-    va_end(args);
+std::ostream& OutMsgStream() {
+    if (!CurrentStream) return std::cout;
+    return cli_get_current_printer().get_message_stream();
 }
 
 // The prefix is currently used in MI mode where each input has an
@@ -942,25 +780,6 @@ void cli_out_t::operator()(const char *format, ...) {
 }
 
 void cli_out_t::vprintf(const char *format, va_list args) {
-    // we need to disable input processing while we are printing
-    DbgMaskInput();
-
-    // clear the current line this should contain a prompt
-    cli_clear_line();
-
-    if (Client.MI_mode || MIPrintConsoleToMI) {
-        static const char* tag0 = "output MI:";
-        static const char* tag = tag0;
-        va_list spargs;
-        va_copy(spargs, args);
-        mi_logv2(tag, format, spargs);
-
-        auto len = strlen(format);
-        if (len && format[len-1] == '\n') tag = tag0;
-        else tag = "";
-        va_end(spargs);
-    }
-
     // vfprintf the line we received
     if (m_out && m_log) {
         va_list args2;
@@ -972,9 +791,18 @@ void cli_out_t::vprintf(const char *format, va_list args) {
     } else if (m_log) {
         vfprintf(m_log.get(), format, args);
     }
+}
 
-    // restore input processing
-    DbgUnmaskInput();
+size_t cli_out_t::fwrite(const char* str, size_t len) {
+    // forward to main printing function to correctly handle logging
+    this->operator()("%.*s", (int)len, str);
+    return len;
+}
+
+int cli_out_t::putc(int c) {
+    // forward to main printing function to correctly handle logging
+    this->operator()("%c", (char)c);
+    return c;
 }
 
 void cli_out_t::reset() {
@@ -1065,21 +893,6 @@ std::ostream& cli_out_t::ostream()
         m_ostream = std::make_shared<std::ostream>(m_buff.get());
     }
     return *m_ostream;
-}
-
-const char* GetMIEpilogue() {
-    static const char* epilogue = nullptr;
-    if (!epilogue) {
-        if (!AllStreams.empty() && AllStreams[0]->cs_current_interpreter->name() == "mi") {
-            // This is probably a hack, but emacs-mi does not like the (gdb) at the
-            // end of response, so I'm using this criteria as a stand-in because
-            // gdb-mi uses -i=mi, while gdb-gui adds a separate tty for mi
-            epilogue = "";
-        } else {
-            epilogue = "(gdb)\n";
-        }
-    }
-    return epilogue;
 }
 
 /*
@@ -1175,18 +988,6 @@ bool SetProgramOutputFile(const char* file) {
         return true;
     }
 }
-    
-SuppressPrintOutError::SuppressPrintOutError() : stream(CurrentStream), prev(nullptr) {
-    if (stream) std::swap(stream->cs_fperr, prev);
-}
-SuppressPrintOutError::~SuppressPrintOutError() { if (stream) stream->cs_fperr=prev; };
-
-PrintOutMItoCli::PrintOutMItoCli() { MIPrintToConsole = true; }
-PrintOutMItoCli::~PrintOutMItoCli() { MIPrintToConsole = false; };
-
-PrintOutCliToMI::PrintOutCliToMI() { MIPrintConsoleToMI = true; }
-PrintOutCliToMI::~PrintOutCliToMI() { MIPrintConsoleToMI = false; };
-
 
 cli_pipe::cli_pipe(const std::string& command) : m_stream(CurrentStream) {
     if (!m_stream) return;

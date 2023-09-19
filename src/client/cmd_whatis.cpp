@@ -19,6 +19,7 @@
 
 #include "client.h"
 #include "useful.h"
+#include "interpreter_mi.h"
 
 static int cmd_whatis_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int i;
@@ -140,7 +141,7 @@ static int cmd_info_locals_cmd_console(Command::RunContext&, rec_set_t *rec_set,
     return Command::Success;
 }
 
-static int cmd_info_locals_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
+static int cmd_info_locals_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int, const char* const []) {
     auto rep_set = DbgGetVars(rec_set);
     ProcessErrorInRepSet(rep_set);
 
@@ -163,8 +164,8 @@ static int cmd_info_locals_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int,
             }
             ss<<"]";
             std::string group = reply->rep_group.get()->toSetString();
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",group=\"%s\",variables=%s\n%s", reply->rep_di.c_str(),
-                                group.substr(1,group.length()-2).c_str(),ss.str().c_str(), GetMIEpilogue());
+            ctx.caller.set_result("proc_set=\"%s\",group=\"%s\",variables=%s", reply->rep_di.c_str(),
+                                group.substr(1,group.length()-2).c_str(),ss.str().c_str());
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
@@ -261,5 +262,6 @@ void ConsoleCommandsFactory::insert_whatis_commands(Command& root) {
 
 void MiCommandsFactory::insert_whatis_commands(Command& root) {
     root.addSubCmd({
-        .name = "-stack-list-variables", .ptype = proc_required, .fn = cmd_info_locals_cmd_mi });
+        .name = "-stack-list-variables", .ptype = proc_required,
+        .fn = Command::specify<MiInterpreter>(cmd_info_locals_cmd_mi) });
 }

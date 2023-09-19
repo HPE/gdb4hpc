@@ -27,6 +27,8 @@
 #include "client.h"
 #include "useful.h"
 
+#include "interpreter_mi.h"
+
 static int cmd_info_threads_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]);
 
 static int cmd_thread_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -199,9 +201,8 @@ static int cmd_info_threads_cmd_console(Command::RunContext&, rec_set_t *rec_set
     return Command::Success;
 }
 
-static int cmd_info_threads_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_threads_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!rec_set) {
-        PrintOutOk();
         return Command::Success;
     }
 
@@ -231,8 +232,8 @@ static int cmd_info_threads_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int
 
         if (!ss.str().empty()){
             ss<<"],"<<current_thread_id<<"\"";
-            PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",group=\"%s\",threads=%s\n%s",
-                            handle, group->toSetString().c_str(),ss.str().c_str(), GetMIEpilogue());
+            ctx.caller.set_result("proc_set=\"%s\",group=\"%s\",threads=%s",
+                            handle, group->toSetString().c_str(),ss.str().c_str());
         }
     }
 
@@ -312,8 +313,8 @@ static int cmd_set_non_stop_cmd(Command::RunContext&, rec_set_t *rec_set, int ar
             PrintOutMsg("non-stop mode will be applied on future \"launch\" commands\n");
         }
     }
-    PrintOutOk();
-    return 1;
+
+    return Command::Success;
 }
 
 // on means other threads can continue to run when one is stopped
@@ -474,10 +475,10 @@ void ConsoleCommandsFactory::insert_threads_commands(Command& root) {
 void MiCommandsFactory::insert_threads_commands(Command& root) {
     root.addSubCmd({
         .name = "-thread-info", .ptype = proc_optional,
-        .fn = cmd_info_threads_cmd_mi});
+        .fn = Command::specify<MiInterpreter>(cmd_info_threads_cmd_mi)});
     root.addSubCmd({
         .name = "-thread-select", .ptype = proc_optional,
-        .fn = cmd_thread_cmd});
+        .fn = cmd_thread_cmd });
 
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 }

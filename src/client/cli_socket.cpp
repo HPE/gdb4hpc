@@ -215,10 +215,6 @@ static int cli_socket_handle_input(cli_stream_t **stream) {
     // set the cli stream
     cs = (*stream);
 
-    // This prevents command output from saving or restoring the stream, since
-    // we don't allow input to happen while processing a command.
-    cs->cs_handling++;
-
     // ensure there is data to read on the input socket. If there isn't, that
     // means the socket was closed. In which case we should force things to quit
     // since we lost our communication mechanism.
@@ -271,21 +267,15 @@ static int cli_socket_handle_input(cli_stream_t **stream) {
         Free(cs->cs_buf);
         cs->cs_buf = NULL;
         DPRINT("cli_socket_handle_input: line is \"%s\"\n", cmd_buf);
+        // ignore the return value. there is nothing we need to do at the cli level upon an error.
         DbgInterpret(cmd_buf);
         // Free the cmd_buf
         Free(cmd_buf);
         if (cs->cs_nprom > 0) {
-            PrintOutLine("%s", cli_get_prompt());
+            PrintOutUnformatted("%s", cli_get_prompt());
             cs->cs_out.flush();
         }
     }
-
-    // Indicate command handling finished, reenable input
-    cs->cs_handling = 0;
-
-    // Ignore stream errors for socket - we don't want to handle them in the
-    // cli layer
-    cs->cs_err = 0;
 
     DPRINT("Exit cli_socket_handle_input\n");
 
@@ -293,9 +283,6 @@ static int cli_socket_handle_input(cli_stream_t **stream) {
 
 cli_socket_handle_input_error:
     DPRINT("Error exit cli_socket_handle_input\n");
-
-    // Reenable input
-    if (cs) cs->cs_handling = 0;
 
     return 1;
 }

@@ -23,6 +23,7 @@
 #include "gram.h"
 
 #include "interpreter_console.h"
+#include "interpreter_mi.h"
 
 /*
 ** Static global variables
@@ -80,11 +81,76 @@ int cmd_info_decomposition_cmd_console(Command::RunContext&, rec_set_t *rec_set,
     return Command::Success;
 }
 
-int cmd_info_decomposition_cmd_mi(Command::RunContext&, rec_set_t *, int, const char* const []) {
+static std::string stringify_blockmap_mi(const BlockMap& bm) {
+    std::stringstream sm;
+
+    auto rank = bm.getRank();
+
+    sm<<"{name=\""<<bm.getName();
+
+    auto msep = [rank](int i) { return (i+1 == rank ? "" : ","); };
+
+    sm<<"\",dimension=\"";
+
+    for (auto i = 0; i < rank; i++) {
+        const auto& d = bm.getDimension(i);
+        sm << d.size << msep(i);
+    }
+
+    sm<<"\",distribute=\"";
+    for (auto i = 0; i < rank; i++) {
+        auto m = msep(i);
+        const auto& d = bm.getDimension(i);
+        switch (d.distribution) {
+        case Distribution::Block:
+            sm<<"block"<<m;
+            break;
+        case Distribution::Cyclic:
+            sm<<"cyclic"<<m;
+            break;
+        case Distribution::Star:
+            sm<<"*"<<m;
+            break;
+        case Distribution::BlockCyclic:
+            sm<<d.blockCyclic<<m;
+            break;
+        default:
+            PrintOutError(
+                "Invalid distribute definition for decomposition.");
+            return "";
+        }
+    }
+
+    sm<<"\",proc_grid=\"";
+    for (auto i = 0; i < rank; i++) {
+        const auto& d = bm.getDimension(i);
+        if (d.numProcs == 1){
+            sm<<"*"<<msep(i);
+        }else{
+            sm<<d.numProcs<<msep(i);
+        }
+    }
+
+    sm<<"\",dim_order=\"";
+    for (auto i = 0; i < rank; i++) {
+        const auto& d = bm.getDimension(i);
+        if (d.dim_order == int(Distribution::Star)){
+            sm<<"*"<<msep(i);
+        }else{
+            sm<<d.dim_order<<msep(i);
+        }
+    }
+
+    sm<<"\"}";
+
+    return sm.str();
+}
+
+int cmd_info_decomposition_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *, int, const char* const[]) {
     auto ss = std::ostringstream{};
     
     for (auto m : GetBlockMapList()) {
-        std::string printed_blockmap = m->msg();
+        std::string printed_blockmap = stringify_blockmap_mi(*m);
         if (printed_blockmap.empty()){
             continue;
         }
@@ -98,8 +164,7 @@ int cmd_info_decomposition_cmd_mi(Command::RunContext&, rec_set_t *, int, const 
     if (ss.tellp()==0)
         ss<<"[";
     ss<<"]";
-    PrintOutMIResult(MIResult::DONE,
-                     "decompositions=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+    ctx.caller.set_result("decompositions=%s",ss.str().c_str());
     return Command::Success;
 }
 
@@ -508,5 +573,5 @@ void ConsoleCommandsFactory::insert_blockmap_commands(Command& root) {
 void MiCommandsFactory::insert_blockmap_commands(Command& root) {
     root.addSubCmd({
         .name = "-decomposition-list", .ptype = proc_ignore,
-        .fn = cmd_info_decomposition_cmd_mi});
+        .fn = Command::specify<MiInterpreter>(cmd_info_decomposition_cmd_mi)});
 }

@@ -298,14 +298,181 @@ static void readInitCommandsFile() {
     }
 }
 
-int main(int argc, char *argv[]) {
+struct ParsedArgs {
+    cli_type_t cli_mode = CLI_TTY_STREAM;
+    std::string in_file = "";
+    std::string out_file = "";
+    std::vector<std::string> queued_commands = {};
+    bool should_read_init_file = true;
+    bool keep_going = false;
+    bool confirm = true;
+    bool echo = false;
+    bool should_print_banner = true;
+    bool interactive = true;
+    bool mi_mode = false;
+};
+
+// this function will call exit() on a bad parse
+ParsedArgs parse_argv(int argc, char* argv[]) {
+    auto parsed = ParsedArgs{};
     int c;
-    double ulp;
     int opt_ind = 0;
-    cli_stream_args_t *cli_args = NULL;  // CLI args
-    auto in_file = std::string{};
-    auto out_file = std::string{};
-    bool should_read_init = true; // read gdb4hpc_init?
+
+    while ((c = getopt_long(argc, argv, "b:j:l:x:nkehi:o:svt:q", long_opts, &opt_ind)) != -1) {
+        switch (c) {
+            case 0:
+                // if this is a flag, do nothing
+                break;
+            case 'b': {
+                if (optarg == NULL) {
+                    PrintOutError(
+                        "Error: --batch provided, but missing arguments.\n");
+                    exit(1);
+                }
+
+                // Set the mode and create the cli args
+                parsed.cli_mode = CLI_FILE_STREAM;
+                parsed.in_file = StripQuotes(optarg);
+
+                // Turn confirm off, we will not be able to call fgetc on stdin
+                // with batch. If this is needed, rework the query function
+                // to call an external cli function that is cli stream
+                // dependent.
+                parsed.confirm = false;
+
+                break;
+            }
+            case 'j': {
+                if (optarg == nullptr) {
+                    PrintOutError(
+                        "Error: --attach provided, but missing arguments.\n");
+                    exit(1);
+                }
+
+                std::ostringstream ss;
+                ss << "attach $job " << optarg;
+                parsed.queued_commands.push_back(ss.str());
+
+                break;
+            }
+            case 'l': {
+                if (optarg == nullptr) {
+                    PrintOutError(
+                        "Error: --launch provided, but missing arguments.\n");
+                    exit(1);
+                }
+
+                auto ranksEnv = getenv(GDB4HPC_DEFAULT_NUM_RANKS);
+                auto ranks = ranksEnv ? ranksEnv : "1";
+
+                std::ostringstream ss;
+                ss << "launch $job{" << ranks << "} " << optarg;
+                parsed.queued_commands.push_back(ss.str());
+
+                break;
+            }
+            case 'x': {
+                if (optarg == nullptr) {
+                    PrintOutError(
+                        "Error: --exec provided, but missing arguments.\n");
+                    exit(1);
+                }
+                parsed.queued_commands.push_back(optarg);
+                break;
+            }
+            case 'n': {
+                parsed.should_read_init_file = false;
+                break;
+            }
+            case 'k': {
+                parsed.keep_going = true;
+                break;
+            }
+            case 'e': {
+                parsed.echo = true;
+                break;
+            }
+
+            case 'i': {
+                if (strncmp(optarg, "ex=", 3) == 0) {
+                    parsed.queued_commands.push_back(optarg+3);
+                } else if (optarg && optarg[0] == '=' && strstr(optarg, "mi")) {
+                    parsed.mi_mode = true;
+                    parsed.should_print_banner = false;
+                    parsed.interactive = false;
+                    parsed.confirm = false;
+                }
+                break;
+            }
+
+            case 'o': {
+                if (optarg == NULL) {
+                    PrintOutError(
+                        "Error: --output provided, but missing arguments.\n");
+                    exit(1);
+                }
+
+                // Set the mode and create the cli args
+                parsed.cli_mode = CLI_FILE_STREAM;
+                parsed.out_file = StripQuotes(optarg);
+
+                break;
+            }
+            case 'I': {
+                if (strcmp(optarg, "mi") == 0) {
+                    parsed.mi_mode = true;
+                } else {
+                    PrintOutError("Unrecognized interpreter: %s\n", optarg);
+                }
+                break;
+            }
+
+            case 't': {
+                if (optarg == nullptr) {
+                    PrintOutMsg("Warning: --command-timeout specified without argument. Ignoring.\n");
+                } else {
+                    // XXX: this only works if the chosen interpreter supports
+                    // it. right now, that happens to be the case for both
+                    // console and mi, but it's fragile, especially because the
+                    // test runner does this for all tests.
+                    parsed.queued_commands.push_back(std::string{"set command-timeout "} + optarg);
+                }
+
+                break;
+            }
+
+            case 'T':
+                // XXX: this only works if the chosen interpreter supports it.
+                // right now, that happens to be the case for both console and
+                // mi, but it's fragile.
+                parsed.queued_commands.push_back(std::string{"set inferior-tty "} + optarg);
+                break; 
+
+            case 's':
+                // 's' for "silent". we don't want to print out banner
+                parsed.should_print_banner = false;
+                break;
+            case 'v':
+                PrintOutMsg("gdb4hpc-%s\n", GUARD_VERSION);
+                exit(0);
+            case 'h':
+                usage(argv[0]);
+                exit(0);
+            case 'q':
+                // after a few release cycles, this can be removed.
+                PrintOutMsg("Starting in gdb4hpc 4.15.2, CCDB-X and XML output is unsupported. Please use gdb4hpc 4.15.1 or lower.\n");
+                exit(1);
+            default:
+                usage(argv[0]);
+                exit(1);
+        }
+    }
+
+    return parsed;
+}
+
+int main(int argc, char *argv[]) {
+    double ulp;
 
     if (argc >= 2 && strcmp(argv[1], "--has-tests") == 0) {
         return hasUnitTests();
@@ -319,27 +486,30 @@ int main(int argc, char *argv[]) {
     // Set environment variables
     SetupEnvironment();
 
+    auto args = parse_argv(argc, argv);
+
+    for (const auto& queued : args.queued_commands) {
+        QueueCommand(queued);
+    }
+
     // Initialize the settings to the default values
-    Client.confirm = 1;               // Confirm dangerous commands?
-    Client.quit = 0;                  // Quit the debugger?
-    Client.interactive = 1;           // Interactive mode?
-    Client.silent = 0;                // Print banner?
-    Client.echo = false;              // Echo each command in batch mode?
-    Client.keep_going = false;        // Ignore errors in batch mode?
-    Client.unsafe = 0;                // Be unsafe?
-    Client.early_entry = 0;           // Enter at pmi_init?
-    Client.non_stop = 1;              // Launch applications in non stop mode?
-    Client.print_entry_frame = 1;     // Print frame locations at startup?
-    Client.print_bp_frames = true;    // Print breakpoint frames as they are hit?
-    Client.print_source_on_step = 1;  // Print source line on each step?
-    Client.print_elements = 0;        // Elements to print in arrays or char * strings
-    Client.print_pretty = false;      // Print indented structures
-    Client.sync_wait = 0;             // Treat asynchronous cmds as sync?
-    Client.sync_blocked = 0;          // Current blocked on async cmd?
-    Client.proto = getDefaultProtocol(); // Default debugger protocol
-    Client.backend = DBG_BACKEND;     // Default debug backend
-    Client.cli_fpprog = nullptr;      // only set to override the stream setting
-    Client.MI_mode = false;               // MI output mode
+    Client.confirm = args.confirm;         // Confirm dangerous commands?
+    Client.quit = 0;                       // Quit the debugger?
+    Client.echo = args.echo;               // Echo each command in batch mode?
+    Client.keep_going = args.keep_going;   // Ignore errors in batch mode?
+    Client.unsafe = 0;                     // Be unsafe?
+    Client.early_entry = 0;                // Enter at pmi_init?
+    Client.non_stop = 1;                   // Launch applications in non stop mode?
+    Client.print_entry_frame = 1;          // Print frame locations at startup?
+    Client.print_bp_frames = true;         // Print breakpoint frames as they are hit?
+    Client.print_source_on_step = 1;       // Print source line on each step?
+    Client.print_elements = 0;             // Elements to print in arrays or char * strings
+    Client.print_pretty = false;           // Print indented structures
+    Client.sync_wait = 0;                  // Treat asynchronous cmds as sync?
+    Client.sync_blocked = 0;               // Current blocked on async cmd?
+    Client.proto = getDefaultProtocol();   // Default debugger protocol
+    Client.backend = DBG_BACKEND;          // Default debug backend
+    Client.cli_fpprog = nullptr;           // only set to override the stream setting
     // find out the ulp for this machine
     ulp = nextafter(0.0, 0.1);
     Client.cmp_lower_eps = ulp;
@@ -374,189 +544,34 @@ int main(int argc, char *argv[]) {
     // we want to ignore SIGPIPE
     DbgHandleSignal(SIGPIPE, SIG_IGN, DBG_SIG_NOMASK);
 
-    while ((c = getopt_long(argc, argv, "b:j:l:x:nkehi:o:svt:q", long_opts, &opt_ind)) !=
-           -1) {
-        switch (c) {
-            case 0:
-                // if this is a flag, do nothing
-                break;
-            case 'b': {
-                if (optarg == NULL) {
-                    PrintOutError(
-                        "Error: --batch provided, but missing arguments.\n");
-                    exit(1);
-                }
-
-                // Set the mode and create the cli args
-                Client.cli_mode = CLI_FILE_STREAM;
-                in_file = StripQuotes(optarg);
-
-                // Turn confirm off, we will not be able to call fgetc on stdin
-                // with batch. If this is needed, rework the query function
-                // to call an external cli function that is cli stream
-                // dependent.
-                Client.confirm = 0;
-
-                break;
-            }
-            case 'j': {
-                if (optarg == nullptr) {
-                    PrintOutError(
-                        "Error: --attach provided, but missing arguments.\n");
-                    exit(1);
-                }
-
-                std::ostringstream ss;
-                ss << "attach $job " << optarg;
-                QueueCommand(ss.str());
-
-                break;
-            }
-            case 'l': {
-                if (optarg == nullptr) {
-                    PrintOutError(
-                        "Error: --launch provided, but missing arguments.\n");
-                    exit(1);
-                }
-
-                auto ranksEnv = getenv(GDB4HPC_DEFAULT_NUM_RANKS);
-                auto ranks = ranksEnv ? ranksEnv : "1";
-
-                std::ostringstream ss;
-                ss << "launch $job{" << ranks << "} " << optarg;
-                QueueCommand(ss.str());
-
-                break;
-            }
-            case 'x': {
-                if (optarg == nullptr) {
-                    PrintOutError(
-                        "Error: --exec provided, but missing arguments.\n");
-                    exit(1);
-                }
-                QueueCommand(optarg);
-                break;
-            }
-            case 'n': {
-                should_read_init = false;
-                break;
-            }
-            case 'k': {
-                Client.keep_going = true;
-                break;
-            }
-            case 'e': {
-                Client.echo = true;
-                break;
-            }
-
-            case 'i': {
-                if (strncmp(optarg, "ex=", 3) == 0) {
-                    QueueCommand(optarg+3);
-                } else if (optarg && optarg[0] == '=' && strstr(optarg, "mi")) {
-                    Client.MI_mode = true;
-                    Client.silent = true;
-                    Client.interactive = false;
-                    Client.confirm = false;
-                }
-                break;
-            }
-
-            case 'o': {
-                if (optarg == NULL) {
-                    PrintOutError(
-                        "Error: --output provided, but missing arguments.\n");
-                    exit(1);
-                }
-
-                // Set the mode and create the cli args
-                Client.cli_mode = CLI_FILE_STREAM;
-                out_file = StripQuotes(optarg);
-
-                break;
-            }
-            case 'I': {
-                if (strcmp(optarg, "mi") == 0) {
-                    Client.MI_mode = true;
-                } else {
-                    PrintOutError("Unrecognized interpreter: %s\n", optarg);
-                }
-                break;
-            }
-
-            case 't': {
-                if (optarg == nullptr) {
-                    PrintOutMsg("Warning: --command-timeout specified without argument. Ignoring.\n");
-                } else {
-                    // XXX: this only works if the chosen interpreter supports
-                    // it. right now, that happens to be the case for both
-                    // console and mi, but it's fragile, especially because the
-                    // test runner does this for all tests.
-                    QueueCommand(std::string{"set command-timeout "} + optarg);
-                }
-
-                break;
-            }
-
-            case 'T':
-                // XXX: this only works if the chosen interpreter supports it.
-                // right now, that happens to be the case for both console and
-                // mi, but it's fragile.
-                QueueCommand(std::string{"set inferior-tty "} + optarg);
-                break; 
-
-            case 's':
-                // Set silent to 1, we don't want to print out banner
-                Client.silent = 1;
-                break;
-            case 'v':
-                PrintOutMsg("gdb4hpc-%s\n", GUARD_VERSION);
-                exit(0);
-            case 'h':
-                usage(argv[0]);
-                exit(0);
-            case 'q':
-                // after a few release cycles, this can be removed.
-                PrintOutMsg("Starting in gdb4hpc 4.15.2, CCDB-X and XML output is unsupported. Please use gdb4hpc 4.15.1 or lower.\n");
-                exit(1);
-            default:
-                usage(argv[0]);
-                exit(1);
+    cli_stream_args_t* cli_args = nullptr;
+    if (args.cli_mode == CLI_FILE_STREAM) {
+        // Ensure that there is an in_file, this is a requirement.
+        if (args.in_file.empty()) {
+            PrintOutError(
+                "Error: Cannot use --output argument without --batch "
+                "argument.\n");
+            exit(1);
         }
-    }
-
-    // Check if we should use the default CLI, if one of the above options
-    // didn't create cli_args, then we know we should use the default. We now
-    // also create the CLI_FILE_STREAM CLI here so that an output file can be
-    // used with the batch mode
-    if (cli_args == NULL) {
-        if (Client.cli_mode == CLI_FILE_STREAM) {
-            // Ensure that there is an in_file, this is a requirement.
-            if (in_file.empty()) {
-                PrintOutError(
-                    "Error: Cannot use --output argument without --batch "
-                    "argument.\n");
-                exit(1);
-            }
-            // XXX: CLI_FILE_STREAM NewCLIArgs expects nullptrs to represent "unspecified".
-            // no in_file_p here because we would have exited above if it was empty.
-            const char* out_file_p = out_file.empty() ? nullptr : out_file.c_str();
-            cli_args = NewCLIArgs(CLI_FILE_STREAM, in_file.c_str(), out_file_p, out_file_p);
+        // XXX: CLI_FILE_STREAM NewCLIArgs expects nullptrs to represent "unspecified".
+        // no in_file_p here because we would have exited above if it was empty.
+        const char* out_file_p = args.out_file.empty() ? nullptr : args.out_file.c_str();
+        cli_args = NewCLIArgs(CLI_FILE_STREAM, args.in_file.c_str(), out_file_p, out_file_p);
+    } else {
+        // Use the default CLI
+        // Check to see if stdin is a tty, if not set the default CLI to
+        // notty
+        if (!args.interactive || !isatty(STDIN_FILENO)) {
+            // Set the default stream to notty
+            args.cli_mode = CLI_NOTTY_STREAM;  // CLI mode
         } else {
-            // Use the default CLI
-            // Check to see if stdin is a tty, if not set the default CLI to
-            // notty
-            if (!Client.interactive || !isatty(STDIN_FILENO)) {
-                // Set the default stream to notty
-                Client.cli_mode = CLI_NOTTY_STREAM;  // CLI mode
-            } else {
-                // Set the default stream to tty
-                Client.cli_mode = CLI_TTY_STREAM;  // CLI mode
-            }
-            // Create the CLI args
-            cli_args = NewCLIArgs(Client.cli_mode, stdin, stdout, stderr);
+            // Set the default stream to tty
+            args.cli_mode = CLI_TTY_STREAM;  // CLI mode
         }
+        // Create the CLI args
+        cli_args = NewCLIArgs(args.cli_mode, stdin, stdout, stderr);
     }
+
     registerProtos();
     if (DbgInit() < 0) {
         exit(1);
@@ -565,16 +580,16 @@ int main(int argc, char *argv[]) {
     InitProcSet();
 
     auto interpreter = interpreter_type::CLI;
-    if (Client.MI_mode) interpreter = interpreter_type::MI;
+    if (args.mi_mode) interpreter = interpreter_type::MI;
 
-    InitCLI(Client.cli_mode, interpreter, cli_args);
+    InitCLI(args.cli_mode, interpreter, cli_args);
 
-    if (!Client.silent) {
+    if (args.should_print_banner) {
         Banner();
     }
 
     // Read gdb4hpc_init file
-    if (should_read_init)
+    if (args.should_read_init_file)
         readInitCommandsFile();
 
     // Initial reset of the stream, for good measure.

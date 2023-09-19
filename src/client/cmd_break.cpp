@@ -21,6 +21,7 @@
 
 #include "client.h"
 #include "useful.h"
+#include "interpreter_mi.h"
 
 struct BreakArgs {
     // XXX symbol_or_number should probably be split into two members. emulating old behavior for now...
@@ -147,7 +148,7 @@ static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args) {
     return true;
 }
 
-static int cmd_break_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_break_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_args = parse_break_args(rec_set, argc, argv);
     if (!maybe_args) {
         // error message already printed
@@ -195,7 +196,7 @@ static int cmd_break_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int argc, 
                << bpset->address() << "\",func=\"" << bpset->function()
                << "\",file=\"" << bpset->file() <<"\",fullname=\"" << fullpath
                << "\",line=\"" <<bpset->line() << "\"}";
-            PrintOutMIResult(MIResult::DONE, "%s\n(gdb)\n", ss.str().c_str());
+            ctx.caller.set_result("%s", ss.str().c_str());
         }
         else {
             PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
@@ -844,9 +845,9 @@ static int cmd_info_breakpoints_cmd_console(Command::RunContext&, rec_set_t *rec
     return Command::Success;
 }
 
-static int cmd_info_breakpoints_cmd_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_breakpoints_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!rec_set) {
-        PrintOutMIResult(MIResult::DONE, "BreakpointTable={body=[]}\n%s",GetMIEpilogue());
+        ctx.caller.set_result("BreakpointTable={body=[]}");
         return Command::Success;
     }
 
@@ -928,9 +929,9 @@ static int cmd_info_breakpoints_cmd_mi(Command::RunContext&, rec_set_t *rec_set,
         } // for (const auto &bpset : recv_ptr->rec_di.breakpoints())
 
         std::string group = recv_ptr->rec_group.get()->toSetString();
-        PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\", group=\"%s\",BreakpointTable={body=[%s]}\n%s",
+        ctx.caller.set_result("proc_set=\"%s\", group=\"%s\",BreakpointTable={body=[%s]}",
                             recv_ptr->rec_di.handle().c_str(),group.substr(1,group.length()-2).c_str(),
-                            ss.str().c_str(), GetMIEpilogue());
+                            ss.str().c_str());
         // clear ss stream for next recv_ptr 
         ss.str("");
 
@@ -1041,14 +1042,16 @@ void ConsoleCommandsFactory::insert_break_commands(Command& root) {
 
 void MiCommandsFactory::insert_break_commands(Command& root) {
     root.addSubCmd({
-        .name = "-break-list", .ptype = proc_optional, .fn = cmd_info_breakpoints_cmd_mi});
+        .name = "-break-list", .ptype = proc_optional,
+        .fn = Command::specify<MiInterpreter>(cmd_info_breakpoints_cmd_mi)});
 
-    // note that the only breakpoint function that had an "if (Client.mi_mode)" was
+    // note that the only breakpoint function that had an "if (Client.MI_mode)" was
     // cmd_break_cmd, so I'm mapping the rest to their console versions for now.
     // this will probably change later as we add more mi-specific behavior.
 
     root.addSubCmd({
-        .name = "-break-insert", .ptype = proc_required, .fn = cmd_break_cmd_mi });
+        .name = "-break-insert", .ptype = proc_required,
+        .fn = Command::specify<MiInterpreter>(cmd_break_cmd_mi) });
     root.addSubCmd({
         .name = "-break-delete", .ptype = proc_required, .fn = cmd_delete_cmd });
     root.addSubCmd({

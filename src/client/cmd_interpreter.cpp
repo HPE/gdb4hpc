@@ -2,6 +2,7 @@
 
 #include "cmd.h"
 #include "args.h"
+#include "client.h"
 
 #include <string_view>
 
@@ -9,7 +10,7 @@ namespace {
 
 int cmd_set_interpreter(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     if (argc < 2) {
-        PrintOutError("Usage: %s console|mi\n", argv[0]);
+        PrintOutError("Usage: maint set interpreter console|mi\n");
         return Command::Failure;
     }
 
@@ -21,7 +22,7 @@ int cmd_set_interpreter(Command::RunContext&, rec_set_t*, int argc, const char* 
     return Command::Success;
 }
 
-int cmd_interpreter_exec(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
+int interpreter_exec_console(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     if (argc < 3) {
         PrintOutError("Usage: %s console|mi <command>\n", argv[0]);
         return Command::Failure;
@@ -32,28 +33,53 @@ int cmd_interpreter_exec(Command::RunContext&, rec_set_t*, int argc, const char*
     const auto interpreter_name = args[1];
     const auto command = args.asString(2);
 
-    if (!DbgInterpreterExec(interpreter_name, command)) {
-        PrintOutError("No such interpreter: %s\n", interpreter_name.c_str());
-        return Command::Failure;
-    };
+    // when running interpreter-exec from the console, we want to swap the
+    // current stream so that output is printed through the sub interpreter.
+    if (!DbgInterpreterSet(interpreter_name))
+        return Command::Failure; // error already printed
 
-    return Command::Success; // TODO change this once DbgInterpret has a better return value
+    // all error messages handled in DbgInterpreterExec
+    auto result = DbgInterpreterExec(interpreter_name, command) ? Command::Success : Command::Failure;
+    DbgInterpreterSet("console"); // blindly assuming it won't fail
+
+    return result;
+}
+
+int interpreter_exec_mi(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
+    if (argc < 3) {
+        PrintOutError("Usage: %s console|mi <command>\n", argv[0]);
+        return Command::Failure;
+    }
+
+    auto args = ArgvStream(argc, argv);
+
+    const auto interpreter_name = args[1];
+    const auto command = args.asString(2);
+
+    // unlike the console version above, we *don't* change the global
+    // interpreter for mi. this keeps the output going through the mi
+    // interpreter.
+
+    // all error messages handled in DbgInterpreterExec
+    return DbgInterpreterExec(interpreter_name, command) ? Command::Success : Command::Failure;
 }
 
 }
 
 void ConsoleCommandsFactory::insert_interpreter_commands(Command& root) {
-    // TODO write user docs (help, desc) for these commands
     root.addSubCmd({
-        .name = "interpreter-set", .ptype = proc_ignore, .fn = cmd_set_interpreter});
+        .name = "maint set interpreter", .ptype = proc_ignore, .fn = cmd_set_interpreter,
+        .help = cmd_maint_set_interpreter_help,
+        .desc = "Set the current input/output interpreter."});
     root.addSubCmd({
-        .name = "interpreter-exec", .ptype = proc_ignore, .fn = cmd_interpreter_exec});
+        .name = "interpreter-exec", .ptype = proc_ignore, .fn = interpreter_exec_console,
+        .help = cmd_interpreter_exec_help,
+        .desc = "Execute a command under a specific interpreter."});
 }
 
 void MiCommandsFactory::insert_interpreter_commands(Command& root) {
-    // TODO write user docs (help, desc) for these commands
     root.addSubCmd({
         .name = "-interpreter-set", .ptype = proc_ignore, .fn = cmd_set_interpreter});
     root.addSubCmd({
-        .name = "-interpreter-exec", .ptype = proc_ignore, .fn = cmd_interpreter_exec});
+        .name = "-interpreter-exec", .ptype = proc_ignore, .fn = interpreter_exec_mi});
 }

@@ -1,75 +1,76 @@
 0: help
-assign          Change the value of an application or debugger variable.
-attach          Attach to an application.
-backtrace       Print backtrace of all stack frames.
-break           Set breakpoint at specified line or function.
-build           Build an assertion script.
-catch           Set catchpoint on specified event.
-checkpoint      Fork program for restoration at a later point.
-compare         Compare the contents of two variables.
-condition       Stop only if a condition is met.
-continue        Continue execution of application.
-cuda            Cuda debugging functions.
-decomposition   Define a decomposition scheme.
-defset          Create a set of processes.
-delete          Delete a breakpoint or checkpoint.
-directory       Add directory to search path for source files.
-disable         Disable a breakpoint.
-down            Move down one or more stack frames.
-enable          Enable a breakpoint.
-finish          Execute application until each rank's current function returns.
-focus           Set the current process set.
-frame           Print the currently selected stack frame.
-gdbmode         Send raw gdb commands.
-halt            Halt execution of attached/launched application.
-help            Display help information about commands.
-ignore          Ignore a breakpoint a number of times.
-info            Display information about the application being debugged.
-kill            Send signal to attached/launched application (default SIGKILL).
-launch          Launch an application.
-list            List source for specified function or line.
-maint           Commands for use by debugger maintainers.
-next            Step application, proceeding through subroutine calls.
-ompd            OpenMP debugging functions.
-pipe            Send the output of a gdb command to a shell command.
-print           Print the value of an expression.
-ptype           Print definition of a type.
-python          Enter python interpreter (experimental).
-quit            Exit the debugger.
-release         Release attached/launched application from debugger control.
-restart         Restore program to state of previously created checkpoint.
-run             Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.
-set             Set information about the debugger environment.
-shell           Run a shell command.
-show            Show information about the debugger environment.
-source          Read debugger commands from a file.
-start           Start executing an assertion script.
-step            Step application until it reaches a different source line.
-stop            Stop the currently executing assertion script.
-tbreak          Set a temporary breakpoint at specified line or function.
-thread          Thread control functions.
-unset           Unset information in the debugger environment.
-up              Move up one or more stack frames.
-viewset         Display information about process sets.
-watch           Set watchpoint on specified expression.
-whatis          Print the data type of an expression.
+assign           Change the value of an application or debugger variable.
+attach           Attach to an application.
+backtrace        Print backtrace of all stack frames.
+break            Set breakpoint at specified line or function.
+build            Build an assertion script.
+catch            Set catchpoint on specified event.
+checkpoint       Fork program for restoration at a later point.
+compare          Compare the contents of two variables.
+condition        Stop only if a condition is met.
+continue         Continue execution of application.
+cuda             Cuda debugging functions.
+decomposition    Define a decomposition scheme.
+defset           Create a set of processes.
+delete           Delete a breakpoint or checkpoint.
+directory        Add directory to search path for source files.
+disable          Disable a breakpoint.
+down             Move down one or more stack frames.
+enable           Enable a breakpoint.
+finish           Execute application until each rank's current function returns.
+focus            Set the current process set.
+frame            Print the currently selected stack frame.
+gdbmode          Send raw gdb commands.
+halt             Halt execution of attached/launched application.
+help             Display help information about commands.
+ignore           Ignore a breakpoint a number of times.
+info             Display information about the application being debugged.
+interpreter-exec Execute a command under a specific interpreter.
+kill             Send signal to attached/launched application (default SIGKILL).
+launch           Launch an application.
+list             List source for specified function or line.
+maint            Commands for use by debugger maintainers.
+next             Step application, proceeding through subroutine calls.
+ompd             OpenMP debugging functions.
+pipe             Send the output of a gdb command to a shell command.
+print            Print the value of an expression.
+ptype            Print definition of a type.
+python           Enter python interpreter (experimental).
+quit             Exit the debugger.
+release          Release attached/launched application from debugger control.
+restart          Restore program to state of previously created checkpoint.
+run              Release a procset and re-launch it, transferring any procset-specific settings/breakpoints/etc.
+set              Set information about the debugger environment.
+shell            Run a shell command.
+show             Show information about the debugger environment.
+source           Read debugger commands from a file.
+start            Start executing an assertion script.
+step             Step application until it reaches a different source line.
+stop             Stop the currently executing assertion script.
+tbreak           Set a temporary breakpoint at specified line or function.
+thread           Thread control functions.
+unset            Unset information in the debugger environment.
+up               Move up one or more stack frames.
+viewset          Display information about process sets.
+watch            Set watchpoint on specified expression.
+whatis           Print the data type of an expression.
 0: build $help_test
 0: help
-assert          Create an assertion.
-end             Finish building the current assertion script.
-help            Display help information about build script mode commands.
-set             Set information about the debugger environment.
-show            Show information about the debugger environment.
+assert           Create an assertion.
+end              Finish building the current assertion script.
+help             Display help information about build script mode commands.
+set              Set information about the debugger environment.
+show             Show information about the debugger environment.
 0: end
 Assertion script $help_test compiled.
 0: decomposition $help_decomp
 0: help
-dim_order       Provide a dimension order definition.
-dimension       Provide a dimension definition.
-distribute      Provide a distribute definition.
-end             Finish defining the current decomposition scheme.
-help            Display help information about decomposition script mode commands.
-proc_grid       Provide a process grid definition.
+dim_order        Provide a dimension order definition.
+dimension        Provide a dimension definition.
+distribute       Provide a distribute definition.
+end              Finish defining the current decomposition scheme.
+help             Display help information about decomposition script mode commands.
+proc_grid        Provide a process grid definition.
 0: end
 Must provide a dimension definition before ending a decomposition.
 Exit script mode and destroy current decomposition? (y or n) Warning: No default given, assuming y

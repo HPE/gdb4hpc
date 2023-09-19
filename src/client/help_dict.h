@@ -40,6 +40,7 @@ extern const char* const cmd_frame_help[];
 extern const char* const cmd_halt_help[];
 extern const char* const cmd_help_help[];
 extern const char* const cmd_ignore_help[];
+extern const char* const cmd_interpreter_exec_help[];
 extern const char* const cmd_condition_help[];
 extern const char* const cmd_launch_help[];
 extern const char* const cmd_run_help[];
@@ -163,6 +164,7 @@ extern const char* const cmd_set_break_pending_help[];
 extern const char* const cmd_maint_set_earlyentry_help[];
 extern const char* const cmd_maint_set_unsafe_help[];
 extern const char* const cmd_maint_set_sync_help[];
+extern const char* const cmd_maint_set_interpreter_help[];
 
 /*
  * Class show subcommands

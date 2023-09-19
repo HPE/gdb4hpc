@@ -290,6 +290,7 @@ public:
     ComparisonValue(std::unique_ptr<Value>&& a, const std::string& op,
                     std::unique_ptr<Value>&& b);
 
+    void setLabelDiffs(bool should_lable);
     void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
 
     // Get the passed,failed and the diffference output if applicable
@@ -304,5 +305,6 @@ private:
     std::unique_ptr<Value> m_a;
     std::string m_op;
     std::unique_ptr<Value> m_b;
+    bool m_should_label_diffs;
 };
 

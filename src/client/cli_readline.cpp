@@ -174,21 +174,8 @@ static int cli_readline_destroy(cli_stream_t **stream) {
     return 0;
 }
 
-static int cli_readline_handle_char(cli_stream_t **stream) {
-    cli_stream_t *cs = (*stream);
-
-    // This prevents command output from saving or restoring the stream, since
-    // we don't allow input to happen while processing a command.
-    cs->cs_handling++;
-
+static int cli_readline_handle_char(cli_stream_t **) {
     rl_callback_read_char();
-
-    cs->cs_handling = 0;
-
-    // Ignore stream errors for readline - we don't want to handle them in the
-    // cli layer
-    cs->cs_err = 0;
-
     return 0;
 }
 
@@ -321,6 +308,7 @@ static void record_and_execute_line(const char *line) {
         }
     }
 
+    // ignore return value. there is nothing we need to do at the cli level upon an error.
     DbgInterpret(line);
 }
 
@@ -346,7 +334,7 @@ static void rl_handle_line(char *line) {
         record_and_execute_line(line);
     } else if (auto expanded = expand_line(line)) {
         // Try a reverse search if the first character is !
-        PrintOutLine("> %s\n", expanded);
+        PrintOutMsg("> %s\n", expanded);
         record_and_execute_line(expanded);
         free(expanded);
     } else {

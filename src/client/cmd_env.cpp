@@ -30,6 +30,7 @@
 #include "client.h"
 #include "useful.h"
 #include "interpreter_console.h"
+#include "interpreter_mi.h"
 
 static int cmd_set_environment_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
     if (argc != 3) {
@@ -292,9 +293,7 @@ static int cmd_pipe_cmd(Command::RunContext&, rec_set_t *, int argc, const char*
         return 0;
     }
 
-    DbgInterpret(gdbCommand.c_str());
-
-    return 1;
+    return DbgInterpret(gdbCommand.c_str()) ? Command::Success : Command::Failure;
 }
 
 ShellMode::ShellMode() : Command(proc_optional, sendToShell) {}
@@ -716,8 +715,8 @@ static int cmd_show_prompt_console(Command::RunContext&, rec_set_t*, int, const 
     return Command::Success;
 }
 
-static int cmd_show_prompt_mi(Command::RunContext&, rec_set_t *, int, const char* const []) {
-    PrintOutMIResult(MIResult::DONE, "value=\"(gdb) \"\n");
+static int cmd_show_prompt_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *, int, const char* const []) {
+    ctx.caller.set_result("value=\"(gdb) \"");
     return Command::Success;
 }
 
@@ -770,8 +769,8 @@ static int cmd_show_error_console(Command::RunContext&, rec_set_t *, int, const 
     return Command::Success;
 }
 
-static int cmd_show_error_mi(Command::RunContext&, rec_set_t *, int, const char* const []) {
-    PrintOutMIResult(MIResult::DONE,"epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}\n", Client.cmp_lower_eps, Client.cmp_upper_eps);
+static int cmd_show_error_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *, int, const char* const []) {
+    ctx.caller.set_result("epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}", Client.cmp_lower_eps, Client.cmp_upper_eps);
     return Command::Success;
 }
 
@@ -966,7 +965,7 @@ static int cmd_set_print_sourceonstep_cmd(Command::RunContext&, rec_set_t *, int
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: set print source-on-step [true|false]\n");
-        return 0;
+        return Command::Failure;
     }
 
     // only look at the first arg
@@ -979,12 +978,18 @@ static int cmd_set_print_sourceonstep_cmd(Command::RunContext&, rec_set_t *, int
         PrintOutError("Encountered something other than true or false.\n");
         PrintOutError(
             "See \"help set print source-on-step\" for more information.\n");
-        return 0;
+        return Command::Failure;
     }
 
+    auto old = Client.print_source_on_step;
     Client.print_source_on_step = sourceonstep_flag;
 
-    return 1;
+    if (old != Client.print_source_on_step) {
+        observers::setable_param_changed.notify(
+            "print source-on-step", Client.print_source_on_step ? "true" : "false");
+    }
+
+    return Command::Success;
 }
 
 static int cmd_show_print_sourceonstep_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
@@ -1019,7 +1024,7 @@ static int class_new_ui_cmd(Command::RunContext&, rec_set_t*, int argc, const ch
     return 1;
 }
 
-static int cmd_set_inferior_tty_cmd_console(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
+static int cmd_set_inferior_tty_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
     const char* tty = nullptr;
     if (argc == 2) {
         tty = argv[1];
@@ -1033,18 +1038,6 @@ static int cmd_set_inferior_tty_cmd_console(Command::RunContext&, rec_set_t*, in
         return Command::Failure;
     }
 
-    return Command::Success;
-}
-
-static int cmd_set_inferior_tty_cmd_mi(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]) {
-    mi_log("in cmd_set_inferior_tty_cmd\n");
-    // OK as long as it never checks argv[0]
-    const auto result = cmd_set_inferior_tty_cmd_console(ctx, rec_set, argc, argv);
-    if (result == Command::Success) {
-        PrintOutOk();
-    } else {
-        // error already printed
-    }
     return Command::Success;
 }
 
@@ -1169,7 +1162,7 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
          "Show setting of print source-on-step mode.");
 
     root.addSubCmd(
-        set + " inferior-tty", nullptr, proc_ignore, cmd_set_inferior_tty_cmd_console,
+        set + " inferior-tty", nullptr, proc_ignore, cmd_set_inferior_tty_cmd,
         nullptr, "set the tty for the application i/o");
 
     root.addSubCmd(
@@ -1271,10 +1264,10 @@ void ConsoleCommandsFactory::insert_env_commands(Command& root) {
 }
 
 void MiCommandsFactory::insert_env_commands(Command& root) {
-    root.addSubCmd({
-        .name = "-inferior-tty-set", .ptype = proc_ignore, .fn = cmd_set_inferior_tty_cmd_mi });
-
     root.addSubCmd({ .name = "-gdb-exit", .ptype = proc_ignore, .fn = cmd_quit_cmd });
+
+    root.addSubCmd({
+        .name = "-inferior-tty-set", .ptype = proc_ignore, .fn = cmd_set_inferior_tty_cmd });
 
     // TODO
     // -gdb-set and -gdb-show at first glance appear to map directly to set and
@@ -1308,16 +1301,17 @@ void MiCommandsFactory::insert_env_commands(Command& root) {
     // async record, and only if the value actually changed. "-gdb-set" is
     // silent.
     //
-    // Previous "set" and "show" behavior simply mapped "-gdb-set" to "set" and
-    // "-gdb-show" to "show". For the reasons above, this is "wrong" (or rather
-    // "noncompliant"). But in the interest of breaking ccdb (etc.) slowly
-    // instead of quickly, I am preserving the old behavior with the intention
-    // to revisit it later.
+    // Therefore, functions that change setable values should notify the proper
+    // observer. This will deliver the necessary info to the MI interpreter.
+    // This is not implemented on most set commands. They are being implemented
+    // as they become needed for ccdb.
 
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 
     root.addSubCmd({
-        .name = "-gdb-show error", .ptype = proc_ignore, .fn = cmd_show_error_mi });
+        .name = "-gdb-show error", .ptype = proc_ignore,
+        .fn = Command::specify<MiInterpreter>(cmd_show_error_mi) });
     root.addSubCmd({
-        .name = "-gdb-show prompt", .ptype = proc_ignore, .fn = cmd_show_prompt_mi });
+        .name = "-gdb-show prompt", .ptype = proc_ignore,
+        .fn = Command::specify<MiInterpreter>(cmd_show_prompt_mi) });
 }

@@ -28,6 +28,8 @@
 #include "client.h"
 #include "useful.h"
 
+#include "interpreter_mi.h"
+
 namespace {
 /*
 backtrace tree
@@ -169,7 +171,7 @@ static int cmd_backtrace_console(Command::RunContext&, rec_set_t *rec_set, int a
     return Command::Success;
 }
 
-static int cmd_backtrace_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_backtrace_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int count = 0;
     if (argc >= 2) count = atoi(argv[1]);
 
@@ -198,9 +200,9 @@ static int cmd_backtrace_mi(Command::RunContext&, rec_set_t *rec_set, int argc, 
         }
         ss<<"]";
         std::string group = reply->rep_group.get()->toSetString();
-        PrintOutMIResult(MIResult::DONE, "proc_set=\"%s\",group=\"%s\",stack=%s\n%s",
+        ctx.caller.set_result("proc_set=\"%s\",group=\"%s\",stack=%s",
                          reply->rep_di.c_str(), group.substr(1,group.length()-2).c_str(),
-                         ss.str().c_str(), GetMIEpilogue());
+                         ss.str().c_str());
         // XXX: while splitting cmd_backtrace_cmd into console and mi functions,
         // I noticed that this is printing ^done, but proceeding with the loop
         // anyway, potentially printing ^done multiple times? leaving as is for
@@ -244,26 +246,25 @@ static int cmd_frame_console(Command::RunContext&, rec_set_t *rec_set, int argc,
     return Command::Success;
 }
 
-static int cmd_frame_mi(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_frame_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_frame_args = cmd_frame_parse_args(argc, argv);
     if (!maybe_frame_args) return Command::Failure; // error already emitted in parse
     auto& frame_args = *maybe_frame_args;
 
     auto rep_set = DbgGetFrame(rec_set, frame_args.verbose);
 
-    // process error - even on error, continue and print what we can
-    (void)ProcessErrorInRepSet(rep_set);
+    if (ProcessErrorInRepSet(rep_set)) return Command::Failure;
 
     for (auto&& reply : rep_set) {
         auto f = EVENT_FRAME(reply->rep_event);
         auto loc = f->getLoc();
         std::string group = reply->rep_group.get()->toSetString();
-        PrintOutMIResult(MIResult::DONE,
-                         "proc_set=\"%s\",group=\"%s\",frame={level=\"%d\",addr=\"%s\","
-                         "func=\"%s\",file=\"%s\",fullname=\"%s\",line=\"%d\"}\n",
-                         reply->rep_di.c_str(), group.substr(1,group.length()-2).c_str(), 
-                         f->getLevel(), loc.loc_addr, loc.loc_func, loc.loc_file, 
-                         loc.loc_file, loc.loc_line);
+        ctx.caller.set_result(
+            "proc_set=\"%s\",group=\"%s\",frame={level=\"%d\",addr=\"%s\","
+            "func=\"%s\",file=\"%s\",fullname=\"%s\",line=\"%d\"}",
+            reply->rep_di.c_str(), group.substr(1, group.length() - 2).c_str(),
+            f->getLevel(), loc.loc_addr, loc.loc_func, loc.loc_file,
+            loc.loc_file, loc.loc_line);
         break; // just print the first (XXX: seems wrong?)
     }
 
@@ -294,10 +295,12 @@ void ConsoleCommandsFactory::insert_frame_commands(Command& root) {
 }
 
 void MiCommandsFactory::insert_frame_commands(Command& root) {
+    const auto lower = Command::specify<MiInterpreter>;
+
     root.addSubCmd({
-        .name = "-stack-info-frame", .ptype = proc_required, .fn = cmd_frame_mi });
+        .name = "-stack-info-frame", .ptype = proc_required, .fn = lower(cmd_frame_mi) });
     root.addSubCmd({
-        .name = "-stack-list-frames", .ptype = proc_required, .fn = cmd_backtrace_mi });
+        .name = "-stack-list-frames", .ptype = proc_required, .fn = lower(cmd_backtrace_mi) });
     root.addSubCmd({
         .name = "-stack-select-frame", .ptype = proc_required, .fn = movecmd });
 }

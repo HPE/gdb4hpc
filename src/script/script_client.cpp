@@ -390,7 +390,7 @@ bool ScriptRunner::evaluateReadyAsserts() {
             auto [ simpleResult, diff] = res->getSimpleResult(recSet.get());
 
             if (assert.settings().verboseEval) {
-                res->print(Client.cli_out->ostream(), recSet.get(), "");
+                res->print(OutMsgStream(), recSet.get(), "");
             }
 
             // record the result - update counters
@@ -509,70 +509,45 @@ size_t ScriptRunner::numRuns() const {
 
 std::string ScriptRunner::summary() const {
     std::ostringstream ss;
-    std::ostringstream sm;
 
-    ss << "Results summary for script " << "$" << m_script->name();
-    sm <<"{name=\""<<m_script->name()<<"\",";
+    auto results = resultsView();
+
+    ss << "Results summary for script " << "$" << results.script_name;
     if (auto settings = m_script->settingsString(); settings != "") {
        ss << ", " << settings;
     }
     ss << ":\n\n";
 
-    // totals
-    size_t pass = 0;
-    size_t warn = 0;
-    size_t fail = 0;
-    size_t indet = 0;
-    for (const auto& [id, resultPack] : m_results) {
-        for (const auto& result : resultPack.results) {
-            switch (result.result) {
-            case CompareResult::Pass: pass++; break;
-            case CompareResult::Warn: warn++; break;
-            case CompareResult::Fail: fail++; break;
-            case CompareResult::Invalid: indet++; break;
-            }
-        }
-    }
+    ss << "Total full runs: " << results.completed_runs << "\n";
 
-    ss << "Total full runs: " << m_completedRunsCount << "\n";
-    sm << "runs=\"" << m_completedRunsCount << "\",";
-    
-    ss << "Total assertion evaluations this run: " << pass + warn + fail + indet << "\n";
-    sm << "total=\"" << pass + warn + fail + indet << "\",";
-    
-    ss << "Passed: " << pass 
-       << ", Passed with warning: " << warn 
-       << ", Failed: " << fail 
-       << ", Indeterminate: " << indet << "\n"
+    ss << "Total assertion evaluations this run: "
+       << results.total_passes
+        + results.total_warns
+        + results.total_fails
+        + results.total_indeterminants
+       << "\n";
+
+    ss << "Passed: " << results.total_passes
+       << ", Passed with warning: " << results.total_warns
+       << ", Failed: " << results.total_fails
+       << ", Indeterminate: " << results.total_indeterminants << "\n"
     ;
-    
-    sm << "assertions=[";
-    
+
     // individual assertion results
     ss << "Assertion results:\n\n";
-    for (const auto& assert : m_script->asserts()) {
+    for (const auto& assert : results.asserts) {
         ss << "Assertion " << assert.id();
-        sm << "{id=\""<< assert.id() << "\",";
         if (auto settings = assert.settingsString(); settings != "") {
             ss << ", " << settings; 
         }
         ss << ":\n";
         ss << assert.string() << "\n";
 
-        // for mi message escape all quotes
-        sm << "str=\"";
-
-        for (char c : assert.string()) {
-            if (c == '"') sm << "\\\"";
-            else sm << c;
-        }
-        sm << "\",";
-
         size_t passes = 0;
         size_t warnings = 0;
         size_t failures = 0;
 
-        if (auto it = m_results.find(assert.id()); it != m_results.end()) {
+        if (auto it = results.results_map.find(assert.id()); it != results.results_map.end()) {
             passes = it->second.passes;
             warnings = it->second.warnings;
             failures = it->second.failures;
@@ -583,18 +558,37 @@ std::string ScriptRunner::summary() const {
            << ", Failures: " << failures << "."
            << "\n\n"
         ;
-
-        sm << "pass=\""<< passes <<"\","
-           << "warn=\""<< warnings <<"\","
-           << "fail=\""<< failures <<"\"}"
-        ;
     }
-    sm << "]}";
 
-    if (Client.MI_mode){
-        return sm.str();
-    }
     return ss.str();
+}
+
+SR::ResultsView ScriptRunner::resultsView() const {
+    auto results = ResultsView{
+        .script_name = m_script->name(),
+        .total_passes = 0,
+        .total_warns = 0,
+        .total_fails = 0,
+        .total_indeterminants = 0,
+        .completed_runs = 0,
+        .asserts = m_script->asserts(),
+        .results_map = m_results
+    };
+
+    for (const auto& [id, resultPack] : m_results) {
+        for (const auto& r : resultPack.results) {
+            switch (r.result) {
+            case CompareResult::Pass: results.total_passes++; break;
+            case CompareResult::Warn: results.total_warns++; break;
+            case CompareResult::Fail: results.total_fails++; break;
+            case CompareResult::Invalid: results.total_indeterminants++; break;
+            }
+        }
+    }
+
+    results.completed_runs = m_completedRunsCount;
+
+    return results;
 }
 
 // ScriptRunner event handler api //////////////////////////////////////////////

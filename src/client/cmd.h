@@ -27,7 +27,6 @@
 
 // Declarations from these headers are actually used here.
 #include <string>
-#include "client.h"
 #include "procset.h"
 #include "interpreter.h"
 
@@ -46,18 +45,53 @@ public:
     static constexpr auto Success = 1;
     static constexpr auto Failure = 0;
 
-    // Passed to command implementations. Contains information about the context that the
-    // command was run under.
+    struct RunContext;
+
+    // Basic generic function type for client functions. Return value is `int` for legacy
+    // reasons, but implementations should prefer to return Success or Failure only.
+    using Func = std::function<int(RunContext&, rec_set_t*, int, const char* const[])>;
+
+    // Each command gets passed a RunContext. This allows for commands that can modify
+    // state in their calling interpreter (e.g. gdbmode, -var-create).
     struct RunContext {
         // The interpreter that initiated the command. It is valid for this value to be nullptr.
         Interpreter* caller = nullptr;
-
-        // ...room to grow. TODO consider moving some clnt_settings here?
+        // ...room to grow.
     };
 
-    // Basic type for client functions. Return value is `int` for legacy reasons, but
-    // implementations should prefer to return Success or Failure only.
-    using Func = std::function<int(RunContext&, rec_set_t*, int, const char* const[])>;
+    // Since RunContext is completely generic and optional, writing commands that modify
+    // their calling interpreter would be annoying (dynamic_casts everywhere). We provide
+    // a more concrete context type for that. To get the more concrete context type to the
+    // the command implementation that wants to use it, we point the initial command
+    // function to a wrapper (called specify, below) that lowers the context and bails out
+    // if it fails. See cmd_frame.cpp for a simple example of this in action.
+    template <typename INTR>
+    struct LoweredContext {
+        INTR& caller;
+    };
+
+    template <typename INTR>
+    static std::optional<LoweredContext<INTR>> lower_context(Command::RunContext& context) {
+        auto* concrete = dynamic_cast<INTR*>(context.caller);
+        if (concrete) return LoweredContext<INTR>{ .caller = *concrete };
+        return std::nullopt;
+    }
+
+    template <typename INTR>
+    using LoweredCmdFunc = std::function<int (LoweredContext<INTR>&, rec_set_t*, int, const char* const [])>;
+
+    template <typename INTR>
+    static auto specify(LoweredCmdFunc<INTR> fn) {
+        return [fn](Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]) {
+            if (auto lowered = lower_context<INTR>(ctx)) {
+                return fn(*lowered, rec_set, argc, argv);
+            }
+            // this error should only be reachable if, say, an mi-only command
+            // is attached to a console interpreter command tree.
+            PrintOutError("Invalid interpreter.\n");
+            return Command::Failure;
+        };
+    }
 
     // standard function
     Command(const std::string& name, const char* alias,
@@ -124,70 +158,6 @@ private:
     const char* m_desc;
     std::vector<std::shared_ptr<Command>> m_subCmds;
     std::shared_ptr<Command> m_default;
-};
-
-class ConsoleCommandsFactory {
-public:
-    static std::shared_ptr<Command> make();
-private:
-    // internal or base commands that don't live in cmd_*.cpp files.
-    // e.g. the base "set" node which all other set commands are under.
-    static void insert_class_commands(Command& root);
-
-    // these are defined in their respective cmd_*.cpp files
-    static void insert_interpreter_commands(Command& root);
-    static void insert_frame_commands(Command& root);
-    static void insert_step_commands(Command& root);
-    static void insert_passthru_commands(Command& root);
-    static void insert_script_commands(Command& root);
-    static void insert_blockmap_commands(Command& root);
-    static void insert_env_commands(Command& root);
-    static void insert_python_commands(Command& root);
-    static void insert_assign_commands(Command& root);
-    static void insert_checkpoint_commands(Command& root);
-    static void insert_source_commands(Command& root);
-    static void insert_whatis_commands(Command& root);
-    static void insert_break_commands(Command& root);
-    static void insert_proc_commands(Command& root);
-    static void insert_list_commands(Command& root);
-    static void insert_iostat_commands(Command& root);
-    static void insert_threads_commands(Command& root);
-    static void insert_print_commands(Command& root);
-    static void insert_comp_commands(Command& root);
-    static void insert_go_commands(Command& root);
-    static void insert_procset_commands(Command& root);
-};
-
-class MiCommandsFactory {
-public:
-    static std::shared_ptr<Command> make();
-private:
-    // internal or base commands that don't live in cmd_*.cpp files.
-    // e.g. the base "set" node which all other set commands are under.
-    static void insert_class_commands(Command& root);
-
-    // dummy commands that don't actually do anything except return a fake "ok" result
-    static void insert_dummy_commands(Command& root);
-
-    // in mi_funcs.cpp
-    static void insert_mi_commands(Command& root);
-
-    // these are defined in their respective cmd_*.cpp files
-    static void insert_interpreter_commands(Command& root);
-    static void insert_frame_commands(Command& root);
-    static void insert_step_commands(Command& root);
-    static void insert_whatis_commands(Command& root);
-    static void insert_blockmap_commands(Command& root);
-    static void insert_break_commands(Command& root);
-    static void insert_list_commands(Command& root);
-    static void insert_threads_commands(Command& root);
-    static void insert_script_commands(Command& root);
-    static void insert_print_commands(Command& root);
-    static void insert_env_commands(Command& root);
-    static void insert_proc_commands(Command& root);
-    static void insert_comp_commands(Command& root);
-    static void insert_go_commands(Command& root);
-    static void insert_procset_commands(Command& root);
 };
 
 /*

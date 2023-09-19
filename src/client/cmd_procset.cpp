@@ -22,6 +22,7 @@
 #include "useful.h"
 #include "eval.h"
 #include "gram.h"
+#include "interpreter_mi.h"
 
 extern dbgprocset_t* CreateProcSet(const std::string& name, const gram::Expression& def);
 
@@ -56,7 +57,7 @@ std::string ProcSetToString(dbgprocset_t *s) {
     return ss.str();
 }
 
-static dbgprocset_t* cmd_focus_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+static dbgprocset_t* cmd_focus(rec_set_t *, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: focus $set\n");
@@ -74,18 +75,18 @@ static dbgprocset_t* cmd_focus_cmd(Command::RunContext&, rec_set_t *, int argc, 
     return procset;
 }
 
-static int cmd_focus_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    return cmd_focus_cmd(ctx, rec_set, argc, argv) != nullptr ? Command::Success : Command::Failure;
+static int cmd_focus_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    return cmd_focus(rec_set, argc, argv) != nullptr ? Command::Success : Command::Failure;
 }
 
-static int cmd_focus_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    auto* pset = cmd_focus_cmd(ctx, rec_set, argc, argv);
+static int cmd_focus_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+    auto* pset = cmd_focus(rec_set, argc, argv);
     if (pset) {
         std::string proc_str = ProcSetToString(pset);
         std::stringstream ss;
         ss<<"{name=\""<<pset->s_name<<"\",proc_set=\""<<proc_str<<"\"}";
 
-        PrintOutMIResult(MIResult::DONE, "focus=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+        ctx.caller.set_result("focus=%s",ss.str().c_str());
         return Command::Success;
     } else {
         // error message already printed
@@ -94,7 +95,7 @@ static int cmd_focus_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, 
 }
 
 static std::vector<dbgprocset_t*>
-cmd_viewset_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+get_procset_ptrs(int argc, const char* const argv[]) {
     if (argc > 1) {
         auto [procset, _] = IdMap::getProcset(argv[1]);
 
@@ -114,8 +115,8 @@ cmd_viewset_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const a
 }
 
 
-static int cmd_viewset_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    auto procsets = cmd_viewset_cmd(ctx, rec_set, argc, argv);
+static int cmd_viewset_console(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+    auto procsets = get_procset_ptrs(argc, argv);
 
     if (procsets.empty()) {
         // error message already printed
@@ -132,8 +133,8 @@ static int cmd_viewset_console(Command::RunContext& ctx, rec_set_t *rec_set, int
     return Command::Success;
 }
 
-static int cmd_viewset_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
-    auto procsets = cmd_viewset_cmd(ctx, rec_set, argc, argv);
+static int cmd_viewset_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *, int argc, const char* const argv[]) {
+    auto procsets = get_procset_ptrs(argc, argv);
 
     if (procsets.empty()) {
         // error message already printed
@@ -151,7 +152,7 @@ static int cmd_viewset_mi(Command::RunContext& ctx, rec_set_t *rec_set, int argc
         ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str.c_str()<<"\"}";
     }
     ss<<"]";
-    PrintOutMIResult(MIResult::DONE, "pe_sets=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+    ctx.caller.set_result("pe_sets=%s",ss.str().c_str());
 
     return Command::Success;
 }
@@ -195,6 +196,8 @@ void ConsoleCommandsFactory::insert_procset_commands(Command& root) {
 
 void MiCommandsFactory::insert_procset_commands(Command& root) {
     root.addSubCmd({ .name = "-procset-define", .ptype = proc_ignore, .fn = cmd_defset_cmd });
-    root.addSubCmd({ .name = "-procset-list", .ptype = proc_ignore, .fn = cmd_viewset_mi });
-    root.addSubCmd({ .name = "-procset-focus", .ptype = proc_ignore, .fn = cmd_focus_mi });
+    root.addSubCmd({ .name = "-procset-list", .ptype = proc_ignore,
+                     .fn = Command::specify<MiInterpreter>(cmd_viewset_mi) });
+    root.addSubCmd({ .name = "-procset-focus", .ptype = proc_ignore,
+                     .fn = Command::specify<MiInterpreter>(cmd_focus_mi) });
 }

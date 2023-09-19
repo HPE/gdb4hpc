@@ -319,6 +319,18 @@ const char* const cmd_ignore_help[] = {
     "is hit.",
     0};
 
+const char* const cmd_interpreter_exec_help[] = {
+    "Summary: Execute a command under a specific interpreter.",
+    "Usage: interpreter-exec <interpreter> <command>",
+    "Example command: interpreter-exec mi -exec-next",
+    "",
+    "Execute a command under a specific interpreter. gdb4hpc starts with",
+    "the \"console\" interpreter by default, but supports others.",
+    "Each interpreter has different commands and different output formats.",
+    "",
+    "Available interpreters are \"console\" and \"mi\".",
+    0};
+
 const char* const cmd_condition_help[] = {
     "Summary: stop at a breakpoint only if a condition is met.",
     "Usage: condition <breakpoint> [condition]",
@@ -1722,6 +1734,16 @@ const char* const cmd_maint_set_sync_help[] = {
     "commands such as continue to block input until all ranks affected by the",
     "command to report an asynchronous event. Use with caution! If a rank is",
     "not expected to reach a breakpoint, a deadlock can occur.",
+    0};
+
+const char* const cmd_maint_set_interpreter_help[] = {
+    "Summary: Set the input/output interpreter.",
+    "Usage: maint set interpreter <console|mi>",
+    "Example command: maint set interpreter mi",
+    "",
+    "Description:",
+    "Change the main input/output interpreter. This changes available commands",
+    "and output formatting.",
     0};
 
 /*

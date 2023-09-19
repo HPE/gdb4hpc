@@ -11,38 +11,32 @@ const char* mi_dummyFrameAddr = "addr=\"0xf00f\",";
 
 int launch_count=0;
 
-static int handle_result_string(std::string result) {
+static int handle_result_string(MiInterpreter& mi, std::string result) {
     // XXX: all of the mi functions in this file return strings to indicate
     // success/failure. this should be fixed to be more type safe, but leaving it be for
     // now.
     if (result == "ok") {
-        PrintOutOk();
         return Command::Success;
     } else if (result.starts_with("ok,")) {
-        PrintOutMIResult(MIResult::DONE, "%s\n%s", result.substr(3).c_str(), GetMIEpilogue());
+        mi.set_result("%s", result.substr(3).c_str());
         return Command::Success;
     } else if (result.starts_with("error,")) {
-        // error has a newline already
-        PrintOutError("%s", result.substr(6).c_str());
+        PrintOutError("%s\n", result.substr(6).c_str());
         return Command::Failure;
     } else {
         // should never happen
-        PrintOutError("%s", result.c_str());
+        PrintOutError("%s\n", result.c_str());
         return Command::Failure;
     }
 }
 
-static int exec_args_cmd(Command::RunContext& ctx, rec_set_t*, int argc, const char* const argv[]) {
+static int exec_args_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*, int argc, const char* const argv[]) {
     static std::regex procRE{R"((\$\w+)\{(\d+)\})"};
-
-    auto* mi = dynamic_cast<MiInterpreter*>(ctx.caller);
-    if (!mi) return handle_result_string("error,Interpreter error\n"); // unreachable
-
     ArgvStream args(argc - 1, &argv[1]);
 
     std::ostringstream argstr;
-    mi->m_num_ranks = "1";
-    mi->m_procset = "";
+    ctx.caller.m_num_ranks = "1";
+    ctx.caller.m_procset = "";
     std::smatch match;
 
     // recognize -n <num-ranks> -p <proc-set-name> or
@@ -51,18 +45,18 @@ static int exec_args_cmd(Command::RunContext& ctx, rec_set_t*, int argc, const c
     for (size_t argc=args.argc(), i=0; i<argc; ++i) {
         auto arg = args[i];
         if (arg == "-n" && i+1 < argc) {
-            mi->m_num_ranks = args[++i];
+            ctx.caller.m_num_ranks = args[++i];
         } else if (std::regex_match(arg, match, procRE)) {
-            mi->m_procset = match[1];
-            mi->m_num_ranks = match[2];
+            ctx.caller.m_procset = match[1];
+            ctx.caller.m_num_ranks = match[2];
         } else {
             argstr << " " << arg;
         }
     }
 
-    mi->m_launcher_args = argstr.str() + " ";
+    ctx.caller.m_launcher_args = argstr.str() + " ";
     //this command sets launcher args and does not need to be processed. Setting to exit will skip command processing
-    return handle_result_string("ok");
+    return handle_result_string(ctx.caller, "ok");
 }
 
 void mi_logv2(const char* tag, const char* format, va_list arg_list) {
@@ -181,7 +175,7 @@ std::string Vars::create(const std::string& inname, const std::string& frame,
     // get the new current value
     auto value = GetMiValue(expression, ps->s_name);
 
-    if (value.empty()) return "error,unable to evaluate\n";
+    if (value.empty()) return "error,unable to evaluate";
 
     //get procset and remove it from value string
     std::string procset="";
@@ -221,39 +215,41 @@ std::string Vars::update(const std::string& name, bool allValues) {
     return os.str();
 }
 
-static int var_create_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
+static int var_create_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*, int argc, const char* const argv[]) {
     // XXX: preserving old behavior
     auto args = ArgsToString(&argv[1], argc - 1);
     auto is = std::istringstream{args};
     std::string name, frame, expression;
     is >> name  >> frame >> std::quoted(expression);
-    return handle_result_string(miVars.create(name, frame, expression));
+    return handle_result_string(ctx.caller, miVars.create(name, frame, expression));
 }
 
-static int var_delete_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
-    if (argc >= 2) miVars.remove(argv[1]);
-    return handle_result_string("ok");
+static int var_delete_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*, int, const char* const argv[]) {
+    miVars.remove(argv[1]);
+    return handle_result_string(ctx.caller, "ok");
 }
 
-static int var_update_cmd(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
+static int var_update_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*, int argc, const char* const argv[]) {
     auto allValues = false;
     for (auto i = 1; i < argc; i++) {
         auto arg = std::string_view{argv[i]};
         if (arg == "--all-values") { allValues = true; }
         else if ( arg[0] == '-') { /* unhandled */ }
-        else return handle_result_string(miVars.update(std::string{arg}, allValues));
+        else return handle_result_string(ctx.caller, miVars.update(std::string{arg}, allValues));
     }
 
-    return handle_result_string("ok");
+    return handle_result_string(ctx.caller, "ok");
 }
 
 void MiCommandsFactory::insert_mi_commands(Command& root) {
+    const auto lower = Command::specify<MiInterpreter>;
+
     root.addSubCmd({
-        .name = "-exec-arguments", .ptype = proc_ignore, .fn = exec_args_cmd });
+        .name = "-exec-arguments", .ptype = proc_ignore, .fn = lower(exec_args_cmd) });
     root.addSubCmd({
-        .name = "-var-create", .ptype = proc_ignore, .fn = var_create_cmd});
+        .name = "-var-create", .ptype = proc_ignore, .fn = lower(var_create_cmd)});
     root.addSubCmd({
-        .name = "-var-delete", .ptype = proc_ignore, .fn = var_delete_cmd});
+        .name = "-var-delete", .ptype = proc_ignore, .fn = lower(var_delete_cmd)});
     root.addSubCmd({
-        .name = "-var-update", .ptype = proc_ignore, .fn = var_update_cmd});
+        .name = "-var-update", .ptype = proc_ignore, .fn = lower(var_update_cmd)});
 }

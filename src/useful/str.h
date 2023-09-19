@@ -20,6 +20,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <type_traits>
+#include <memory>
 
 /* 
  * Most of these string processing functions are truly const, but sometimes it is
@@ -94,3 +95,18 @@ inline char* StrdupOpt(const char* s) { return (s ? strdup(s) : nullptr); };
 
 // return sv with leading and trailing whitespace removed
 std::string_view stripped(std::string_view sv);
+
+struct MallocedCharPtr {
+    MallocedCharPtr(char* ptr = nullptr) : m_ptr(ptr, std::free) {}
+    ~MallocedCharPtr() = default;
+
+    // `ptr` must be allocated with malloc!
+    void reset(char* ptr = nullptr) { m_ptr.reset(ptr); }
+    char* get() { return m_ptr.get(); }
+
+    explicit operator bool() const noexcept { return static_cast<bool>(m_ptr); }
+
+    // lazily filling out the rest of the wrapper functions as needed...
+
+    std::unique_ptr<char, decltype(&std::free)> m_ptr;
+};

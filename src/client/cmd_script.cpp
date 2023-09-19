@@ -25,7 +25,9 @@
 #include "bitset.h"
 #include "client.h"
 #include "useful.h"
+
 #include "interpreter_console.h"
+#include "interpreter_mi.h"
 
 namespace {
 
@@ -226,7 +228,53 @@ int cmd_info_script_cmd_console(Command::RunContext&, rec_set_t *, int argc, con
     return Command::Success;
 }
 
-int cmd_info_script_cmd_mi(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+static std::string mi_summarize_script(script::ScriptRunner::ResultsView results) {
+    std::ostringstream sm;
+
+    sm <<"{name=\""<<results.script_name<<"\",";
+
+    sm << "runs=\"" << results.completed_runs << "\",";
+
+    sm << "total=\"" << results.total_passes
+                      + results.total_warns
+                      + results.total_fails
+                      + results.total_indeterminants
+                     << "\",";
+
+    sm << "assertions=[";
+
+    // individual assertion results
+    for (const auto& assert : results.asserts) {
+        sm << "{id=\""<< assert.id() << "\",";
+        // for mi message escape all quotes
+        sm << "str=\"";
+        for (char c : assert.string()) {
+            if (c == '"') sm << "\\\"";
+            else sm << c;
+        }
+        sm << "\",";
+
+        size_t passes = 0;
+        size_t warnings = 0;
+        size_t failures = 0;
+
+        if (auto it = results.results_map.find(assert.id()); it != results.results_map.end()) {
+            passes = it->second.passes;
+            warnings = it->second.warnings;
+            failures = it->second.failures;
+        }
+
+        sm << "pass=\""<< passes <<"\","
+           << "warn=\""<< warnings <<"\","
+           << "fail=\""<< failures <<"\"}"
+        ;
+    }
+    sm << "]}";
+
+    return sm.str();
+}
+
+int cmd_info_script_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *, int argc, const char* const argv[]) {
     const auto printSyntax = [argv](){
         PrintOutError("Expected \"%s script $name\"\n", argv[0]);
     };
@@ -253,7 +301,7 @@ int cmd_info_script_cmd_mi(Command::RunContext&, rec_set_t *, int argc, const ch
         if (ss.tellp()==0)
             ss<<"[";
         ss<<"]";
-        PrintOutMIResult(MIResult::DONE, "scripts=%s\n%s",ss.str().c_str(),GetMIEpilogue());
+        ctx.caller.set_result("scripts=%s",ss.str().c_str());
         return Command::Success;
     }
 
@@ -291,7 +339,7 @@ int cmd_info_script_cmd_mi(Command::RunContext&, rec_set_t *, int argc, const ch
     } else {
         // detailed summary
         // summary string has correct newlines
-        PrintOutMIResult(MIResult::DONE, "script_result=%s\n%s",script->summary().c_str(),GetMIEpilogue());
+        ctx.caller.set_result("script_result=%s",mi_summarize_script(script->resultsView()).c_str());
     }
 
     return Command::Success;
@@ -677,5 +725,6 @@ void ConsoleCommandsFactory::insert_script_commands(Command& root) {
 
 void MiCommandsFactory::insert_script_commands(Command& root) {
     root.addSubCmd({
-        .name = "-script-list", .ptype = proc_ignore, .fn = cmd_info_script_cmd_mi});
+        .name = "-script-list", .ptype = proc_ignore,
+        .fn = Command::specify<MiInterpreter>(cmd_info_script_cmd_mi) });
 }

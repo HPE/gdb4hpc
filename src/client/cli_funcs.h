@@ -60,12 +60,18 @@ struct socket_stream_args {
 };
 typedef struct socket_stream_args socket_stream_args_t;
 
+struct cli_stream_t;
+
 // Note that all of the strings in the file stream args will be free'ed when the
 // stream is destroyed. These too should be malloced/strduped etc.
 struct file_stream_args {
-    char *in_path;   // file path for input or NULL to use alt
-    char *out_path;  // file path for output or NULL to use alt
-    char *err_path;  // file path for error or NULL to use alt
+    char *in_path;                 // file path for input or NULL to use fallback
+    char *out_path;                // file path for output or NULL to use fallback
+    char *err_path;                // file path for error or NULL to use fallback
+
+    cli_stream_t* fallback_stream; // fallback stream for NULL cases above. if the
+                                   // fallback is NULL and attempted to be used,
+                                   // stream initialization will fail.
 };
 typedef struct file_stream_args file_stream_args_t;
 
@@ -90,6 +96,7 @@ union cli_stream_args {
 #define file_in_path file_args.in_path
 #define file_out_path file_args.out_path
 #define file_err_path file_args.err_path
+#define file_fallback_stream file_args.fallback_stream
 };
 typedef union cli_stream_args cli_stream_args_t;
 
@@ -104,6 +111,8 @@ public:
     // printf formatted output
     void operator()(const char* format, ...) __attribute__((format (printf,2,3)));
     void vprintf(const char* format, va_list);
+    size_t fwrite(const char* str, size_t len);
+    int putc(int c);
 
     // C++ output
     std::ostream& ostream();
@@ -168,12 +177,12 @@ struct cli_stream_t {
     
     cli_type_t cs_type;  /* cli stream type */
 
-    // cs_interpreters are the stream's available interpreters.
-    // cs_current_interpreter will always be non-null, and points to the
-    // interpreter that will interpret commands from the user unless otherwise
-    // stated. interpreter-set changes the current interperter. commands
-    // like interpreter-exec might use a non-current interpreter for input
-    // interpretation, but the current interpreter *always* processes all output.
+    // cs_interpreters are the stream's available interpreters. cs_current_interpreter
+    // will always be non-null, and points to the interpreter that will interpret commands
+    // from the user unless otherwise stated. the "maint set interpreter" command changes
+    // the current interpreter. commands like interpreter-exec might use a non-current
+    // interpreter for input interpretation, but the current interpreter *always*
+    // processes all output.
     //
     // the map initialy starts with one interpreter, depending on the cli_stream_t
     // constructor arguments. when the user tries to run a command with an
@@ -197,9 +206,7 @@ struct cli_stream_t {
     size_t cs_buf_size = 0;  /* size of current line buffer in elements */
     int cs_buf_point = 0;    /* current index into line buffer */
     int cs_line = 1;         /* current line */
-    int cs_err = 0;          /* error control variable */
-    int cs_saved = 0;        /* stream save control variable */
-    int cs_handling = 0;     /* stream handling line control variable */
+    bool cs_saved = false;        /* stream save control variable */
     int cs_num = 0;          // stream number
     struct cli_externals
         *cs_ext_funcs = nullptr;          /* cli externals associated with stream */
@@ -218,6 +225,7 @@ struct cli_stream_t {
 #define cs_file_in_path cs_args->file_args.in_path
 #define cs_file_out_path cs_args->file_args.out_path
 #define cs_file_err_path cs_args->file_args.err_path
+#define cs_file_fallback_stream cs_args->file_args.fallback_stream
 };
 
 // class for inserting a shell command into the output stream.
@@ -356,50 +364,28 @@ extern void DestroyCurrentCLIStream(void);
 extern void SetDefaultCLIStream(void);
 extern cli_stream_args_t *NewCLIArgs(cli_type_t, ...);
 extern void DestroyCLIArgs(cli_type_t, cli_stream_args_t *);
-extern const char* GetMIEpilogue();
-// TODO consider if these belong in cli_funcs
+// TODO rename
 extern bool DbgInterpreterSet(std::string_view interpreter_name);
-extern void DbgInterpret(std::string_view text);
-extern bool DbgInterpreterExec(std::string_view interpreter_name, std::string_view command);
+extern bool DbgInterpreterExec(std::string_view interpreter_name, std::string_view text);
+extern bool DbgInterpret(std::string_view text);
 
 /*
 ** Output functions
 */
-extern void PrintOutLine(const char *, ...) __attribute__((format (printf,1,2)));
+
+extern void PrintOutUnformatted(const char *, ...) __attribute__((format (printf,1,2)));
+
 extern void PrintOutError(const char *, ...) __attribute__((format (printf,1,2)));
 extern void vPrintOutError(const char *, va_list);
+
 extern void PrintOutMsg(const char *, ...) __attribute__((format (printf,1,2)));
 extern void vPrintOutMsg(const char *, va_list);
+// `OutMsgStream` gets a ostream that points to the same destination that PrintOutMsg would.
+std::ostream& OutMsgStream();
+
 extern void PrintError();
-extern void PrintOutOk();
 extern std::string FormatMIValue(std::string value);
 
-
-// Suppress output ot PrintOutError for the lifetime (RAII)
-class SuppressPrintOutError {
-public:
-    SuppressPrintOutError();
-    ~SuppressPrintOutError();
-private:
-    cli_stream_t* stream;
-    FILE* prev;
-};
-
-// Print messages to cli output instead of MI for the lifetime (RAII)
-class PrintOutMItoCli {
-public:
-    PrintOutMItoCli();
-    ~PrintOutMItoCli();
-};
-
-class PrintOutCliToMI {
-public:
-    PrintOutCliToMI();
-    ~PrintOutCliToMI();
-};
-
-enum class MIResult { DONE, STOPPED, CONTINUATION };
-extern void PrintOutMIResult(MIResult res, const char* format, ...) __attribute__((format (printf,2,3)));
 // Get/set the logging state 
 extern cli_logging_t&  GetLogging();
 extern bool SetProgramOutputFile(const char* file);
@@ -414,8 +400,6 @@ extern void cli_dec_prompt(void);
 extern char *cli_get_prompt(void);
 // Used to handle input on the CLI stream cs_fpin
 extern void cli_handle_input(void);
-// Used to set the error condition flag for the current stream
-extern void cli_set_error(void);
 // Used to save the current state of a stream
 extern void cli_save_stream(void);
 // Used to restore a saved stream

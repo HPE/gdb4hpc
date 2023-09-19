@@ -26,7 +26,7 @@ namespace {
 
 std::shared_ptr<Command> make_gdbmode_command_tree();
 
-int cmd_maint_direct_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_maint_direct_cmd(Command::LoweredContext<ConsoleInterpreter>&, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Usage: maint passthru <gdb command...>\n");
         return Command::Failure;
@@ -59,19 +59,12 @@ int cmd_maint_direct_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, con
     return 1;
 }
 
-int cmd_directmode_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_directmode_cmd(Command::LoweredContext<ConsoleInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc > 1) {
         return cmd_maint_direct_cmd(ctx, rec_set, argc, argv);
     }
 
-    if (auto console = dynamic_cast<ConsoleInterpreter*>(ctx.caller)) {
-        console->push_commands(make_gdbmode_command_tree());
-    } else {
-        // unreachable?
-        // the only interpreter this command should be attached to is console.
-        PrintOutError("This command is only supported on the console interpreter.\n");
-        return Command::Failure;
-    }
+    ctx.caller.push_commands(make_gdbmode_command_tree());
 
     cli_inc_prompt();
 
@@ -109,14 +102,7 @@ int cmd_directmode_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, c
     return Command::Success;
 }
 
-int cmd_directmode_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int, const char* const []) {
-    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
-    if (!console) {
-        // unreachable?
-        PrintOutError("This command is only supported on the console interpreter.\n");
-        return Command::Failure;
-    }
-
+int cmd_directmode_end_cmd(Command::LoweredContext<ConsoleInterpreter>& ctx, rec_set_t *rec_set, int, const char* const []) {
     PrintOutMsg(
         "\nEnding gdb pass-thru mode. If program location has changed (i.e. "
         "continue) debugger is in an unknown state.\n");
@@ -126,7 +112,7 @@ int cmd_directmode_end_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int, co
 
     cli_dec_prompt();
 
-    console->pop_commands();
+    ctx.caller.pop_commands();
 
     return 1;
 }
@@ -173,7 +159,8 @@ std::shared_ptr<Command> make_gdbmode_command_tree() {
 
     // XXX: We can't set help strings for these commands. The help command is
     // passed to the gdb backend while in gdbmode.
-    root->addSubCmd({.name = "end", .ptype = proc_ignore, .fn = cmd_directmode_end_cmd});
+    root->addSubCmd({.name = "end", .ptype = proc_ignore,
+                     .fn = Command::specify<ConsoleInterpreter>(cmd_directmode_end_cmd)});
     root->addSubCmd({.name = "quit", .alias = "q", .ptype = proc_ignore, .fn = cmd_quit_cmd});
     root->addSubCmd({.name = "run", .alias = "r", .ptype = proc_ignore, .fn = cmd_directmode_blacklist_cmd});
     root->addSubCmd({.name = "detach", .ptype = proc_ignore, .fn = cmd_directmode_blacklist_cmd});
@@ -186,6 +173,6 @@ std::shared_ptr<Command> make_gdbmode_command_tree() {
 
 void ConsoleCommandsFactory::insert_passthru_commands(Command& root) {
     root.addSubCmd({
-        .name = "gdbmode", .ptype = proc_required, .fn = cmd_directmode_cmd,
+        .name = "gdbmode", .ptype = proc_required, .fn = Command::specify<ConsoleInterpreter>(cmd_directmode_cmd),
         .help = cmd_directmode_help, .desc = "Send raw gdb commands."});
 }

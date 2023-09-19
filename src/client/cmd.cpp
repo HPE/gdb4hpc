@@ -30,6 +30,7 @@
 #include "bitset.h"
 #include "dbgevent.h"
 #include "mi_funcs.h"
+#include "interpreter_mi.h"
 
 /*
 ** Internal global variables
@@ -185,7 +186,10 @@ size_t ExecuteQueuedCommands() {
     while (pendingCommandQueue.size()) {
         auto command = std::move(pendingCommandQueue.front());
         pendingCommandQueue.pop_front();
-        DbgInterpret(command.c_str());
+        if (!DbgInterpret(command.c_str())) {
+            PrintOutError("Command failed: %s\n", command.c_str());
+            if (!Client.keep_going) break;
+        }
     }
     
     cli_restore_stream();
@@ -266,147 +270,4 @@ std::variant<Command*, Command::ErrStr> Command::findSubCmd(std::string_view cmd
         err.append(cmd);
         return err;
     }
-}
-
-std::shared_ptr<Command> ConsoleCommandsFactory::make() {
-    auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
-
-    insert_class_commands(*root);
-    insert_interpreter_commands(*root);
-    insert_frame_commands(*root);
-    insert_step_commands(*root);
-    insert_passthru_commands(*root);
-    insert_script_commands(*root);
-    insert_blockmap_commands(*root);
-    insert_env_commands(*root);
-    insert_python_commands(*root);
-    insert_assign_commands(*root);
-    insert_checkpoint_commands(*root);
-    insert_source_commands(*root);
-    insert_whatis_commands(*root);
-    insert_break_commands(*root);
-    insert_proc_commands(*root);
-    insert_list_commands(*root);
-    insert_iostat_commands(*root);
-    insert_threads_commands(*root);
-    insert_print_commands(*root);
-    insert_comp_commands(*root);
-    insert_go_commands(*root);
-    insert_procset_commands(*root);
-
-    return root;
-}
-
-static void insert_setshow_commands(Command& root, std::string set, std::string show) {
-    root.addSubCmd(set, nullptr, proc_ignore,
-                   nullptr, class_set_help,
-                   "Set information about the debugger environment.");
-
-    root.addSubCmd(show, nullptr, proc_ignore,
-                   nullptr, class_show_help,
-                   "Show information about the debugger environment.");
-}
-
-void ConsoleCommandsFactory::insert_class_commands(Command& root) {
-    // insert a fake help command so we get the niceness of the command tree
-    // matching "h", "he", etc. to "help". printing the actual help requires
-    // context only available in the interpreter itself, so the interpreter
-    // will catch a match to this command and short circuit to the help output.
-    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
-        return Command::Failure;
-    };
-    root.addSubCmd("help", "h", proc_ignore,
-                    dummy_help, cmd_help_help,
-                    "Display help information about commands.");
-
-    root.addSubCmd("info", "i", proc_ignore,
-                   nullptr, class_info_help,
-                   "Display information about the application being debugged.");
-
-    root.addSubCmd("maint", nullptr, proc_ignore,
-                   nullptr, class_maint_help,
-                   "Commands for use by debugger maintainers.");
-
-    root.addSubCmd("maint set", nullptr, proc_ignore,
-                   nullptr, class_maint_set_help,
-                   "Set information about the debugger environment.");
-
-    root.addSubCmd("maint show", nullptr, proc_ignore,
-                   nullptr, class_maint_show_help,
-                   "Show information about the debugger environment.");
-
-    root.addSubCmd("unset", nullptr, proc_ignore,
-                   nullptr, class_unset_help,
-                   "Unset information in the debugger environment.");
-
-    insert_setshow_commands(root, "set", "show");
-}
-
-std::shared_ptr<Command> MiCommandsFactory::make() {
-    auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
-
-    insert_class_commands(*root);
-    insert_dummy_commands(*root);
-    insert_mi_commands(*root);
-    insert_interpreter_commands(*root);
-    insert_frame_commands(*root);
-    insert_step_commands(*root);
-    insert_whatis_commands(*root);
-    insert_blockmap_commands(*root);
-    insert_break_commands(*root);
-    insert_script_commands(*root);
-    insert_list_commands(*root);
-    insert_threads_commands(*root);
-    insert_print_commands(*root);
-    insert_env_commands(*root);
-    insert_proc_commands(*root);
-    insert_comp_commands(*root);
-    insert_go_commands(*root);
-    insert_procset_commands(*root);
-
-    return root;
-}
-
-void MiCommandsFactory::insert_class_commands(Command& root) {
-    // insert a fake help command so we get the niceness of the command tree
-    // matching "h", "he", etc. to "help". printing the actual help requires
-    // context only available in the interpreter itself, so the interpreter
-    // will catch a match to this command and short circuit to the help output.
-    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
-        return Command::Failure;
-    };
-    root.addSubCmd({
-        .name = "-help", .ptype = proc_ignore,
-        .fn = dummy_help, .help = cmd_help_help,
-        .desc = "Display help information about commands."});
-
-    insert_setshow_commands(root, "-gdb-set", "-gdb-show");
-}
-
-void MiCommandsFactory::insert_dummy_commands(Command& root) {
-    const auto read_from_dummy_map = [](Command::RunContext&, rec_set_t*, int, const char* const argv[]) -> int {
-        static const std::map<std::string, std::string> dummy_map = {
-             {"-data-list-register-names", "register-names=[]"},
-             {"-enable-frame-filters", ""},
-             {"-list-features", "features=[]"},
-             {"-list-target-features", "features=[async]"},
-        };
-
-        // assume it will never miss because we only enter this function if we have a
-        // known command
-        auto [key, value] = *dummy_map.find(argv[0]);
-
-        if (value.empty()) {
-            PrintOutOk();
-        } else {
-            PrintOutMIResult(MIResult::DONE, "%s\n%s", value.c_str(), GetMIEpilogue());
-        }
-
-        return Command::Success;
-    };
-
-    root.addSubCmd({ .name = "-data-list-register-names", .ptype = proc_ignore, .fn = read_from_dummy_map });
-    root.addSubCmd({ .name = "-enable-frame-filters", .ptype = proc_ignore, .fn = read_from_dummy_map });
-    root.addSubCmd({ .name = "-list-features", .ptype = proc_ignore, .fn = read_from_dummy_map });
-    root.addSubCmd({ .name = "-list-target-features", .ptype = proc_ignore, .fn = read_from_dummy_map });
 }

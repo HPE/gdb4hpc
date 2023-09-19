@@ -691,14 +691,14 @@ AIFStream* BinaryFuncValue::getSingleResult() {
 
 ComparisonValue::ComparisonValue(std::unique_ptr<Value>&& a, const std::string& op,
                                  std::unique_ptr<Value>&& b) :
-    Value(a->getRecSet()), m_a(std::move(a)), m_op(op), m_b(std::move(b)) {
+    Value(a->getRecSet()), m_a(std::move(a)), m_op(op), m_b(std::move(b)), m_should_label_diffs{true} {
     if (op == "=") m_op = "==";
 }
 
-static void getDiffStr(std::ostream& os,
-                       const std::string& label, const std::string& diffStr) {
+static void getDiffStr(std::ostream &os, bool should_label_diffs,
+                       const std::string &label, const std::string &diffStr) {
 
-    if (Client.MI_mode) {
+    if (!should_label_diffs) {
         os << diffStr;
         return;
     } else if (label.empty()) {
@@ -713,6 +713,10 @@ static void getDiffStr(std::ostream& os,
         else os << c;
     }
     os << "\n";
+}
+
+void ComparisonValue::setLabelDiffs(bool should_label) {
+    m_should_label_diffs = should_label;
 }
 
 void ComparisonValue::print(std::ostream& os, rec_set_t*, const std::string&) {
@@ -867,11 +871,11 @@ void ComparisonValue::getFullResult(std::optional<std::string>& passed,
 
             case CompareResult::Fail:
                 failed = (failed ? combineLabels(*failed,pr->label) : pr->label);
-                if (printDelta) getDiffStr(deltaSS, pr->label, diff.getResult());
+                if (printDelta) getDiffStr(deltaSS, m_should_label_diffs, pr->label, diff.getResult());
                 break;
             case CompareResult::Warn:
                 warn = (warn ? combineLabels(*warn,pr->label) : pr->label);
-                if (printDelta) getDiffStr(deltaSS, pr->label, diff.getResult());
+                if (printDelta) getDiffStr(deltaSS, m_should_label_diffs, pr->label, diff.getResult());
                 break;
             case CompareResult::Invalid:
                 throw EvalError(errMsg.c_str());
@@ -880,8 +884,6 @@ void ComparisonValue::getFullResult(std::optional<std::string>& passed,
     } else {
         throw EvalError("Cannot compare mismatched values.");
     }
-
-    //os << "Don't forget MI!!!!\n";
 }
 
 

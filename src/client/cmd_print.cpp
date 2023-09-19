@@ -30,6 +30,7 @@
 #include "help_dict.h"
 #include "useful.h"
 #include "gram.h"
+#include "interpreter_mi.h"
 
 void ClientSetPrintElements(int elements, rec_set_t* rec_set, bool force) {
     // only do work if we need to
@@ -112,14 +113,9 @@ static int cmd_print_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, con
         if (auto pe = getenv("PRINT_EXPR"); pe && pe[0] != '0') expr->print();
 
         {
-            // TODO disable the pager if an mi client is listening. this will
-            // require a new field to RunContext be added.
-            //
-            // for now, a nonconditional pager is fine since it will be a
-            // no-op unless explicitly enabled.
             auto pager = std::make_unique<cli_pager>();
             auto val = expr->evalTop(rec_set);
-            val->print(Client.cli_out->ostream(), rec_set, format);
+            val->print(OutMsgStream(), rec_set, format);
         }
     } catch (EvalErrorAlreadyReported& err) {
         return 1; // this was not reported as the command failing
@@ -198,17 +194,9 @@ static int cmd_set_print_pretty_cmd(Command::RunContext&, rec_set_t *, int argc,
     return 1;
 }
 
-static int cmd_enable_pretty_printing_mi(Command::RunContext& ctx, rec_set_t *rec_set, int, const char* const []) {
-    // due to how subcommands work, the sub function expects to receive only the
-    // "pretty on" part of "set print pretty on".
-    const char* const sub_argv[] = {"pretty", "on", nullptr};
-    const auto result = cmd_set_print_pretty_cmd(ctx, rec_set, 2, sub_argv);
-    if (result == Command::Success) {
-        PrintOutOk();
-    } else {
-        // error already printed
-    }
-    return result;
+static int cmd_enable_pretty_printing_mi(Command::RunContext&, rec_set_t *, int, const char* const []) {
+    Client.print_pretty = true;
+    return Command::Success;
 }
 
 static int cmd_show_print_pretty_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
@@ -236,8 +224,6 @@ std::string FormatMIValue(std::string origValue) {
 // return an empty string if it fails (typically a variable out of scope)
 std::string GetMiValue(const std::string& expression, const std::string& ps_str)
 {
-    SuppressPrintOutError suppressor;
-
     try {
         auto expr = ParseString(expression);
         auto ps = FindProcSet(ps_str.c_str());

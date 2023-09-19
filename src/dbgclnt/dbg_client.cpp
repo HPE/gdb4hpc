@@ -28,6 +28,7 @@
 #include "dbginvoke.h"
 
 #include "common_tools_fe.h"
+#include "observable.h"
 
 /*
 ** Internal types
@@ -2194,6 +2195,7 @@ rep_set_t DbgGo(rec_set_t *set, bool all) {
         if (set->getNumReceivers() > 0) {
             // update global status flags
             async_pending = 1;
+            observers::target_resumed.notify();
         }
     } else {
         // selectively clear the list
@@ -2215,6 +2217,7 @@ rep_set_t DbgGo(rec_set_t *set, bool all) {
 
                 // update global status flags
                 async_pending = 1;
+                observers::target_resumed.notify();
                 recv_ptr->rec_di.setAtInitialBreakpoint(false);
             }
         }
@@ -2269,6 +2272,7 @@ rep_set_t DbgFinishFunc(rec_set_t *set) {
 
     // An async event is now pending
     async_pending = 1;
+    observers::target_resumed.notify();
 
     return result;
 }
@@ -3330,6 +3334,7 @@ rep_set_t DbgStep(rec_set_t *set, int count, int in) {
 
     // An async event is now pending
     async_pending = 1;
+    observers::target_resumed.notify();
 
     return result;
 }

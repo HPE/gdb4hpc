@@ -51,6 +51,10 @@ private:
         size_t failures = 0;
     };
 
+private:
+    class Expression;
+    class Assertion;
+    class Ranks;
 public:
     ScriptRunner(std::unique_ptr<data::Script>&& script);
 
@@ -114,8 +118,26 @@ public:
 
     bool hasError() const { return m_error != ""; }
     std::string getError() const { return m_error; }
-    // return summary of assertion results
+    // return textual summary of assertion results
     std::string summary() const;
+
+    struct ResultsView {
+        std::string script_name;
+
+        size_t total_passes;
+        size_t total_warns;
+        size_t total_fails;
+        size_t total_indeterminants;
+
+        size_t completed_runs;
+
+        const std::vector<data::Assertion>& asserts;
+        // assert id -> results
+        const std::map<int, ResultPack>& results_map;
+    };
+    // return a data summary of assertion results. the results point to valid
+    // memory only as long as the parent is valid.
+    ResultsView resultsView() const;
 
 private:
     // returns an EventInterface object that will be passed to the public event 

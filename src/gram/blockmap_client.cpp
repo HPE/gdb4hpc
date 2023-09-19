@@ -126,13 +126,11 @@ void UnregisterBlockMap(const std::string& name) {
 
 std::string BlockMap::oldMsg() const {
     int i;
-    std::stringstream sc; //stringstream for cli messages
-    std::stringstream sm; //stringstream for mi messages
+    std::stringstream sc;
 
     auto rank = getRank();
 
     sc<<m_name<<":\n";
-    sm<<"{name=\""<<m_name;
 
     if (getRank() == 0) {
         SetError("Invalid decomposition.");
@@ -140,38 +138,30 @@ std::string BlockMap::oldMsg() const {
     }
 
     auto csep = [rank](int i) { return (i+1 == rank ? "\n" : ","); };
-    auto msep = [rank](int i) { return (i+1 == rank ? "" : ","); };
 
     sc<<"\tdimension ";
-    sm<<"\",dimension=\"";
 
     for (i = 0; i < rank; i++) {
         const auto& d = getDimension(i);
         sc << d.size << csep(i);
-        sm << d.size << msep(i);
     }
 
     sc<<"\tdistribute ";
-    sm<<"\",distribute=\"";
     for (i = 0; i < rank; i++) {
-        auto c = csep(i), m = msep(i);
+        auto c = csep(i);
         const auto& d = getDimension(i);
         switch (d.distribution) {
         case Distribution::Block:
             sc<<"block"<<c;
-            sm<<"block"<<m;
             break;
         case Distribution::Cyclic:
             sc<<"cyclic"<<c;
-            sm<<"cyclic"<<m;
             break;
         case Distribution::Star:
             sc<<"*"<<c;
-            sm<<"*"<<m;
             break;
         case Distribution::BlockCyclic:
             sc<<d.blockCyclic<<c;
-            sm<<d.blockCyclic<<m;
             break;
         default:
             SetError(
@@ -181,38 +171,27 @@ std::string BlockMap::oldMsg() const {
     }
 
     sc<<"\tproc_grid ";
-    sm<<"\",proc_grid=\"";
     for (i = 0; i < rank; i++) {
         const auto& d = getDimension(i);
         if (d.numProcs == 1){
             sc<<"*"<<csep(i);
-            sm<<"*"<<msep(i);
         }else{
             sc<<d.numProcs<<csep(i);
-            sm<<d.numProcs<<msep(i);
         }
     }
 
     sc<<"\tdim_order ";
-    sm<<"\",dim_order=\"";
     for (i = 0; i < rank; i++) {
         const auto& d = getDimension(i);
         if (d.dim_order == int(Distribution::Star)){
             sc<<"*"<<csep(i);
-            sm<<"*"<<msep(i);
         }else{
             sc<<d.dim_order<<csep(i);
-            sm<<d.dim_order<<msep(i);
         }
     }
 
     sc<<"\n";
-    sm<<"\"}";
 
-    //return the results in the proper format
-    if (Client.MI_mode){
-        return sm.str();
-    }
     return sc.str();
 }
 

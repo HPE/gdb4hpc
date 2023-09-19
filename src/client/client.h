@@ -34,7 +34,10 @@
 #include "dbg_client.h"
 #include "defs.h"
 #include "useful.h"
-#include "mi_funcs.h"
+
+#include "interpreter.h"
+#include "interpreter_console.h"
+#include "interpreter_mi.h"
 
 /*
 ** Functions defined in main.c
@@ -50,6 +53,6 @@ extern void PrintFrameSet(const char *, Bitset *, const dbgframe_t *);
 ** Functions defined in cmd_proc.c
 */
 extern void PrintHaltedLocationSet(const char *, const Bitset *, dbgloc_t *);
-extern void EndAll(void);
+extern void EndAll();
 
 #endif /* _CLIENT_H */

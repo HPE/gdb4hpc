@@ -394,6 +394,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/src/c/libbar.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libbar.c
 %{__cp} -a %{tests_source_dir}/function/src/c/simple_gpu.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/simple_gpu.c
 %{__cp} -a %{tests_source_dir}/function/src/c/c_shmem.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_shmem.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_not_mpi.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_not_mpi.c
 
 %{__cp} -a %{tests_source_dir}/function/src/C++/cpp_arrays.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays.cpp
 %{__cp} -a %{tests_source_dir}/function/src/C++/cpp_arrays_print.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays_print.cpp
@@ -501,6 +502,13 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_decomp.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_decomp.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_reductions.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_reductions.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/kokkos.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/kokkos.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_console_exec.in  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_console_exec.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_errors.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_errors.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_exec.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_exec.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_fallback.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_fallback.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_prefixes.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prefixes.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_prompt.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prompt.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_results.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_results.in
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %{__cp} -a %{tests_source_dir}/function/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
@@ -786,6 +794,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/libbar.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/simple_gpu.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_shmem.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_not_mpi.c
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays_print.cpp
@@ -890,6 +899,13 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_tile.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_decomp.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_reductions.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_console_exec.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_errors.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_exec.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_fallback.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prefixes.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prompt.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_results.in
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/team_vector_loop.cpp

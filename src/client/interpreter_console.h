@@ -52,6 +52,11 @@ private:
         std::ostream& get_message_stream() override;
         void print_error_v(const char* fmt, va_list args) override;
         void print_inferior_output(const DbgInvoke& di, std::string_view line, FILE* use_instead = nullptr) override;
+
+        // console specific
+        void print_with_set_info(const char* set_name, const Bitset& group, const char* fmt, ...) __attribute__((format (printf,4,5)));
+        void print_error_with_set_info(const char* set_name, const Bitset& group, const char* fmt, ...) __attribute__((format (printf,4,5)));
+        void print_event_location(const DbgInvoke::EventSet& ev_set);
     private:
         Printer(ConsoleInterpreter& parent, cli_stream_t& io);
         friend ConsoleInterpreter::ConsoleInterpreter(cli_stream_t& io);

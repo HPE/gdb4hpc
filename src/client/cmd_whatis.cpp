@@ -152,15 +152,14 @@ static int cmd_info_locals_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, r
             // point at the vars data
             auto v = EVENT_VARS(reply->rep_event);
             std::stringstream ss;
+            ss <<"[";
+            auto comma = std::string{""};
             for (; v != (dbgvars_t *)NULL; v = v->var_next) {
-                if (!ss.str().empty()){
-                    ss<<",";
-                }else{
-                    ss<<"[";
-                }
+                ss<<comma;
                 std::string group = reply->rep_group.get()->toSetString();
                 ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<reply->rep_di.c_str()
                                 <<"\",group=\""<<group.substr(1,group.length()-2).c_str()<<"\"}";
+                comma = ",";
             }
             ss<<"]";
             std::string group = reply->rep_group.get()->toSetString();

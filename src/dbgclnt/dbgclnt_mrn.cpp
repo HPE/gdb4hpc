@@ -802,7 +802,7 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
             } else {
                app_argv << ":";
             }
-            app_argv << job_opt.launcher_args.c_strs(0) << job_opt.app_argv.c_strs(0);
+            app_argv << job_opt.launcher_args << job_opt.app_argv;
         }
     }
 

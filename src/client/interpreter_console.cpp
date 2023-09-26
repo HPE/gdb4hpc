@@ -169,14 +169,38 @@ bool ConsoleInterpreter::print_help(std::string_view line) {
     }
 }
 
+// we need to implement PrintErrorWithSetInfo etc. ourselves here, because
+// PrintErrorWithSetInfo will use PrintOutMsg to print its messages, which will
+// go out through the current stream, which is not guaranteed to be our printer.
+
+void ConsoleInterpreter::Printer::print_with_set_info(const char* set_name, const Bitset& group, const char* fmt, ...) {
+    const auto prefix = GetProcSetString(set_name, &group, nullptr);
+    print_message("%s: ", prefix.c_str());
+
+    va_list args;
+    va_start(args, fmt);
+    print_message_v(fmt, args);
+    va_end(args);
+}
+
+void ConsoleInterpreter::Printer::print_error_with_set_info(const char* set_name, const Bitset& group, const char* fmt, ...) {
+    const auto prefix = GetProcSetString(set_name, &group, nullptr);
+    print_error("%s: ", prefix.c_str());
+
+    va_list args;
+    va_start(args, fmt);
+    print_error_v(fmt, args);
+    va_end(args);
+}
+
 // Prints program location after a step event is received
-static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset */*group*/) {
-    if (!ev_set || !ev_set->event()) {
+void ConsoleInterpreter::Printer::print_event_location(const DbgInvoke::EventSet &ev_set) {
+    if (!ev_set.event()) {
         return;
     }
 
-    const dbgframe_t *frame = ev_set->event()->ev_step.step_frame;
-    bool frame_changed = ev_set->event()->ev_step.step_frame_changed;
+    const dbgframe_t *frame = ev_set.event()->ev_step.step_frame;
+    bool frame_changed = ev_set.event()->ev_step.step_frame_changed;
 
     if (frame) {
         const auto &frameLoc = frame->getLoc();
@@ -189,7 +213,7 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
             lineArg += "," + lineArg; // filename:xx,filename:xx
             dbgevent_t *listResult = nullptr;
 
-            if (auto fe = ev_set->di().frontendGdb()) {
+            if (auto fe = ev_set.di().frontendGdb()) {
                 listResult = fe->list(nullptr, lineArg.c_str());
             }
 
@@ -197,8 +221,8 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
                 listResult->ev_list && listResult->ev_list->list_lno == frameLoc.loc_line) {
                 // Print a frame if the last step event changed functions
                 if (frame_changed) {
-                    PrintMsgWithSetInfo(
-                        ev_set->di().handle().c_str(), &ev_set->group(),
+                    print_with_set_info(
+                        ev_set.di().handle().c_str(), ev_set.group(),
                         "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
                     );
                 }
@@ -206,14 +230,14 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
                 auto line = std::string{listResult->ev_list->list_line};
                 formatSourceLine(line);
 
-                PrintMsgWithSetInfo(
-                    ev_set->di().handle().c_str(), &ev_set->group(),
+                print_with_set_info(
+                    ev_set.di().handle().c_str(), ev_set.group(),
                     "%d\t%s\n", frameLoc.loc_line, line.c_str()
                 );
             } else {
                 // For some reason we didn't get the right line, just print the frame
-                PrintMsgWithSetInfo(
-                    ev_set->di().handle().c_str(), &ev_set->group(),
+                print_with_set_info(
+                    ev_set.di().handle().c_str(), ev_set.group(),
                     "%s at %s:%d\n", frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line
                 );
             }
@@ -221,30 +245,30 @@ static void printEventLocation(const DbgInvoke::EventSet *ev_set, const Bitset *
 
         } else if (frameLoc.loc_func) {
             // No file/line, just print function name
-            PrintMsgWithSetInfo(
-                ev_set->di().handle().c_str(), &ev_set->group(), "in %s\n", frameLoc.loc_func);
+            print_with_set_info(
+                ev_set.di().handle().c_str(), ev_set.group(), "in %s\n", frameLoc.loc_func);
         } else {
             // Shouldn't ever happen
-            PrintMsgWithSetInfo(ev_set->di().handle().c_str(), &ev_set->group(),
+            print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
                 "Step finished with no location information.\n"
             );
         }
     } else {
         // Got a null frame? This should never happen
-        PrintMsgWithSetInfo(ev_set->di().handle().c_str(), &ev_set->group(),
+        print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
             "Step finished with no location information.\n"
         );
     }
 }
 
-void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset& reply_set) {
+void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset& /*reply_set*/) {
     switch (ev_set.event()->ev_event) {
         case DBGEV_EXIT: {
             if (ev_set.event()->ev_exit == 0) {
-                PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                m_printer.print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
                                     "Program exited normally.\n");
             } else {
-                PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                m_printer.print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
                                     "Program exited with code 0%o.\n",
                                     ev_set.event()->ev_exit);
             }
@@ -261,20 +285,20 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
 
             if (!bpset) {
                 if (ev_set.event()->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
-                    PrintMsgWithSetInfo(
-                        ev_set.di().handle().c_str(), &ev_set.group(),
+                    m_printer.print_with_set_info(
+                        ev_set.di().handle().c_str(), ev_set.group(),
                         "The application has reached an exit breakpoint.\n");
                 } else if (Client.print_bp_frames) {
                     if (ev_set.event()->ev_bp->bp_loc.loc_line > 0) {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), &ev_set.group(),
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), ev_set.group(),
                             "In %s at %s:%d\n",
                             ev_set.event()->ev_bp->bp_loc.loc_func,
                             ev_set.event()->ev_bp->bp_loc.loc_file,
                             ev_set.event()->ev_bp->bp_loc.loc_line);
                     } else {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), &ev_set.group(), "In %s\n",
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), ev_set.group(), "In %s\n",
                             ev_set.event()->ev_bp->bp_loc.loc_func);
                     }
                 }
@@ -295,18 +319,18 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
                     // Print out the updated locale information for the watchpoint.
                     // This was updated in EventCB before calling this function.
                     for (const auto &watch_loc : bpset->watchLocaleSet()) {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), watch_loc.group.get(),
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), *watch_loc.group,
                             "Watchpoint %d, variable expression: %s\n",
                             bpset->id(), bpset->watchExpression().c_str());
                         if (watch_loc.line > 0) {
-                            PrintMsgWithSetInfo(
-                                ev_set.di().handle().c_str(), watch_loc.group.get(),
+                            m_printer.print_with_set_info(
+                                ev_set.di().handle().c_str(), *watch_loc.group,
                                 "In %s at %s:%d\n", watch_loc.func.c_str(),
                                 watch_loc.file.c_str(), watch_loc.line);
                         } else {
-                            PrintMsgWithSetInfo(
-                                ev_set.di().handle().c_str(), watch_loc.group.get(),
+                            m_printer.print_with_set_info(
+                                ev_set.di().handle().c_str(), *watch_loc.group,
                                 "In %s\n", watch_loc.func.c_str());
                         }
                     }
@@ -319,14 +343,14 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
                 case DBGBP_BREAK_TYPE:
                     if (Client.print_bp_frames) {
                         if (bpset->line() > 0) {
-                            PrintMsgWithSetInfo(
-                                ev_set.di().handle().c_str(), &ev_set.group(),
+                            m_printer.print_with_set_info(
+                                ev_set.di().handle().c_str(), ev_set.group(),
                                 "Breakpoint %d, %s at %s:%d%s\n", bpset->id(),
                                 bpset->function().c_str(), bpset->file().c_str(),
                                 bpset->line(), bpThread.c_str());
                         } else {
-                            PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
-                                                &ev_set.group(),
+                            m_printer.print_with_set_info(ev_set.di().handle().c_str(),
+                                                ev_set.group(),
                                                 "Breakpoint %d, in %s%s\n",
                                                 bpset->id(), bpset->function().c_str(),
                                                 bpThread.c_str());
@@ -336,13 +360,13 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
 
                 case DBGBP_CATCH_TYPE:
                     if (!bpset->watchExpression().empty()) {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), &ev_set.group(),
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), ev_set.group(),
                             "Catchpoint %d (%s)\n",
                             bpset->id(), bpset->watchExpression().c_str());
                     } else {
-                        PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
-                            &ev_set.group(),
+                        m_printer.print_with_set_info(ev_set.di().handle().c_str(),
+                            ev_set.group(),
                             "Catchpoint %d\n",
                             bpset->id());
                     }
@@ -350,14 +374,14 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
 
                 default:
                     if (bpset->line() > 0) {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), &ev_set.group(),
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), ev_set.group(),
                             "Unknown break type %d, %s at %s:%d\n",
                             bpset->id(), bpset->function().c_str(),
                             bpset->file().c_str(), bpset->line());
                     } else {
-                        PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
-                                            &ev_set.group(),
+                        m_printer.print_with_set_info(ev_set.di().handle().c_str(),
+                                            ev_set.group(),
                                             "Unknown break type %d, in %s\n",
                                             bpset->id(), bpset->function().c_str());
                     }
@@ -375,8 +399,8 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
             auto bpset = ev_set.di().breakpoints().findByDbgBreakpoint(*ev_set.event()->ev_bp);
 
             if (!bpset) {
-                PrintErrorWithSetInfo(
-                    ev_set.di().handle().c_str(), &ev_set.group(),
+                m_printer.print_error_with_set_info(
+                    ev_set.di().handle().c_str(), ev_set.group(),
                     "ERROR: cannot find breakpoint in BPSetList.\n");
                 break;
             }
@@ -393,36 +417,37 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
                     // Print out the updated locale information for the watchpoint.
                     // This was updated in EventCB before calling this function.
                     for (const auto &watch_loc : bpset->watchLocaleSet()) {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), watch_loc.group.get(),
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), *watch_loc.group,
                             "Watchpoint %d deleted because the program has left "
                             "the block in which its expression is valid.\n",
                             bpset->id());
                         if (watch_loc.line > 0) {
-                            PrintMsgWithSetInfo(
-                                ev_set.di().handle().c_str(), watch_loc.group.get(),
+                            m_printer.print_with_set_info(
+                                ev_set.di().handle().c_str(), *watch_loc.group,
                                 "In %s at %s:%d\n", watch_loc.func.c_str(),
                                 watch_loc.file.c_str(), watch_loc.line);
                         } else {
-                            PrintMsgWithSetInfo(
-                                ev_set.di().handle().c_str(), watch_loc.group.get(),
+                            m_printer.print_with_set_info(
+                                ev_set.di().handle().c_str(), *watch_loc.group,
                                 "In %s\n", watch_loc.func.c_str());
                         }
                     }
                     // clear out the watchpoint locale to avoid printing multiple times
+                    // XXX: this function probably shouldn't have side effects like this.
                     bpset->clearWatchLocaleSet();
                     break;
 
                 case DBGBP_BREAK_TYPE:
                     if (bpset->line() > 0) {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), &ev_set.group(),
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), ev_set.group(),
                             "Breakpoint %d deleted, %s at %s:%d\n",
                             bpset->id(), bpset->function().c_str(),
                             bpset->file().c_str(), bpset->line());
                     } else {
-                        PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
-                                            &ev_set.group(),
+                        m_printer.print_with_set_info(ev_set.di().handle().c_str(),
+                                            ev_set.group(),
                                             "Breakpoint %d deleted, in %s\n",
                                             bpset->id(), bpset->function().c_str());
                     }
@@ -430,13 +455,13 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
 
                 case DBGBP_CATCH_TYPE:
                     if (!bpset->watchExpression().empty()) {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), &ev_set.group(),
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), ev_set.group(),
                             "Catchpoint %d deleted (%s)\n",
                             bpset->id(), bpset->watchExpression().c_str());
                     } else {
-                        PrintMsgWithSetInfo(ev_set.di().handle().c_str(),
-                            &ev_set.group(),
+                        m_printer.print_with_set_info(ev_set.di().handle().c_str(),
+                            ev_set.group(),
                             "Catchpoint %d deleted.\n",
                             bpset->id());
                     }
@@ -444,14 +469,14 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
 
                 default:
                     if (bpset->line() > 0) {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), &ev_set.group(),
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), ev_set.group(),
                             "Unknown break type %d deleted, %s at %s:%d\n",
                             bpset->id(), bpset->function().c_str(),
                             bpset->file().c_str(), bpset->line());
                     } else {
-                        PrintMsgWithSetInfo(
-                            ev_set.di().handle().c_str(), &ev_set.group(),
+                        m_printer.print_with_set_info(
+                            ev_set.di().handle().c_str(), ev_set.group(),
                             "Unknown break type %d deleted, in %s\n",
                             bpset->id(), bpset->function().c_str());
                     }
@@ -462,24 +487,24 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
         }
 
         case DBGEV_SIGNAL: {
-            PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+            m_printer.print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
                                 "Program received signal %s.\n",
                                 ev_set.event()->ev_sig_type);
 
             if (ev_set.event()->ev_sig_frame != (dbgframe_t *)NULL) {
                 const auto &frameLoc = ev_set.event()->ev_sig_frame->getLoc();
                 if (frameLoc.loc_file != NULL) {
-                    PrintMsgWithSetInfo(
-                        ev_set.di().handle().c_str(), &ev_set.group(),
+                    m_printer.print_with_set_info(
+                        ev_set.di().handle().c_str(), ev_set.group(),
                         "In %s at %s:%d\n",
                         frameLoc.loc_func, frameLoc.loc_file, frameLoc.loc_line);
                 } else {
-                    PrintMsgWithSetInfo(
-                        ev_set.di().handle().c_str(), &ev_set.group(), "In %s\n",
+                    m_printer.print_with_set_info(
+                        ev_set.di().handle().c_str(), ev_set.group(), "In %s\n",
                         frameLoc.loc_func);
                 }
             } else if (ev_set.event()->ev_sig_line != NULL) {
-                PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                m_printer.print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
                                     "%s\n", ev_set.event()->ev_sig_line);
             }
 
@@ -488,7 +513,7 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
 
         case DBGEV_STEP:
             if (Client.print_source_on_step)
-                printEventLocation(&ev_set, &reply_set);
+                m_printer.print_event_location(ev_set);
             break;
 
         case DBGEV_FRAME: {
@@ -502,18 +527,18 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
             const auto &loc = frame->getLoc();
 
             if (loc.loc_line > 0) {
-                PrintMsgWithSetInfo(
-                    ev_set.di().handle().c_str(), &ev_set.group(),
+                m_printer.print_with_set_info(
+                    ev_set.di().handle().c_str(), ev_set.group(),
                     "Initial breakpoint, %s at %s:%d\n", loc.loc_func, loc.loc_file, loc.loc_line);
             } else {
-                PrintMsgWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+                m_printer.print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
                                     "Initial breakpoint, in %s\n", loc.loc_func);
             }
             break;
         }
 
         case DBGEV_ERROR:
-            PrintErrorWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+            m_printer.print_error_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
                                   "%s\n", DbgEventErrorStr(ev_set.event()));
             break;
 
@@ -521,7 +546,7 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
             break;
 
         default:
-            PrintErrorWithSetInfo(ev_set.di().handle().c_str(), &ev_set.group(),
+            m_printer.print_error_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
                                   "Can't print event %d\n",
                                   ev_set.event()->ev_event);
             break;

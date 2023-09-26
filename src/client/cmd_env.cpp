@@ -1156,7 +1156,7 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
          "Show setting of print entry-frame mode.");
 
     root.addSubCmd(
-        show + " source-on-step", nullptr, proc_ignore,
+        show + " print source-on-step", nullptr, proc_ignore,
          cmd_show_print_sourceonstep_cmd,
          cmd_show_print_sourceonstep_help,
          "Show setting of print source-on-step mode.");

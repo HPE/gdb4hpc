@@ -1,0 +1,22 @@
+0: # in console, interpreter-exec mi will show results in mi format
+0: interpreter-exec mi -gdb-show print source-on-step
+~"print source-on-step enabled.\n"
+^done
+(gdb)
+0: interpreter-exec mi 3-interpreter-exec console show print source-on-step
+~"print source-on-step enabled.\n"
+3^done
+(gdb)
+0: interpreter-exec mi 3-interpreter-exec console interpreter-exec mi -gdb-show print source-on-step
+~"print source-on-step enabled.\n"
+^done
+(gdb)
+^done
+(gdb)
+0: # errors too
+6: interpreter-exec mi -gdb-set print elements error
+&"Error: couldn't convert \"error\" to an integer. (stoi)\n"
+^error,msg="Error: couldn't convert \"error\" to an integer. (stoi)"
+(gdb)
+Command resulted in an error: 6: interpreter-exec mi -gdb-set print elements error
+0: q

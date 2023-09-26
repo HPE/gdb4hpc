@@ -186,7 +186,7 @@ def getOut(test):
 '''
 Run the gdb4phc batch script for a test. Throws subprocess.TimeoutExpired on test timeout
 '''
-def runScript(test, substitutions = ()):
+def runScript(test, substitutions = (), interpreter = "console"):
     runfile = makeRunFile(test, substitutions)
     outfile = getOut(test)
 
@@ -207,7 +207,7 @@ def runScript(test, substitutions = ()):
     print(f"timeout: {timeout}, cleanup: {cleanup_time}")
     
     try:
-        p = subprocess.Popen([
+        args = [
             'gdb4hpc',
             '--silent',
             '--no-init',
@@ -216,7 +216,10 @@ def runScript(test, substitutions = ()):
             '--command-timeout', '120',
             '--batch', runfile,
             '--output', outfile
-        ])
+        ]
+        if interpreter != "console":
+            args.append(f"-i={interpreter}")
+        p = subprocess.Popen(args)
         p.wait(timeout)
     except subprocess.TimeoutExpired:
         # send sigterm to gdb4hpc, triggering clean up.
@@ -238,7 +241,7 @@ def runScript(test, substitutions = ()):
 Driver for generating the gdb4hpc run script, running gdb4hpc, and comparing the output
 against the saved reference file.
 '''
-def runTest(test, substitutions = ()):
+def runTest(test, substitutions = (), interpreter = "console"):
     # Do prep for non-CRAY PrgEnv test
     if test.penv != "CRAY":
         # Load PrgEnv to ensure PrgEnv-specific libraries link correctly.
@@ -262,7 +265,7 @@ def runTest(test, substitutions = ()):
 
     # Run gdb4hpc until completion or timeout
     try:
-        runScript(test, substitutions)
+        runScript(test, substitutions, interpreter)
     except (subprocess.TimeoutExpired, avocado.core.exceptions.TestTimeoutInterrupted):
         if not lt.all_launches_successful(getOut(test)):
             # 90% of timeouts are caused by system problems preventing a launch
@@ -920,6 +923,36 @@ class FunctionTests(Gdb4hpcTest):
 
     def test_mi_backtrace(self):
         self.base_name = "mi_backtrace"
+        runTest(self, interpreter="mi")
+
+    def test_mi_basics_prompt(self):
+        self.base_name = "mi_basics_prompt"
+        runTest(self, interpreter="mi")
+
+    def test_mi_basics_results(self):
+        self.base_name = "mi_basics_results"
+        runTest(self, interpreter="mi")
+
+    def test_mi_basics_errors(self):
+        self.base_name = "mi_basics_errors"
+        runTest(self, interpreter="mi")
+
+    def test_mi_basics_prefixes(self):
+        self.base_name = "mi_basics_prefixes"
+        runTest(self, interpreter="mi")
+
+    def test_mi_basics_fallback(self):
+        self.base_name = "mi_basics_fallback"
+        runTest(self, interpreter="mi")
+
+    def test_mi_basics_exec(self):
+        self.base_name = "mi_basics_exec"
+        runTest(self, interpreter="mi")
+
+    def test_mi_basics_console_exec(self):
+        self.base_name = "mi_basics_console_exec"
+        # this test does *not* use an mi interpreter.
+        # it tests interpreter-exec mi from a console interpreter.
         runTest(self)
 
 class c_commnode_fanout(Gdb4hpcTest):

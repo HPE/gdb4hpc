@@ -310,6 +310,7 @@ struct ParsedArgs {
     bool should_print_banner = true;
     bool interactive = true;
     bool mi_mode = false;
+    std::chrono::seconds command_timeout = std::chrono::seconds(0);
 };
 
 // this function will call exit() on a bad parse
@@ -431,11 +432,13 @@ ParsedArgs parse_argv(int argc, char* argv[]) {
                 if (optarg == nullptr) {
                     PrintOutMsg("Warning: --command-timeout specified without argument. Ignoring.\n");
                 } else {
-                    // XXX: this only works if the chosen interpreter supports
-                    // it. right now, that happens to be the case for both
-                    // console and mi, but it's fragile, especially because the
-                    // test runner does this for all tests.
-                    parsed.queued_commands.push_back(std::string{"set command-timeout "} + optarg);
+                    try {
+                        auto seconds = std::stol(optarg);
+                        parsed.command_timeout = std::chrono::seconds(seconds);
+                    } catch (const std::logic_error& e) {
+                        PrintOutError("Error setting command timeout. (%s)\n", optarg);
+                        exit(1);
+                    }
                 }
 
                 break;
@@ -491,6 +494,8 @@ int main(int argc, char *argv[]) {
     for (const auto& queued : args.queued_commands) {
         QueueCommand(queued);
     }
+
+    DbgSetSyncCommandTimeout(args.command_timeout);
 
     // Initialize the settings to the default values
     Client.confirm = args.confirm;         // Confirm dangerous commands?

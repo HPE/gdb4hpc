@@ -1,0 +1,34 @@
+0: # the mi interpreter has a fallback console interpreter, but output is still in mi format
+^done
+(gdb)
+0: maint echo hello console
+&"maint echo hello console\n"
+~"hello console\n"
+^done
+(gdb)
+0: # no results are captured in the ^done result
+^done
+(gdb)
+0: show prompt
+&"show prompt\n"
+~"dbg all>\n"
+^done
+(gdb)
+0: # but console commands might emit out of band results
+^done
+(gdb)
+0: set print source-on-step false
+&"set print source-on-step false\n"
+=cmd-param-changed,param="print source-on-step",value="false"
+^done
+(gdb)
+0: # unlike results, error message *are* captured and stored in the ^error result
+^done
+(gdb)
+0: show foobar
+&"show foobar\n"
+&"unknown command: foobar\n"
+^error,msg="unknown command: foobar"
+(gdb)
+&"Command resulted in an error: %\d%: show foobar\n"
+0: -gdb-exit

@@ -137,6 +137,30 @@ TEST_CASE("ArgvStream << number") {
     CHECK(args[3] == "4.400000");
 }
 
+TEST_CASE("ArgvStream << ArgvStream") {
+    auto args1 = ArgvStream("hello", "world");
+    auto args2 = ArgvStream("hello2", "world2");
+    auto args3 = ArgvStream{};
+
+    args3 << args1 << args2;
+
+    // args1 should not have changed
+    CHECK(args1.argc() == 2);
+    CHECK(args1[0] == "hello");
+    CHECK(args1[1] == "world");
+
+    // args2 should not have changed
+    CHECK(args2.argc() == 2);
+    CHECK(args2[0] == "hello2");
+    CHECK(args2[1] == "world2");
+
+    CHECK(args3.argc() == 4);
+    CHECK(args3[0] == "hello");
+    CHECK(args3[1] == "world");
+    CHECK(args3[2] == "hello2");
+    CHECK(args3[3] == "world2");
+}
+
 char *ArgsToBuf(const char * const * argv, int argc) {
     return ArgvStream(argc, argv).createBuffer(0, argc);
 }
@@ -153,7 +177,7 @@ std::string ArgsToStringUnquoted(const char * const * argv, int argc) {
     return os.str();
 }
 
-const std::vector<const char *> ArgvStream::c_strs(size_t start) const {
+std::vector<const char *> ArgvStream::c_strs(size_t start) const {
     std::vector<const char *> c_strs;
     std::transform(m_argv.begin() + start, m_argv.end(), 
                    std::back_inserter(c_strs), [](const std::string &s){return s.c_str();});

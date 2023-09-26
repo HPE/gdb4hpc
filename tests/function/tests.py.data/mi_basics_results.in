@@ -1,0 +1,16 @@
+0: # this test demonstrates that mi mode results come attached to the ^done record
+^done
+(gdb)
+0: -gdb-show error
+^done,epsilon={warnEps="%.*%", errEps="%.*%"}
+(gdb)
+0: # but not with the console fallback
+^done
+(gdb)
+0: show error
+&"show error\n"
+~"Warning epsilon: %.*%\n"
+~"Error epsilon: %.*%\n"
+^done
+(gdb)
+0: -gdb-exit

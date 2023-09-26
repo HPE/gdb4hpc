@@ -59,27 +59,6 @@ static int exec_args_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*
     return handle_result_string(ctx.caller, "ok");
 }
 
-void mi_logv2(const char* tag, const char* format, va_list arg_list) {
-    if (auto dir = ::getenv("CRAY_DBG_LOG_DIR")) {
-        auto fname = std::string{dir} + "/mi.log";
-        static int cnt = 0;
-        if (FILE *f = fopen(fname.c_str(), cnt++ ? "a" : "w")) {
-            if (tag) fprintf(f, tag);
-            vfprintf(f, format, arg_list);
-            fclose(f);
-        }
-    }
-}
-
-void mi_logv(const char* format, va_list arg_list) { mi_logv2(nullptr, format, arg_list); }
-
-void mi_log(const char* format, ...) {
-    va_list arg_list;
-    va_start(arg_list, format);
-    mi_logv(format, arg_list);
-    va_end(arg_list);
-}
-
 namespace {
 
 // a single MI variable object.  MI uses these as a persistent reference to a program

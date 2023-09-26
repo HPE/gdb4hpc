@@ -97,7 +97,14 @@ inline char* StrdupOpt(const char* s) { return (s ? strdup(s) : nullptr); };
 std::string_view stripped(std::string_view sv);
 
 struct MallocedCharPtr {
-    MallocedCharPtr(char* ptr = nullptr) : m_ptr(ptr, std::free) {}
+    MallocedCharPtr(char* ptr = nullptr);
+    // These constructors create the string with ::vasprintf
+    explicit MallocedCharPtr(const char* fmt, ...) __attribute__((format (printf,2,3)));
+    explicit MallocedCharPtr(const char* fmt, va_list args);
+
+    MallocedCharPtr(MallocedCharPtr&& other) = default;
+    MallocedCharPtr& operator=(MallocedCharPtr&& other) = default;
+
     ~MallocedCharPtr() = default;
 
     // `ptr` must be allocated with malloc!

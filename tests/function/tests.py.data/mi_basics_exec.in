@@ -1,0 +1,13 @@
+0: # in mi mode, interpreter-exec console still prints mi formatted results.
+^done
+(gdb)
+0: -interpreter-exec console show prompt
+~"dbg all>\n"
+^done
+(gdb)
+0: -interpreter-exec console show foobar
+&"unknown command: foobar\n"
+^error,msg="unknown command: foobar"
+(gdb)
+&"Command resulted in an error: %\d%: -interpreter-exec console show foobar\n"
+0: -gdb-exit

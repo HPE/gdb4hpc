@@ -218,3 +218,30 @@ std::string_view stripped(std::string_view sv) {
 
     return sv;
 }
+
+MallocedCharPtr::MallocedCharPtr(char* ptr)
+    : m_ptr(ptr, std::free)
+{}
+
+MallocedCharPtr::MallocedCharPtr(const char* fmt, ...)
+    : m_ptr(nullptr, std::free)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    char *cstr = nullptr;
+    if (::vasprintf(&cstr, fmt, args) != -1) {
+        m_ptr.reset(cstr);
+    }
+
+    va_end(args);
+}
+
+MallocedCharPtr::MallocedCharPtr(const char* fmt, va_list args)
+    : m_ptr(nullptr, std::free)
+{
+    char *cstr = nullptr;
+    if (::vasprintf(&cstr, fmt, args) != -1) {
+        m_ptr.reset(cstr);
+    }
+}

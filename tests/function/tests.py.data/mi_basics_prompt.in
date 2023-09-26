@@ -1,0 +1,16 @@
+0: -gdb-show prompt
+^done,value="(gdb) "
+(gdb)
+0: # this test demonstrates that in mi mode,
+^done
+(gdb)
+0: # 1. there is no prompt on startup,
+^done
+(gdb)
+0: # 2. there is a prompt after every command,
+^done
+(gdb)
+0: # 3. and there is no prompt after quitting.
+^done
+(gdb)
+0: -gdb-exit

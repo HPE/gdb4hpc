@@ -29,28 +29,28 @@ class ArgvStream {
 public:
     // declared to suppress warning when using variadic argument constructor with no args
     ArgvStream() = default;
-   
+
     template <typename... Args>
-    ArgvStream(Args&&... args) { (*this << ... << args); };
+    explicit ArgvStream(Args&&... args) { (*this << ... << args); };
 
-    ArgvStream(int argc, const char * const * argv) {
+    explicit ArgvStream(int argc, const char * const * argv) {
         for (int i=0; i<argc; ++i) *this << argv[i];
     }
 
-    ArgvStream(int argc, const char** argv) {
+    explicit ArgvStream(int argc, const char** argv) {
         for (int i=0; i<argc; ++i) *this << argv[i];
     }
 
-    ArgvStream(int argc, char** argv){
+    explicit ArgvStream(int argc, char** argv){
         for (int i=0; i<argc; ++i) *this << argv[i];
     }
 
     // returns contained arguments in vector of const char * with a nullptr as
     // the last entry. the result is passable to cti and others by calling
     // .data() on it.
-    const std::vector<const char *> c_strs(size_t start) const;
+    std::vector<const char *> c_strs(size_t start) const;
 
-    const std::vector<const char*> c_strs() const {
+    std::vector<const char*> c_strs() const {
         return c_strs(0);
     }
 
@@ -88,18 +88,8 @@ public:
         return *this;
     }
 
-    ArgvStream& operator<<(std::string str) {
-        m_argv.push_back(str);
-        return *this;
-    }
-
-    ArgvStream& operator<<(const std::string_view &view) {
+    ArgvStream& operator<<(std::string_view view) {
         m_argv.push_back(std::string{view});
-        return *this;
-    }
-
-    ArgvStream& operator<<(const char *cstr) {
-        m_argv.push_back(std::string{cstr});
         return *this;
     }
 

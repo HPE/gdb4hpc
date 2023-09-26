@@ -231,7 +231,7 @@ def compare_files(ref_file_path, out_file_path):
             outline = anonymize_line(orig_outline)
 
             # notice app launches
-            if outline == "Starting application, please wait...":
+            if "Starting application, please wait..." in outline:
                 launching = True
 
             # input line for the batch file
@@ -254,14 +254,14 @@ def compare_files(ref_file_path, out_file_path):
             if launching:
                 # mrnet and zmqnet output differ, so ignore launch output 
                 # until "Launch complete." or another command (checked above)
-                if outline == "Launch complete.":
+                if "Launch complete." in outline:
                     launching = False
                     indeterminate = False # XXX: next_ref_line would skip "Launch
                                           #      complete." line otherwise
 
                     # fast forward ref file until it catches up
                     refline = next_ref_line(ref)
-                    while refline is not None and refline != "Launch complete.":
+                    while refline is not None and "Launch complete" not in refline:
                         refline = next_ref_line(ref)
                     if refline is None:
                         return error("extra output", outline_num, orig_outline)
@@ -332,14 +332,14 @@ def all_launches_successful(outfile):
         currently_launching = False
         for line in out.readlines():
             line = line.strip()
-            if line == "Starting application, please wait...":
+            if "Starting application, please wait..." in line:
                 if not currently_launching:
                     currently_launching = True
                 else:
                     # Shouldn't encounter another launch before a previous one completed
                     return False
 
-            if line == "Launch complete.":
+            if "Launch complete." in line:
                 if currently_launching:
                     currently_launching = False
                 else:

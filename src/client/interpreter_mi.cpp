@@ -1,5 +1,6 @@
 #include "interpreter_mi.h"
 #include "str.h"
+#include "client_settings.h"
 
 #include <charconv>
 
@@ -8,20 +9,50 @@ namespace {
 void log(const char* fmt, ...) __attribute__((format (printf,1,2)));
 
 void log(const char* fmt, ...) {
-    static const auto enable_log = []() {
-        return ::getenv("GDB4HPC_DEBUG_INTERPRETER") != nullptr;
+    static const auto log_args = []() {
+        struct Args { bool enabled; std::string filename; };
+        auto args = Args{
+            .enabled = ::getenv("GDB4HPC_DEBUG_INTERPRETER") != nullptr,
+            .filename = "",
+        };
+
+        if (args.enabled) {
+            if (auto log_dir = ::getenv("CRAY_DBG_LOG_DIR")) {
+                ::fprintf(stderr, "Saving mi debug log at %s/mi.log.\n", ::getenv("CRAY_DBG_LOG_DIR"));
+                args.filename = std::string{log_dir} + "/mi.log";
+            }
+        }
+
+        return args;
     }();
 
-    if (enable_log) {
+    if (log_args.enabled) {
         va_list args;
         va_start(args, fmt);
 
-        char* message = nullptr;
-        vasprintf(&message, fmt, args);
+        auto message = MallocedCharPtr(fmt, args);
         va_end(args);
+        if (!message) return;
 
-        fprintf(stderr, "%smi interpreter: %s%s\n", "\u001b[30;1m", message, "\033[0m");
-        ::free(message);
+        if (!log_args.filename.empty()) {
+            if (auto* f = ::fopen(log_args.filename.c_str(), "a")) {
+                ::fprintf(f, "%s", message.get());
+                ::fclose(f);
+                // the above fclose flushes the *user space* buffers, but not
+                // the *kernel space* buffers. we be extra diligent and flush
+                // the kernel buffers too.
+                //
+                // we have to do this because ccdb will kill gdb4hpc with a
+                // SIGKILL if we emit something that it can't parse. without
+                // ::fsync, it often comes in and kills us before everything
+                // gets onto disk. since it's a SIGKILL, the os isn't even nice
+                // enough to flush buffers for us when we die.
+                ::fsync(::fileno(f));
+                return;
+            }
+        }
+
+        ::fprintf(stderr, "%smi: %s%s", "\u001b[30;1m", message.get(), "\033[0m");
     }
 }
 
@@ -55,33 +86,38 @@ bool MiInterpreter::interpret(std::string_view line) {
     m_result.reset();
     m_should_print_running = false;
     m_error = "";
+    cli_set_prefix("");
 
     const auto result = try_interpret(line);
 
     // TODO implement command prefixes internally, without cli_get_prefix()
 
-    if (result) {
-        auto leader = m_should_print_running ? "^running" : "^done";
-        if (m_result) {
-            PrintOutUnformatted("%s%s,%s\n", cli_get_prefix().c_str(), leader, m_result.get());
+    // Check that we aren't quitting, otherwise the (gdb) prompt would show
+    // after the user quit, during shutdowns
+    if (!Client.quit) {
+        if (result) {
+            auto leader = m_should_print_running ? "^running" : "^done";
+            if (m_result) {
+                m_printer.print_unfiltered("%s%s,%s\n", cli_get_prefix().c_str(), leader, m_result.get());
+            } else {
+                m_printer.print_unfiltered("%s%s\n", cli_get_prefix().c_str(), leader);
+            }
         } else {
-            PrintOutUnformatted("%s%s\n", cli_get_prefix().c_str(), leader);
+            if (!m_error.empty()) {
+                m_printer.print_unfiltered("%s^error,msg=\"%s\"\n", cli_get_prefix().c_str(), m_error.c_str());
+            } else {
+                // ideally this should never happen.
+                m_printer.print_unfiltered("%s^error,msg=\"Unknown error\"\n", cli_get_prefix().c_str());
+            }
         }
-    } else {
-        if (!m_error.empty()) {
-            PrintOutUnformatted("%s^error,msg=\"%s\"\n", cli_get_prefix().c_str(), m_error.c_str());
-        } else {
-            // ideally this should never happen.
-            PrintOutUnformatted("%s^error,msg=\"Unknown error\"\n", cli_get_prefix().c_str());
-        }
+        m_printer.print_unfiltered("(gdb) \n");
     }
-    PrintOutUnformatted("(gdb) \n");
     return result;
 }
 
 bool MiInterpreter::try_interpret(std::string_view line) {
     line = stripped(line);
-    log("interpreting \"%.*s\"", (int)line.size(), line.data());
+    log("interpreting \"%.*s\"\n", (int)line.size(), line.data());
     if (line.empty() || line.starts_with("#")) {
         return true;
     }
@@ -93,11 +129,11 @@ bool MiInterpreter::try_interpret(std::string_view line) {
         auto result = std::from_chars(line.data(), line.data() + line.size(), tag);
 
         if (tag != -1) {
-            log("got tag: %d", tag);
+            log("got tag: %d\n", tag);
             // TODO use a different mechanism than cli_set_prefix to handle the tag
             cli_set_prefix(std::to_string(tag));
             untagged_line.remove_prefix(result.ptr - line.data());
-            log("after tag, interpreting \"%.*s\"", (int)untagged_line.size(), untagged_line.data());
+            log("after tag, interpreting \"%.*s\"\n", (int)untagged_line.size(), untagged_line.data());
         }
     }
 
@@ -107,7 +143,7 @@ bool MiInterpreter::try_interpret(std::string_view line) {
     if (auto* parts = std::get_if<Command::Parts>(&find_result)) {
         auto& [cmd, args] = *parts;
         if (!cmd) {
-            log("found in tree, but no function pointer?");
+            log("found in tree, but no function pointer?\n");
             return false;
         }
 
@@ -122,31 +158,36 @@ bool MiInterpreter::try_interpret(std::string_view line) {
         argv.parseAndAppendArgs(cmd->getShortName() + " " + args);
 
         if (cmd->execute(ctx, procset, argv.argc(), argv.c_strs().data()) == Command::Success) {
-            log("command successfull");
+            log("command successfull\n");
             return true;
         } else {
-            log("command returned an error");
+            log("command returned an error\n");
             return false;
         }
-    } else if (m_console_intr.can_interpret(untagged_line)) {
-        log("forwarding to console interpreter");
-        return m_console_intr.interpret(untagged_line);
     } else {
-        log("unknown to both mi and console interpreter");
-        static_assert(std::variant_size_v<decltype(find_result)> == 2, "Assuming there are only two alternatives");
-        m_printer.print_error("%s\n", std::get<Command::ErrStr>(find_result).c_str());
-        return false;
+        log("forwarding to console interpreter\n");
+
+        // emit escaped log message &"..."
+        std::ostringstream ss;
+        ss << std::quoted(untagged_line);
+        auto quoted = std::move(ss).str();
+
+        // the call to stripped above removed the newline character from the line, but
+        // that *should* be included in the escaped output.
+        //
+        // "set \"foo\" bar" -> "set \"foo\" bar\n"
+        quoted.replace(quoted.size() - 1, 1, "\\n\"");
+
+        m_printer.print_unfiltered("&%s\n", quoted.c_str());
+
+        return m_console_intr.interpret(untagged_line);
     }
 }
 
 void MiInterpreter::set_result(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-
-    char *cstr = nullptr;
-    vasprintf(&cstr, fmt, args);
-    m_result.reset(cstr);
-
+    m_result = MallocedCharPtr(fmt, args);
     va_end(args);
 }
 
@@ -154,7 +195,7 @@ void MiInterpreter::attach_observers() {
     m_obsv_conns.emplace_back(
         observers::setable_param_changed.attach(
             [this](std::string_view name, std::string_view value) {
-                log("observing setable_param_changed");
+                log("observing setable_param_changed\n");
                 return handle_setable_param_changed(name, value);
             }
         )
@@ -163,7 +204,7 @@ void MiInterpreter::attach_observers() {
     m_obsv_conns.emplace_back(
         observers::async_event.attach(
             [this](DbgInvoke::EventSet& ev_set, const Bitset& reply_set) {
-                log("observing async_event");
+                log("observing async_event\n");
                 return handle_async_event(ev_set, reply_set);
             }
         )
@@ -172,7 +213,7 @@ void MiInterpreter::attach_observers() {
     m_obsv_conns.emplace_back(
         observers::target_resumed.attach(
             [this]() {
-                log("observing target_resumed");
+                log("observing target_resumed\n");
                 return handle_target_resumed();
             }
         )
@@ -180,7 +221,7 @@ void MiInterpreter::attach_observers() {
 }
 
 void MiInterpreter::handle_setable_param_changed(std::string_view name, std::string_view new_value) {
-    PrintOutUnformatted("=cmd-param-changed,param=\"%.*s\",value=\"%.*s\"\n",
+    m_printer.print_unfiltered("=cmd-param-changed,param=\"%.*s\",value=\"%.*s\"\n",
                         (int)name.size(), name.data(),
                         (int)new_value.size(), new_value.data());
 }
@@ -216,7 +257,7 @@ void MiInterpreter::print_stopped_msg(StoppedType type,const std::string& file, 
             break;
         }
     }
-    PrintOutUnformatted("*stopped,%s\n", ss.str().c_str());
+    m_printer.print_unfiltered("*stopped,%s\n", ss.str().c_str());
 }
 
 void MiInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset& /*reply_set*/) {
@@ -355,7 +396,7 @@ void MiInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset
 
 void MiInterpreter::handle_target_resumed() {
     // faking the thread id for now
-    PrintOutUnformatted("*running,thread-id=\"all\"\n");
+    m_printer.print_unfiltered("*running,thread-id=\"all\"\n");
     m_should_print_running = true;
 }
 
@@ -380,11 +421,10 @@ void MiInterpreter::Printer::print_message_v(const char* format, va_list arg_lis
     // the arg_list may well contain quotes or newlines, so we have to
     // just get the final output form so we can know they're being properly
     // escaped in print_message_string.
-    char *cstr = nullptr;
-    int num_bytes = vasprintf(&cstr, format, arg_list);
-    if (num_bytes < 0) return;
-    print_message_string(cstr, num_bytes);
-    free(cstr);
+    auto cstr = MallocedCharPtr(format, arg_list);
+    if (!cstr) return;
+
+    print_message_string(cstr.get(), ::strlen(cstr.get()));
 }
 
 void MiInterpreter::Printer::print_message_string(const char* cstr, size_t len) {
@@ -398,6 +438,7 @@ void MiInterpreter::Printer::print_message_string(const char* cstr, size_t len) 
         case '\n':
             // escape the newline and flush the result
             m_message_ss << "\\n\"\n";
+            log("%s", m_message_ss.str().c_str());
             m_io.cs_out("%s", m_message_ss.str().c_str());
             m_message_ss.str("");
             m_message_ss << "~\"";
@@ -407,29 +448,67 @@ void MiInterpreter::Printer::print_message_string(const char* cstr, size_t len) 
     }
 }
 
+void MiInterpreter::Printer::print_unfiltered(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    auto cstr = MallocedCharPtr(fmt, args);
+    va_end(args);
+    if (!cstr) return;
+
+    log("%s", cstr.get());
+    m_io.cs_out("%s", cstr.get());
+
+}
+
 void MiInterpreter::Printer::print_error_v(const char* format, va_list arg_list) {
-    // XXX: the MI standard only allows the output of one error per command, so
-    // we only use the first error produced.
-    if (!m_intr.m_error.empty()) return;
+    // given the following sequence of PrintOutError calls:
+    //
+    // 1. PrintOutError("First error\n");
+    // 2. PrintOutError("Second \"error\"\n");
+    //
+    // the mi output should look like this:
+    //
+    // &"First error\n"
+    // &"Second \"error\"\n"
+    // ...
+    // ^error,msg="First error"
+    //
+    // note that the ^error part doesn't have the escaped newline on the end, but the &
+    // output does.
 
     // the arg_list may well contain quotes or newlines, so we have to
     // just get the final output form so we can know they're being properly
     // escaped.
-    char *char_buf = nullptr;
-    if (vasprintf(&char_buf, format, arg_list) < 0) return;
-    auto cstr = MallocedCharPtr(char_buf);
+    auto cstr = MallocedCharPtr(format, arg_list);
+    if (!cstr) return;
 
     for (const auto *p = cstr.get(); *p; ++p) {
         switch (*p) {
-        case '"': m_error_ss << "\\\""; break;
-        case '\n':
-            // save the result in the parent interpreter
-            m_intr.m_error = std::move(m_error_ss).str();
-            m_error_ss.str("");
-            break;
-        default:
-            m_error_ss << *p;
-            break;
+            case '"': m_error_ss << "\\\""; break;
+            case '\n': {
+                // collect string from and reset sstream without appending the \n
+                auto escaped = std::move(m_error_ss).str();
+                // std::move does not reset the internal string, so we have to do it manually
+                m_error_ss.str("");
+
+                // emit error message as &"...\n" message. note that we go through
+                // cs_out, not cs_fperr, so logging works. in mi, cs_out and fperr
+                // point to the same FILE*.
+                log("&\"%s\\n\"\n", escaped.c_str());
+                m_io.cs_out("&\"%s\\n\"\n", escaped.c_str());
+
+                // save the result in the parent interpreter for ^error="..."
+                // XXX: the MI standard only allows the output of one error per command, so
+                // we only use the first error produced.
+                if (m_intr.m_error.empty()) {
+                    m_intr.m_error = std::move(escaped);
+                }
+                break;
+            }
+            default:
+                m_error_ss << *p;
+                break;
         }
     }
 }
@@ -448,6 +527,7 @@ void MiInterpreter::Printer::print_inferior_output(const DbgInvoke& /*di*/, std:
         new_line.erase(pos,1);
     }
 
+    log("@\"%s\"\n", new_line.c_str());
     ::fprintf(output, "@\"%s\"\n", new_line.c_str());
 }
 

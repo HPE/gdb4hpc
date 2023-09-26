@@ -1,0 +1,54 @@
+1: # in mi mode, commands have optional prefixes that will be attached to the corresponding output
+^done
+(gdb)
+2: 999-gdb-show prompt
+999^done,value="(gdb) "
+(gdb)
+3: -gdb-show prompt
+^done,value="(gdb) "
+(gdb)
+4: # this applies to console commands in mi mode too
+^done
+(gdb)
+5: show prompt
+&"show prompt\n"
+~"dbg all>\n"
+^done
+(gdb)
+6: 517show prompt
+&"show prompt\n"
+~"dbg all>\n"
+517^done
+(gdb)
+7: show prompt
+&"show prompt\n"
+~"dbg all>\n"
+^done
+(gdb)
+8: # and error messages
+^done
+(gdb)
+9: 2345-gdb-show foobar
+&"-gdb-show foobar\n"
+&"unknown command: -gdb-show\n"
+2345^error,msg="unknown command: -gdb-show"
+(gdb)
+&"Command resulted in an error: 9: 2345-gdb-show foobar\n"
+10: 6789show foobar
+&"show foobar\n"
+&"unknown command: foobar\n"
+6789^error,msg="unknown command: foobar"
+(gdb)
+&"Command resulted in an error: 10: 6789show foobar\n"
+11: # a few more commands to make sure no zombie prefixes come back to life...
+^done
+(gdb)
+12: show prompt
+&"show prompt\n"
+~"dbg all>\n"
+^done
+(gdb)
+13: -gdb-show prompt
+^done,value="(gdb) "
+(gdb)
+14: -gdb-exit

@@ -77,6 +77,8 @@ private:
 
         // forward a string to print_message
         void print_message_string(const char* str, size_t len);
+
+        void print_unfiltered(const char* fmt, ...) __attribute__((format (printf,2,3)));
     private:
         Printer(MiInterpreter& parent, cli_stream_t& io);
         friend MiInterpreter::MiInterpreter(cli_stream_t& io);

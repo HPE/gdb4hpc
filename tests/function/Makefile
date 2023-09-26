@@ -5,6 +5,7 @@
 PE_ENV ?= CRAY
 
 TESTS = \
+   ./bin/${PE_ENV}/c/c_not_mpi.x \
    ./bin/${PE_ENV}/c/c_time.x \
    ./bin/${PE_ENV}/c/c_type_test.x \
    ./bin/${PE_ENV}/c/c_cmp_diff.x \
@@ -122,6 +123,9 @@ clean:
 
 ./bin/${PE_ENV}/fortran/%.o : ./src/fortran/%.f90
 	$(FC) $(FFLAGS) -c $< -o $@
+
+./bin/${PE_ENV}/c/c_not_mpi.x : ./bin/${PE_ENV}/c/c_not_mpi.o 
+	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/c_time.x : ./bin/${PE_ENV}/c/wtime.o ./bin/${PE_ENV}/c/mtest.o
 	$(CC) $(CFLAGS) $^ -o $@

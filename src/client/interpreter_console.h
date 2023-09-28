@@ -69,6 +69,7 @@ private:
             StreamBuf(Printer& printer);
             std::streamsize xsputn(const char* s, std::streamsize n) override;
             int overflow(int c = EOF) override;
+            int sync() override;
         private:
             Printer& m_printer;
         };

@@ -76,11 +76,13 @@ static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(
         PrintOutMsg("Got a timeout of %d from GDB4HPC_STARTUP_TIMEOUT.\n", tries);
     }
     auto tries_left = tries;
-    auto last_connected = 0;
+    auto last_connected = -1;
 
     // wait for network to connect
     using Fs = std::future_status;
     using namespace std::chrono_literals;
+    auto dots = 0;
+
     for (auto status = zmqnetF.wait_for(1s); status != Fs::ready && launchKS == false; status = zmqnetF.wait_for(1s)) {
         if (status == Fs::timeout && last_connected != connected) {
             // a new node connected, reset timeout
@@ -95,15 +97,41 @@ static std::unique_ptr<zmqnet::AsyncFrontend> makeZmqnetFrontend(
             // we should never actually see deferred.
             PrintOutError("Warning: unhandled std::future_status::deferred.\n");
         }
-        PrintOutMsg("%d/%d ranks connected... (timeout in %d seconds)\n", connected, num_be, tries_left);
+
+        const auto* enddots = (dots ? "\n" : "");
+        if (connected == last_connected && dots != 30) {
+            PrintOutMsg(".");
+            OutMsgStream().flush();
+            ++dots;
+        } else if (connected != num_be) {
+            // still connecting
+            PrintOutMsg("%s%d/%d ranks connected... (timeout in %d seconds)\n",
+                        enddots, connected, num_be, tries_left);
+            dots = 0;
+        } else if (connected != last_connected) {
+            // just connected to the last ranks
+            PrintOutMsg("%s%d/%d ranks connected\n"
+                        "Creating network... (timeout in %d seconds)\n",
+                        enddots, connected, num_be, tries_left);
+            dots = 0;
+        }  else {
+            // all connected, still waitint to create network (dots==30)
+            PrintOutMsg("\nCreating network... (timeout in %d seconds)\n", tries_left);
+            dots = 0;
+        }
+            
         last_connected = connected;
     };
+
+    if (dots) PrintOutMsg("\n");
 
     auto zmqnet = std::unique_ptr<zmqnet::AsyncFrontend>();
 
     try {
         zmqnet = zmqnetF.get();
-        PrintOutMsg("%d/%d ranks connected.\n", connected, num_be);
+        if (last_connected != connected) {
+            PrintOutMsg("%d/%d ranks connected.\n", connected, num_be);
+        }
         zmqnet->removeCallback<zmqnet::Event::InitialConnection>();
     } catch (std::runtime_error& e) {
         PrintOutError("Network creation failed: %s\n", e.what());

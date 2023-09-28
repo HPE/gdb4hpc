@@ -197,6 +197,7 @@ void DestroyCurrentCLIStream(void) {
     AllStreams.erase(std::remove(AllStreams.begin(), AllStreams.end(), CurrentStream),
                      AllStreams.end());
     delete CurrentStream;
+    CurrentStream = nullptr;
 
     // reset to the default
     SetDefaultCLIStream();

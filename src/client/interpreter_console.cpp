@@ -600,6 +600,11 @@ int ConsoleInterpreter::Printer::StreamBuf::overflow(int c) {
     return m_printer.m_io.cs_out.putc(c);
 }
 
+int ConsoleInterpreter::Printer::StreamBuf::sync() {
+    m_printer.m_io.cs_out.flush();
+    return 0;
+}
+
 std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
 

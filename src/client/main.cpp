@@ -84,7 +84,7 @@ static const struct option long_opts[] = {
     {"version", no_argument, 0, 'v'},
     {"xml", no_argument, 0, 'q'}, // after a few release cycles, this can be removed.
     {"interpreter", required_argument, 0, 'I'},
-    {"debug", no_argument, &debug_flag, 1},
+    {"debug", optional_argument, 0, 'D'},
     {"no-init", no_argument, 0, 'n'},
     {"launch", required_argument, 0, 'l'},
     {"attach", required_argument, 0, 'j'},
@@ -318,6 +318,7 @@ ParsedArgs parse_argv(int argc, char* argv[]) {
     auto parsed = ParsedArgs{};
     int c;
     int opt_ind = 0;
+    debug_flag = 0;
 
     while ((c = getopt_long(argc, argv, "b:j:l:x:nkehi:o:svt:q", long_opts, &opt_ind)) != -1) {
         switch (c) {
@@ -427,6 +428,14 @@ ParsedArgs parse_argv(int argc, char* argv[]) {
                 }
                 break;
             }
+
+            case 'D':
+                debug_flag = 1;
+                if (optarg && *optarg && !DbgSetLogDir(optarg)) {
+                    PrintOutError("--debug option musgt be a directory writable by user\n");
+                    exit(1);
+                }
+                break;
 
             case 't': {
                 if (optarg == nullptr) {

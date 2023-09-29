@@ -412,5 +412,5 @@ rep_set_t DbgShell(rec_set_t *, int argc, const char * const * argv);
 rep_set_t DbgSignal(rec_set_t *, const char* signame);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
-
+extern bool DbgSetLogDir(const std::string& logdir);
 #endif /* !_DBG_CLIENT_H */

@@ -21,6 +21,8 @@
 #include <string.h>
 #include <vector>
 #include <mutex>
+#include <filesystem>
+#include <fstream>
 
 #include "script_client.h"
 #include "dbg_client.h"
@@ -3706,4 +3708,24 @@ void DbgSetSyncCommandTimeout(std::chrono::seconds seconds) {
 
 std::chrono::seconds DbgGetSyncCommandTimeout() {
     return sync_command_timeout;
+}
+
+bool DbgSetLogDir(const std::string& logdir) {
+    // filesystem lets you check the permissions of a directory, the
+    // only real way to check that a user can write to it is to
+    // try to create a file.
+    
+    auto path = std::filesystem::path{logdir};
+    auto tmpName = std::string{"gdb4hpc-"} + std::to_string(getpid()) + ".log";
+    path /= tmpName;
+
+    if (auto f = std::ifstream{path}; !f) {
+        if (auto f = std::ofstream(path); !f) return false;
+        std::filesystem::remove(path);
+    }
+    
+    setenv(DBG_LOG_ENV_VAR, logdir.c_str(), 1);
+    setenv("CTI_DEBUG", "1", 1);
+    setenv("CTI_LOG_DIR", logdir.c_str(), 1);
+    return true;
 }

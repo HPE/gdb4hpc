@@ -613,9 +613,11 @@ static int cmd_attach_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const
     
     int debug_flag = 0;
     int gpu_flag = 0;
+    std::optional<std::string> debug_dir;
+
     const struct option attach_long_opts[] = {
         {"gpu", no_argument, &gpu_flag, 1},
-        {"debug", no_argument, &debug_flag, 1},
+        {"debug", optional_argument, 0, 'D'},
         {"gdb", required_argument, 0, 'b'},
         {"gdb-data-dir", required_argument, 0, 'd'},
         {"vgdb", required_argument, 0, 'v'},
@@ -675,6 +677,11 @@ static int cmd_attach_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const
                 }
                 break;
 
+            case 'D':
+                debug_flag = 1;
+                if (optarg && *optarg) debug_dir = optarg;
+                break;
+
             case 'v':
                 opts.vgdb_file = optarg;
                 break;
@@ -689,6 +696,10 @@ static int cmd_attach_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const
 
     opts.gpu_flag = gpu_flag;
     opts.debug_flag = debug_flag;
+    if (debug_dir && !DbgSetLogDir(*debug_dir)) {
+        PrintOutError("Argument for --debug must be a user writable directory\n");
+        return Command::Failure;
+    }
 
     // XXX: find a better way
     if (dynamic_cast<MiInterpreter*>(ctx.caller)){

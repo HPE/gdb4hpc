@@ -666,6 +666,8 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
     int parsed_debug_flag = -1;
     int parsed_non_mpi_flag = 0;
 
+    std::optional<std::string> parsed_debug_dir;
+
     LaunchOpts::JobOpt job_opt;
     job_opt.app_argv << "";      // reserve binary name
 
@@ -676,7 +678,7 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
         {"workdir", optional_argument, 0, 'd'},
         {"env", required_argument, 0, 'e'},
         {"gpu", no_argument, &parsed_gpu_flag, 1},
-        {"debug", no_argument, &parsed_debug_flag, 1},
+        {"debug", optional_argument, 0, 'D'},
         {"qsub", required_argument, 0, 'q'},
         {"sbatch", required_argument, 0, 's'},
         {"non-mpi", no_argument, &parsed_non_mpi_flag, 1},
@@ -766,6 +768,11 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
                 opts.env << optarg;
                 break;
             }
+
+            case 'D':
+                parsed_debug_flag = 1;
+                if (optarg && *optarg) parsed_debug_dir = optarg;
+                break;
 
             case 'b':
                 if (optarg == nullptr) {
@@ -857,6 +864,11 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
     }
     if (parsed_debug_flag >= 0) {
         opts.debug_flag = parsed_debug_flag;
+    }
+    if (parsed_debug_dir) {
+        if (!DbgSetLogDir(*parsed_debug_dir)) {
+            throw std::runtime_error("--debug must be a directory writeable bu the user");
+        }
     }
 
     // Update job options

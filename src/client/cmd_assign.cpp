@@ -28,7 +28,7 @@
 /*
 ** TODO: array assignment.
 */
-static int cmd_assign_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_assign_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 3) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: assign $target 20\n");
@@ -67,7 +67,7 @@ static int cmd_assign_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, co
     return Command::Success;
 }
 
-void ConsoleCommandsFactory::insert_assign_commands(Command& root) {
+void ConsoleCommandsFactory::insert_assign_commands(CommandNode& root) {
     root.addSubCmd("assign", nullptr, proc_optional,
                    cmd_assign_cmd, cmd_assign_help,
                    "Change the value of an application or debugger variable.");

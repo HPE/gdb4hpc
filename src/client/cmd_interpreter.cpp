@@ -8,7 +8,7 @@
 
 namespace {
 
-int cmd_set_interpreter(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
+int cmd_set_interpreter(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Usage: maint set interpreter console|mi\n");
         return Command::Failure;
@@ -22,7 +22,7 @@ int cmd_set_interpreter(Command::RunContext&, rec_set_t*, int argc, const char* 
     return Command::Success;
 }
 
-int interpreter_exec_console(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
+int interpreter_exec_console(int argc, const char* const argv[]) {
     if (argc < 3) {
         PrintOutError("Usage: %s console|mi <command>\n", argv[0]);
         return Command::Failure;
@@ -45,7 +45,7 @@ int interpreter_exec_console(Command::RunContext&, rec_set_t*, int argc, const c
     return result;
 }
 
-int interpreter_exec_mi(Command::RunContext&, rec_set_t*, int argc, const char* const argv[]) {
+int interpreter_exec_mi(int argc, const char* const argv[]) {
     if (argc < 3) {
         PrintOutError("Usage: %s console|mi <command>\n", argv[0]);
         return Command::Failure;
@@ -66,7 +66,7 @@ int interpreter_exec_mi(Command::RunContext&, rec_set_t*, int argc, const char* 
 
 }
 
-void ConsoleCommandsFactory::insert_interpreter_commands(Command& root) {
+void ConsoleCommandsFactory::insert_interpreter_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "maint set interpreter", .ptype = proc_ignore, .fn = cmd_set_interpreter,
         .help = cmd_maint_set_interpreter_help,
@@ -77,7 +77,7 @@ void ConsoleCommandsFactory::insert_interpreter_commands(Command& root) {
         .desc = "Execute a command under a specific interpreter."});
 }
 
-void MiCommandsFactory::insert_interpreter_commands(Command& root) {
+void MiCommandsFactory::insert_interpreter_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "-interpreter-set", .ptype = proc_ignore, .fn = cmd_set_interpreter});
     root.addSubCmd({

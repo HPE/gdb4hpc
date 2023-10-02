@@ -37,8 +37,8 @@
 */
 static std::deque<std::string> pendingCommandQueue{}; /* Commands queued, waiting to be executed */
 
-Command::Command(const std::string& name, const char* alias,
-                 cmdptype ptype, Command::Func cmd,
+CommandNode::CommandNode(const std::string& name, const char* alias,
+                 cmdptype ptype, Command cmd,
                  const char* const* help,
                  const char* desc) :
     m_fullName(name), m_alias(alias), m_ptype(ptype),
@@ -51,22 +51,22 @@ Command::Command(const std::string& name, const char* alias,
     }
 }
 
-Command::Command(Command::CtorArgs&& args)
-    : Command(args.name, args.alias, args.ptype, args.fn, args.help, args.desc)
+CommandNode::CommandNode(CommandNode::CtorArgs&& args)
+    : CommandNode(args.name, args.alias, args.ptype, args.fn, args.help, args.desc)
 {}
 
-Command::Command(cmdptype ptype, Command::Func defaultCmd) :
+CommandNode::CommandNode(cmdptype ptype, Command defaultCmd) :
     m_ptype(ptype), m_func(nullptr), m_help(nullptr), m_desc(nullptr)
 {
     if (defaultCmd) {
-        m_default = std::make_shared<Command>("", nullptr, proc_optional, defaultCmd,
+        m_default = std::make_shared<CommandNode>("", nullptr, proc_optional, defaultCmd,
                                               nullptr, nullptr);
     }
 }
 
-Command::~Command() {}
+CommandNode::~CommandNode() {}
 
-void Command::addSubCmd( std::shared_ptr<Command> sub) {
+void CommandNode::addSubCmd( std::shared_ptr<CommandNode> sub) {
 
     auto spc = sub->m_fullName.find_last_of(" ");
     if ( spc == std::string::npos ||
@@ -79,8 +79,8 @@ void Command::addSubCmd( std::shared_ptr<Command> sub) {
     } else {
         auto prefix = sub->m_fullName.substr(0, spc);
         auto find_result = findCmd(prefix);
-        if (std::holds_alternative<Command::Parts>(find_result)) {
-            auto& [parent, argv] = std::get<Command::Parts>(find_result);
+        if (std::holds_alternative<CommandNode::Parts>(find_result)) {
+            auto& [parent, argv] = std::get<CommandNode::Parts>(find_result);
             parent->addSubCmd(sub);
         }
         // else silently ignore error. an error message is not useful to the user here.
@@ -88,24 +88,34 @@ void Command::addSubCmd( std::shared_ptr<Command> sub) {
             
 }
 
-void Command::addSubCmd(const std::string& name, const char* alias, cmdptype ptype,
-                        Command::Func cmd,
+void CommandNode::addSubCmd(const std::string& name, const char* alias, cmdptype ptype,
+                        Command cmd,
                         const char* const* help, const char* desc) {
-    addSubCmd(std::make_shared<Command>(name, alias, ptype, cmd, help, desc));
+    addSubCmd(std::make_shared<CommandNode>(name, alias, ptype, cmd, help, desc));
 }
 
-void Command::addSubCmd(Command::CtorArgs&& args) {
-    addSubCmd(std::make_shared<Command>(std::move(args)));
+void CommandNode::addSubCmd(CommandNode::CtorArgs&& args) {
+    addSubCmd(std::make_shared<CommandNode>(std::move(args)));
+}
+
+static std::unique_ptr<rec_set_t> getRecSetForCommand(cmdptype ptype, dbgprocset_t* procset) {
+    // pass nullptr if the command is a proc_ignore command or if the passed procset
+    // doesn't have any processes in it. that can happen when the user is running commands
+    // before/after launching/killing any/all apps (the $all procset is passed in but is empty)
+    const auto pass_null_rec_set = (ptype == proc_ignore) || (procset && procset->s_nproc <= 0);
+
+    // CreateRecSetForProcset will handle a nullptr input correctly and return nullptr
+    auto* rec_set = pass_null_rec_set ? nullptr : CreateRecSetForProcset(procset);
+
+    return std::unique_ptr<rec_set_t>(rec_set);
 }
 
 // execute the command given a procset and arguments
-int Command::execute(Command::RunContext& ctx, dbgprocset_t *s, int argc, const char * const argv[]) {
-
+int CommandNode::execute(Interpreter& intr, dbgprocset_t *s, int argc, const char * const argv[]) {
     if (m_ptype == proc_required && (!s || s->s_nproc <= 0)) {
         PrintOutError("No process, use launch/attach first.\n");
         return 0;
     }
-
 
     if (!m_func && m_subCmds.empty()) {
         if (m_help) PrintHelpEntry(m_help);
@@ -127,26 +137,8 @@ int Command::execute(Command::RunContext& ctx, dbgprocset_t *s, int argc, const 
         return 0;
     }
 
-    // pass nullptr if the command is a proc_ignore command or if the passed procset
-    // doesn't have any processes in it. that can happen when the user is running commands
-    // before/after launching/killing any/all apps (the $all procset is passed in but is empty)
-    const auto pass_null_rec_set = (m_ptype == proc_ignore) || (s && s->s_nproc <= 0);
-    auto rec_set = (pass_null_rec_set ? nullptr :
-                    CreateRecSetForProcset(s) // handles nullptr
-                    );
-
-    auto res = m_func(ctx, rec_set, argc, argv);
-    if (!res) {
-        failed();
-    }
-
-    // Done with the rec_set
-    FreeRecSet(rec_set);
-
-    return res;
+    return m_func(intr, getRecSetForCommand(m_ptype, s).get(), argc, argv);
 }
-
-void Command::failed() {}
 
 void PrintHelpEntry(const char *const * helpStrArray) {
     if (helpStrArray == NULL) return;
@@ -200,7 +192,7 @@ size_t ExecuteQueuedCommands() {
 // Locate a command from user input.
 // If a matching command is found, return the command object and the
 // arguments for that command. If not found, return an error describing why.
-std::variant<Command::Parts, Command::ErrStr> Command::findCmd(std::string_view cmd) {
+std::variant<CommandNode::Parts, CommandNode::ErrStr> CommandNode::findCmd(std::string_view cmd) {
     auto* cp = this;
 
     const auto spcSlash = "/ \t\n";
@@ -234,8 +226,8 @@ std::variant<Command::Parts, Command::ErrStr> Command::findCmd(std::string_view 
     }
 }
 
-std::variant<Command*, Command::ErrStr> Command::findSubCmd(std::string_view cmd) {
-    Command* cp = nullptr;
+std::variant<CommandNode*, CommandNode::ErrStr> CommandNode::findSubCmd(std::string_view cmd) {
+    CommandNode* cp = nullptr;
     std::vector<std::string> matches;
     
     for (auto subCmd : m_subCmds) {
@@ -264,7 +256,7 @@ std::variant<Command*, Command::ErrStr> Command::findSubCmd(std::string_view cmd
     } else if (m_default) {
         return m_default.get();
     } else if (m_func) {
-        return static_cast<Command*>(nullptr);
+        return static_cast<CommandNode*>(nullptr);
     } else {
         auto err = std::string{"unknown command: "};
         err.append(cmd);

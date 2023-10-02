@@ -29,9 +29,9 @@
 
 #include "interpreter_mi.h"
 
-static int cmd_info_threads_cmd_console(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]);
+static int cmd_info_threads_cmd_console(rec_set_t *rec_set, int argc, const char* const argv[]);
 
-static int cmd_thread_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_thread_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: thread <thread-number> or thread name <thread-name>,\n");
@@ -93,7 +93,7 @@ static int cmd_thread_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
             // special case: alias to "info thread" if user typed "thread info"
             if (strcmp(arg, "info") == 0) {
                 // info functions expect the "info" keyword to be removed from argv
-                return cmd_info_threads_cmd_console(ctx, rec_set, argc - 1, &argv[1]);
+                return cmd_info_threads_cmd_console(rec_set, argc - 1, &argv[1]);
             }
 
             PrintOutError("Thread ID must be an integer greater than 0.\n");
@@ -108,11 +108,11 @@ static int cmd_thread_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
 }
 
 // shortcut for thread apply all -s
-static int cmd_taas_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_taas_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 1) return 1;
     std::vector<const char*> newArgs{"thread", "apply", "all", "-s"};
     std::copy(argv+1, argv+argc, std::back_inserter(newArgs));
-    return cmd_thread_cmd(ctx, rec_set, newArgs.size(), const_cast<char**>(&newArgs[0]));
+    return cmd_thread_cmd(rec_set, newArgs.size(), newArgs.data());
 }
 
 static void PrintMIThread(const std::string& line,
@@ -170,7 +170,7 @@ static void PrintMIThread(const std::string& line,
        << thread_state<<"\"}";
 }
 
-static int cmd_info_threads_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_threads_cmd_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
     // info threads if typically called with no arguments but it
     // does take an optional list of thread ids
     std::string arg = ArgsToString(&argv[1], argc - 1);
@@ -201,7 +201,7 @@ static int cmd_info_threads_cmd_console(Command::RunContext&, rec_set_t *rec_set
     return Command::Success;
 }
 
-static int cmd_info_threads_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_threads_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!rec_set) {
         return Command::Success;
     }
@@ -232,7 +232,7 @@ static int cmd_info_threads_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, 
 
         if (!ss.str().empty()){
             ss<<"],"<<current_thread_id<<"\"";
-            ctx.caller.set_result("proc_set=\"%s\",group=\"%s\",threads=%s",
+            mi.set_result("proc_set=\"%s\",group=\"%s\",threads=%s",
                             handle, group->toSetString().c_str(),ss.str().c_str());
         }
     }
@@ -240,7 +240,7 @@ static int cmd_info_threads_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, 
     return Command::Success;
 }
 
-static int cmd_set_scheduler_locking_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[])
+static int cmd_set_scheduler_locking_cmd(rec_set_t *rec_set, int argc, const char* const argv[])
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on|step|replay.\n");
@@ -257,7 +257,7 @@ static int cmd_set_scheduler_locking_cmd(Command::RunContext&, rec_set_t *rec_se
     return 1;
 }
 
-static int cmd_show_scheduler_locking_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const [])
+static int cmd_show_scheduler_locking_cmd(rec_set_t *rec_set, int argc, const char* const [])
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -278,7 +278,7 @@ static int cmd_show_scheduler_locking_cmd(Command::RunContext&, rec_set_t *rec_s
 
 // enable/disable non-stop mode which lets other threads in a process continue
 // running instead of stopping every thread
-static int cmd_set_non_stop_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[])
+static int cmd_set_non_stop_cmd(rec_set_t *rec_set, int argc, const char* const argv[])
 {
     if (argc != 2) {
         PrintOutError("Wrong number of command arguments, expected: off|on.\n");
@@ -318,7 +318,7 @@ static int cmd_set_non_stop_cmd(Command::RunContext&, rec_set_t *rec_set, int ar
 }
 
 // on means other threads can continue to run when one is stopped
-static int cmd_show_non_stop_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const [])
+static int cmd_show_non_stop_cmd(rec_set_t *rec_set, int argc, const char* const [])
 {
     if (argc != 1) {
         PrintOutError("Unexpected command arguments.\n");
@@ -342,7 +342,7 @@ static int cmd_show_non_stop_cmd(Command::RunContext&, rec_set_t *rec_set, int a
 }
 
 // command to interface with the ompd plugin
-static int cmd_ompd_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     auto arg = ArgsToString(&argv[1], argc - 1);
     auto rep_set = DbgOmpd(rec_set, arg.c_str());
@@ -367,7 +367,7 @@ static int cmd_ompd_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, cons
 }
 
 // command to interface with the cuda-gdb extensions
-static int cmd_cuda_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     auto arg = ArgsToString(&argv[1], argc - 1);
     auto rep_set = DbgCuda(rec_set, arg.c_str());
@@ -391,28 +391,25 @@ static int cmd_cuda_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, cons
     return 1;
 }
 
-static int cmd_info_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_cuda_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto args = ArgvStream{"cuda", "info"};
     args << ArgvStream{argc-1, argv+1};
-    return cmd_cuda_cmd(ctx, rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
-    
+    return cmd_cuda_cmd(rec_set, args.argc(), args.c_strs().data());
 }
 
-static int cmd_set_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_set_cuda_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto args = ArgvStream{"cuda", "set"};
     args << ArgvStream{argc-1, argv+1};
-    return cmd_cuda_cmd(ctx, rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
-    
+    return cmd_cuda_cmd(rec_set, args.argc(), args.c_strs().data());
 }
 
-static int cmd_show_cuda_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_show_cuda_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto args = ArgvStream{"cuda", "show"};
     args << ArgvStream{argc-1, argv+1};
-    return cmd_cuda_cmd(ctx, rec_set, args.argc(), const_cast<char**>(args.c_strs().data()));
-    
+    return cmd_cuda_cmd(rec_set, args.argc(), args.c_strs().data());
 }
 
-static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+static void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
     root.addSubCmd(
         set + " cuda", nullptr, proc_required,
         cmd_set_cuda_cmd,
@@ -447,7 +444,7 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
         "Show mode for thread stopping during execution.");
 }
 
-void ConsoleCommandsFactory::insert_threads_commands(Command& root) {
+void ConsoleCommandsFactory::insert_threads_commands(CommandNode& root) {
     root.addSubCmd(
         "info cuda", nullptr, proc_required,
         cmd_info_cuda_cmd, cmd_info_cuda_help,
@@ -472,10 +469,10 @@ void ConsoleCommandsFactory::insert_threads_commands(Command& root) {
     insert_setshow_commands(root, "set", "show");
 }
 
-void MiCommandsFactory::insert_threads_commands(Command& root) {
+void MiCommandsFactory::insert_threads_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "-thread-info", .ptype = proc_optional,
-        .fn = Command::specify<MiInterpreter>(cmd_info_threads_cmd_mi)});
+        .fn = cmd_info_threads_cmd_mi });
     root.addSubCmd({
         .name = "-thread-select", .ptype = proc_optional,
         .fn = cmd_thread_cmd });

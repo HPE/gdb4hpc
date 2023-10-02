@@ -3,6 +3,7 @@
 
 #include "str.h"
 #include "client.h"
+#include "cmd.h"
 
 using namespace std::string_literals;
 namespace {
@@ -46,7 +47,7 @@ std::string ConsoleInterpreter::complete_text(std::string_view line) const {
 
 bool ConsoleInterpreter::can_interpret(std::string_view line) const {
     auto find_result = m_commands_stack.back()->findCmd(line);
-    return std::get_if<Command::Parts>(&find_result) != nullptr;
+    return std::get_if<CommandNode::Parts>(&find_result) != nullptr;
 }
 
 bool ConsoleInterpreter::interpret(std::string_view line) {
@@ -57,9 +58,8 @@ bool ConsoleInterpreter::interpret(std::string_view line) {
     }
 
     auto find_result = m_commands_stack.back()->findCmd(line);
-    auto ctx = Command::RunContext{ .caller = this };
 
-    if (auto* parts = std::get_if<Command::Parts>(&find_result)) {
+    if (auto* parts = std::get_if<CommandNode::Parts>(&find_result)) {
         auto& [cmd, args] = *parts;
         if (!cmd) {
             // this should never happen. if it does, it's a bug in gdb4hpc, not
@@ -80,7 +80,7 @@ bool ConsoleInterpreter::interpret(std::string_view line) {
         auto argv = ArgvStream{};
         argv.parseAndAppendArgs(cmd->getShortName() + " " + args);
 
-        if (cmd->execute(ctx, procset, argv.argc(), argv.c_strs().data())) {
+        if (cmd->execute(*this, procset, argv.argc(), argv.c_strs().data())) {
             log("command successful");
             return true;
         } else {
@@ -89,7 +89,7 @@ bool ConsoleInterpreter::interpret(std::string_view line) {
         }
     } else {
         static_assert(std::variant_size_v<decltype(find_result)> == 2, "Assuming there are only two alternatives");
-        const auto err_str = std::get<Command::ErrStr>(find_result);
+        const auto err_str = std::get<CommandNode::ErrStr>(find_result);
         PrintOutError("%s\n", err_str.c_str());
         return false;
     }
@@ -99,7 +99,7 @@ Interpreter::Printer& ConsoleInterpreter::get_printer() {
     return m_printer;
 }
 
-void ConsoleInterpreter::push_commands(std::shared_ptr<Command> root) {
+void ConsoleInterpreter::push_commands(std::shared_ptr<CommandNode> root) {
     m_commands_stack.push_back(root);
 }
 
@@ -145,8 +145,8 @@ bool ConsoleInterpreter::print_help(std::string_view line) {
     auto cmdStr = argv.asString(1);
     auto find_result = m_commands_stack.back()->findCmd(cmdStr);
 
-    if (std::holds_alternative<Command::Parts>(find_result)) {
-        auto [cmd, argv] = std::get<Command::Parts>(find_result);
+    if (std::holds_alternative<CommandNode::Parts>(find_result)) {
+        auto [cmd, argv] = std::get<CommandNode::Parts>(find_result);
         if (cmd && cmd->getHelp()) {
             PrintHelpEntry(cmd->getHelp());
         } else if (cmd) {
@@ -163,7 +163,7 @@ bool ConsoleInterpreter::print_help(std::string_view line) {
         return true;
     } else {
         static_assert(std::variant_size_v<decltype(find_result)> == 2, "Assuming there are only two alternatives");
-        const auto err_str = std::get<Command::ErrStr>(find_result);
+        const auto err_str = std::get<CommandNode::ErrStr>(find_result);
         PrintOutError("%s\n", err_str.c_str());
         return false;
     }
@@ -605,8 +605,8 @@ int ConsoleInterpreter::Printer::StreamBuf::sync() {
     return 0;
 }
 
-std::shared_ptr<Command> ConsoleCommandsFactory::make() {
-    auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
+std::shared_ptr<CommandNode> ConsoleCommandsFactory::make() {
+    auto root = std::make_shared<CommandNode>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
 
     insert_class_commands(*root);
     insert_interpreter_commands(*root);
@@ -634,7 +634,7 @@ std::shared_ptr<Command> ConsoleCommandsFactory::make() {
     return root;
 }
 
-static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+static void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
     root.addSubCmd(set, nullptr, proc_ignore,
                    nullptr, class_set_help,
                    "Set information about the debugger environment.");
@@ -644,12 +644,12 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
                    "Show information about the debugger environment.");
 }
 
-void ConsoleCommandsFactory::insert_class_commands(Command& root) {
+void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
     // insert a fake help command so we get the niceness of the command tree
     // matching "h", "he", etc. to "help". printing the actual help requires
     // context only available in the interpreter itself, so the interpreter
     // will catch a match to this command and short circuit to the help output.
-    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
+    auto dummy_help = []() -> int {
         return Command::Failure;
     };
     root.addSubCmd("help", "h", proc_ignore,

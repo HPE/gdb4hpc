@@ -80,7 +80,7 @@ int PrintMultiThreadMsg(const char *diName, const Bitset *group,
     return 0;
 }
 
-static int cmd_print_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_print_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 2) return 1;
 
@@ -130,7 +130,7 @@ static int cmd_print_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, con
     return 1;
 }
 
-static int cmd_set_print_elements_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_set_print_elements_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Usage: set print elements <positive integer or \"unlimited\">\n");
@@ -165,7 +165,7 @@ static int cmd_set_print_elements_cmd(Command::RunContext&, rec_set_t *rec_set, 
     return 1;
 }
 
-static int cmd_show_print_elements_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
+static int cmd_show_print_elements_cmd() {
     if (Client.print_elements == 0) {
         PrintOutMsg("Limit on string chars or array elements to print is unlimited.\n");
     } else {
@@ -175,7 +175,7 @@ static int cmd_show_print_elements_cmd(Command::RunContext&, rec_set_t *, int, c
     return 1;
 }
 
-static int cmd_set_print_pretty_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+static int cmd_set_print_pretty_cmd(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Usage: set print pretty on|off\n");
@@ -194,12 +194,12 @@ static int cmd_set_print_pretty_cmd(Command::RunContext&, rec_set_t *, int argc,
     return 1;
 }
 
-static int cmd_enable_pretty_printing_mi(Command::RunContext&, rec_set_t *, int, const char* const []) {
+static int cmd_enable_pretty_printing_mi() {
     Client.print_pretty = true;
     return Command::Success;
 }
 
-static int cmd_show_print_pretty_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
+static int cmd_show_print_pretty_cmd() {
     PrintOutMsg("Pretty printing is %s.\n", Client.print_pretty ? "on" : "off");
     return 1;
 }
@@ -241,7 +241,7 @@ std::string GetMiValue(const std::string& expression, const std::string& ps_str)
     return "";
 }
 
-static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+static void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
     root.addSubCmd(
         set + " print", nullptr, proc_ignore,
         nullptr, class_set_print_help,
@@ -273,13 +273,13 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
         "Show if pretty printing of structures is enabled.");
 }
 
-void ConsoleCommandsFactory::insert_print_commands(Command& root) {
+void ConsoleCommandsFactory::insert_print_commands(CommandNode& root) {
     insert_setshow_commands(root, "set", "show");
     root.addSubCmd("print", "p", proc_optional, cmd_print_cmd, cmd_print_help,
                "Print the value of an expression.");
 }
 
-void MiCommandsFactory::insert_print_commands(Command& root) {
+void MiCommandsFactory::insert_print_commands(CommandNode& root) {
     root.addSubCmd({.name = "-enable-pretty-printing", .ptype = proc_optional, .fn = cmd_enable_pretty_printing_mi });
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 }

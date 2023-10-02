@@ -50,7 +50,7 @@ static void ReleaseProc(dbgprocset_t *, DbgQuitType);
 // Main async event handler
 static int EventCB(DbgInvoke::EventSet& ev_set, const Bitset& reply_set);
 
-static int cmd_info_application_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
+static int cmd_info_application_cmd() {
     PrintOutMsg("%-10s %-10s %-5s %s\n", "Handle", "Ranks", "Focus",
                 "Application");
 
@@ -141,7 +141,7 @@ static dbgprocset_t* getNewProcSet(const std::string& procName) {
                   [--gpu]
                   [--debug]
 */
-static int cmd_launch_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+static int cmd_launch_cmd(int argc, const char* const argv[]) {
     try {
         // throws if arguments are malformed
         auto args = LaunchOpts(argc, argv, Client);
@@ -593,7 +593,7 @@ static int DoRelaunch(dbgprocset_t* oldProcset, const char* clone) {
 /*
 ** attach $proc apid [--gpu] [--debug] [--vgdb]
 */
-static int cmd_attach_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const char* const argv[]) {
+static int cmd_attach_cmd(Interpreter& caller, int argc, const char* const argv[]) {
     int opt_ind = 0;
     int opt;
 
@@ -702,7 +702,7 @@ static int cmd_attach_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const
     }
 
     // XXX: find a better way
-    if (dynamic_cast<MiInterpreter*>(ctx.caller)){
+    if (dynamic_cast<MiInterpreter*>(&caller)){
         if (argc - optind != 1) {
             PrintOutError("Invalid number of non-option arguments. See \"help attach\" for "
                           "usage.\nExpected 1, found %d.\n", argc - optind);
@@ -720,7 +720,7 @@ static int cmd_attach_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const
     }
 
     // XXX: find a better way
-    auto is_mi = dynamic_cast<MiInterpreter*>(ctx.caller) != nullptr;
+    auto is_mi = dynamic_cast<MiInterpreter*>(&caller) != nullptr;
 
     // parse the non-option arguments
     const auto* psName = (is_mi ? "$a" : mut_argv.v[optind++]);
@@ -820,7 +820,7 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     return 1;
 }
 
-static int cmd_halt_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_halt_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     dbgloc_t *halt_loc;
 
     bool all = false;
@@ -862,7 +862,7 @@ void PrintHaltedLocationSet(const char *setname, const Bitset *group, dbgloc_t *
     }
 }
 
-static int cmd_kill_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+static int cmd_kill_cmd(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: kill $proc\n");
@@ -912,7 +912,7 @@ static int cmd_kill_cmd(Command::RunContext&, rec_set_t *, int argc, const char*
     return 1;
 }
 
-static int cmd_release_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+static int cmd_release_cmd(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: release $proc\n");
@@ -1010,7 +1010,7 @@ static void ReleaseProc(dbgprocset_t *p, DbgQuitType quit_type) {
     FreeProcSet(p);
 }
 
-static int cmd_rerun_cmd(Command::RunContext&, rec_set_t* recSet, int argc, const char* const argv[]) {
+static int cmd_rerun_cmd(rec_set_t* recSet, int argc, const char* const argv[]) {
     using namespace std::string_literals;
     dbgprocset_t* procSet = nullptr;
     const char* cloneName = nullptr;
@@ -1058,7 +1058,7 @@ static int cmd_rerun_cmd(Command::RunContext&, rec_set_t* recSet, int argc, cons
 }
 
 
-static int cmd_run_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, const char* const argv[]) {
+static int cmd_run_cmd(Interpreter& caller, rec_set_t* recSet, int argc, const char* const argv[]) {
 
     // the command handles launches and attach in addition to rerun.   Infer the
     // case from the arguments we get.
@@ -1080,11 +1080,11 @@ static int cmd_run_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, co
     }
 
     if (numProcArrs) {
-        return cmd_launch_cmd(ctx, recSet, argc, argv);
+        return cmd_launch_cmd(argc, argv);
     } else if (procs.size() == 1 && numNonProcs) {
-        return cmd_attach_cmd(ctx, recSet, argc, argv);
+        return cmd_attach_cmd(caller, argc, argv);
     } else if (!numNonProcs && procs.size() < 3) {
-        return cmd_rerun_cmd(ctx, recSet, argc, argv);
+        return cmd_rerun_cmd(recSet, argc, argv);
     } else if (!numProcArrs && procs.empty()) {
         PrintOutError("A procset handle is required, see \"help run\".\n");
     } else {
@@ -1094,7 +1094,7 @@ static int cmd_run_cmd(Command::RunContext& ctx, rec_set_t* recSet, int argc, co
     return 1;
 }
 
-static int set_subcmd_args_cmd(Command::RunContext&, rec_set_t* recSet, int argc, const char* const argv[]) {
+static int set_subcmd_args_cmd(rec_set_t* recSet, int argc, const char* const argv[]) {
     bool onlyReset = (argc == 1);
 
     // collect dis to modify
@@ -1141,7 +1141,7 @@ static int set_subcmd_args_cmd(Command::RunContext&, rec_set_t* recSet, int argc
     return 1;
 }
 
-static int show_subcmd_args_cmd(Command::RunContext&, rec_set_t* recSet, int, const char* const []) {
+static int show_subcmd_args_cmd(rec_set_t* recSet) {
     for (const auto* rec : recSet) {
         auto all_args = std::stringstream{};
 
@@ -1194,41 +1194,35 @@ int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
     return 1;
 }
 
-static int file_exec_and_sym_mi(Command::RunContext& ctx, rec_set_t* r, int argc, const char* const argv[]) {
-    auto* mi = dynamic_cast<MiInterpreter*>(ctx.caller);
-    if (!mi) {
-        PrintOutError("Interpreter error\n"); // unreachable
-        return Command::Failure;
-    }
-
+static int file_exec_and_sym_mi(MiInterpreter& mi, int argc, const char* const argv[]) {
     //check a procset was received
-    if (mi->m_procset.empty()){
+    if (mi.m_procset.empty()){
         // create a default if one wasn't specified
-        mi->m_procset = "$App";
+        mi.m_procset = "$App";
     }
 
-    auto app=mi->m_procset;
+    auto app=mi.m_procset;
     //add rank information if available
-    if (!mi->m_num_ranks.empty()){
+    if (!mi.m_num_ranks.empty()){
         app.append("{");
-        app.append(mi->m_num_ranks);
+        app.append(mi.m_num_ranks);
         app.append("}");
     }
 
-    auto launch_str = "launch " + app + mi->m_launcher_args + ArgsToString(&argv[1], argc - 1);
+    auto launch_str = "launch " + app + mi.m_launcher_args + ArgsToString(&argv[1], argc - 1);
     auto launch_args = ArgvStream();
     launch_args.parseAndAppendArgs(launch_str);
-    return cmd_launch_cmd(ctx, r, launch_args.argc(), launch_args.c_strs().data());
+    return cmd_launch_cmd(launch_args.argc(), launch_args.c_strs().data());
 }
 
-static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+static void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
     root.addSubCmd(set + " args", nullptr, proc_required, set_subcmd_args_cmd,
                set_subcmd_args_help, "Set program arguments to be used when re-launching with the run command.");
     root.addSubCmd(show + " args", nullptr, proc_required, show_subcmd_args_cmd,
                show_subcmd_args_help, "Show program arguments to be used when re-launching with the run command.");
 }
 
-void ConsoleCommandsFactory::insert_proc_commands(Command& root) {
+void ConsoleCommandsFactory::insert_proc_commands(CommandNode& root) {
     root.addSubCmd(
         "info application", nullptr, proc_ignore,
         cmd_info_application_cmd,
@@ -1256,7 +1250,7 @@ void ConsoleCommandsFactory::insert_proc_commands(Command& root) {
     insert_setshow_commands(root, "set", "show");
 }
 
-void MiCommandsFactory::insert_proc_commands(Command& root) {
+void MiCommandsFactory::insert_proc_commands(CommandNode& root) {
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 
     root.addSubCmd({ .name = "-exec-run", .ptype = proc_optional, .fn = cmd_run_cmd });

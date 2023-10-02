@@ -21,7 +21,7 @@
 #include "useful.h"
 #include "interpreter_mi.h"
 
-static int cmd_whatis_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     int i;
     int argp = 1;
     int isType = 0;
@@ -80,7 +80,7 @@ static int cmd_whatis_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, co
     return Command::Success;
 }
 
-static int cmd_ptype_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: ptype type\n");
@@ -114,7 +114,7 @@ static int cmd_ptype_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, con
     return Command::Success;
 }
 
-static int cmd_info_locals_cmd_console(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
+static int cmd_info_locals_cmd_console(rec_set_t *rec_set) {
     auto rep_set = DbgGetVars(rec_set);
     ProcessErrorInRepSet(rep_set);
 
@@ -141,7 +141,7 @@ static int cmd_info_locals_cmd_console(Command::RunContext&, rec_set_t *rec_set,
     return Command::Success;
 }
 
-static int cmd_info_locals_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int, const char* const []) {
+static int cmd_info_locals_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set) {
     auto rep_set = DbgGetVars(rec_set);
     ProcessErrorInRepSet(rep_set);
 
@@ -163,7 +163,7 @@ static int cmd_info_locals_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, r
             }
             ss<<"]";
             std::string group = reply->rep_group.get()->toSetString();
-            ctx.caller.set_result("proc_set=\"%s\",group=\"%s\",variables=%s", reply->rep_di.c_str(),
+            mi.set_result("proc_set=\"%s\",group=\"%s\",variables=%s", reply->rep_di.c_str(),
                                 group.substr(1,group.length()-2).c_str(),ss.str().c_str());
         } else if (ev == DBGEV_THREADINFO) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
@@ -176,7 +176,7 @@ static int cmd_info_locals_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, r
     return Command::Success;
 }
 
-static int cmd_info_scope_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_scope_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     dbgvars_t *v;
 
     if (argc < 2) {
@@ -216,7 +216,7 @@ static int cmd_info_scope_cmd(Command::RunContext&, rec_set_t *rec_set, int argc
     return Command::Success;
 }
 
-static int cmd_info_args_cmd(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
+static int cmd_info_args_cmd(rec_set_t *rec_set) {
     auto rep_set = DbgGetArgs(rec_set);
 
     ProcessErrorInRepSet(rep_set);
@@ -240,7 +240,7 @@ static int cmd_info_args_cmd(Command::RunContext&, rec_set_t *rec_set, int, cons
     return Command::Success;
 }
 
-void ConsoleCommandsFactory::insert_whatis_commands(Command& root) {
+void ConsoleCommandsFactory::insert_whatis_commands(CommandNode& root) {
     root.addSubCmd("whatis", nullptr, proc_required, cmd_whatis_cmd,
                cmd_whatis_help, "Print the data type of an expression.");
     root.addSubCmd("ptype", nullptr, proc_required, cmd_ptype_cmd,
@@ -259,8 +259,8 @@ void ConsoleCommandsFactory::insert_whatis_commands(Command& root) {
                    "List variables local to a scope in the application.");
 }
 
-void MiCommandsFactory::insert_whatis_commands(Command& root) {
+void MiCommandsFactory::insert_whatis_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "-stack-list-variables", .ptype = proc_required,
-        .fn = Command::specify<MiInterpreter>(cmd_info_locals_cmd_mi) });
+        .fn = cmd_info_locals_cmd_mi });
 }

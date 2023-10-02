@@ -63,7 +63,7 @@ int initialize_map (){
     return 1;
 }
 
-static int cmd_info_iostat_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+static int cmd_info_iostat_cmd(int argc, const char* const argv[]) {
     std::string arg = ArgsToString(&argv[1], argc - 1);
 
     if (!initialized_iostat_map){
@@ -101,7 +101,7 @@ static int cmd_info_iostat_cmd(Command::RunContext&, rec_set_t *, int argc, cons
     return 1;
 }
 
-void ConsoleCommandsFactory::insert_iostat_commands(Command& root) {
+void ConsoleCommandsFactory::insert_iostat_commands(CommandNode& root) {
     root.addSubCmd("info iostat", nullptr, proc_optional,
                    cmd_info_iostat_cmd, cmd_info_iostat_help,
                    "Display table with iostat codes for Fortran.");

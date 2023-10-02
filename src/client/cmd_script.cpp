@@ -48,13 +48,13 @@ std::unique_ptr<script::data::Script> g_pendingScript = nullptr;
     while (false) std::cerr << msg << std::endl
 #endif
 
-std::shared_ptr<Command> make_script_command_tree();
+std::shared_ptr<CommandNode> make_script_command_tree();
 
 /********************************
  * Info class commands
  ********************************/
 
-int cmd_info_diff_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_info_diff_cmd(int argc, const char* const argv[]) {
     // this is a subcommand under "info", so argc/argv start at "diff", not "info"
 
     const auto printSyntax = [](){
@@ -164,7 +164,7 @@ int cmd_info_diff_cmd(Command::RunContext&, rec_set_t *, int argc, const char* c
     return 1;
 }
 
-int cmd_info_script_cmd_console(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_info_script_cmd_console(int argc, const char* const argv[]) {
     // this is a subcommand under "info", so argc/argv start at "script", not "info"
 
     const auto printSyntax = [](){
@@ -274,7 +274,7 @@ static std::string mi_summarize_script(script::ScriptRunner::ResultsView results
     return sm.str();
 }
 
-int cmd_info_script_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_info_script_cmd_mi(MiInterpreter& mi, int argc, const char* const argv[]) {
     const auto printSyntax = [argv](){
         PrintOutError("Expected \"%s script $name\"\n", argv[0]);
     };
@@ -301,7 +301,7 @@ int cmd_info_script_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_
         if (ss.tellp()==0)
             ss<<"[";
         ss<<"]";
-        ctx.caller.set_result("scripts=%s",ss.str().c_str());
+        mi.set_result("scripts=%s",ss.str().c_str());
         return Command::Success;
     }
 
@@ -339,7 +339,7 @@ int cmd_info_script_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_
     } else {
         // detailed summary
         // summary string has correct newlines
-        ctx.caller.set_result("script_result=%s",mi_summarize_script(script->resultsView()).c_str());
+        mi.set_result("script_result=%s",mi_summarize_script(script->resultsView()).c_str());
     }
 
     return Command::Success;
@@ -349,15 +349,7 @@ int cmd_info_script_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_
  * Regular commands
  ********************************/
 
-int cmd_build_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const char* const argv[]) {
-    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
-    if (!console) {
-        // unreachable?
-        // the only interpreter this command should be attached to is console.
-        PrintOutError("This command is only supported on the console interpreter.\n");
-        return Command::Failure;
-    }
-
+int cmd_build_cmd(ConsoleInterpreter& console, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: build $script_name\n");
@@ -379,13 +371,13 @@ int cmd_build_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const char* c
     auto name = std::string{argv[1]+1};
     g_pendingScript = std::make_unique<script::data::Script>(name);
 
-    console->push_commands(make_script_command_tree());
+    console.push_commands(make_script_command_tree());
     cli_inc_prompt();
 
     return 1;
 }
 
-int cmd_start_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_start_cmd(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Expected \"start $script_name\"\n");
         return 0;
@@ -449,7 +441,7 @@ int cmd_start_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const
     return 1;
 }
 
-int cmd_stop_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
+int cmd_stop_cmd() {
     if (auto* script = script::getCurrentScript()) {
         script->uninstall();
     } else {
@@ -462,7 +454,7 @@ int cmd_stop_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
  * Alt commands
  ********************************/
 
-int cmd_script_assert_cmd(Command::RunContext&, rec_set_t *, int, const char* const argv[]) {
+int cmd_script_assert_cmd(int, const char* const argv[]) {
     if (!g_pendingScript) {
         PrintOutError("Tried to add an assert to a nonexistant script.");
         return 0;
@@ -483,15 +475,7 @@ int cmd_script_assert_cmd(Command::RunContext&, rec_set_t *, int, const char* co
     return 1;
 }
 
-int cmd_script_end_cmd(Command::RunContext& ctx, rec_set_t *, int, const char* const []) {
-    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
-    if (!console) {
-        // unreachable?
-        // the only interpreter this command should be attached to is console.
-        PrintOutError("This command is only supported on the console interpreter.\n");
-        return Command::Failure;
-    }
-
+int cmd_script_end_cmd(ConsoleInterpreter& console) {
     // should never be false...
     if (g_pendingScript) {
         auto name = g_pendingScript->name();
@@ -503,7 +487,7 @@ int cmd_script_end_cmd(Command::RunContext& ctx, rec_set_t *, int, const char* c
     }
 
     cli_dec_prompt();
-    console->pop_commands();
+    console.pop_commands();
     return Command::Success;
 }
 
@@ -546,7 +530,7 @@ void printSettingsTable() {
     }
 }
 
-int cmd_script_set_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_script_set_cmd(int argc, const char* const argv[]) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set script setting with null script\n");
@@ -628,7 +612,7 @@ int cmd_script_set_cmd(Command::RunContext&, rec_set_t *, int argc, const char* 
     return 1;
 }
 
-int cmd_script_show_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_script_show_cmd(int argc, const char* const argv[]) {
     if (!g_pendingScript) {
         // should never happen
         PrintOutError("Tried to set a script setting with null script\n");
@@ -660,8 +644,8 @@ int cmd_script_show_cmd(Command::RunContext&, rec_set_t *, int argc, const char*
     return 1;
 }
 
-std::shared_ptr<Command> make_script_command_tree() {
-    auto root = std::make_shared<Command>(proc_ignore, nullptr);
+std::shared_ptr<CommandNode> make_script_command_tree() {
+    auto root = std::make_shared<CommandNode>(proc_ignore, nullptr);
 
     root->addSubCmd({
         .name = "assert", .ptype = proc_ignore,
@@ -680,7 +664,7 @@ std::shared_ptr<Command> make_script_command_tree() {
         .fn = cmd_script_show_cmd, .help = cmd_script_show_help,
         .desc = "Show information about the debugger environment."});
 
-    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
+    auto dummy_help = []() -> int {
         // help implementation lives in the interpreter,
         // and this function should not actually be called
         return Command::Failure;
@@ -699,7 +683,7 @@ std::shared_ptr<Command> make_script_command_tree() {
  * command init functions
  ********************************/
 
-void ConsoleCommandsFactory::insert_script_commands(Command& root) {
+void ConsoleCommandsFactory::insert_script_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "build", .ptype = proc_ignore,
         .fn = cmd_build_cmd,
@@ -723,8 +707,8 @@ void ConsoleCommandsFactory::insert_script_commands(Command& root) {
                    "Display built and active assertion scripts.");
 }
 
-void MiCommandsFactory::insert_script_commands(Command& root) {
+void MiCommandsFactory::insert_script_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "-script-list", .ptype = proc_ignore,
-        .fn = Command::specify<MiInterpreter>(cmd_info_script_cmd_mi) });
+        .fn = cmd_info_script_cmd_mi });
 }

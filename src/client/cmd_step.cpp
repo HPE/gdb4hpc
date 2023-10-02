@@ -21,7 +21,7 @@
 ** This function is able to handle both next and step by examining the first
 ** character of the command. If its an s, we set in to 1.
 */
-static int cmd_stepnext_console(Command::RunContext&, rec_set_t* rec_set, int argc, const char* const argv[]) {
+static int cmd_stepnext_console(rec_set_t* rec_set, int argc, const char* const argv[]) {
     int in = 0;
     int count = 1;
 
@@ -37,7 +37,7 @@ static int cmd_stepnext_console(Command::RunContext&, rec_set_t* rec_set, int ar
     return Command::Success;
 }
 
-static int cmd_stepnext_mi(Command::RunContext&, rec_set_t* rec_set, int argc, const char* const argv[]) {
+static int cmd_stepnext_mi(rec_set_t* rec_set, int argc, const char* const argv[]) {
     int in = 0;
     int count = 1;
 
@@ -54,7 +54,7 @@ static int cmd_stepnext_mi(Command::RunContext&, rec_set_t* rec_set, int argc, c
     return Command::Success;
 }
 
-void ConsoleCommandsFactory::insert_step_commands(Command& root) {
+void ConsoleCommandsFactory::insert_step_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "step", .alias = "s", .ptype = proc_required,
         .fn = cmd_stepnext_console, .help = cmd_step_help,
@@ -65,7 +65,7 @@ void ConsoleCommandsFactory::insert_step_commands(Command& root) {
         .desc = "Step application, proceeding through subroutine calls."});
 }
 
-void MiCommandsFactory::insert_step_commands(Command& root) {
+void MiCommandsFactory::insert_step_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "-exec-step", .ptype = proc_required, .fn = cmd_stepnext_mi });
     root.addSubCmd({

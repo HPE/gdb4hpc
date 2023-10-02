@@ -84,7 +84,7 @@ static rep_set_t send_break_command(rec_set_t *rec_set, const BreakArgs& args) {
 // returns true on success
 static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args);
 
-static int cmd_break_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_break_cmd_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_args = parse_break_args(rec_set, argc, argv);
     if (!maybe_args) {
         // error message already printed
@@ -148,7 +148,7 @@ static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args) {
     return true;
 }
 
-static int cmd_break_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_break_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_args = parse_break_args(rec_set, argc, argv);
     if (!maybe_args) {
         // error message already printed
@@ -196,7 +196,7 @@ static int cmd_break_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set
                << bpset->address() << "\",func=\"" << bpset->function()
                << "\",file=\"" << bpset->file() <<"\",fullname=\"" << fullpath
                << "\",line=\"" <<bpset->line() << "\"}";
-            ctx.caller.set_result("%s", ss.str().c_str());
+            mi.set_result("%s", ss.str().c_str());
         }
         else {
             PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
@@ -211,7 +211,7 @@ static int cmd_break_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set
 // returns true on success
 static bool do_set_tbreak(rec_set_t *rec_set, BreakArgs& args);
 
-static int cmd_tbreak_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_tbreak_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_args = parse_break_args(rec_set, argc, argv);
     if (!maybe_args) {
         // error message already printed
@@ -295,7 +295,7 @@ static bool do_set_tbreak(rec_set_t* rec_set, BreakArgs& args) {
     return true;
 }
 
-static int cmd_watch_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_watch_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -383,7 +383,7 @@ static int cmd_watch_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, con
     return 1;
 }
 
-static int cmd_catch_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_catch_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     // There is no special reason that we are limited to these events. dbgsrv
     // is set up to send a generic "catch _____" command with CLIBypass, so
     // any valid event type could work. These are just the few that have been
@@ -447,7 +447,7 @@ static int cmd_catch_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, con
 }
 
 // called via the delete command: "delete checkpoint x"
-static int cmd_delete_checkpoint_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_delete_checkpoint_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     const auto usage = [](){
         PrintOutError("Usage: delete checkpoint <id>\n");
     };
@@ -472,13 +472,13 @@ static int cmd_delete_checkpoint_cmd(Command::RunContext&, rec_set_t *rec_set, i
     return 1;
 }
 
-static int cmd_delete_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_delete_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     int bp_id = 0;
 
     // if deleting a checkpoint, defer to specific delete checkpoint function
     using namespace std::string_literals;
     if (argc >= 2 && argv[1] && "checkpoint"s == argv[1]) {
-        return cmd_delete_checkpoint_cmd(ctx, rec_set, argc, argv);
+        return cmd_delete_checkpoint_cmd(rec_set, argc, argv);
     }
 
     if (argc < 2) {
@@ -508,7 +508,7 @@ static int cmd_delete_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     return 1;
 }
 
-static int cmd_disable_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_disable_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     int bp_id = 0;
 
     if (argc > 1) {
@@ -529,7 +529,7 @@ static int cmd_disable_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, c
     return 1;
 }
 
-static int cmd_enable_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_enable_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     int argp = 1;
     int once = 0;
     int delete_cmd = 0;
@@ -576,7 +576,7 @@ static int cmd_enable_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, co
     return 1;
 }
 
-static int cmd_ignore_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_ignore_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc != 3) {
         PrintOutError("Arguments required <breakpoint-number> <ignore-count>.\n");
@@ -604,7 +604,7 @@ static int cmd_ignore_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, co
     return 1;
 }
 
-static int cmd_condition_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_condition_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 2) {
         PrintOutError("Breakpoint number required.\n");
@@ -713,7 +713,7 @@ std::string BPCnts::get(const std::string &handle, const Bitset *group, int id) 
     return res.str();
 }
 
-static int cmd_info_breakpoints_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_breakpoints_cmd_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
     int bid = 0;
     std::stringstream ss;
 
@@ -845,9 +845,9 @@ static int cmd_info_breakpoints_cmd_console(Command::RunContext&, rec_set_t *rec
     return Command::Success;
 }
 
-static int cmd_info_breakpoints_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_info_breakpoints_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!rec_set) {
-        ctx.caller.set_result("BreakpointTable={body=[]}");
+        mi.set_result("BreakpointTable={body=[]}");
         return Command::Success;
     }
 
@@ -929,7 +929,7 @@ static int cmd_info_breakpoints_cmd_mi(Command::LoweredContext<MiInterpreter>& c
         } // for (const auto &bpset : recv_ptr->rec_di.breakpoints())
 
         std::string group = recv_ptr->rec_group.get()->toSetString();
-        ctx.caller.set_result("proc_set=\"%s\", group=\"%s\",BreakpointTable={body=[%s]}",
+        mi.set_result("proc_set=\"%s\", group=\"%s\",BreakpointTable={body=[%s]}",
                             recv_ptr->rec_di.handle().c_str(),group.substr(1,group.length()-2).c_str(),
                             ss.str().c_str());
         // clear ss stream for next recv_ptr 
@@ -940,7 +940,7 @@ static int cmd_info_breakpoints_cmd_mi(Command::LoweredContext<MiInterpreter>& c
     return Command::Success;
 }
 
-static int cmd_set_break_pending_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+static int cmd_set_break_pending_cmd(int argc, const char* const argv[]) {
 
 
     if (argc < 2) {
@@ -967,7 +967,7 @@ static int cmd_set_break_pending_cmd(Command::RunContext&, rec_set_t *, int argc
     return 1;
 }
 
-static int cmd_show_break_pending_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
+static int cmd_show_break_pending_cmd() {
     if (Client.brk_pending == PendingBrkType::Auto)
         PrintOutMsg("Allow setting of pending breakpoints will ask user first. (auto)\n");
     else if (Client.brk_pending == PendingBrkType::On)
@@ -978,7 +978,7 @@ static int cmd_show_break_pending_cmd(Command::RunContext&, rec_set_t *, int, co
     return 1;
 }
 
-void insert_setshow_commands(Command& root, std::string set, std::string show) {
+void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
     root.addSubCmd(
         set + " breakpoint", nullptr, proc_ignore,
          nullptr, class_set_break_help,
@@ -1002,7 +1002,7 @@ void insert_setshow_commands(Command& root, std::string set, std::string show) {
         "Show behavior for pending breakpoints.");
 }
 
-void ConsoleCommandsFactory::insert_break_commands(Command& root) {
+void ConsoleCommandsFactory::insert_break_commands(CommandNode& root) {
     root.addSubCmd(
         "info breakpoints", nullptr, proc_required,
         cmd_info_breakpoints_cmd_console, cmd_info_breakpoints_help,
@@ -1040,10 +1040,10 @@ void ConsoleCommandsFactory::insert_break_commands(Command& root) {
     insert_setshow_commands(root, "set", "show");
 }
 
-void MiCommandsFactory::insert_break_commands(Command& root) {
+void MiCommandsFactory::insert_break_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "-break-list", .ptype = proc_optional,
-        .fn = Command::specify<MiInterpreter>(cmd_info_breakpoints_cmd_mi)});
+        .fn = cmd_info_breakpoints_cmd_mi });
 
     // note that the only breakpoint function that had an "if (Client.MI_mode)" was
     // cmd_break_cmd, so I'm mapping the rest to their console versions for now.
@@ -1051,7 +1051,7 @@ void MiCommandsFactory::insert_break_commands(Command& root) {
 
     root.addSubCmd({
         .name = "-break-insert", .ptype = proc_required,
-        .fn = Command::specify<MiInterpreter>(cmd_break_cmd_mi) });
+        .fn = cmd_break_cmd_mi });
     root.addSubCmd({
         .name = "-break-delete", .ptype = proc_required, .fn = cmd_delete_cmd });
     root.addSubCmd({

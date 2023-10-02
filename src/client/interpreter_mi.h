@@ -46,7 +46,7 @@ private:
     bool try_interpret(std::string_view line);
     bool print_help();
 
-    std::shared_ptr<Command> m_mi_commands;
+    std::shared_ptr<CommandNode> m_mi_commands;
     ConsoleInterpreter m_console_intr;
 
     // set by set_result/print_error, used to output ^done/^error,... after interpret.
@@ -105,32 +105,32 @@ private:
 
 class MiCommandsFactory {
 public:
-    static std::shared_ptr<Command> make();
+    static std::shared_ptr<CommandNode> make();
 private:
     // internal or base commands that don't live in cmd_*.cpp files.
     // e.g. the base "set" node which all other set commands are under.
-    static void insert_class_commands(Command& root);
+    static void insert_class_commands(CommandNode& root);
 
     // dummy commands that don't actually do anything except return a fake "ok" result
-    static void insert_dummy_commands(Command& root);
+    static void insert_dummy_commands(CommandNode& root);
 
     // in mi_funcs.cpp
-    static void insert_mi_commands(Command& root);
+    static void insert_mi_commands(CommandNode& root);
 
     // these are defined in their respective cmd_*.cpp files
-    static void insert_interpreter_commands(Command& root);
-    static void insert_frame_commands(Command& root);
-    static void insert_step_commands(Command& root);
-    static void insert_whatis_commands(Command& root);
-    static void insert_blockmap_commands(Command& root);
-    static void insert_break_commands(Command& root);
-    static void insert_list_commands(Command& root);
-    static void insert_threads_commands(Command& root);
-    static void insert_script_commands(Command& root);
-    static void insert_print_commands(Command& root);
-    static void insert_env_commands(Command& root);
-    static void insert_proc_commands(Command& root);
-    static void insert_comp_commands(Command& root);
-    static void insert_go_commands(Command& root);
-    static void insert_procset_commands(Command& root);
+    static void insert_interpreter_commands(CommandNode& root);
+    static void insert_frame_commands(CommandNode& root);
+    static void insert_step_commands(CommandNode& root);
+    static void insert_whatis_commands(CommandNode& root);
+    static void insert_blockmap_commands(CommandNode& root);
+    static void insert_break_commands(CommandNode& root);
+    static void insert_list_commands(CommandNode& root);
+    static void insert_threads_commands(CommandNode& root);
+    static void insert_script_commands(CommandNode& root);
+    static void insert_print_commands(CommandNode& root);
+    static void insert_env_commands(CommandNode& root);
+    static void insert_proc_commands(CommandNode& root);
+    static void insert_comp_commands(CommandNode& root);
+    static void insert_go_commands(CommandNode& root);
+    static void insert_procset_commands(CommandNode& root);
 };

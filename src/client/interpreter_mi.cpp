@@ -1,6 +1,7 @@
 #include "interpreter_mi.h"
 #include "str.h"
 #include "client_settings.h"
+#include "cmd.h"
 
 #include <charconv>
 
@@ -78,7 +79,7 @@ std::string MiInterpreter::complete_text(std::string_view line) const {
 
 bool MiInterpreter::can_interpret(std::string_view line) const {
     auto find_result = m_mi_commands->findCmd(line);
-    return std::get_if<Command::Parts>(&find_result) != nullptr
+    return std::get_if<CommandNode::Parts>(&find_result) != nullptr
         || m_console_intr.can_interpret(line);
 }
 
@@ -138,9 +139,8 @@ bool MiInterpreter::try_interpret(std::string_view line) {
     }
 
     auto find_result = m_mi_commands->findCmd(untagged_line);
-    auto ctx = Command::RunContext{ .caller = this };
 
-    if (auto* parts = std::get_if<Command::Parts>(&find_result)) {
+    if (auto* parts = std::get_if<CommandNode::Parts>(&find_result)) {
         auto& [cmd, args] = *parts;
         if (!cmd) {
             log("found in tree, but no function pointer?\n");
@@ -157,7 +157,7 @@ bool MiInterpreter::try_interpret(std::string_view line) {
         auto argv = ArgvStream{};
         argv.parseAndAppendArgs(cmd->getShortName() + " " + args);
 
-        if (cmd->execute(ctx, procset, argv.argc(), argv.c_strs().data()) == Command::Success) {
+        if (cmd->execute(*this, procset, argv.argc(), argv.c_strs().data()) == Command::Success) {
             log("command successfull\n");
             return true;
         } else {
@@ -553,8 +553,8 @@ int MiInterpreter::Printer::StreamBuf::overflow(int c) {
     return c;
 }
 
-std::shared_ptr<Command> MiCommandsFactory::make() {
-    auto root = std::make_shared<Command>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
+std::shared_ptr<CommandNode> MiCommandsFactory::make() {
+    auto root = std::make_shared<CommandNode>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
 
     insert_class_commands(*root);
     insert_dummy_commands(*root);
@@ -578,7 +578,7 @@ std::shared_ptr<Command> MiCommandsFactory::make() {
     return root;
 }
 
-static void insert_setshow_commands(Command& root, std::string set, std::string show) {
+static void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
     root.addSubCmd(set, nullptr, proc_ignore,
                    nullptr, class_set_help,
                    "Set information about the debugger environment.");
@@ -588,12 +588,12 @@ static void insert_setshow_commands(Command& root, std::string set, std::string 
                    "Show information about the debugger environment.");
 }
 
-void MiCommandsFactory::insert_class_commands(Command& root) {
+void MiCommandsFactory::insert_class_commands(CommandNode& root) {
     // insert a fake help command so we get the niceness of the command tree
     // matching "h", "he", etc. to "help". printing the actual help requires
     // context only available in the interpreter itself, so the interpreter
     // will catch a match to this command and short circuit to the help output.
-    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
+    auto dummy_help = []() -> int {
         return Command::Failure;
     };
     root.addSubCmd({
@@ -604,7 +604,7 @@ void MiCommandsFactory::insert_class_commands(Command& root) {
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 }
 
-void MiCommandsFactory::insert_dummy_commands(Command& root) {
+void MiCommandsFactory::insert_dummy_commands(CommandNode& root) {
     static const std::pair<std::string, std::string> dummy_map[] = {
          {"-data-list-register-names", "register-names=[]"},
          {"-enable-frame-filters", ""},
@@ -613,19 +613,12 @@ void MiCommandsFactory::insert_dummy_commands(Command& root) {
     };
 
     const auto make_dummy = [](const std::string& value) {
-        return [value](Command::RunContext& c, rec_set_t*, int, const char* const []) -> int {
-            if (auto* mi = dynamic_cast<MiInterpreter*>(c.caller)) {
-                if (value.empty()) {
-                    return Command::Success;
-                } else {
-                    mi->set_result("%s", value.c_str());
-                    return Command::Success;
-                }
+        return [value](MiInterpreter& mi) -> int {
+            if (value.empty()) {
+                return Command::Success;
             } else {
-                // unreachable as long as the dummy commands are only attached
-                // to an mi interpreter.
-                PrintOutError("Interpreter error\n");
-                return Command::Failure;
+                mi.set_result("%s", value.c_str());
+                return Command::Success;
             }
         };
     };

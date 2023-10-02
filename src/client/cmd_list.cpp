@@ -21,7 +21,7 @@
 #include "useful.h"
 #include "interpreter_mi.h"
 
-static int cmd_list_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_list_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     const char *s = nullptr;
     dbglist_t *l;
     dbglist_t *lp;
@@ -51,7 +51,7 @@ static int cmd_list_cmd(Command::RunContext&, rec_set_t *rec_set, int argc, cons
     return Command::Success;
 }
 
-static int cmd_info_sources_cmd_console(Command::RunContext&, rec_set_t *rec_set, int,
+static int cmd_info_sources_cmd_console(rec_set_t *rec_set, int,
                                          const char * const []) {
     if (!rec_set) return Command::Success;
 
@@ -88,7 +88,7 @@ static int cmd_info_sources_cmd_console(Command::RunContext&, rec_set_t *rec_set
     return Command::Success;
 }
 
-static int cmd_info_sources_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int, const char * const []) {
+static int cmd_info_sources_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int, const char * const []) {
     if (!rec_set) return Command::Success;
 
     auto rep_set = DbgGetSources(rec_set);
@@ -129,7 +129,7 @@ static int cmd_info_sources_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, 
             }
             if (ss.str().empty()) ss << "[";
             ss<<"]";
-            ctx.caller.set_result("proc_set=\"%s\",files=%s",
+            mi.set_result("proc_set=\"%s\",files=%s",
                              recv_ptr->rec_di.handle().c_str(),ss.str().c_str());
         }
     }
@@ -137,7 +137,7 @@ static int cmd_info_sources_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, 
     return Command::Success;
 }
 
-static int cmd_info_source_cmd_console(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
+static int cmd_info_source_cmd_console(rec_set_t *rec_set) {
     if (!rec_set) return Command::Success;
 
     auto rep_set = DbgGetFrame(rec_set, false);
@@ -154,7 +154,7 @@ static int cmd_info_source_cmd_console(Command::RunContext&, rec_set_t *rec_set,
     return Command::Success;
 }
 
-static int cmd_info_source_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int, const char* const []) {
+static int cmd_info_source_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set) {
     if (!rec_set) return Command::Success;
 
     auto rep_set = DbgGetFrame(rec_set, false);
@@ -164,7 +164,7 @@ static int cmd_info_source_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, r
     auto f = EVENT_FRAME(reply->rep_event);
     auto loc = f->getLoc();
     std::string group = reply->rep_group.get()->toSetString();
-    ctx.caller.set_result(
+    mi.set_result(
         "proc_set=\"%s\",group=\"%s\",line=\"%d\",file=\"%s\",fullname=\"%s\"",
         reply->rep_di.name().c_str(),
         group.substr(1, group.length() - 2).c_str(), loc.loc_line, loc.loc_file,
@@ -173,7 +173,7 @@ static int cmd_info_source_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, r
     return Command::Success;
 }
 
-void ConsoleCommandsFactory::insert_list_commands(Command& root) {
+void ConsoleCommandsFactory::insert_list_commands(CommandNode& root) {
     root.addSubCmd("list", "l", proc_required, cmd_list_cmd,
                cmd_list_help, "List source for specified function or line.");
 
@@ -188,11 +188,11 @@ void ConsoleCommandsFactory::insert_list_commands(Command& root) {
                    "Display the source files in the application.");
 }
 
-void MiCommandsFactory::insert_list_commands(Command& root) {
+void MiCommandsFactory::insert_list_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "-file-list-exec-source-file", .ptype = proc_required,
-        .fn = Command::specify<MiInterpreter>(cmd_info_source_cmd_mi) });
+        .fn = cmd_info_source_cmd_mi });
     root.addSubCmd({
         .name = "-file-list-exec-source-files", .ptype = proc_required,
-        .fn = Command::specify<MiInterpreter>(cmd_info_sources_cmd_mi) });
+        .fn = cmd_info_sources_cmd_mi });
 }

@@ -13,16 +13,16 @@
 
 namespace {
 // commands to handle python as a cli mode
-class PythonMode : public Command {
+class PythonMode : public CommandNode {
 public:
     PythonMode();
 
     static void enter(ConsoleInterpreter& console);
 private:
-    static int executeLine(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]);
-    static int exit(Command::RunContext& ctx, rec_set_t* rec_set, int argc, const char* const argv[]);
+    static int executeLine(rec_set_t *rec_set, int argc, const char* const argv[]);
+    static int exit(ConsoleInterpreter& console);
 
-    static std::shared_ptr<Command> make_command_tree();
+    static std::shared_ptr<CommandNode> make_command_tree();
 };
 
 // liaison class to connect the python objects to the gdb4hpc functionality
@@ -76,16 +76,9 @@ private:
 
 }
 
-static int cmd_python_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const char* const []) {
-    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
-    if (!console) {
-        // unreachable?
-        PrintOutError("This command is only supported on the console interpreter.\n");
-        return Command::Failure;
-    }
-
+static int cmd_python_cmd(ConsoleInterpreter& console, int argc, const char* const []) {
     if (argc < 2) {
-        PythonMode::enter(*console);
+        PythonMode::enter(console);
         return Command::Success;
     } else {
         PrintOutError("inline python mode is not set up.\n");
@@ -93,9 +86,9 @@ static int cmd_python_cmd(Command::RunContext& ctx, rec_set_t *, int argc, const
     }
 }
 
-PythonMode::PythonMode() : Command(proc_optional, executeLine) {}
+PythonMode::PythonMode() : CommandNode(proc_optional, executeLine) {}
 
-std::shared_ptr<Command> PythonMode::make_command_tree() {
+std::shared_ptr<CommandNode> PythonMode::make_command_tree() {
     auto root = std::make_shared<PythonMode>();
 
     root->addSubCmd({
@@ -113,21 +106,14 @@ void PythonMode::enter(ConsoleInterpreter& console) {
 }
 
 // Leave shell mode
-int PythonMode::exit(Command::RunContext& ctx, rec_set_t *, int, const char* const []) {
-    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
-    if (!console) {
-        // unreachable?
-        PrintOutError("This command is only supported on the console interpreter.\n");
-        return Command::Failure;
-    }
-
+int PythonMode::exit(ConsoleInterpreter& console) {
     PrintOutMsg("\nExiting python interpreter.\n");
     cli_dec_prompt();
-    console->pop_commands();
+    console.pop_commands();
     return 1;
 }
 
-int PythonMode::executeLine(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int PythonMode::executeLine(rec_set_t *rec_set, int argc, const char* const argv[]) {
     static std::unique_ptr<PyGdb> py_interpreter;
     if (!py_interpreter)
         py_interpreter.reset(new PyGdb());
@@ -137,7 +123,7 @@ int PythonMode::executeLine(Command::RunContext&, rec_set_t *rec_set, int argc, 
     return 1;
 }
 
-void ConsoleCommandsFactory::insert_python_commands(Command& root) {
+void ConsoleCommandsFactory::insert_python_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "python", .ptype = proc_optional,
         .fn = cmd_python_cmd,

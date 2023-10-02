@@ -47,7 +47,7 @@ namespace {
     };
 }
 
-static int cmd_compare_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_compare_cmd_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: compare expr1 == expr2\n");
@@ -85,7 +85,7 @@ static int cmd_compare_cmd_console(Command::RunContext&, rec_set_t *rec_set, int
     return Command::Success;
 }
 
-static int cmd_compare_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_compare_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: compare expr1 == expr2\n");
@@ -123,7 +123,7 @@ static int cmd_compare_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_s
             val.erase(0, pos+look.size());
             val[0] = std::toupper(val[0]);
         }
-        ctx.caller.set_result("compare={result=\"%s\"}", val.c_str());
+        mi.set_result("compare={result=\"%s\"}", val.c_str());
     } catch (EvalError& err) {
         auto msg = std::string{err.what()} + "\n";
         PrintOutError("%s", msg.c_str());
@@ -135,12 +135,12 @@ static int cmd_compare_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_s
     return Command::Success;
 }
 
-void ConsoleCommandsFactory::insert_comp_commands(Command& root) {
+void ConsoleCommandsFactory::insert_comp_commands(CommandNode& root) {
     root.addSubCmd("compare", nullptr, proc_optional, cmd_compare_cmd_console,
                cmd_compare_help, "Compare the contents of two variables.");
 }
 
-void MiCommandsFactory::insert_comp_commands(Command& root) {
+void MiCommandsFactory::insert_comp_commands(CommandNode& root) {
     root.addSubCmd({ .name = "-compare", .ptype = proc_optional,
-                     .fn = Command::specify<MiInterpreter>(cmd_compare_cmd_mi) });
+                     .fn = cmd_compare_cmd_mi });
 }

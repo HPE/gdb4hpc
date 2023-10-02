@@ -88,7 +88,7 @@ void PrintFrameSet(const char *setname, Bitset *group, const dbgframe_t *frame) 
     }
 }
 
-static int movecmd(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int movecmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     int count = 1;
 
     auto dir = [&](){
@@ -120,7 +120,7 @@ static int movecmd(Command::RunContext&, rec_set_t *rec_set, int argc, const cha
     return Command::Success;
 }
 
-static int cmd_backtrace_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_backtrace_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
     int count = 0;
     if (argc >= 2) count = atoi(argv[1]);
     auto rep_set = DbgShowFrame(rec_set, count);
@@ -171,7 +171,7 @@ static int cmd_backtrace_console(Command::RunContext&, rec_set_t *rec_set, int a
     return Command::Success;
 }
 
-static int cmd_backtrace_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_backtrace_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {
     int count = 0;
     if (argc >= 2) count = atoi(argv[1]);
 
@@ -200,7 +200,7 @@ static int cmd_backtrace_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set
         }
         ss<<"]";
         std::string group = reply->rep_group.get()->toSetString();
-        ctx.caller.set_result("proc_set=\"%s\",group=\"%s\",stack=%s",
+        mi.set_result("proc_set=\"%s\",group=\"%s\",stack=%s",
                          reply->rep_di.c_str(), group.substr(1,group.length()-2).c_str(),
                          ss.str().c_str());
         // XXX: while splitting cmd_backtrace_cmd into console and mi functions,
@@ -226,7 +226,7 @@ static std::optional<FrameArgs> cmd_frame_parse_args(int argc, const char* const
     return result;
 }
 
-static int cmd_frame_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_frame_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_frame_args = cmd_frame_parse_args(argc, argv);
     if (!maybe_frame_args) return Command::Failure; // error already emitted in parse
     auto& frame_args = *maybe_frame_args;
@@ -246,7 +246,7 @@ static int cmd_frame_console(Command::RunContext&, rec_set_t *rec_set, int argc,
     return Command::Success;
 }
 
-static int cmd_frame_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_frame_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_frame_args = cmd_frame_parse_args(argc, argv);
     if (!maybe_frame_args) return Command::Failure; // error already emitted in parse
     auto& frame_args = *maybe_frame_args;
@@ -259,7 +259,7 @@ static int cmd_frame_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *
         auto f = EVENT_FRAME(reply->rep_event);
         auto loc = f->getLoc();
         std::string group = reply->rep_group.get()->toSetString();
-        ctx.caller.set_result(
+        mi.set_result(
             "proc_set=\"%s\",group=\"%s\",frame={level=\"%d\",addr=\"%s\","
             "func=\"%s\",file=\"%s\",fullname=\"%s\",line=\"%d\"}",
             reply->rep_di.c_str(), group.substr(1, group.length() - 2).c_str(),
@@ -271,7 +271,7 @@ static int cmd_frame_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *
     return Command::Success;
 }
 
-void ConsoleCommandsFactory::insert_frame_commands(Command& root) {
+void ConsoleCommandsFactory::insert_frame_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "frame", .ptype = proc_required,
         .fn = cmd_frame_console, .help = cmd_frame_help,
@@ -294,13 +294,11 @@ void ConsoleCommandsFactory::insert_frame_commands(Command& root) {
         .name = "select-frame", .ptype = proc_required, .fn = movecmd });
 }
 
-void MiCommandsFactory::insert_frame_commands(Command& root) {
-    const auto lower = Command::specify<MiInterpreter>;
-
+void MiCommandsFactory::insert_frame_commands(CommandNode& root) {
     root.addSubCmd({
-        .name = "-stack-info-frame", .ptype = proc_required, .fn = lower(cmd_frame_mi) });
+        .name = "-stack-info-frame", .ptype = proc_required, .fn = cmd_frame_mi });
     root.addSubCmd({
-        .name = "-stack-list-frames", .ptype = proc_required, .fn = lower(cmd_backtrace_mi) });
+        .name = "-stack-list-frames", .ptype = proc_required, .fn = cmd_backtrace_mi });
     root.addSubCmd({
         .name = "-stack-select-frame", .ptype = proc_required, .fn = movecmd });
 }

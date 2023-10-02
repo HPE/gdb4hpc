@@ -34,13 +34,13 @@ namespace {
 // XXX: if the user creates 2 interpreters and both modify this at once, bad things will happen.
 std::shared_ptr<BlockMap> CurrentBlockMap;
 
-std::shared_ptr<Command> make_blockmap_command_tree();
+std::shared_ptr<CommandNode> make_blockmap_command_tree();
 
 /********************************
  * Info class commands
  ********************************/
 
-int cmd_info_decomposition_cmd_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_info_decomposition_cmd_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc > 1) {
         try {
             auto expr = ParseString(argv[1]);
@@ -146,7 +146,7 @@ static std::string stringify_blockmap_mi(const BlockMap& bm) {
     return sm.str();
 }
 
-int cmd_info_decomposition_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t *, int, const char* const[]) {
+int cmd_info_decomposition_cmd_mi(MiInterpreter& mi) {
     auto ss = std::ostringstream{};
     
     for (auto m : GetBlockMapList()) {
@@ -164,7 +164,7 @@ int cmd_info_decomposition_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, r
     if (ss.tellp()==0)
         ss<<"[";
     ss<<"]";
-    ctx.caller.set_result("decompositions=%s",ss.str().c_str());
+    mi.set_result("decompositions=%s",ss.str().c_str());
     return Command::Success;
 }
 
@@ -172,25 +172,25 @@ int cmd_info_decomposition_cmd_mi(Command::LoweredContext<MiInterpreter>& ctx, r
  * Usage class commands
  ********************************/
 
-int cmd_usage_dimension_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
+static int cmd_usage_dimension_cmd() {
     PrintHelpEntry((char **)cmd_blockmap_dimension_help);
 
     return 1;
 }
 
-int cmd_usage_distribute_cmd(Command::RunContext&, rec_set_t *, int, const char* const[]) {
+static int cmd_usage_distribute_cmd() {
     PrintHelpEntry((char **)cmd_blockmap_distribute_help);
 
     return 1;
 }
 
-int cmd_usage_proc_grid_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
+static int cmd_usage_proc_grid_cmd() {
     PrintHelpEntry((char **)cmd_blockmap_proc_grid_help);
 
     return 1;
 }
 
-int cmd_usage_dim_order_cmd(Command::RunContext&, rec_set_t *, int, const char* const []) {
+static int cmd_usage_dim_order_cmd() {
     PrintHelpEntry((char **)cmd_blockmap_dim_order_help);
 
     return 1;
@@ -200,7 +200,7 @@ int cmd_usage_dim_order_cmd(Command::RunContext&, rec_set_t *, int, const char* 
  * Regular commands
  ********************************/
 
-int cmd_decomposition_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_decomposition_cmd(Interpreter& intr, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: decomposition $decomposition_name\n");
@@ -241,7 +241,7 @@ int cmd_decomposition_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
     if (argc == 2) {
         // Old modal form for decomposition definition
 
-        auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
+        auto* console = dynamic_cast<ConsoleInterpreter*>(&intr);
         if (!console) {
             PrintOutError("Decomposition mode is only supported in the console interpreter.\n");
             return Command::Failure;
@@ -270,7 +270,7 @@ int cmd_decomposition_cmd(Command::RunContext& ctx, rec_set_t *rec_set, int argc
  * Alt commands
  ********************************/
 
-int cmd_blockmap_dimension_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_blockmap_dimension_cmd(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: dimension 64,64,64\n");
@@ -309,7 +309,7 @@ int cmd_blockmap_dimension_cmd(Command::RunContext&, rec_set_t *, int argc, cons
     return 1;
 }
 
-int cmd_blockmap_distribute_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_blockmap_distribute_cmd(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: distribute block,block,*\n");
@@ -366,7 +366,7 @@ int cmd_blockmap_distribute_cmd(Command::RunContext&, rec_set_t *, int argc, con
     return 1;
 }
 
-int cmd_blockmap_proc_grid_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_blockmap_proc_grid_cmd(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: proc_grid 32,64,*\n");
@@ -412,7 +412,7 @@ int cmd_blockmap_proc_grid_cmd(Command::RunContext&, rec_set_t *, int argc, cons
     return 1;
 }
 
-int cmd_blockmap_dim_order_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+int cmd_blockmap_dim_order_cmd(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: dim_order 1,2,*\n");
@@ -461,15 +461,7 @@ int cmd_blockmap_dim_order_cmd(Command::RunContext&, rec_set_t *, int argc, cons
     return 1;
 }
 
-int cmd_blockmap_end_cmd(Command::RunContext& ctx, rec_set_t *, int, const char* const []) {
-    auto* console = dynamic_cast<ConsoleInterpreter*>(ctx.caller);
-    if (!console) {
-        // unreachable?
-        // the only interpreter this command should be attached to is console.
-        PrintOutError("This command is only supported on the console interpreter.\n");
-        return Command::Failure;
-    }
-
+int cmd_blockmap_end_cmd(ConsoleInterpreter& console) {
     if (CurrentBlockMap->verify()) {
         // add to the block map table
         RegisterBlockMap(CurrentBlockMap);
@@ -484,14 +476,14 @@ int cmd_blockmap_end_cmd(Command::RunContext& ctx, rec_set_t *, int, const char*
     // reset to normal command processing
     CurrentBlockMap.reset();
     cli_dec_prompt();
-    console->pop_commands();
+    console.pop_commands();
 
     return 1;
 }
 
-std::shared_ptr<Command> make_blockmap_command_tree() {
+std::shared_ptr<CommandNode> make_blockmap_command_tree() {
     // blockmap alt commands
-    auto root = std::make_shared<Command>("", nullptr, proc_ignore, nullptr, nullptr, nullptr);
+    auto root = std::make_shared<CommandNode>("", nullptr, proc_ignore, nullptr, nullptr, nullptr);
 
     root->addSubCmd({
         .name = "dimension", .ptype = proc_ignore,
@@ -519,7 +511,7 @@ std::shared_ptr<Command> make_blockmap_command_tree() {
         .help = cmd_blockmap_end_help,
         .desc = "Finish defining the current decomposition scheme."});
 
-    auto dummy_help = [](Command::RunContext&, rec_set_t*, int, const char* const []) -> int {
+    auto dummy_help = []() -> int {
         // help implementation lives in the interpreter,
         // and this function should not actually be called
         return Command::Failure;
@@ -538,7 +530,7 @@ std::shared_ptr<Command> make_blockmap_command_tree() {
  * command init functions
  ********************************/
 
-void ConsoleCommandsFactory::insert_blockmap_commands(Command& root) {
+void ConsoleCommandsFactory::insert_blockmap_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "decomposition", .ptype = proc_ignore,
         .fn = cmd_decomposition_cmd, .help = cmd_decomposition_help,
@@ -570,8 +562,8 @@ void ConsoleCommandsFactory::insert_blockmap_commands(Command& root) {
         .desc = "Display currently defined decomposition schemes."});
 }
 
-void MiCommandsFactory::insert_blockmap_commands(Command& root) {
+void MiCommandsFactory::insert_blockmap_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "-decomposition-list", .ptype = proc_ignore,
-        .fn = Command::specify<MiInterpreter>(cmd_info_decomposition_cmd_mi)});
+        .fn = cmd_info_decomposition_cmd_mi });
 }

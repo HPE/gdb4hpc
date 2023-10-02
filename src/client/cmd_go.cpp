@@ -25,7 +25,7 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_continue_console(Command::RunContext&, rec_set_t *rec_set, int argc, const char* const argv[]) {
+static int cmd_continue_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
     bool continueAll = false;
     if (argc == 2 && strcmp(argv[1],"-a") == 0) {
         continueAll = true;
@@ -43,7 +43,7 @@ static int cmd_continue_console(Command::RunContext&, rec_set_t *rec_set, int ar
     return Command::Success;
 }
 
-static int cmd_finish_console(Command::RunContext&, rec_set_t *rec_set, int, const char* const []) {
+static int cmd_finish_console(rec_set_t *rec_set) {
     if (auto rep_set = DbgFinishFunc(rec_set); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
         return Command::Failure;
@@ -52,7 +52,7 @@ static int cmd_finish_console(Command::RunContext&, rec_set_t *rec_set, int, con
     return Command::Success;
 }
 
-void ConsoleCommandsFactory::insert_go_commands(Command& root) {
+void ConsoleCommandsFactory::insert_go_commands(CommandNode& root) {
     root.addSubCmd(
         "continue", "c", proc_required, cmd_continue_console,
         cmd_continue_help, "Continue execution of application.");
@@ -63,7 +63,7 @@ void ConsoleCommandsFactory::insert_go_commands(Command& root) {
         "Execute application until each rank's current function returns.");
 }
 
-void MiCommandsFactory::insert_go_commands(Command& root) {
+void MiCommandsFactory::insert_go_commands(CommandNode& root) {
     root.addSubCmd({ .name = "-exec-continue", .ptype = proc_required, .fn = cmd_continue_console });
     root.addSubCmd({ .name = "-exec-return", .ptype = proc_required, .fn = cmd_finish_console });
 }

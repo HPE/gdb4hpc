@@ -22,7 +22,7 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_source_cmd(Command::RunContext&, rec_set_t *, int argc, const char* const argv[]) {
+static int cmd_source_cmd(int argc, const char* const argv[]) {
     cli_stream_args_t *stream_args;
 
     if (argc < 2) {
@@ -41,7 +41,7 @@ static int cmd_source_cmd(Command::RunContext&, rec_set_t *, int argc, const cha
     return Command::Success;
 }
 
-void ConsoleCommandsFactory::insert_source_commands(Command& root) {
+void ConsoleCommandsFactory::insert_source_commands(CommandNode& root) {
     root.addSubCmd("source", nullptr, proc_ignore, cmd_source_cmd,
                cmd_source_help, "Read debugger commands from a file.");
 }

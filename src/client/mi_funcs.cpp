@@ -30,13 +30,13 @@ static int handle_result_string(MiInterpreter& mi, std::string result) {
     }
 }
 
-static int exec_args_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*, int argc, const char* const argv[]) {
+static int exec_args_cmd(MiInterpreter& mi, int argc, const char* const argv[]) {
     static std::regex procRE{R"((\$\w+)\{(\d+)\})"};
     ArgvStream args(argc - 1, &argv[1]);
 
     std::ostringstream argstr;
-    ctx.caller.m_num_ranks = "1";
-    ctx.caller.m_procset = "";
+    mi.m_num_ranks = "1";
+    mi.m_procset = "";
     std::smatch match;
 
     // recognize -n <num-ranks> -p <proc-set-name> or
@@ -45,18 +45,18 @@ static int exec_args_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*
     for (size_t argc=args.argc(), i=0; i<argc; ++i) {
         auto arg = args[i];
         if (arg == "-n" && i+1 < argc) {
-            ctx.caller.m_num_ranks = args[++i];
+            mi.m_num_ranks = args[++i];
         } else if (std::regex_match(arg, match, procRE)) {
-            ctx.caller.m_procset = match[1];
-            ctx.caller.m_num_ranks = match[2];
+            mi.m_procset = match[1];
+            mi.m_num_ranks = match[2];
         } else {
             argstr << " " << arg;
         }
     }
 
-    ctx.caller.m_launcher_args = argstr.str() + " ";
+    mi.m_launcher_args = argstr.str() + " ";
     //this command sets launcher args and does not need to be processed. Setting to exit will skip command processing
-    return handle_result_string(ctx.caller, "ok");
+    return handle_result_string(mi, "ok");
 }
 
 namespace {
@@ -194,41 +194,39 @@ std::string Vars::update(const std::string& name, bool allValues) {
     return os.str();
 }
 
-static int var_create_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*, int argc, const char* const argv[]) {
+static int var_create_cmd(MiInterpreter& mi, int argc, const char* const argv[]) {
     // XXX: preserving old behavior
     auto args = ArgsToString(&argv[1], argc - 1);
     auto is = std::istringstream{args};
     std::string name, frame, expression;
     is >> name  >> frame >> std::quoted(expression);
-    return handle_result_string(ctx.caller, miVars.create(name, frame, expression));
+    return handle_result_string(mi, miVars.create(name, frame, expression));
 }
 
-static int var_delete_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*, int, const char* const argv[]) {
+static int var_delete_cmd(MiInterpreter& mi, int, const char* const argv[]) {
     miVars.remove(argv[1]);
-    return handle_result_string(ctx.caller, "ok");
+    return handle_result_string(mi, "ok");
 }
 
-static int var_update_cmd(Command::LoweredContext<MiInterpreter>& ctx, rec_set_t*, int argc, const char* const argv[]) {
+static int var_update_cmd(MiInterpreter& mi, int argc, const char* const argv[]) {
     auto allValues = false;
     for (auto i = 1; i < argc; i++) {
         auto arg = std::string_view{argv[i]};
         if (arg == "--all-values") { allValues = true; }
         else if ( arg[0] == '-') { /* unhandled */ }
-        else return handle_result_string(ctx.caller, miVars.update(std::string{arg}, allValues));
+        else return handle_result_string(mi, miVars.update(std::string{arg}, allValues));
     }
 
-    return handle_result_string(ctx.caller, "ok");
+    return handle_result_string(mi, "ok");
 }
 
-void MiCommandsFactory::insert_mi_commands(Command& root) {
-    const auto lower = Command::specify<MiInterpreter>;
-
+void MiCommandsFactory::insert_mi_commands(CommandNode& root) {
     root.addSubCmd({
-        .name = "-exec-arguments", .ptype = proc_ignore, .fn = lower(exec_args_cmd) });
+        .name = "-exec-arguments", .ptype = proc_ignore, .fn = exec_args_cmd });
     root.addSubCmd({
-        .name = "-var-create", .ptype = proc_ignore, .fn = lower(var_create_cmd)});
+        .name = "-var-create", .ptype = proc_ignore, .fn = var_create_cmd });
     root.addSubCmd({
-        .name = "-var-delete", .ptype = proc_ignore, .fn = lower(var_delete_cmd)});
+        .name = "-var-delete", .ptype = proc_ignore, .fn = var_delete_cmd });
     root.addSubCmd({
-        .name = "-var-update", .ptype = proc_ignore, .fn = lower(var_update_cmd)});
+        .name = "-var-update", .ptype = proc_ignore, .fn = var_update_cmd });
 }

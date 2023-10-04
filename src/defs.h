@@ -36,9 +36,10 @@
 #define DEFAULT_MRNET_PORT_BASE "20000"
 #define GDB4HPC_BE_SUPPRESSIONS "gdb4hpc_be_suppressions.txt"
 
-// If defined, the backend will skip the workaround implemented for PE-48149
-// (missing line number info in cce 16 fortran binaries)
-#define GDB4HPC_SKIP_PE48149_WORKAROUND "GDB4HPC_SKIP_PE48149_WORKAROUND"
+// CCE version 16 has a known issue where GDB may not immediately recognize Fortran
+// debug info. If set to 1, the MI backend will run `info variables` to force a
+// refresh, workaround implemented for PE-48149
+#define GDB4HPC_REFRESH_DWARF_INFO "GDB4HPC_REFRESH_DWARF_INFO"
 
 #ifdef ZPL
 #define LANG_ZPL 7

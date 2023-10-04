@@ -638,6 +638,13 @@ Sets the MRNet startup timeout in seconds.
 
 Default: not set
 
+**GDB4HPC_REFRESH_DWARF_INFO**  
+CCE version 16 has a known issue where GDB may not immediately recognize Fortran debug info.
+If you are running with a CCE 16 Fortran program and missing line numbers, set
+**GDB4HPC_REFRESH_DWARF_INFO=1** to force a refresh of the line number information.
+
+Default: not set.
+
 **CRAY_CTI_WLM**  
 Sets the workload manager that gbd4hpc will use to launch or attach
 to an application. Accepts one of three values: \"alps\", \"slurm\",

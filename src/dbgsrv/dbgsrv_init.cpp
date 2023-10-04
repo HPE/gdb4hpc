@@ -355,7 +355,8 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
     // Workaround for PE-48149 (cce 16 no fortran line numbers on attach) based
     // on findings from PE-47129 (working around the same issue in ATP)
     if (frame && frame->ev_event == DBGEV_FRAME && frame->ev_u.ev_u_frame->getLoc().loc_line == 0
-        && ::getenv(GDB4HPC_SKIP_PE48149_WORKAROUND) == nullptr
+        && (::getenv(GDB4HPC_REFRESH_DWARF_INFO) != nullptr)
+        && (::getenv(GDB4HPC_REFRESH_DWARF_INFO)[0] == '1')
     ) {
         DVPRINT("Missing line number (PE-48149) in initial frame, trying workaround\n");
 

@@ -262,6 +262,10 @@ void ConsoleInterpreter::Printer::print_event_location(const DbgInvoke::EventSet
 }
 
 void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset& /*reply_set*/) {
+    // When handling async output, always use m_printer and never use PrintOut*. This
+    // ensures that the async output bypasses the CurrentStream and always gets to its
+    // intended destination. See #AsyncPrinting in client_io.md.
+
     switch (ev_set.event()->ev_event) {
         case DBGEV_EXIT: {
             if (ev_set.event()->ev_exit == 0) {

@@ -36,6 +36,8 @@
 ** Internal types
 */
 class inpcb_t {
+    // inpcb_ts are used by the main loop to connect file descriptors to the current
+    // stream. see #StreamInput in client_io.md.
 public:
     inpcb_t(int fd, cli_stream_t* stream, void (*f)());
     int getFd() const;

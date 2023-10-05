@@ -192,6 +192,8 @@ void MiInterpreter::set_result(const char* fmt, ...) {
 }
 
 void MiInterpreter::attach_observers() {
+    // we intentionally don't attach observers to m_console_intr so that it stays silent
+    // during async events. (see #IgnoreAsync)
     m_obsv_conns.emplace_back(
         observers::setable_param_changed.attach(
             [this](std::string_view name, std::string_view value) {
@@ -261,6 +263,10 @@ void MiInterpreter::print_stopped_msg(StoppedType type,const std::string& file, 
 }
 
 void MiInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset& /*reply_set*/) {
+    // When handling async output, always use m_printer and never use PrintOut*. This
+    // ensures that the async output bypasses the CurrentStream and always gets to its
+    // intended destination. See #AsyncPrinting in client_io.md.
+
     switch (ev_set.event()->ev_event) {
         case DBGEV_EXIT: {
             // TODO

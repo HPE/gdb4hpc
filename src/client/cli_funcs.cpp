@@ -112,7 +112,8 @@ static std::shared_ptr<Interpreter> getOrCreateInterpreter(std::string_view name
         return iter->second;
     }
 
-    // not found, so try to create it
+    // not found, so try to create it. we create the new interpreter with async disabled
+    // so that it stays silent during async messages (see #IgnoreAsync in client_io.md)
     if (auto new_intr = Interpreter::make(name, *CurrentStream, { .async = false })) {
         auto [iter, success] = CurrentStream->cs_interpreters.insert({name_str, new_intr});
         // success should always be true after the .contains check above

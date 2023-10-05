@@ -28,7 +28,9 @@ public:
     struct MakeOpts {
         // If async is true, and the interpreter implementation supports it, async
         // debugger events will be sent to the interpreter for it to handle and/or print.
-        // Which events are sent are interpreter specific.
+        // Which events are sent are interpreter specific. This option exists to support
+        // interpreters that have other silent interpreters as implementation details. See
+        // #IgnoreAsync in client_io.md.
         bool async = false;
     };
     static std::shared_ptr<Interpreter>

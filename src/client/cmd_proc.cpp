@@ -1176,6 +1176,9 @@ void EndAll() {
 // This is called each time an asynchronous reply is recieved. The entire event
 // set which contains the aggregated event is passed in as ev_set and the
 // individual reply that was just received is passed in as reply_set.
+//
+// This will generate output on any observer that is listening.
+// See #AsyncStreams in client_io.md for more info.
 int EventCB(DbgInvoke::EventSet &ev_set, const Bitset &reply_set) {
     // need to do "special" things if we are currently reading from stdin
     // for readline support.

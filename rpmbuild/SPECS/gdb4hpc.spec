@@ -502,13 +502,18 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_decomp.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_decomp.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_reductions.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_reductions.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/kokkos.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/kokkos.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_console_exec.in  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_console_exec.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_errors.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_errors.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_exec.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_exec.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_fallback.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_fallback.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_prefixes.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prefixes.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_prompt.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prompt.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_results.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_results.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_console_exec.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_console_exec.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_errors.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_errors.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_exec.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_exec.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_fallback.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_fallback.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_prefixes.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prefixes.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_prompt.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prompt.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_results.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_results.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_ccdb_breakpoint.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_breakpoint.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_ccdb_compare.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_compare.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_ccdb_watch_mouse.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_watch_mouse.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_ccdb_step_next_finish.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_step_next_finish.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_ccdb_assert.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_assert.in
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %{__cp} -a %{tests_source_dir}/function/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
@@ -906,6 +911,11 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prefixes.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_prompt.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_results.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_breakpoint.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_compare.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_watch_mouse.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_step_next_finish.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_assert.in
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/team_vector_loop.cpp

@@ -955,6 +955,26 @@ class FunctionTests(Gdb4hpcTest):
         # it tests interpreter-exec mi from a console interpreter.
         runTest(self)
 
+    def test_mi_ccdb_breakpoint(self):
+        self.base_name = "mi_ccdb_breakpoint"
+        runTest(self, interpreter="mi")
+
+    def test_mi_ccdb_step_next_finish(self):
+        self.base_name = "mi_ccdb_step_next_finish"
+        runTest(self, interpreter="mi")
+
+    def test_mi_ccdb_watch_mouse(self):
+        self.base_name = "mi_ccdb_watch_mouse"
+        runTest(self, interpreter="mi")
+
+    def test_mi_ccdb_compare(self):
+        self.base_name = "mi_ccdb_compare"
+        runTest(self, interpreter="mi")
+
+    def test_mi_ccdb_assert(self):
+        self.base_name = "mi_ccdb_assert"
+        runTest(self, interpreter="mi")
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

@@ -1,0 +1,134 @@
+0: maint set sync on
+&"maint set sync on\n"
+^done
+(gdb)
+0: -list-features
+^done,features=[]
+(gdb)
+0: -list-target-features
+^done,features=[async]
+(gdb)
+0: -enable-pretty-printing
+^done
+(gdb)
+0: -exec-arguments $App0{1}
+^done
+(gdb)
+0: -file-exec-and-symbols ./bin/CRAY/c/c_inc.x
+~"Starting application, please wait...\n"
+~"Launched application...\n"
+~"1/1 ranks connected.\n"
+~"Created network...\n"
+~"Connected to application...\n"
+~"Launch complete.\n"
+*stopped,reason="breakpoint-hit",bkptno="0",proc_set="App0",group="0",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"}
+^done
+(gdb)
+0: -procset-list
+^done,pe_sets=[{name="all",proc_set="App0{0}"},{name="App0",proc_set="App0{0}"}]
+(gdb)
+0: -procset-focus $App0
+^done,focus={name="App0",proc_set="App0{0}"}
+(gdb)
+0: -break-insert main
+^done,proc_set="App0",group="0",bkpt={number="1",type="breakpoint",disp="keep",enabled="y",addr="0x0000000000201a66",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"}
+(gdb)
+0: -break-list
+^done,proc_set="App0", group="0",BreakpointTable={body=[bkpt={number="1",type="breakpoint",disp="keep",enabled="y",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"}]}
+(gdb)
+0: -procset-focus $all
+^done,focus={name="all",proc_set="App0{0}"}
+(gdb)
+0: -file-list-exec-source-files
+~"\n"
+~"Source files for $App0:\n"
+^done,proc_set="App0",files=[{file="/src/c/c_inc.c",fullname="/src/c/c_inc.c"}]
+(gdb)
+0: 1-thread-info
+1^done,proc_set="App0",group="{0}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="9"},state="break"}],current-thread-id="1"
+(gdb)
+0: 1-stack-list-variables --simple-values
+1^done,proc_set="App0",group="0",variables=[{name="argc",type="int",proc_set="App0",group="0"},{name="argv",type="char **",proc_set="App0",group="0"},{name="inc",type="unsigned int",proc_set="App0",group="0"}]
+(gdb)
+0: 1-var-update --all-values *
+1^done,changelist=[]
+(gdb)
+0: -break-list
+^done,proc_set="App0", group="0",BreakpointTable={body=[bkpt={number="1",type="breakpoint",disp="keep",enabled="y",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"}]}
+(gdb)
+0: 1-stack-list-frames
+1^done,proc_set="App0",group="0",stack=[frame={level="0",addr="0xf00f",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"}]
+(gdb)
+0: -procset-list
+^done,pe_sets=[{name="all",proc_set="App0{0}"},{name="App0",proc_set="App0{0}"}]
+(gdb)
+0: 1-thread-info
+1^done,proc_set="App0",group="{0}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="9"},state="break"}],current-thread-id="1"
+(gdb)
+0: 1-stack-list-variables --simple-values
+1^done,proc_set="App0",group="0",variables=[{name="argc",type="int",proc_set="App0",group="0"},{name="argv",type="char **",proc_set="App0",group="0"},{name="inc",type="unsigned int",proc_set="App0",group="0"}]
+(gdb)
+0: 1-var-update --all-values *
+1^done,changelist=[]
+(gdb)
+0: -break-list
+^done,proc_set="App0", group="0",BreakpointTable={body=[bkpt={number="1",type="breakpoint",disp="keep",enabled="y",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"}]}
+(gdb)
+0: 1-stack-list-frames
+1^done,proc_set="App0",group="0",stack=[frame={level="0",addr="0xf00f",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"}]
+(gdb)
+0: -procset-list
+^done,pe_sets=[{name="all",proc_set="App0{0}"},{name="App0",proc_set="App0{0}"}]
+(gdb)
+0: -break-list
+^done,proc_set="App0", group="0",BreakpointTable={body=[bkpt={number="1",type="breakpoint",disp="keep",enabled="y",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"}]}
+(gdb)
+0: -procset-list
+^done,pe_sets=[{name="all",proc_set="App0{0}"},{name="App0",proc_set="App0{0}"}]
+(gdb)
+0: -procset-list
+^done,pe_sets=[{name="all",proc_set="App0{0}"},{name="App0",proc_set="App0{0}"}]
+(gdb)
+0: -procset-focus $App0
+^done,focus={name="App0",proc_set="App0{0}"}
+(gdb)
+0: -break-insert "src/c/c_inc.c:19"
+^done,proc_set="App0",group="0",bkpt={number="2",type="breakpoint",disp="keep",enabled="y",addr="0x0000000000201ac0",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="19"}
+(gdb)
+0: -procset-focus $all
+^done,focus={name="all",proc_set="App0{0}"}
+(gdb)
+0: -procset-list
+^done,pe_sets=[{name="all",proc_set="App0{0}"},{name="App0",proc_set="App0{0}"}]
+(gdb)
+0: -break-list
+^done,proc_set="App0", group="0",BreakpointTable={body=[bkpt={number="1",type="breakpoint",disp="keep",enabled="y",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"},bkpt={number="2",type="breakpoint",disp="keep",enabled="y",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="19"}]}
+(gdb)
+0: -procset-list
+^done,pe_sets=[{name="all",proc_set="App0{0}"},{name="App0",proc_set="App0{0}"}]
+(gdb)
+0: -exec-continue
+*running,thread-id="all"
+^running
+(gdb)
+*stopped,reason="breakpoint-hit",bkptno="2",proc_set="App0",group="0",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="19"}
+0: 1-thread-info
+1^done,proc_set="App0",group="{0}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="19"},state="break"}],current-thread-id="1"
+(gdb)
+0: 1-stack-list-variables --simple-values
+1^done,proc_set="App0",group="0",variables=[{name="argc",type="int",proc_set="App0",group="0"},{name="argv",type="char **",proc_set="App0",group="0"},{name="inc",type="unsigned int",proc_set="App0",group="0"}]
+(gdb)
+0: 1-var-update --all-values *
+1^done,changelist=[]
+(gdb)
+0: -break-list
+^done,proc_set="App0", group="0",BreakpointTable={body=[bkpt={number="1",type="breakpoint",disp="keep",enabled="y",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="9"},bkpt={number="2",type="breakpoint",disp="keep",enabled="y",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="19"}]}
+(gdb)
+0: 1-stack-list-frames
+1^done,proc_set="App0",group="0",stack=[frame={level="0",addr="0xf00f",func="main",file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="19"}]
+(gdb)
+0: -procset-list
+^done,pe_sets=[{name="all",proc_set="App0{0}"},{name="App0",proc_set="App0{0}"}]
+(gdb)
+0: -gdb-exit
+~"Shutting down debugger and killing application for 'App0'.\n"

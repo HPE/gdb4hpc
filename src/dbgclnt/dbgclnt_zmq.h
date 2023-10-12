@@ -24,11 +24,10 @@ public:
     int syncExit(DbgInvoke *) override;
     int forceExit(DbgInvoke *) override;
 
-    std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
-        const char *request) override;
+    bool sendCommand(DbgInvoke *di, const Bitset *target, const char *request) override;
 
     std::variant<ProtoMessageSet, ProtoNothing> receiveReply(DbgInvoke *di,
-        const Bitset *target, std::chrono::seconds timeout, Bitset &received) override;
+        const Bitset *target, std::chrono::seconds timeout) override;
 
     int init() override;
     

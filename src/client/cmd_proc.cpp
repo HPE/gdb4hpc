@@ -439,7 +439,6 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         auto tmpGroup = group_recv{
             .rec_di = *di,
             .rec_group = oldBp.ranksSet()->clone(),
-            ._cmd_sent = nullptr
         };
 
         recSet->intersectReceiver(&tmpGroup);

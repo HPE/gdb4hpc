@@ -72,11 +72,10 @@ public:
     virtual int syncExit(DbgInvoke *di) = 0;
     virtual int forceExit(DbgInvoke *di) = 0;
 
-    virtual std::unique_ptr<Bitset> sendCommand(DbgInvoke *di, const Bitset *target, 
-        const char *request) = 0;
+    virtual bool sendCommand(DbgInvoke *di, const Bitset *target, const char *request) = 0;
 
     virtual std::variant<ProtoMessageSet, ProtoNothing> receiveReply(DbgInvoke *di,
-        const Bitset *target, std::chrono::seconds timeout, Bitset &received) = 0;
+        const Bitset *target, std::chrono::seconds timeout) = 0;
 
     // optional functions:
     virtual int init() { return 1; }; // success by default

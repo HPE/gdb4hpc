@@ -115,19 +115,17 @@ int MRNClientProtocol::init() {
     return 1;
 }
 
-std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(DbgInvoke *di, const Bitset *target,
+bool MRNClientProtocol::sendCommand(DbgInvoke *di, const Bitset *target,
                                        const char *request) {
     auto &network = getNetwork<MRNetNetwork>(di);
 
     // send command only if not already in a shutdown state
     if (di->isShutdown()) {
-        return nullptr;
+        return false;
     }
 
     MRN::Stream *newEventStream = nullptr;
     network.send_command(target, request, &newEventStream);
-
-    std::unique_ptr<Bitset> received = std::make_unique<DenseBitset>(target->sizeInBits());
 
     DPRINT("INFO: Sending cmd to set[%s]\n", target->toSetString().c_str());
 
@@ -136,11 +134,11 @@ std::unique_ptr<Bitset> MRNClientProtocol::sendCommand(DbgInvoke *di, const Bits
         di->addEventFd(eventFd);
     }
 
-    return received;
+    return true;
 }
 
 std::variant<ProtoMessageSet, ProtoNothing>
-MRNClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono::seconds, Bitset &received) {
+MRNClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono::seconds) {
     auto &network = getNetwork<MRNetNetwork>(di);
     int full = 0;
 
@@ -150,6 +148,8 @@ MRNClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono
     }
 
     std::optional<ProtoMessageSet> result{};
+    auto received = target->clone();
+    received->clear();
 
     while (!full) {
         auto msg_set = network.recv_reply(target);
@@ -166,22 +166,22 @@ MRNClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono
             // process the pmsg_set to get the received set
             for (const auto &pmsg : *result) {
                 // add this group to the received group
-                received |= *pmsg.getBitset();
+                *received |= *pmsg.getBitset();
             }
         } else {
             // add each message to the result
             for (auto &pmsg : *msg_set) {
                 // add this group to the received group
-                received |= *pmsg.getBitset();
+                *received |= *pmsg.getBitset();
                 result->emplace_back(std::move(pmsg));
             }
         }
 
         DPRINT("INFO: Recieved replies from set[%s]\n",
-               received.toString().c_str());
+               received->toString().c_str());
 
         // Check to see if we have received all responses
-        full = *target == received;
+        full = *target == *received;
     }
 
     if (result) return std::move(*result);

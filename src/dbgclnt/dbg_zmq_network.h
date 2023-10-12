@@ -66,8 +66,8 @@ public:
     using OutputPtr = std::unique_ptr<g_progoutp_t, decltype(&DbgFreeGenericProgOutp)>;
     ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontEnd, OutputPtr &&output, std::unique_ptr<Bitset> &&allRanks);
 
-    std::unique_ptr<Bitset> sendCommand(const Bitset *target, const char *request);
-    std::variant<ProtoMessageSet, ProtoNothing> receiveReply(const Bitset *target, std::chrono::seconds timeout, Bitset &received);
+    bool sendCommand(const Bitset *target, const char *request);
+    std::variant<ProtoMessageSet, ProtoNothing> receiveReply(const Bitset *target, std::chrono::seconds timeout);
 
     int checkEvents();
     ProtoMessageSet releaseEvents();

@@ -161,24 +161,23 @@ int ZMQNetClientProtocol::init() {
     return 1;
 }
 
-std::unique_ptr<Bitset> ZMQNetClientProtocol::sendCommand(DbgInvoke *di, const Bitset *target,
-                             const char *request) {
+bool ZMQNetClientProtocol::sendCommand(DbgInvoke *di, const Bitset *target, const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
-    if (di->isShutdown()) return nullptr;
+    if (di->isShutdown()) return false;
 
     return getNetwork<ZMQNetNetwork>(di).sendCommand(target, request);
 }
 
 std::variant<ProtoMessageSet, ProtoNothing>
-ZMQNetClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono::seconds timeout, Bitset &received) {
+ZMQNetClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chrono::seconds timeout) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (di->isShutdown()) {
         return {};
     }
 
-    return getNetwork<ZMQNetNetwork>(di).receiveReply(target, timeout, received);
+    return getNetwork<ZMQNetNetwork>(di).receiveReply(target, timeout);
 }
 
 int ZMQNetClientProtocol::checkEvents(DbgInvoke *di) {
@@ -339,20 +338,19 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     sendCommand(di, di->fullBitset(), invoke.c_str());
 
     // wait for response
-    auto received{DenseBitset(num_be)};
-    receiveReply(di, di->fullBitset(), /* no timeout */ std::chrono::seconds(-1), received);
+    auto response = receiveReply(di, di->fullBitset(), /* no timeout */ std::chrono::seconds(-1));
 
-    if (!received.isFull()) {
+    if (auto* proto_msg = std::get_if<ProtoMessageSet>(&response);
+        proto_msg && (*proto_msg->fullBitset() == *di->fullBitset()))
+    {
+        PrintOutMsg("Connected to application...\n");
+        di->setStarted();
+        return 0;
+    } else {
         PrintOutError("Error: not all ranks received startup message. Attempting to clean up...\n");
         forceExit(di);
         return 1;
     }
-
-    PrintOutMsg("Connected to application...\n");
-
-    di->setStarted();
-
-    return 0;
 }
 
 int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {

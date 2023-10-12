@@ -54,7 +54,12 @@ private:
     unique_c_char_pointer m_message;
 };
 
-typedef std::vector<ProtoMessage> ProtoMessageSet;
+class ProtoMessageSet : public std::vector<ProtoMessage> {
+public:
+    // `fullBitset` ORs each contained ProtoMessage's bitset together and returns it. If
+    // the ProtoMessageSet is empty, it returns nullptr.
+    std::unique_ptr<Bitset> fullBitset() const;
+};
 
 // Returned from some proto operations to signify that no data was returned
 struct ProtoNothing {

@@ -13,3 +13,15 @@
 
 // header only
 #include "proto_message.h"
+
+std::unique_ptr<Bitset> ProtoMessageSet::fullBitset() const {
+    std::unique_ptr<Bitset> result = nullptr;
+    for (const auto& message : *this) {
+        if (!result) {
+            result = message.getBitset()->clone();
+        } else {
+            *result |= *message.getBitset();
+        }
+    }
+    return result;
+}

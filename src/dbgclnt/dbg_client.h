@@ -49,9 +49,9 @@ enum class DbgQuitType { Default, Kill, Detach };
 ** inside the rec_set_t.
 */
 struct group_recv {
+    // FIXME: rec_di should be a DbgInvoke::Handle
     DbgInvoke& rec_di;
     std::unique_ptr<Bitset> rec_group;
-    std::unique_ptr<Bitset> _cmd_sent = std::unique_ptr<Bitset>{};  // Internal to dbg_clnt layer - DO NOT USE!!!
 };
 typedef struct group_recv group_recv_t;
 

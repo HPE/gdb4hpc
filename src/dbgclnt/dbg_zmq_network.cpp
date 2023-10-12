@@ -69,12 +69,12 @@ ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend, 
     });
 }
 
-std::unique_ptr<Bitset> ZMQNetNetwork::sendCommand(const Bitset *target, const char *request) {
+bool ZMQNetNetwork::sendCommand(const Bitset *target, const char *request) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (!m_network) {
         PrintOutError("Tried to send a message without a network.\n");
-        return nullptr;
+        return false;
     }
 
     LOG("sending message %s\n", request);
@@ -82,11 +82,11 @@ std::unique_ptr<Bitset> ZMQNetNetwork::sendCommand(const Bitset *target, const c
     auto &commandStream = m_stream_table.getCommandStream(target);
     commandStream.sendCommand(request, strlen(request) + 1); // include null terminator
 
-    return target->clone();
+    return true;
 }
 
 std::variant<ProtoMessageSet, ProtoNothing>
-ZMQNetNetwork::receiveReply(const Bitset *target, std::chrono::seconds timeout, Bitset &received) {
+ZMQNetNetwork::receiveReply(const Bitset *target, std::chrono::seconds timeout) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     // wait for result
@@ -94,13 +94,6 @@ ZMQNetNetwork::receiveReply(const Bitset *target, std::chrono::seconds timeout, 
 
     auto &stream = m_stream_table.getCommandStream(target);
     auto result = stream.extractResult(timeout);
-
-    // if we received a result, update received bitset
-    if (auto* message_set = std::get_if<ProtoMessageSet>(&result)) {
-        for (const auto& res : *message_set) {
-            received |= *res.getBitset();
-        }
-    }
 
     return result;
 }
@@ -342,7 +335,7 @@ void ZMQNetNetwork::StreamTable::injectAsyncEvent(ProtoMessage&& expiring) {
 }
 
 ProtoMessageSet ZMQNetNetwork::StreamTable::releaseAsyncEvents() {
-    return m_event_queue.getAll();
+    return ProtoMessageSet{m_event_queue.getAll()};
 }
 
 ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator, EventQueue &parentQueue)

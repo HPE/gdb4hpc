@@ -68,7 +68,6 @@ struct OutputCallbacks {
 */
 static rep_set_t DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
 static void FreeGroupReceiver(group_recv_t *);
-static void ClearCmdSent(group_recv_t *);
 static group_recv_t *CopyGroupReceiver(group_recv_t *);
 static int GetNumberOfReceivers(rec_set_t *);
 static void DestroyEventSet(DbgInvoke *, dbgev);
@@ -149,7 +148,6 @@ group_recv_t *NewGroupReceiver(DbgInvoke& di, const Bitset *proc_mask) {
     auto rec = new group_recv_t {
         .rec_di = di,
         .rec_group = proc_mask->clone(),
-        ._cmd_sent = std::unique_ptr<Bitset>()
     };
 
     return rec;
@@ -159,7 +157,6 @@ group_recv_t* NewGroupReceiver(DbgInvoke& di, std::unique_ptr<Bitset>&& mask) {
     auto rec = new group_recv_t {
         .rec_di = di,
         .rec_group = std::move(mask),
-        ._cmd_sent = std::unique_ptr<Bitset>()
     };
 
     return rec;
@@ -169,17 +166,12 @@ static void FreeGroupReceiver(group_recv_t *rec) {
     delete rec;
 }
 
-static void ClearCmdSent(group_recv_t *rec) {
-    rec->_cmd_sent.reset();
-}
-
 static group_recv_t *CopyGroupReceiver(group_recv_t *rec) {
     if (rec == nullptr) return nullptr;
 
     auto newrec = new group_recv_t {
         .rec_di = rec->rec_di,
         .rec_group = rec->rec_group->clone(),
-        ._cmd_sent = std::unique_ptr<Bitset>()
     };
 
     return newrec;
@@ -209,9 +201,6 @@ std::unique_ptr<rec_set_t> rec_set_t::clone() const {
             .rec_group = rec->rec_group
                 ? rec->rec_group->clone()
                 : nullptr,
-            ._cmd_sent = rec->_cmd_sent
-                ? rec->_cmd_sent->clone()
-                : nullptr
         });
     }
     // copy thread string
@@ -1579,7 +1568,7 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
 // \return the reply as a rep_set_t, note errors are returned with an error response.
 static rep_set_t DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_type) {
     auto proto_res =
-        set->rec_di.proto().receiveReply(&set->rec_di, set->rec_group.get(), sync_command_timeout, *set->_cmd_sent);
+        set->rec_di.proto().receiveReply(&set->rec_di, set->rec_group.get(), sync_command_timeout);
 
     // handle nothing
     if (const auto* nothing = std::get_if<ProtoNothing>(&proto_res)) {
@@ -1598,7 +1587,6 @@ static rep_set_t DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_t
                 auto reply = rep_set_t();
                 auto* group_rep = NewGroupReply(nullptr, nullptr, error);
                 reply.addErr(group_rep);
-                ClearCmdSent(set);
                 return reply;
             }
             default: {
@@ -1675,7 +1663,6 @@ static rep_set_t DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_t
         // the reply-set will need the receiver to request the remainder of the data
         reply.setContinuation(set);
     }
-    ClearCmdSent(set);
 
     return reply;
 }
@@ -1903,23 +1890,27 @@ static group_reply_t* JoinReplies(const Bitset* group,
 static rep_set_t DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
                                          dbgev req_type, dbgev alt_req_type) {
     auto result = rep_set_t();
-    if (!set) return result;
+    if (!set || set->getNumReceivers() == 0) return result;
 
     HoldSignals();
+
+    // instead of a sequence of send, recv, send, recv... we want to send, send, send...
+    // recv, recv, recv. But if a send fails, its recv would block forever, so we keep
+    // track of which sends were successful in between sends and recvs.
+    auto send_results = std::vector<bool>{};
 
     // Send the command to each di in the receiver set
     for (auto&& recv_ptr : set) {
         // send the command to this di
-        recv_ptr->_cmd_sent =
-            recv_ptr->rec_di.proto().sendCommand(&recv_ptr->rec_di, recv_ptr->rec_group.get(), request.c_str());
+        send_results.push_back(
+            recv_ptr->rec_di.proto().sendCommand(&recv_ptr->rec_di, recv_ptr->rec_group.get(), request.c_str()));
     }
 
     // Now recv the reply for each di in the receiver set
-    for (auto&& recv_ptr : set) {
-        // recv the reply for this di, only if there is a _cmd_sent set.
-        // Otherwise there was an error
-        if (recv_ptr->_cmd_sent != nullptr) {
-            auto reply_set = DbgRecvReply(recv_ptr, req_type, alt_req_type);
+    for (size_t i = 0; i < set->getNumReceivers(); i++) {
+        // recv the reply for this di, only if sencCommand was successful
+        if (send_results[i] == true) {
+            auto reply_set = DbgRecvReply(set->getReceivers()[i], req_type, alt_req_type);
 
             // check for an "operation cancelled" error. we are receiving results
             // serially from each di, but to the user it looks like one action. the
@@ -1932,6 +1923,8 @@ static rep_set_t DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& reque
             // will include the error event.
             result.merge(std::move(reply_set));
 
+            // FIXME: if we break out of the loop, some pending responses might
+            // be abandoned, which might clog up the socket
             if (has_cancel) break;
         }
     }

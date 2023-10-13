@@ -219,6 +219,51 @@ void rec_set_t::setThreads(const char* threads)
     free(t);
 }
 
+std::strong_ordering operator<=>(const group_recv& left, const group_recv& right) {
+    const auto LESS = std::strong_ordering::less;
+    const auto GREATER = std::strong_ordering::greater;
+    const auto EQUAL = std::strong_ordering::equivalent;
+
+    // first, check dis
+    if (left.rec_di.handle() != right.rec_di.handle()) {
+        return left.rec_di.handle() < right.rec_di.handle() ?
+            LESS : GREATER;
+    }
+
+    // fall back to checking bitsets
+    const auto* left_bitset = left.rec_group.get();
+    const auto* right_bitset = right.rec_group.get();
+    if (left_bitset && right_bitset) {
+        if (*left_bitset == *right_bitset) return EQUAL;
+        return *left_bitset < *right_bitset ? LESS : GREATER;
+    } else if (right_bitset) {
+        // left is nullptr, and nullptr is always less than non-nullptr
+        return LESS;
+    } else if (left_bitset) {
+        return GREATER;
+    } else {
+        // two nullptrs
+        return EQUAL;
+    }
+}
+
+bool operator==(const group_recv& left, const group_recv& right) {
+    return (left <=> right) == std::strong_ordering::equivalent;
+}
+
+bool rec_set_t::operator==(const rec_set_t& other) const {
+    if (m_recs.size() != other.m_recs.size()) return false;
+
+    // m_recs is a short list of pointers, so a copy is ok
+    auto left = m_recs;
+    auto right = other.m_recs;
+
+    // use a dereference projection, otherwise these would compare pointer addresses
+    const auto deref = [](const auto* ptr) -> const auto& { return *ptr; };
+    std::ranges::sort(left, {}, deref);
+    std::ranges::sort(right, {}, deref);
+    return std::ranges::equal(left, right, {}, deref, deref);
+}
 
 void FreeRecSet(rec_set_t *set) {
     delete set;

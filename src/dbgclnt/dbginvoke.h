@@ -324,7 +324,7 @@ private:
     CheckpointManager m_checkpoints; // logical checkpoints for this di
     std::list<EventSet> m_eventset_list; // partial async event responses
 
-    // register() will set up the di's internal m_handle when it is registered
+    // activate() will set up the di's internal m_handle
     Handle m_handle = nullptr;
 };
 

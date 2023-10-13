@@ -379,6 +379,139 @@ TEST_CASE("DbgInvoke: LaunchArgs --gdb=/path/to/gdb: edge case") {
     }
 }
 
+TEST_CASE("rep_set_t and group_recv operators") {
+    // rep_set_t::operator== uses the operator== of the contained group_recvs.
+    // That operator in turn relies on DbgInvoke::== and Bitset::==.
+    //
+    // DbgInvoke::== relies on the DbgInvoke having a handle. DbgInvokes get
+    // handles by registering themselves in the global DbgInvoke list.
+
+    auto Launched = DbgInvoke::ProcessType::Launched;
+    auto di0 = std::make_unique<DbgInvoke>(Launched, 3, *findClientProtoByName("zmqnet"));
+    auto di1 = std::make_unique<DbgInvoke>(Launched, 4, *findClientProtoByName("zmqnet"));
+    auto dih0 = DbgInvoke::activate("test_di_0", std::move(di0));
+    auto dih1 = DbgInvoke::activate("test_di_1", std::move(di1));
+
+    const auto make_bitset = [](size_t size, size_t first, size_t second) {
+        auto bitset = std::make_unique<DenseBitset>(size);
+        bitset->set(first);
+        bitset->set(second);
+        return bitset;
+    };
+
+    auto bs_011 = make_bitset(3, 0, 1);
+    auto bs_110 = make_bitset(3, 1, 2);
+    auto bs_101 = make_bitset(3, 0, 2);
+    auto bs_0110 = make_bitset(4, 1, 2);
+
+    // pointers are used for these tests because the rec_set_t code is pointer based.
+
+    auto di0_011 = std::make_unique<group_recv>(
+        group_recv{ .rec_di = *dih0.lock(), .rec_group = bs_011->clone() });
+    auto di0_110 = std::make_unique<group_recv>(
+        group_recv{ .rec_di = *dih0.lock(), .rec_group = bs_110->clone() });
+    auto di1_0110 = std::make_unique<group_recv>(
+        group_recv{ .rec_di = *dih1.lock(), .rec_group = bs_0110->clone() });
+
+    SUBCASE("group_recv ==") {
+        CHECK(*di0_011 == *di0_011);
+        auto di0_011_clone = std::make_unique<group_recv>(
+            group_recv{ .rec_di = *dih0.lock(), .rec_group = bs_011->clone() });
+        CHECK(*di0_011 == *di0_011_clone); // check that == is not comparing addresses
+        CHECK(*di0_011 != *di0_110);
+        CHECK(*di0_011 != *di1_0110);
+    }
+
+    SUBCASE("group_recv ordering") {
+        // same elements, different initial order
+        auto left_set = std::vector<group_recv*>{ di0_011.get(), di0_110.get(), di1_0110.get() };
+        auto right_set = std::vector<group_recv*>{ di0_110.get(), di1_0110.get(), di0_011.get() };
+
+        // duplicate elements
+        auto dupe_set = std::vector<group_recv*>{ di0_011.get() /*1*/, di0_011.get() /*2*/, di1_0110.get() };
+        auto dupe_set_2 = std::vector<group_recv*>{ di0_011.get() /*1*/, di1_0110.get(), di0_011.get() /*2*/};
+
+        REQUIRE(left_set != right_set);
+        REQUIRE(left_set != dupe_set);
+        REQUIRE(left_set != dupe_set_2);
+        REQUIRE(right_set != dupe_set);
+        REQUIRE(right_set != dupe_set_2);
+        REQUIRE(dupe_set != dupe_set_2);
+
+        const auto deref = [](const auto* ptr) -> const auto& { return *ptr; };
+
+        std::ranges::sort(left_set, {}, deref);
+        std::ranges::sort(right_set, {}, deref);
+        std::ranges::sort(dupe_set, {}, deref);
+        std::ranges::sort(dupe_set_2, {}, deref);
+
+        CHECK(std::ranges::equal(left_set, right_set, {}, deref, deref));
+        CHECK(std::ranges::equal(dupe_set, dupe_set_2, {}, deref, deref));
+    }
+
+    SUBCASE("rec_set ==") {
+        auto left_rset = rec_set_t();
+        auto right_rset = rec_set_t();
+
+        // addReceiver takes ownership of the passed group, so we make some clones
+        auto di0_011_clone = std::make_unique<group_recv>(
+            group_recv{ .rec_di = *dih0.lock(), .rec_group = bs_011->clone() });
+        auto di0_110_clone = std::make_unique<group_recv>(
+            group_recv{ .rec_di = *dih0.lock(), .rec_group = bs_110->clone() });
+        auto di1_0110_clone = std::make_unique<group_recv>(
+            group_recv{ .rec_di = *dih1.lock(), .rec_group = bs_0110->clone() });
+
+        REQUIRE(left_rset == right_rset);
+
+        SUBCASE("1") {
+            left_rset.addReceiver(di0_011.release());
+            right_rset.addReceiver(di0_110_clone.release());
+            REQUIRE(left_rset != right_rset);
+
+            // both sets will merge the passed bitsets into single di0_111
+            left_rset.addReceiver(di0_110.release());
+            right_rset.addReceiver(di0_011_clone.release());
+            REQUIRE(left_rset == right_rset);
+
+            left_rset.addReceiver(di1_0110.release());
+            REQUIRE(left_rset != right_rset);
+
+            right_rset.addReceiver(di1_0110_clone.release());
+            REQUIRE(left_rset == right_rset);
+        }
+
+        SUBCASE("2") {
+            left_rset.addReceiver(di0_011.release());
+            left_rset.addReceiver(di1_0110.release());
+            REQUIRE(left_rset != right_rset);
+
+            right_rset.addReceiver(di0_011_clone.release());
+            REQUIRE(left_rset != right_rset);
+
+            right_rset.addReceiver(di1_0110_clone.release());
+            REQUIRE(left_rset == right_rset);
+
+            left_rset.addReceiver(di0_110.release());
+            REQUIRE(left_rset != right_rset);
+
+            right_rset.addReceiver(di0_110_clone.release());
+            REQUIRE(left_rset == right_rset);
+        }
+
+        SUBCASE("3") {
+            // verify that order doesn't matter
+            left_rset.addReceiver(di0_011.release());
+            left_rset.addReceiver(di1_0110.release());
+            right_rset.addReceiver(di1_0110_clone.release());
+            right_rset.addReceiver(di0_011_clone.release());
+            REQUIRE(left_rset == right_rset);
+        }
+    }
+
+    // clean up as to not affect other tests
+    DbgInvoke::deactivateAll();
+}
+
 // Public API for accessing dbginvoke table
 
 namespace {
@@ -509,7 +642,7 @@ bool DbgInvoke::operator!=(const DbgInvoke& other) const {
 
 DbgInvoke::Handle DbgInvoke::handle() {
     if (m_handle.lock() == nullptr) {
-        // The handle is put in place by registerDbgInvoke. Don't call handle() before that.
+        // The handle is put in place by DbgInvoke::activate. Don't call handle() before that.
         throw std::runtime_error("Bad dbginvoke handle");
     }
     return m_handle;

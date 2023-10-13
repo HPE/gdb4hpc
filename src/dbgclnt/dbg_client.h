@@ -55,6 +55,9 @@ struct group_recv {
 };
 typedef struct group_recv group_recv_t;
 
+std::strong_ordering operator<=>(const group_recv&, const group_recv&);
+bool operator==(const group_recv&, const group_recv&);
+
 /*
 ** This is used to describe which ranks to send commands to in the dbgclnt
 *interface.
@@ -94,6 +97,8 @@ public:
     
     size_t getNumReceivers() const { return m_recs.size(); }
     const std::vector<group_recv_t*>& getReceivers() const { return m_recs; }
+
+    bool operator==(const rec_set_t& other) const;
 };
 
 inline std::vector<group_recv_t*>::const_iterator begin(const rec_set_t* set) {

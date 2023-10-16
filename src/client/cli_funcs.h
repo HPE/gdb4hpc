@@ -179,8 +179,7 @@ struct cli_stream_t {
 
     // cs_interpreters are the stream's available interpreters. cs_current_interpreter
     // will always be non-null, and points to the interpreter that will interpret commands
-    // from the user unless otherwise stated. the "maint set interpreter" command changes
-    // the current interpreter. commands like interpreter-exec might use a non-current
+    // from the user unless otherwise stated. commands like interpreter-exec might use a non-current
     // interpreter for input interpretation, but the current interpreter *always*
     // processes all output.
     //

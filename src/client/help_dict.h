@@ -164,7 +164,6 @@ extern const char* const cmd_set_break_pending_help[];
 extern const char* const cmd_maint_set_earlyentry_help[];
 extern const char* const cmd_maint_set_unsafe_help[];
 extern const char* const cmd_maint_set_sync_help[];
-extern const char* const cmd_maint_set_interpreter_help[];
 
 /*
  * Class show subcommands

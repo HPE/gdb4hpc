@@ -1736,16 +1736,6 @@ const char* const cmd_maint_set_sync_help[] = {
     "not expected to reach a breakpoint, a deadlock can occur.",
     0};
 
-const char* const cmd_maint_set_interpreter_help[] = {
-    "Summary: Set the input/output interpreter.",
-    "Usage: maint set interpreter <console|mi>",
-    "Example command: maint set interpreter mi",
-    "",
-    "Description:",
-    "Change the main input/output interpreter. This changes available commands",
-    "and output formatting.",
-    0};
-
 /*
  * Class show subcommands
  */

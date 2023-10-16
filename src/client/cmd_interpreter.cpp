@@ -8,20 +8,6 @@
 
 namespace {
 
-int cmd_set_interpreter(int argc, const char* const argv[]) {
-    if (argc < 2) {
-        PrintOutError("Usage: maint set interpreter console|mi\n");
-        return Command::Failure;
-    }
-
-    if (!DbgInterpreterSet(argv[1])) {
-        PrintOutError("No such interpreter: %s\n", argv[1]);
-        return Command::Failure;
-    };
-
-    return Command::Success;
-}
-
 int interpreter_exec_console(int argc, const char* const argv[]) {
     if (argc < 3) {
         PrintOutError("Usage: %s console|mi <command>\n", argv[0]);
@@ -68,18 +54,12 @@ int interpreter_exec_mi(int argc, const char* const argv[]) {
 
 void ConsoleCommandsFactory::insert_interpreter_commands(CommandNode& root) {
     root.addSubCmd({
-        .name = "maint set interpreter", .ptype = proc_ignore, .fn = cmd_set_interpreter,
-        .help = cmd_maint_set_interpreter_help,
-        .desc = "Set the current input/output interpreter."});
-    root.addSubCmd({
         .name = "interpreter-exec", .ptype = proc_ignore, .fn = interpreter_exec_console,
         .help = cmd_interpreter_exec_help,
         .desc = "Execute a command under a specific interpreter."});
 }
 
 void MiCommandsFactory::insert_interpreter_commands(CommandNode& root) {
-    root.addSubCmd({
-        .name = "-interpreter-set", .ptype = proc_ignore, .fn = cmd_set_interpreter});
     root.addSubCmd({
         .name = "-interpreter-exec", .ptype = proc_ignore, .fn = interpreter_exec_mi});
 }

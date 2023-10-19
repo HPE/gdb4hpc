@@ -65,163 +65,163 @@ b{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_tes
 48: print sc
 a{0..2}: -2 '\xFE'
 b{0..2}: -2 '\xFE'
-49: compare $a{0}::sc=$b{0}::sc
+49: compare $a{0}::sc==$b{0}::sc
 {0}: Comparison is true.
 51: #unsigned char
 52: print uc
 a{0..2}: 3 '\x03'
 b{0..2}: 3 '\x03'
-53: compare $a{0}::uc=$b{0}::uc
+53: compare $a{0}::uc==$b{0}::uc
 {0}: Comparison is true.
 55: #short
 56: print sh
 a{0..2}: 4
 b{0..2}: 4
-57: compare $a{0}::sh=$b{0}::sh
+57: compare $a{0}::sh==$b{0}::sh
 {0}: Comparison is true.
 59: #short int
 60: print shi
 a{0..2}: 5
 b{0..2}: 5
-61: compare $a{0}::shi=$b{0}::shi
+61: compare $a{0}::shi==$b{0}::shi
 {0}: Comparison is true.
 63: #signed short
 64: print ssh
 a{0..2}: -6
 b{0..2}: -6
-65: compare $a{0}::ssh=$b{0}::ssh
+65: compare $a{0}::ssh==$b{0}::ssh
 {0}: Comparison is true.
 67: #signed short int
 68: print sshi
 a{0..2}: -7
 b{0..2}: -7
-69: compare $a{0}::sshi=$b{0}::sshi
+69: compare $a{0}::sshi==$b{0}::sshi
 {0}: Comparison is true.
 71: #usinged short
 72: print ush
 a{0..2}: 8
 b{0..2}: 8
-73: compare $a{0}::ush=$b{0}::ush
+73: compare $a{0}::ush==$b{0}::ush
 {0}: Comparison is true.
 75: #usigned short int
 76: print ushi
 a{0..2}: 9
 b{0..2}: 9
-77: compare $a{0}::ushi=$b{0}::ushi
+77: compare $a{0}::ushi==$b{0}::ushi
 {0}: Comparison is true.
 79: #int
 80: print i
 a{0..2}: 10
 b{0..2}: 10
-81: compare $a{0}::i=$b{0}::i
+81: compare $a{0}::i==$b{0}::i
 {0}: Comparison is true.
 83: #signed int
 84: print si
 a{0..2}: -11
 b{0..2}: -11
-85: compare $a{0}::si=$b{0}::si
+85: compare $a{0}::si==$b{0}::si
 {0}: Comparison is true.
 87: #unsigned
 88: print u
 a{0..2}: 12
 b{0..2}: 12
-89: compare $a{0}::u=$b{0}::u
+89: compare $a{0}::u==$b{0}::u
 {0}: Comparison is true.
 91: #unsigned int
 92: print ui
 a{0..2}: 13
 b{0..2}: 13
-93: compare $a{0}::ui=$b{0}::ui
+93: compare $a{0}::ui==$b{0}::ui
 {0}: Comparison is true.
 95: #long
 96: print l
 a{0..2}: 14
 b{0..2}: 14
-97: compare $a{0}::l=$b{0}::l
+97: compare $a{0}::l==$b{0}::l
 {0}: Comparison is true.
 99: #long int
 100: print li
 a{0..2}: 15
 b{0..2}: 15
-101: compare $a{0}::li=$b{0}::li
+101: compare $a{0}::li==$b{0}::li
 {0}: Comparison is true.
 103: #signed long
 104: print sl
 a{0..2}: -16
 b{0..2}: -16
-105: compare $a{0}::sl=$b{0}::sl
+105: compare $a{0}::sl==$b{0}::sl
 {0}: Comparison is true.
 107: #signed long int
 108: print sli
 a{0..2}: -17
 b{0..2}: -17
-109: compare $a{0}::sli=$b{0}::sli
+109: compare $a{0}::sli==$b{0}::sli
 {0}: Comparison is true.
 111: #unsigned long
 112: print ul
 a{0..2}: 18
 b{0..2}: 18
-113: compare $a{0}::ul=$b{0}::ul
+113: compare $a{0}::ul==$b{0}::ul
 {0}: Comparison is true.
 115: #unsigned long int
 116: print uli
 a{0..2}: 19
 b{0..2}: 19
-117: compare $a{0}::uli=$b{0}::uli
+117: compare $a{0}::uli==$b{0}::uli
 {0}: Comparison is true.
 119: #long long
 120: print ll
 a{0..2}: 20
 b{0..2}: 20
-121: compare $a{0}::ll=$b{0}::ll
+121: compare $a{0}::ll==$b{0}::ll
 {0}: Comparison is true.
 123: #long long int
 124: print lli
 a{0..2}: 21
 b{0..2}: 21
-125: compare $a{0}::lli=$b{0}::lli
+125: compare $a{0}::lli==$b{0}::lli
 {0}: Comparison is true.
 127: #signed long long
 128: print sll
 a{0..2}: -22
 b{0..2}: -22
-129: compare $a{0}::sll=$b{0}::sll
+129: compare $a{0}::sll==$b{0}::sll
 {0}: Comparison is true.
 131: #signed long long int
 132: print slli
 a{0..2}: -23
 b{0..2}: -23
-133: compare $a{0}::slli=$b{0}::slli
+133: compare $a{0}::slli==$b{0}::slli
 {0}: Comparison is true.
 135: #unsigned long long
 136: print ull
 a{0..2}: 24
 b{0..2}: 24
-137: compare $a{0}::ull=$b{0}::ull
+137: compare $a{0}::ull==$b{0}::ull
 {0}: Comparison is true.
 139: #unsigned long long int
 140: print ulli
 a{0..2}: 25
 b{0..2}: 25
-141: compare $a{0}::ulli=$b{0}::ulli
+141: compare $a{0}::ulli==$b{0}::ulli
 {0}: Comparison is true.
 143: #float
 144: print f
 a{0..2}: 26
 b{0..2}: 26
-145: compare $a{0}::f=$b{0}::f
+145: compare $a{0}::f==$b{0}::f
 {0}: Comparison is true.
 147: #double
 148: print d
 a{0..2}: 27.1
 b{0..2}: 27.1
-149: compare $a{0}::d=$b{0}::d
+149: compare $a{0}::d==$b{0}::d
 {0}: Comparison is true.
 151: #long double
 152: print ld
 a{0..2}: 28.1999999999999993
 b{0..2}: 28.1999999999999993
-153: compare $a{0}::ld=$b{0}::ld
+153: compare $a{0}::ld==$b{0}::ld
 {0}: Comparison is true.
 155: #continue
 157: q

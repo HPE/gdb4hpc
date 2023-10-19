@@ -44,7 +44,7 @@ a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_tes
 b{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_cmp_diff.c:227
 47: # Test defset command
 48: defset $new_set $b{0..2}
-50: compare $new_set{1}::si=$b{1}::si
+50: compare $new_set{1}::si==$b{1}::si
 {1}: Comparison is true.
 51: # Test that expired procsets are handled correctly
 51: defset $c $a{0},$b{1}

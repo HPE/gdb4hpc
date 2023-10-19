@@ -255,7 +255,7 @@ b{0..2}: Breakpoint 1, main(int, char**) at /home/users/jvogt/rpm_install/gdb4hp
 33: print ret
 a{0..2}: 4
 b{0..2}: 6
-34: compare $a{0}::ret=$b{0}::ret
+34: compare $a{0}::ret==$b{0}::ret
 {0}: Comparison is false.
 The difference delta is:
 {0}: 2
@@ -263,7 +263,7 @@ The difference delta is:
 36: print u
 a{0..2}: 2.3307
 b{0..2}: 6.558
-37: compare $a{0}::u=$b{0}::u
+37: compare $a{0}::u==$b{0}::u
 {0}: Comparison is false.
 The difference delta is:
 {0}: 4.2273
@@ -271,21 +271,21 @@ The difference delta is:
 39: print x
 a{0..2}: 1
 b{0..2}: 5
-40: compare $a{0}::x=$b{0}::x
+40: compare $a{0}::x==$b{0}::x
 {0}: Comparison is false.
 The difference delta is:
 {0}: 4
 41: #char - dissabled as lgdb compare command is not working for strings or chars
 42: #print a
-43: #compare $a{0}::a=$b{0}::a
+43: #compare $a{0}::a==$b{0}::a
 44: #string - dissabled as lgdb compare command is not working for strings or chars
 45: #print word
-46: #compare $a{0}::word=$b{0}::word
+46: #compare $a{0}::word==$b{0}::word
 47: #boolean
 48: print tf
 a{0..2}: true
 b{0..2}: false
-49: compare $a{0}::tf=$b{0}::tf
+49: compare $a{0}::tf==$b{0}::tf
 {0}: Comparison is false.
 The difference delta is:
 {0}: -1
@@ -293,7 +293,7 @@ The difference delta is:
 51: print si
 a{0..2}: -44
 b{0..2}: -88
-52: compare $a{0}::si=$b{0}::si
+52: compare $a{0}::si==$b{0}::si
 {0}: Comparison is false.
 The difference delta is:
 {0}: -44
@@ -301,7 +301,7 @@ The difference delta is:
 54: print usi
 a{0..2}: 44
 b{0..2}: 88
-55: compare $a{0}::usi=$b{0}::usi 
+55: compare $a{0}::usi==$b{0}::usi 
 {0}: Comparison is false.
 The difference delta is:
 {0}: 44
@@ -310,7 +310,7 @@ The difference delta is:
 58: print sshi
 a{0..2}: -32767
 b{0..2}: -32766
-59: compare $a{0}::sshi=$b{0}::sshi   
+59: compare $a{0}::sshi==$b{0}::sshi   
 {0}: Comparison is false.
 The difference delta is:
 {0}: 1
@@ -318,7 +318,7 @@ The difference delta is:
 61: print ushi
 a{0..2}: 32767
 b{0..2}: 32766
-62: compare $a{0}::ushi=$b{0}::ushi
+62: compare $a{0}::ushi==$b{0}::ushi
 {0}: Comparison is false.
 The difference delta is:
 {0}: -1
@@ -326,7 +326,7 @@ The difference delta is:
 64: print *test
 a{0..2}: 1
 b{0..2}: 5
-65: compare $a{0}::*test=$b{0}::*test
+65: compare $a{0}::*test==$b{0}::*test
 {0}: Comparison is false.
 The difference delta is:
 {0}: 4
@@ -334,7 +334,7 @@ The difference delta is:
 67: print ld
 a{0..2}: 1
 b{0..2}: 0.999999999847722587
-68: compare $a{0}::ld=$b{0}::ld
+68: compare $a{0}::ld==$b{0}::ld
 {0}: Comparison is false.
 The difference delta is:
 {0}: -1.52277e-10
@@ -342,7 +342,7 @@ The difference delta is:
 70: print dbl
 a{0..2}: -0.999999999847785
 b{0..2}: -1
-71: compare $a{0}::dbl=$b{0}::dbl
+71: compare $a{0}::dbl==$b{0}::dbl
 {0}: Comparison is false.
 The difference delta is:
 {0}: -1.52215e-10
@@ -351,7 +351,7 @@ The difference delta is:
 74: print uli
 a{0..2}: 4294967295
 b{0..2}: 4294967296
-75: compare $a{0}::uli=$b{0}::uli       
+75: compare $a{0}::uli==$b{0}::uli       
 {0}: Comparison is false.
 The difference delta is:
 {0}: 1
@@ -361,7 +361,7 @@ The difference delta is:
 79: print sli
 a{0..2}: -2147483648
 b{0..2}: -2147483647
-80: compare $a{0}::sli=$b{0}::sli
+80: compare $a{0}::sli==$b{0}::sli
 {0}: Comparison is false.
 The difference delta is:
 {0}: 1
@@ -369,7 +369,7 @@ The difference delta is:
 82: print uc
 a{0..2}: 236 '\xEC'
 b{0..2}: 237 '\xED'
-83: compare $a{0}::uc=$b{0}::uc
+83: compare $a{0}::uc==$b{0}::uc
 {0}: Comparison is false.
 The difference delta is:
 {0}: 1
@@ -378,7 +378,7 @@ The difference delta is:
 86: print sc
 a{0..2}: -20 '\xEC'
 b{0..2}: -19 '\xED'
-87: compare $a{0}::sc=$b{0}::sc
+87: compare $a{0}::sc==$b{0}::sc
 {0}: Comparison is false.
 The difference delta is:
 {0}: 1

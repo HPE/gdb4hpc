@@ -55,10 +55,10 @@ b{0..2}: 1
 a{0..2}: .TRUE.
 b{0..2}: .TRUE.
 48: # run compare command
-49: compare $a{0}::tf=$b{0}::tf
+49: compare $a{0}::tf==$b{0}::tf
 {0}: Comparison is true.
 51: # compare size of same elements in different proc sets
-52: compare $a{0}::"sizeof(tf)" = $b{0}::"sizeof(tf)"
+52: compare $a{0}::"sizeof(tf)" == $b{0}::"sizeof(tf)"
 {0}: Comparison is true.
 54: p myself
 a{0..2}: {name = 'Cray', age = 100}

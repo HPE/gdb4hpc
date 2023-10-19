@@ -141,7 +141,7 @@ static void enforceValidExpression(const gram::Expression& expr) {
     // so check symbol on top of stack
     if (auto binOp = dynamic_cast<const gram::Binop*>(&expr)) {
         auto op = binOp->getOp();
-        static auto validOps = { "=", "==", "!=", "<", "<=", ">", ">=" };
+        static auto validOps = { "==", "!=", "<", "<=", ">", ">=" };
         if (std::find(validOps.begin(), validOps.end(), op) != validOps.end())
             return;
     }

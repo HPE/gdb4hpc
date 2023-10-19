@@ -26,7 +26,7 @@ a{0..2}: Breakpoint 1, ftn_dt at /bd_dt/fortran/ftn_bd_dt.f90:64
 16: print tf
 a{0..2}: .TRUE.
 b{0..2}: .FALSE.
-17: compare $a{0}::tf=$b{0}::tf
+17: compare $a{0}::tf==$b{0}::tf
 {0}: Comparison is false.
 The difference delta is:
 {0}: -1
@@ -34,7 +34,7 @@ The difference delta is:
 19: print x
 a{0..2}: 1
 b{0..2}: 5
-20: compare $a{0}::x=$b{0}::x
+20: compare $a{0}::x==$b{0}::x
 {0}: Comparison is false.
 The difference delta is:
 {0}: 4
@@ -42,7 +42,7 @@ The difference delta is:
 22: print l
 a{0..2}: 116 't'
 b{0..2}: 107 'k'
-23: compare $a{0}::l=$b{0}::l
+23: compare $a{0}::l==$b{0}::l
 {0}: Comparison is false.
 The difference delta is:
 {0}: -9
@@ -50,7 +50,7 @@ The difference delta is:
 25: print e
 a{0..2}: 30.32
 b{0..2}: 1501.2
-26: compare $a{0}::e=$b{0}::e
+26: compare $a{0}::e==$b{0}::e
 {0}: Comparison is false.
 The difference delta is:
 {0}: 1470.88
@@ -58,7 +58,7 @@ The difference delta is:
 28: print word
 a{0..2}: 'Testing'
 b{0..2}: 'Error'
-29: compare $a{0}::word=$b{0}::word
+29: compare $a{0}::word==$b{0}::word
 {0}: Comparison is false.
 The difference delta is:
 {0}: Testing vs Error
@@ -66,7 +66,7 @@ The difference delta is:
 31: print r
 a{0..2}: (327.67,-0.0065)
 b{0..2}: (5.229,-4.78)
-32: compare $a{0}::r=$b{0}::r
+32: compare $a{0}::r==$b{0}::r
 {0}: Comparison is false.
 The difference delta is:
 {0}: r:-322.441
@@ -75,7 +75,7 @@ The difference delta is:
 34: print df
 a{0..2}: 1
 b{0..2}: 1.02
-35: compare $a{0}::df=$b{0}::df
+35: compare $a{0}::df==$b{0}::df
 {0}: Comparison is false.
 The difference delta is:
 {0}: 0.02
@@ -83,7 +83,7 @@ The difference delta is:
 37: print m
 a{0..2}: (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 b{0..2}: (2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
-38: compare $a{0}::m=$b{0}::m
+38: compare $a{0}::m==$b{0}::m
 {0}: Comparison is false.
 The difference delta is:
 {0}: (1):1
@@ -100,7 +100,7 @@ The difference delta is:
 40: print myself%name
 a{0..2}: 'Cray'
 b{0..2}: 'Test'
-41: compare $a{0}::myself%name=$b{0}::myself%name
+41: compare $a{0}::myself%name==$b{0}::myself%name
 {0}: Comparison is false.
 The difference delta is:
 {0}: Cray vs Test

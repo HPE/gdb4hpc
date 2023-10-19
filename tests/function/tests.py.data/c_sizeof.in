@@ -66,163 +66,163 @@ a{0..2}: Breakpoint 1, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_tes
 49: print sc
 a{0..2}: -2 '\xFE'
 b{0..2}: -2 '\xFE'
-50: compare $a{0}::"sizeof(sc)" = $b{0}::"sizeof(sc)"
+50: compare $a{0}::"sizeof(sc)" == $b{0}::"sizeof(sc)"
 {0}: Comparison is true.
 52: #unsigned char
 53: print uc
 a{0..2}: 3 '\x03'
 b{0..2}: 3 '\x03'
-54: compare $a{0}::"sizeof(uc)" = $b{0}::"sizeof(uc)"
+54: compare $a{0}::"sizeof(uc)" == $b{0}::"sizeof(uc)"
 {0}: Comparison is true.
 56: #short
 57: print sh
 a{0..2}: 4
 b{0..2}: 4
-58: compare $a{0}::"sizeof(sh)" = $b{0}::"sizeof(sh)"
+58: compare $a{0}::"sizeof(sh)" == $b{0}::"sizeof(sh)"
 {0}: Comparison is true.
 60: #short int
 61: print shi
 a{0..2}: 5
 b{0..2}: 5
-62: compare $a{0}::"sizeof(shi)" = $b{0}::"sizeof(shi)"
+62: compare $a{0}::"sizeof(shi)" == $b{0}::"sizeof(shi)"
 {0}: Comparison is true.
 64: #signed short
 65: print ssh
 a{0..2}: -6
 b{0..2}: -6
-66: compare $a{0}::"sizeof(ssh)" = $b{0}::"sizeof(ssh)"
+66: compare $a{0}::"sizeof(ssh)" == $b{0}::"sizeof(ssh)"
 {0}: Comparison is true.
 68: #signed short int
 69: print sshi
 a{0..2}: -7
 b{0..2}: -7
-70: compare $a{0}::"sizeof(sshi)" = $b{0}::"sizeof(sshi)"
+70: compare $a{0}::"sizeof(sshi)" == $b{0}::"sizeof(sshi)"
 {0}: Comparison is true.
 72: #usinged short
 73: print ush
 a{0..2}: 8
 b{0..2}: 8
-74: compare $a{0}::"sizeof(ush)" = $b{0}::"sizeof(ush)"
+74: compare $a{0}::"sizeof(ush)" == $b{0}::"sizeof(ush)"
 {0}: Comparison is true.
 76: #usigned short int
 77: print ushi
 a{0..2}: 9
 b{0..2}: 9
-78: compare $a{0}::"sizeof(ushi)" = $b{0}::"sizeof(ushi)"
+78: compare $a{0}::"sizeof(ushi)" == $b{0}::"sizeof(ushi)"
 {0}: Comparison is true.
 80: #int
 81: print i
 a{0..2}: 10
 b{0..2}: 10
-82: compare $a{0}::"sizeof(i)" = $b{0}::"sizeof(i)"
+82: compare $a{0}::"sizeof(i)" == $b{0}::"sizeof(i)"
 {0}: Comparison is true.
 84: #signed int
 85: print si
 a{0..2}: -11
 b{0..2}: -11
-86: compare $a{0}::"sizeof(si)" = $b{0}::"sizeof(si)"
+86: compare $a{0}::"sizeof(si)" == $b{0}::"sizeof(si)"
 {0}: Comparison is true.
 88: #unsigned
 89: print u
 a{0..2}: 12
 b{0..2}: 12
-90: compare $a{0}::"sizeof(u)" = $b{0}::"sizeof(u)"
+90: compare $a{0}::"sizeof(u)" == $b{0}::"sizeof(u)"
 {0}: Comparison is true.
 92: #unsigned int
 93: print ui
 a{0..2}: 13
 b{0..2}: 13
-94: compare $a{0}::"sizeof(ui)" = $b{0}::"sizeof(ui)"
+94: compare $a{0}::"sizeof(ui)" == $b{0}::"sizeof(ui)"
 {0}: Comparison is true.
 96: #long
 97: print l
 a{0..2}: 14
 b{0..2}: 14
-98: compare $a{0}::"sizeof(l)" = $b{0}::"sizeof(l)"
+98: compare $a{0}::"sizeof(l)" == $b{0}::"sizeof(l)"
 {0}: Comparison is true.
 100: #long int
 101: print li
 a{0..2}: 15
 b{0..2}: 15
-102: compare $a{0}::"sizeof(li)" = $b{0}::"sizeof(li)"
+102: compare $a{0}::"sizeof(li)" == $b{0}::"sizeof(li)"
 {0}: Comparison is true.
 104: #signed long
 105: print sl
 a{0..2}: -16
 b{0..2}: -16
-106: compare $a{0}::"sizeof(sl)" = $b{0}::"sizeof(sl)"
+106: compare $a{0}::"sizeof(sl)" == $b{0}::"sizeof(sl)"
 {0}: Comparison is true.
 108: #signed long int
 109: print sli
 a{0..2}: -17
 b{0..2}: -17
-110: compare $a{0}::"sizeof(sli)" = $b{0}::"sizeof(sli)"
+110: compare $a{0}::"sizeof(sli)" == $b{0}::"sizeof(sli)"
 {0}: Comparison is true.
 112: #unsigned long
 113: print ul
 a{0..2}: 18
 b{0..2}: 18
-114: compare $a{0}::"sizeof(ul)" = $b{0}::"sizeof(ul)"
+114: compare $a{0}::"sizeof(ul)" == $b{0}::"sizeof(ul)"
 {0}: Comparison is true.
 116: #unsigned long int
 117: print uli
 a{0..2}: 19
 b{0..2}: 19
-118: compare $a{0}::"sizeof(uli)" = $b{0}::"sizeof(uli)"
+118: compare $a{0}::"sizeof(uli)" == $b{0}::"sizeof(uli)"
 {0}: Comparison is true.
 120: #long long
 121: print ll
 a{0..2}: 20
 b{0..2}: 20
-122: compare $a{0}::"sizeof(ll)" = $b{0}::"sizeof(ll)"
+122: compare $a{0}::"sizeof(ll)" == $b{0}::"sizeof(ll)"
 {0}: Comparison is true.
 124: #long long int
 125: print lli
 a{0..2}: 21
 b{0..2}: 21
-126: compare $a{0}::"sizeof(lli)" = $b{0}::"sizeof(lli)"
+126: compare $a{0}::"sizeof(lli)" == $b{0}::"sizeof(lli)"
 {0}: Comparison is true.
 128: #signed long long
 129: print sll
 a{0..2}: -22
 b{0..2}: -22
-130: compare $a{0}::"sizeof(sll)" = $b{0}::"sizeof(sll)"
+130: compare $a{0}::"sizeof(sll)" == $b{0}::"sizeof(sll)"
 {0}: Comparison is true.
 132: #signed long long int
 133: print slli
 a{0..2}: -23
 b{0..2}: -23
-134: compare $a{0}::"sizeof(slli)" = $b{0}::"sizeof(slli)"
+134: compare $a{0}::"sizeof(slli)" == $b{0}::"sizeof(slli)"
 {0}: Comparison is true.
 136: #unsigned long long
 137: print ull
 a{0..2}: 24
 b{0..2}: 24
-138: compare $a{0}::"sizeof(ull)" = $b{0}::"sizeof(ull)"
+138: compare $a{0}::"sizeof(ull)" == $b{0}::"sizeof(ull)"
 {0}: Comparison is true.
 140: #unsigned long long int
 141: print ulli
 a{0..2}: 25
 b{0..2}: 25
-142: compare $a{0}::"sizeof(ulli)" = $b{0}::"sizeof(ulli)"
+142: compare $a{0}::"sizeof(ulli)" == $b{0}::"sizeof(ulli)"
 {0}: Comparison is true.
 144: #float
 145: print f
 a{0..2}: 26
 b{0..2}: 26
-146: compare $a{0}::"sizeof(f)" = $b{0}::"sizeof(f)"
+146: compare $a{0}::"sizeof(f)" == $b{0}::"sizeof(f)"
 {0}: Comparison is true.
 148: #double
 149: print d
 a{0..2}: 27.1
 b{0..2}: 27.1
-150: compare $a{0}::"sizeof(d)" = $b{0}::"sizeof(d)"
+150: compare $a{0}::"sizeof(d)" == $b{0}::"sizeof(d)"
 {0}: Comparison is true.
 152: #long double
 153: print ld
 a{0..2}: 28.1999999999999993
 b{0..2}: 28.1999999999999993
-154: compare $a{0}::"sizeof(ld)" = $b{0}::"sizeof(ld)"
+154: compare $a{0}::"sizeof(ld)" == $b{0}::"sizeof(ld)"
 {0}: Comparison is true.
 158: #continue
 160: q

@@ -202,10 +202,10 @@ b{0..2}: 1
 a{0..2}: 4
 b{0..2}: 4
 52: # run compare command
-53: compare $b{0}::ret=$a{0}::ret
+53: compare $b{0}::ret==$a{0}::ret
 {0}: Comparison is true.
 55: # compare size of same elements in different proc sets
-56: compare $a{0}::"sizeof(ret)" = $b{0}::"sizeof(ret)"
+56: compare $a{0}::"sizeof(ret)" == $b{0}::"sizeof(ret)"
 {0}: Comparison is true.
 59: #continue to second breakpoint
 60: continue

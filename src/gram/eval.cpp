@@ -138,23 +138,26 @@ std::unique_ptr<Value> gram::Binop::eval(rec_set_t* rec_set) const {
 
     if (rec_set && A->getRecSet() == rec_set && B->getRecSet() == rec_set) {
         return std::make_unique<ReplyValue>(rec_set, A->getExpr() + m_op + B->getExpr());
+    } else if (m_op == "=") {
+        // assignment is unsupported by BinaryFuncValue and needs to be
+        // evaluated on the backend matching the location of the left operand
+        return std::make_unique<ReplyValue>(A->getRecSet(), A->getExpr() + m_op + B->getExpr());
     } else {
         return std::make_unique<BinaryFuncValue>(std::move(A), m_op, std::move(B));
     }
 }
 
 std::unique_ptr<ComparisonValue> gram::Binop::evalCompare(rec_set_t* rec_set) const {
-    static auto validOps = { "=", "==", "!=", "<", "<=", ">", ">=" };
+    static auto validOps = { "==", "!=", "<", "<=", ">", ">=" };
     if (std::find(validOps.begin(), validOps.end(), m_op) == validOps.end()) {
-        throw EvalError{m_op + " is not a comparison"};
+        const auto extra = m_op == "=" ? " (use ==)" : "";
+        throw EvalError{m_op + " is not a comparison" + extra};
     }
-
-    auto op = (m_op == "=" ? "==" : m_op);
 
     auto A = m_a->eval(rec_set);
     auto B = m_b->eval(rec_set);
 
-    return std::make_unique<ComparisonValue>(std::move(A), op, std::move(B));
+    return std::make_unique<ComparisonValue>(std::move(A), m_op, std::move(B));
 }
 
 

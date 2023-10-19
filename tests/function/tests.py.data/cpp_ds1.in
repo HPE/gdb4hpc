@@ -46,9 +46,9 @@ b{0..1}: 9.5
 19: print vec_double
 b{0..1}: 9.5
 20: # run compare command
-21: compare $b{0}::area1=$b{1}::area1
+21: compare $b{0}::area1==$b{1}::area1
 {0}: Comparison is true.
-22: compare $b{0}::area2=$b{1}::area2
+22: compare $b{0}::area2==$b{1}::area2
 {0}: Comparison is true.
 23: # print the containers to verify the pretty printing
 24: print l

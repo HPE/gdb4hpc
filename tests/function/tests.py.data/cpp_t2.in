@@ -161,19 +161,19 @@ b{0..2}: Breakpoint 1, main(int, %(unsigned )?%char**) at /lus/scratch/jvogt/tes
 38: print ret
 a{0..2}: 4
 b{0..2}: 4
-39: compare $a{0}::ret=$b{0}::ret
+39: compare $a{0}::ret==$b{0}::ret
 {0}: Comparison is true.
 41: #float
 42: print u
 a{0..2}: 2.3307
 b{0..2}: 2.3307
-43: compare $a{0}::u=$b{0}::u
+43: compare $a{0}::u==$b{0}::u
 {0}: Comparison is true.
 45: #int
 46: print x
 a{0..2}: 1
 b{0..2}: 1
-47: compare $a{0}::x=$b{0}::x
+47: compare $a{0}::x==$b{0}::x
 {0}: Comparison is true.
 50: #char - dissabled as lgdb compare command is not working for strings or chars
 <$b>: s
@@ -268,65 +268,65 @@ b{0..2}: 1
 <$a>: Hello world!  I am rank 0 of 3
 <$a>: 
 <$a>: Hello world!  I am rank 1 of 3
-52: #compare $a{0}::a=$b{0}::a
+52: #compare $a{0}::a==$b{0}::a
 55: #string - dissabled as lgdb compare command is not working for strings or chars
 56: #print word
-57: #compare $a{0}::word=$b{0}::word
+57: #compare $a{0}::word==$b{0}::word
 60: #boolean
 61: print tf
 a{0..2}: %((true)|1)%
 b{0..2}: %((true)|1)%
-62: compare $a{0}::tf=$b{0}::tf
+62: compare $a{0}::tf==$b{0}::tf
 {0}: Comparison is true.
 64: #signed int
 65: print si
 a{0..2}: -44
 b{0..2}: -44
-66: compare $a{0}::si=$b{0}::si
+66: compare $a{0}::si==$b{0}::si
 {0}: Comparison is true.
 68: #unsigned int
 69: print usi
 a{0..2}: 44
 b{0..2}: 44
-70: compare $a{0}::usi=$b{0}::usi 
+70: compare $a{0}::usi==$b{0}::usi 
 {0}: Comparison is true.
 71:  
 72: #signed short int
 73: print sshi
 a{0..2}: -32767
 b{0..2}: -32767
-74: compare $a{0}::sshi=$b{0}::sshi   
+74: compare $a{0}::sshi==$b{0}::sshi   
 {0}: Comparison is true.
 76: #unsinged short int
 77: print ushi
 a{0..2}: 32767
 b{0..2}: 32767
-78: compare $a{0}::ushi=$b{0}::ushi
+78: compare $a{0}::ushi==$b{0}::ushi
 {0}: Comparison is true.
 80: #int pointer
 81: print *test
 a{0..2}: 1
 b{0..2}: 1
-82: compare $a{0}::*test=$b{0}::*test
+82: compare $a{0}::*test==$b{0}::*test
 {0}: Comparison is true.
 84: #long double
 85: print ld
 a{0..2}: 1
 b{0..2}: 1
-86: compare $a{0}::ld=$b{0}::ld
+86: compare $a{0}::ld==$b{0}::ld
 {0}: Comparison is true.
 89: #double
 90: print dbl
 a{0..2}: -0.999999999847785
 b{0..2}: -0.999999999847785
-91: compare $a{0}::dbl=$b{0}::dbl
+91: compare $a{0}::dbl==$b{0}::dbl
 {0}: Comparison is true.
 92:  
 94: #unsigned long int
 95: print uli
 a{0..2}: 4294967295
 b{0..2}: 4294967295
-96: compare $a{0}::uli=$b{0}::uli       
+96: compare $a{0}::uli==$b{0}::uli       
 {0}: Comparison is true.
 97:     
 98:       
@@ -334,24 +334,24 @@ b{0..2}: 4294967295
 100: print sli
 a{0..2}: -2147483648
 b{0..2}: -2147483648
-101: compare $a{0}::sli=$b{0}::sli
+101: compare $a{0}::sli==$b{0}::sli
 {0}: Comparison is true.
 103: #unsigned char
 104: print uc
 a{0..2}: 236 '\xEC'
 b{0..2}: 236 '\xEC'
-105: compare $a{0}::uc=$b{0}::uc
+105: compare $a{0}::uc==$b{0}::uc
 {0}: Comparison is true.
 107:     
 108: #signed char
 109: print sc
 a{0..2}: -20 '\xEC'
 b{0..2}: -20 '\xEC'
-110: compare $a{0}::sc=$b{0}::sc
+110: compare $a{0}::sc==$b{0}::sc
 {0}: Comparison is true.
 112: #struct object data member - dissabled as lgdb compare command is not working for strings or chars
 113: #print myself.name      
-114: #compare $a{0}::myself.name=$b{0}::myself.name    
+114: #compare $a{0}::myself.name==$b{0}::myself.name    
 117: #continue to end
 118: #continue
 121: #quit lgdb

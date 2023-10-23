@@ -9,10 +9,10 @@
 #include <map>
 #include <vector>
 #include "dbginvoke.h"
+#include "dbg_client.h"
 #include "ais.h"
 
 class AIFStream;
-class rep_set_t;
 class Bitset;
 class DbgInvoke;
 
@@ -47,19 +47,37 @@ typedef struct BlockMap BlockMap;
 struct group_reply;
 typedef struct group_reply group_reply_t;
 
+class Value;
 
 // Map for accessing the globally stored procSets and blockmaps.
 // 
 class IdMap {
 public:
     static std::pair<dbgprocset_t*,bool> getProcset(const std::string& procs);
-    
+
     static BlockMap* getBlockmapForName(std::string name);
 
     static bool idIsAvailable(const std::string& name, bool printMsg);
-    
+
+    // `cloneClientValue` looks up the stored client variable with given `name`.
+    // if found, the function clones it and returns the clone. if not found,
+    // it returns nullptr.
+    static std::unique_ptr<Value> cloneClientValue(std::string_view name);
+
+    // `setClientValue` the given `value` as `name`.
+    //
+    // since values are single use stream objects, this function clones
+    // (pickles) `value` into storage. since cloning a value is only well
+    // defined on an unused value, `value` must not have been evaluated yet.
+    //
+    // this function calls `value.pickle()`, which might have side effects, so
+    // `value` is a mutable reference.
+    static void setClientValue(std::string_view name, Value& value);
 private:
-    static std::map<std::string, rec_set_t*> m_psetMap;
+    // return true if `name` refers to a client value
+    static bool clientValueIdIsAvailable(std::string_view name);
+
+    static std::map<std::string, std::unique_ptr<Value>> m_client_values;
 };
 
     
@@ -93,8 +111,20 @@ class Value {
 public:
     Value(rec_set_t* rec_set);
     virtual ~Value();
-    
-    rec_set_t* getRecSet() const { return m_rec_set; }
+
+    // `pickle` returns a pickled version of the value. a pickled value should
+    // be safe to store long term and not depend on any backend state. a pickled
+    // value should itself implement `pickle`.
+    //
+    // note that pickling can have side effects (e.g. a ReplyValue will do a
+    // remote fetch to retrieve the value to be pickled), and for that reason
+    // `pickle` is not a const function.
+    //
+    // not every value type can be pickled, and the default implementation of
+    // `pickle` throws EvalError.
+    virtual std::unique_ptr<Value> pickle();
+
+    virtual rec_set_t* getRecSet() const { return m_rec_set; }
     virtual std::string getExpr() const;
 
     // primary interface for driving the evaluation of the value, it printed
@@ -131,22 +161,19 @@ protected:
     rec_set_t* m_rec_set;
 };
 
-// The basic result for the result of an evaluation from the back-end gdb's.
-// The result is the aggregated set of different simple results (as AIFStream's)
-// paired with the set of ranks for each.
-class ReplyValue : public Value {
+class ReplyShapedValue : public Value {
+    // This class implements print/apply/getNumResults/getNextSet/getCommonRanks/getCommonSet
+    // for anything that can produce a rep_set.
 public:
-    ReplyValue(rec_set_t* rec_set, const std::string& expr);
-    ~ReplyValue();
+    ReplyShapedValue(rec_set_t* rec_set);
+    virtual ~ReplyShapedValue();
+
+    // ReplyShapedValue will call this function to obtain a rep_set to process.
+    // called by print, apply, and getNumResults.
+    virtual rep_set_t retrieve() const = 0;
 
     virtual void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
     virtual void apply(rec_set_t* rec_set, ValueVisitor& visitor) override;
-    
-    virtual void addMetaInfo(const std::string& metaInfo) override;
-    rec_set_t* getRecSet() const { return m_rec_set; }
-    std::string getExpr() const override { return m_expr; }
-
-    virtual rep_set_t retrieve() const;
 
     // functions for iterating through the matched ranks of a pair of values
     std::pair<size_t, bool> getNumResults() override;
@@ -157,11 +184,114 @@ public:
 private:
     std::unique_ptr<Bitset> toRankBits(DbgInvoke* di, const Bitset& grp);
     std::unique_ptr<Bitset> toReplyBits(DbgInvoke* di, const Bitset& resGrp);
-    
-    std::string m_expr;
+
     size_t m_numResults = 0;
     std::vector<std::tuple<DbgInvoke*, std::unique_ptr<Bitset>,AIFStream*>> m_replies;
     std::map<DbgInvoke*, std::pair<std::unique_ptr<Bitset>, size_t>> m_ranksPerDI;
+};
+
+class ClientValue : public Value {
+    // a ClientValue is an initially empty value with a name that references
+    // something in IdMap. the lookup happens when the value is used. if at that
+    // time an attempt is made to use a ClientValue with a name that does not
+    // refer to a value, EvalError is thrown.
+    //
+    // if the initial lookup is successful, ClientValue stores the retrieved
+    // value and forwards all future calls to it.
+public:
+    ClientValue(std::string_view name);
+    std::unique_ptr<Value> pickle() override;
+
+    std::string getName() const;
+
+    rec_set_t* getRecSet() const override;
+
+    // note the lack of getExpr() and addMetaInfo(). those are used for
+    // constructing expressions to send to the backend to evaluate. since a
+    // client value's name is only meaningful on the client side, ClientValue
+    // doesn't participate in expression building for the backend.
+    //
+    // however, it might be possible to support this use case by printing the
+    // Value to a string and then sending it.
+
+    std::pair<size_t, bool> getNumResults() override;
+    std::optional<ResultPair> getNextSet(bool rankToRank) override;
+    void getCommonRanks(ResultPair& result) override;
+    void getCommonSet(ResultPair& result) override;
+
+    void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+    void apply(rec_set_t* rec_set, ValueVisitor& visitor) override;
+
+private:
+    // look up the value associated with the stored name, clone it, cache it,
+    // and return a reference to it. future calls will return a reference to the
+    // cached value.
+    //
+    // if no value with the given name exists, throws EvalError.
+    Value& instantiate();
+
+    std::unique_ptr<Value> m_referenced_value;
+    std::string m_name;
+};
+
+class ClientValueAssignment : public Value {
+    // a ClientValueAssignment holds a name (assignee) and a value source. when
+    // ClientValueAssignment is used, it will attempt to save the source value
+    // as the given name. If that's not possible (e.g. the source value doesn't
+    // implement Value::pickle), it throws EvalError.
+    //
+    // in the gdb expression language, assignments produce a value. e.g.
+    //   print $foo = 2 -> 2
+    //   print ($foo = 2) + 2 -> 4
+    // so this class can also be used as a value.
+  public:
+    ClientValueAssignment(std::unique_ptr<ClientValue>&& assignee, std::unique_ptr<Value>&& source);
+
+    std::unique_ptr<Value> pickle() override;
+    void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
+    void apply(rec_set_t* rec_set, ValueVisitor& visitor) override;
+
+    std::pair<size_t, bool> getNumResults() override;
+    std::optional<ResultPair> getNextSet(bool rankToRank) override;
+    void getCommonRanks(ResultPair& result) override;
+    void getCommonSet(ResultPair& result) override;
+private:
+    void do_assignment();
+    std::unique_ptr<ClientValue> m_assignee;
+    std::unique_ptr<Value> m_source;
+};
+
+class ReplyValue : public ReplyShapedValue {
+    // The basic result for the result of an evaluation from the back-end gdb's.
+    // The result is the aggregated set of different simple results (as AIFStream's)
+    // paired with the set of ranks for each.
+    //
+    // an alternate name for this class could be "ServerValue" - the opposite of a ClientValue.
+public:
+    ReplyValue(rec_set_t* rec_set, const std::string& expr);
+    std::unique_ptr<Value> pickle() override;
+
+    virtual void addMetaInfo(const std::string& metaInfo) override;
+    rec_set_t* getRecSet() const { return m_rec_set; }
+    std::string getExpr() const override { return m_expr; }
+
+    rep_set_t retrieve() const override;
+
+private:
+    std::string m_expr;
+};
+
+class PickledReplyValue : public ReplyShapedValue {
+    // PickledReplyValue is a container for a rep_set.
+    // note that since it is plain old data detached from its original reply,
+    // Value::getRecSet() returns nullptr.
+public:
+    PickledReplyValue(rep_set_t&& rep_set);
+    std::unique_ptr<Value> pickle() override;
+    rep_set_t retrieve() const override;
+
+private:
+    rep_set_t m_rep_set;
 };
 
 // Base class for debugger results that are a single unique result, see
@@ -204,7 +334,7 @@ private:
 
 // A value based on a fully distribued block map.   It acts like a reply, but the
 // blockMap detemines the layout and size
-class DistributedBlockMapValue : public ReplyValue {
+class DistributedBlockMapValue : public ReplyShapedValue {
 public:
     DistributedBlockMapValue(rec_set_t* rec_set, BlockMap*  blockMap,
                              std::unique_ptr<Value>&& val);
@@ -223,6 +353,8 @@ private:
 class AIFValue : public SingleValue {
 public:
     AIFValue(rec_set_t* rec_set, const std::string& expr, AIFStream* aif); // takes control of aif.
+    std::unique_ptr<Value> pickle() override;
+
     void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
     std::string getExpr() const override;
 
@@ -237,6 +369,8 @@ class BinaryFuncValue : public Value {
 public:
     BinaryFuncValue(std::unique_ptr<Value>&& a, const std::string& op,
                     std::unique_ptr<Value>&& b);
+    std::unique_ptr<Value> pickle() override;
+
     void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
 
     std::pair<size_t, bool> getNumResults() override;
@@ -307,4 +441,3 @@ private:
     std::unique_ptr<Value> m_b;
     bool m_should_label_diffs;
 };
-

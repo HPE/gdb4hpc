@@ -200,42 +200,46 @@ static int cmd_usage_dim_order_cmd() {
  * Regular commands
  ********************************/
 
-int cmd_decomposition_cmd(Interpreter& intr, rec_set_t *rec_set, int argc, const char* const argv[]) {
+int cmd_decomposition_cmd(Interpreter& intr, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
         PrintOutError("Expected: decomposition $decomposition_name\n");
         PrintOutError("  or decomposition $decomposition_name dim1 [, dim2] [, dim3] .. \n");
-        return 0;
+        return Command::Failure;
     }
 
     try {
         auto expr = ParseString(argv[1]);
 
-        try {
-            auto val = expr->eval(rec_set);
-            if (dynamic_cast<ProcsetValue*>(val.get())) {
-                PrintOutError("A process set has already been defined using this name.\n");
-                return 0;
-            } else if (auto bm = dynamic_cast<BlockmapValue*>(val.get())) {
-                if (!Client.confirm ||
-                    cli_query("A decomposition has already been defined using "
-                              "this name, redefine?",
-                              cli_query_default::NO, cli_query_default::YES)) {
-                    UnregisterBlockMap(bm->getBlockMap()->getName());
-                } else {
-                    return 0;
-                }
-            } else {
-                PrintOutError("A debugger variable has already been defined using this "
-                "name.\n");
-                return 0;
-            } 
-        } catch (EvalError& err) {
-            // I wanted this evaluation to fail
+        // verify argv looks like $foo
+        if (!dynamic_cast<gram::DSym*>(expr.get())) {
+            PrintOutError("Expected: decomposition $decomposition_name\n");
+            PrintOutError("  or decomposition $decomposition_name dim1 [, dim2] [, dim3] .. \n");
+            return Command::Failure;
         }
 
-    } catch (EvalError& err) {
+        // check if a blockmap with this name already exists
+        auto val = expr->eval(nullptr);
+        if (auto bm = dynamic_cast<BlockmapValue*>(val.get())) {
+            if (!Client.confirm ||
+                cli_query("A decomposition has already been defined using "
+                          "this name, redefine?",
+                          cli_query_default::NO, cli_query_default::YES)) {
+                UnregisterBlockMap(bm->getBlockMap()->getName());
+            } else {
+                return Command::Failure;
+            }
+        }
+
+        // if the value was a blockmap, it should be gone now. but we still
+        // haven't checked if it collides with another symbol.
+        if (!IdMap::idIsAvailable(argv[1], true /* print err msg */)) {
+            // error message already printed
+            return Command::Failure;
+        }
+    } catch (const std::exception& err) {
         PrintOutError("%s\n", err.what());
+        return Command::Failure;
     }
 
     if (argc == 2) {

@@ -112,7 +112,7 @@ static std::pair<DbgInvoke::Handle,std::unique_ptr<Bitset>> getProcSet(const gra
     } catch (const EvalError& err) {
         throw InvalidAssertionError(err.what());
     }
-    throw InvalidAssertionError("Assertion values must have a procset");
+    throw InvalidAssertionError("Nonexistent or expired procset in " + expr.toString());
 }
     
 

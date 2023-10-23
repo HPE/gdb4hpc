@@ -69,7 +69,16 @@ std::unique_ptr<Value> gram::DSym::eval(rec_set_t* rec_set) const {
         return std::make_unique<ProcsetValue>(locRecSet, isTmp ? procSet : nullptr,
                                               threads);
     } else {
-        throw EvalError("not debug variable: $" + m_sym);
+        // even if the value already exists in IdMap, we return an empty
+        // ClientValue to match gdb's (admittedly weird) semantics.
+        // in gdb:
+        //   set $var = 0
+        //   p $var = ($var = 3) + $var
+        //   -> 6
+        //
+        // the value of the last $var is affected by the $var = 3 inside of the
+        // expression, meaning the value of $var isn't retrieved until its use.
+        return std::make_unique<ClientValue>(name);
     }
 }
 
@@ -138,9 +147,12 @@ std::unique_ptr<Value> gram::Binop::eval(rec_set_t* rec_set) const {
 
     if (rec_set && A->getRecSet() == rec_set && B->getRecSet() == rec_set) {
         return std::make_unique<ReplyValue>(rec_set, A->getExpr() + m_op + B->getExpr());
+    } else if (m_op == "=" && dynamic_cast<ClientValue*>(A.get())) {
+        // assignment to client side variable
+        auto client_val = std::unique_ptr<ClientValue>(dynamic_cast<ClientValue*>(A.release()));
+        return std::make_unique<ClientValueAssignment>(std::move(client_val), std::move(B));
     } else if (m_op == "=") {
-        // assignment is unsupported by BinaryFuncValue and needs to be
-        // evaluated on the backend matching the location of the left operand
+        // assignment to server side value
         return std::make_unique<ReplyValue>(A->getRecSet(), A->getExpr() + m_op + B->getExpr());
     } else {
         return std::make_unique<BinaryFuncValue>(std::move(A), m_op, std::move(B));

@@ -192,7 +192,7 @@ bool ScriptRunner::reset() {
             m_pendingAsserts.emplace_back(assert);
         }
     } catch (const data::InvalidAssertionError& e) {
-        m_error = std::string{"Script contains an invalid procset: "} + e.what();
+        m_error = e.what();
         return false;
     }
 

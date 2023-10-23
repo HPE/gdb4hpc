@@ -56,7 +56,161 @@ a{0,2}: -15
 a{0,2}: -15
 a{1}: -13
 b{0..2}: -13
-48: #exit lgdb
-49: q
-Shutting down debugger and killing application for 'a'.
+0: break 247
+a{0..2}: Breakpoint 2: file /src/c/c_type_test.c, line 247.
+b{0..2}: Breakpoint 2: file /src/c/c_type_test.c, line 247.
+0: continue
+a{0..2}: Breakpoint 2, main at /src/c/c_type_test.c:247
+b{0..2}: Breakpoint 2, main at /src/c/c_type_test.c:247
+0: p one_d_i
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+b{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: gdb p one_d_i_init = {0,0,0,0,0,0,0,0,0,0}
+a{0..2}: $1 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+b{0..2}: $1 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+0: # generate a reference difference delta
+0: # weird delta output reported as PE-50807
+0: compare one_d_i_init == one_d_i
+{0..2}: Comparison is false.
+The difference delta is:
+{}: [1]:1
+{}: [2]:2
+{}: [3]:3
+{}: [4]:4
+{}: [5]:5
+{}: [6]:6
+{}: [7]:7
+{}: [8]:8
+{}: [9]:9
+{0..2}: [1]:1
+{0..2}: [2]:2
+{0..2}: [3]:3
+{0..2}: [4]:4
+{0..2}: [5]:5
+{0..2}: [6]:6
+{0..2}: [7]:7
+{0..2}: [8]:8
+{0..2}: [9]:9
+0: p $two_proc_array = one_d_i
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+b{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: p $two_proc_array
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+b{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: compare $two_proc_array == one_d_i
+{0..2}: Comparison is true.
+0: # should be the same difference delta as above
+0: compare one_d_i_init == $two_proc_array
+{0..2}: Comparison is false.
+The difference delta is:
+{}: [1]:1
+{}: [2]:2
+{}: [3]:3
+{}: [4]:4
+{}: [5]:5
+{}: [6]:6
+{}: [7]:7
+{}: [8]:8
+{}: [9]:9
+{0..2}: [1]:1
+{0..2}: [2]:2
+{0..2}: [3]:3
+{0..2}: [4]:4
+{0..2}: [5]:5
+{0..2}: [6]:6
+{0..2}: [7]:7
+{0..2}: [8]:8
+{0..2}: [9]:9
+0: compare $two_proc_array == $two_proc_array
+{0..2}: Comparison is true.
+0: kill b
 Shutting down debugger and killing application for 'b'.
+0: # the value is still available even after its host application was killed
+0: p $two_proc_array
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+b{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: p $zeros = one_d_i_init
+a{0..2}: {0,0,0,0,0,0,0,0,0,0}
+0: p $array = one_d_i
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: p $array * $zeros
+{0..2}: {0,0,0,0,0,0,0,0,0,0}
+0: p $array + $zeros + $array
+{0..2}: {0,2,4,6,8,10,12,14,16,18}
+0: compare one_d_i == $array + $zeros + $array
+{0..2}: Comparison is false.
+The difference delta is:
+{0..2}: [1]:1
+{0..2}: [2]:2
+{0..2}: [3]:3
+{0..2}: [4]:4
+{0..2}: [5]:5
+{0..2}: [6]:6
+{0..2}: [7]:7
+{0..2}: [8]:8
+{0..2}: [9]:9
+0: p $not_here
+Not a client side variable: $not_here
+Command resulted in an error: 0: p $not_here
+0: # variables use the same namespace as assertion scripts, decompositions, and procsets
+0: build $array
+$array is already defined as a client variable.
+Command resulted in an error: 0: build $array
+0: decomp $array
+$array is already defined as a client variable.
+Command resulted in an error: 0: decomp $array
+0: p ii
+a{0..2}: 10
+0: p $ii = ii
+a{0..2}: 10
+0: # you can assign a client side constant to a variable
+0: p $ii_constant = 10
+10
+0: compare $ii == $ii_constant
+Comparison is true.
+0: kill $a
+Shutting down debugger and killing application for 'a'.
+0: # values outlive their source applications
+0: p $two_proc_array
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+b{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: p $array
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: p $zombie = $array + $array
+{0,2,4,6,8,10,12,14,16,18}
+0: p $zombie???PE-50810
+{0,2,4,6,8,10,12,14,16,18}
+0: # some semantic edge case tests. these should all match gdb.
+0: # assignment used as value
+0: p ($var = 2) + 2
+4
+0: p $var
+2
+0: # in gdb, "$var = 2; $var = $var = 3 + $var" -> 5
+0: p $var = 2
+2
+0: p $var = $var = 3 + $var
+5
+0: p $var
+5
+0: # in gdb, "$var = 2; $var = $var + $var = 3" -> an error
+0: p $var = 2
+2
+0: p $var = $var + $var = 3
+%.*%
+Command resulted in an error: 0: p $var = $var + $var = 3
+0: # in gdb, "$var = 2; $var = ($var = 3) + $var" -> 6
+0: p $var = 2
+2
+0: p $var = ($var = 3) + $var
+6
+0: p $var
+6
+0: # in gdb, "$var = 2; $var = $var + ($var = 3)" -> 5
+0: p $var = 2
+2
+0: p $var = $var + ($var = 3)
+5
+0: p $var
+5
+0: q

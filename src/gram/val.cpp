@@ -30,7 +30,7 @@ struct BlockMap;
 typedef struct BlockMap BlockMap;
 extern BlockMap *FindBlockMap(const std::string& blockmap);
 
-std::map<std::string, rec_set_t*> IdMap::m_psetMap;
+std::map<std::string, std::unique_ptr<Value>> IdMap::m_client_values;
 
 std::pair<dbgprocset_t*,bool> IdMap::getProcset(const std::string& procs) {
     auto brace = procs.find('{',1);
@@ -86,6 +86,23 @@ BlockMap* IdMap::getBlockmapForName(std::string name) {
     return FindBlockMap(name);
 }
 
+bool IdMap::clientValueIdIsAvailable(std::string_view name) {
+    return !m_client_values.contains(std::string{name});
+}
+
+std::unique_ptr<Value> IdMap::cloneClientValue(std::string_view name) {
+    const auto key = std::string{name};
+    if (auto it = m_client_values.find(key); it != m_client_values.end()) {
+        return it->second->pickle();
+    }
+    return nullptr;
+}
+
+void IdMap::setClientValue(std::string_view name, Value& value) {
+    const auto key = std::string{name};
+    m_client_values[key] = value.pickle();
+}
+
 // verify the at debug variable $name is not already in use.
 // Print a warning if printMsg is true.
 bool IdMap::idIsAvailable(const std::string& name, bool printMsg) {
@@ -94,6 +111,8 @@ bool IdMap::idIsAvailable(const std::string& name, bool printMsg) {
         existingType = "procset";
     } else if (FindBlockMap(name)) {
         existingType = "decomposition";
+    } else if (!clientValueIdIsAvailable(name)) {
+        existingType = "client variable";
     } else {
         return true;
     }
@@ -108,6 +127,10 @@ bool IdMap::idIsAvailable(const std::string& name, bool printMsg) {
 Value::Value(rec_set_t* rec_set) : m_rec_set(rec_set) {}
 
 Value::~Value() {}
+
+std::unique_ptr<Value> Value::pickle() {
+    throw EvalError("Value cannot be saved");
+}
 
 std::string Value::getExpr() const {
     throw EvalError("type is not a program value");
@@ -139,32 +162,13 @@ void Value::getCommonSet(ResultPair&) {
     throw EvalError("Type does not support operations");
 }
 
+ReplyShapedValue::ReplyShapedValue(rec_set_t* rec_set)
+    : Value(rec_set)
+{}
 
-ReplyValue::ReplyValue(rec_set_t* rec_set, const std::string& expr) : Value(rec_set), m_expr(expr) {
-    if (!rec_set) {
-        throw std::runtime_error("cannot evaluate " + expr + " without a process");
-    }
-}
-
-ReplyValue::~ReplyValue() {
-    for ( auto& [di, grp, aif] : m_replies)
+ReplyShapedValue::~ReplyShapedValue() {
+    for (auto& [di, grp, aif] : m_replies)
         delete aif;
-}
-
-void ReplyValue::addMetaInfo(const std::string& metaInfo) {
-    m_expr = metaInfo + m_expr;
-}
-
-rep_set_t ReplyValue::retrieve() const
-{
-    auto rep_set = DbgEvalExpr(m_rec_set, m_expr.c_str());
-    if (rep_set.isEmpty()) {
-        throw EvalError("Could not retrieve value of " + m_expr);
-    } else if (ProcessErrorInRepSet(rep_set)) {
-        throw EvalErrorAlreadyReported();
-    }
-
-    return rep_set;
 }
 
 static std::string getLabel(rec_set_t* rec_set, group_reply* reply, const std::string& format) {
@@ -179,13 +183,11 @@ static std::string getLabel(rec_set_t* rec_set, group_reply* reply, const std::s
 
     return label;
 }
-    
 
-void ReplyValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
-    // ask the back-end for the values
+void ReplyShapedValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
     auto rep_set = retrieve();
 
-    for ( auto reply : rep_set) {
+    for (auto reply : rep_set) {
         // retrieve shouldn't return anything that isn't data, but lets be safe..
         if (reply->rep_event->ev_event != DBGEV_DATA) continue;
         auto label = getLabel(rec_set, reply, format);
@@ -195,7 +197,7 @@ void ReplyValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& 
     }
 }
 
-void ReplyValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
+void ReplyShapedValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
     auto rep_set = retrieve();
 
     for ( auto reply : rep_set) {
@@ -209,7 +211,7 @@ void ReplyValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
     }
 }
 
-std::pair<size_t, bool> ReplyValue::getNumResults() {
+std::pair<size_t, bool> ReplyShapedValue::getNumResults() {
     auto rep_set = retrieve();
     m_numResults = 0;
 
@@ -246,14 +248,14 @@ std::pair<size_t, bool> ReplyValue::getNumResults() {
         m_replies.push_back(std::make_tuple(di, toRankBits(di, *reply->rep_group), aif));
     }
 
-    return std::make_pair(m_numResults, m_replies.size());
+    return std::make_pair(m_numResults, m_replies.size() == 1);
 }
 
 // This function maps a group_reply onto a the bits of this specific value.   A rec_set 
 // may contain multiple di's and/or may refer to only a subset of the ranks.  Thus
 // if you did something like p $a{1,4..5} the returned bit set will be of size 3.
 // bit 1 in replyGrp maps to bit 0 or the returned grp, bit 4 maps to bit 1, etc.
-std::unique_ptr<Bitset> ReplyValue::toRankBits(DbgInvoke* di, const Bitset& replyGrp) {
+std::unique_ptr<Bitset> ReplyShapedValue::toRankBits(DbgInvoke* di, const Bitset& replyGrp) {
     // get ranks in terms of the active ranks
     auto ranks = std::unique_ptr<Bitset>(new DenseBitset(m_numResults));
     auto& [ allRanks, offset] = m_ranksPerDI[di];
@@ -268,7 +270,7 @@ std::unique_ptr<Bitset> ReplyValue::toRankBits(DbgInvoke* di, const Bitset& repl
 // This is the inverse of toRankBits.   It takes the group related to the actual results
 // and maps it back to the group defined by the given di.   And individual reply never
 // straddles multiple di's so we can pass it in as a argument
-std::unique_ptr<Bitset> ReplyValue::toReplyBits(DbgInvoke* di, const Bitset& resGrp) {
+std::unique_ptr<Bitset> ReplyShapedValue::toReplyBits(DbgInvoke* di, const Bitset& resGrp) {
     auto& [ diRanks, offset ] = m_ranksPerDI[di];
     auto replyGrp = diRanks->clone();
     auto resIdx = offset;
@@ -281,7 +283,7 @@ std::unique_ptr<Bitset> ReplyValue::toReplyBits(DbgInvoke* di, const Bitset& res
 }
 
 // get the next reply when this is the first operand
-std::optional<ResultPair> ReplyValue::getNextSet(bool rankToRank) {
+std::optional<ResultPair> ReplyShapedValue::getNextSet(bool rankToRank) {
     if (m_replies.empty()) return std::optional<ResultPair>{};
 
     // we set the ranks here, but delay setting the aifStream because
@@ -297,7 +299,7 @@ std::optional<ResultPair> ReplyValue::getNextSet(bool rankToRank) {
 // modify the result set as the second operand.   The first operand has
 // set the pr.ranks, and we are looking for the first result that
 // overlaps.
-void ReplyValue::getCommonRanks(ResultPair& pr) {
+void ReplyShapedValue::getCommonRanks(ResultPair& pr) {
 
     for (auto repIt = m_replies.begin(); repIt != m_replies.end(); ++repIt) {
         auto& [ di, repGrp, aif] = *repIt;
@@ -334,7 +336,7 @@ void ReplyValue::getCommonRanks(ResultPair& pr) {
 // final part of the handshake, we're back on the first operand.
 // we've established the set of results that match (in result.ranks)
 // and now we set result.a with our result and define result.label
-void ReplyValue::getCommonSet(ResultPair& result) {
+void ReplyShapedValue::getCommonSet(ResultPair& result) {
     auto& [ di, grp, aif ] = m_replies.front();
     
     if (!result.isRankToRank || result.ranksAreEq) {
@@ -353,6 +355,52 @@ void ReplyValue::getCommonSet(ResultPair& result) {
         auto replyGrp = toReplyBits(di, *result.ranks);
         result.label = replyGrp->toSetString() + ": ";
     }
+}
+
+ReplyValue::ReplyValue(rec_set_t* rec_set, const std::string& expr)
+    : ReplyShapedValue(rec_set), m_expr(expr)
+{
+    if (!rec_set) {
+        throw std::runtime_error("cannot evaluate " + expr + " without a process");
+    }
+}
+
+std::unique_ptr<Value> ReplyValue::pickle() {
+    auto reply = retrieve();
+    // XXX: PE-50810: chunked values don't pickle properly.
+    // they are safe to store, but won't print.
+    return std::make_unique<PickledReplyValue>(std::move(reply));
+}
+
+void ReplyValue::addMetaInfo(const std::string& metaInfo) {
+    m_expr = metaInfo + m_expr;
+}
+
+rep_set_t ReplyValue::retrieve() const
+{
+    auto rep_set = DbgEvalExpr(m_rec_set, m_expr.c_str());
+    if (rep_set.isEmpty()) {
+        throw EvalError("Could not retrieve value of " + m_expr);
+    } else if (ProcessErrorInRepSet(rep_set)) {
+        throw EvalErrorAlreadyReported();
+    }
+
+    return rep_set;
+}
+
+PickledReplyValue::PickledReplyValue(rep_set_t&& rep_set)
+    : ReplyShapedValue(nullptr)
+    , m_rep_set{std::move(rep_set)}
+{}
+
+std::unique_ptr<Value> PickledReplyValue::pickle() {
+    // We assume that the original rep_set was fully joined and that we don't
+    // have to join this one
+    return std::make_unique<PickledReplyValue>(m_rep_set.clone());
+}
+
+rep_set_t PickledReplyValue::retrieve() const {
+    return m_rep_set.clone();
 }
 
 DecompValue::DecompValue(rec_set_t* rec_set, BlockMap*  blockMap,
@@ -395,7 +443,7 @@ AIFStream* DecompValue::getAIF() {
 
 DistributedBlockMapValue::DistributedBlockMapValue(rec_set_t* rec_set, BlockMap*  blockMap,
                                                    std::unique_ptr<Value>&& val)
-    : ReplyValue(rec_set, val->getExpr()), m_blockMap(blockMap), m_val(std::move(val))
+    : ReplyShapedValue(rec_set), m_blockMap(blockMap), m_val(std::move(val))
 {}
 
 rep_set_t DistributedBlockMapValue::retrieve() const {
@@ -425,6 +473,11 @@ void DistributedBlockMapValue::print(std::ostream& os, rec_set_t*,
 AIFValue::AIFValue(rec_set_t* rec_set, const std::string& expr, AIFStream* aif)
     : SingleValue(rec_set), m_expr(expr) {
     m_aif = aif;
+}
+
+std::unique_ptr<Value> AIFValue::pickle() {
+    // return a copy of the AIFValue with no rec_set.
+    return std::make_unique<AIFValue>(nullptr, m_expr, m_aif->clone());
 }
 
 AIFStream* AIFValue::getAIF() {
@@ -511,6 +564,26 @@ BinaryFuncValue::BinaryFuncValue(std::unique_ptr<Value>&& a,
     Value(a->getRecSet()), m_a(std::move(a)), m_op(op), m_b(std::move(b))
 {}
 
+std::unique_ptr<Value> BinaryFuncValue::pickle() {
+    auto [ num_a, unique_a ] = m_a->getNumResults();
+    auto [ num_b, unique_b ] = m_b->getNumResults();
+
+    // pickled values can only refer to one value
+    if (unique_a && unique_b) {
+        if (auto maybe_result_pair = m_a->getNextSet(false)) {
+            auto& result_pair = *maybe_result_pair;
+            m_a->getCommonRanks(result_pair);
+            m_b->getCommonSet(result_pair);
+            // the expression is empty here because ClientValues don't implement getExpr()
+            return std::make_unique<AIFValue>(nullptr, "", getAIFStream(result_pair.a, result_pair.b));
+        } else {
+            throw EvalError("Value cannot be saved");
+        }
+    } else {
+        throw EvalError("Cannot store binary expression that produces multiple results in a single variable");
+    }
+}
+
 void BinaryFuncValue::print(std::ostream& os, rec_set_t*, const std::string& format) {
     // check if the values can be matched up.
     auto [ NA, uniqueNA ] = m_a->getNumResults();
@@ -534,7 +607,8 @@ AIFStream* BinaryFuncValue::getAIFStream(AIFStream* a, AIFStream* b) const {
     } else {
         delete a;
         delete b;
-        throw EvalError("operator " + m_op + " is not supported");
+        auto extra = (m_op == "==") ? " (use the compare command)" : "";
+        throw EvalError("operator " + m_op + " is not supported" + extra);
     }
 
 }
@@ -692,7 +766,6 @@ AIFStream* BinaryFuncValue::getSingleResult() {
 ComparisonValue::ComparisonValue(std::unique_ptr<Value>&& a, const std::string& op,
                                  std::unique_ptr<Value>&& b) :
     Value(a->getRecSet()), m_a(std::move(a)), m_op(op), m_b(std::move(b)), m_should_label_diffs{true} {
-    if (op == "=") m_op = "==";
 }
 
 static void getDiffStr(std::ostream &os, bool should_label_diffs,
@@ -886,4 +959,110 @@ void ComparisonValue::getFullResult(std::optional<std::string>& passed,
     }
 }
 
+ClientValue::ClientValue(std::string_view name)
+    : Value(nullptr)
+    , m_name{name}
+{}
 
+std::string ClientValue::getName() const {
+    return m_name;
+}
+
+Value& ClientValue::instantiate() {
+    if (!m_referenced_value) {
+        m_referenced_value = IdMap::cloneClientValue(m_name);
+        if (!m_referenced_value) {
+            throw EvalError("Not a client side variable: " + m_name);
+        }
+    }
+
+    return *m_referenced_value;
+}
+
+std::unique_ptr<Value> ClientValue::pickle() {
+    // we instantiate the value and pickle it rather than simply pickling the
+    // ClientValue. otherwise, statements like $foo = $bar would get weird,
+    // storing names instead of values.
+    return instantiate().pickle();
+}
+
+rec_set_t* ClientValue::getRecSet() const {
+    // before the ClientValue is saved, it has no rec_set, and anything saved in
+    // IdMap is saved without a rec_set.
+    return nullptr;
+}
+
+std::pair<size_t, bool> ClientValue::getNumResults() {
+    return instantiate().getNumResults();
+}
+
+std::optional<ResultPair> ClientValue::getNextSet(bool rankToRank) {
+    // no instiantiation here. in the Value API, only getNumResults is expected to have side effects
+    if (!m_referenced_value) throw EvalError("Not a client side variable: " + m_name);
+    return m_referenced_value->getNextSet(rankToRank);
+}
+
+void ClientValue::getCommonRanks(ResultPair& result) {
+    // no instiantiation here. in the Value API, only getNumResults is expected to have side effects
+    if (!m_referenced_value) throw EvalError("Not a client side variable: " + m_name);
+    m_referenced_value->getCommonRanks(result);
+}
+
+void ClientValue::getCommonSet(ResultPair& result) {
+    // no instiantiation here. in the Value API, only getNumResults is expected to have side effects
+    if (!m_referenced_value) throw EvalError("Not a client side variable: " + m_name);
+    m_referenced_value->getCommonSet(result);
+}
+
+void ClientValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+    instantiate().print(os, rec_set, format);
+}
+
+void ClientValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
+    instantiate().apply(rec_set, visitor);
+}
+
+ClientValueAssignment::ClientValueAssignment(std::unique_ptr<ClientValue>&& assignee, std::unique_ptr<Value>&& source)
+    : Value(source->getRecSet())
+    , m_assignee{std::move(assignee)}
+    , m_source{std::move(source)}
+{}
+
+std::unique_ptr<Value> ClientValueAssignment::pickle() {
+    do_assignment();
+    return m_assignee->pickle();
+}
+
+void ClientValueAssignment::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+    do_assignment();
+    m_assignee->print(os, rec_set, format);
+}
+
+void ClientValueAssignment::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
+    do_assignment();
+    m_assignee->apply(rec_set, visitor);
+}
+
+std::pair<size_t, bool> ClientValueAssignment::getNumResults() {
+    do_assignment();
+    return m_assignee->getNumResults();
+}
+
+std::optional<ResultPair> ClientValueAssignment::getNextSet(bool rankToRank) {
+    // no assignment here, only getNumResults is expected to have side effects
+    return m_assignee->getNextSet(rankToRank);
+}
+
+void ClientValueAssignment::getCommonRanks(ResultPair& result) {
+    // no assignment here, only getNumResults is expected to have side effects
+    return m_assignee->getCommonRanks(result);
+}
+
+void ClientValueAssignment::getCommonSet(ResultPair& result) {
+    // no assignment here, only getNumResults is expected to have side effects
+    return m_assignee->getCommonSet(result);
+}
+
+void ClientValueAssignment::do_assignment() {
+    IdMap::setClientValue(m_assignee->getName(), *m_source);
+}

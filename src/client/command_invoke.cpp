@@ -23,13 +23,6 @@ template <>
 int Command::Impl<void>::call(Interpreter&, rec_set_t*, int, const char* const[]) const {
     // hopefully unreachable. users of the Command should check before
     // calling with if (my_command) { my_command(...); } to avoid this.
-    //
-    // FIXME: change this to an exception throw. We probably shouldn't be
-    // printing things this deep down in the command implementation. for
-    // example, when the unit tests for null commands are run, it prints errors,
-    // but the test is testing the error case... which means the test is
-    // succeessful! it probably shouldn't be printing anything.
-    PrintOutError("Interpreter error: tried to invoke an empty function\n");
     return Failure;
 }
 

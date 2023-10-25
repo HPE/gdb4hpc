@@ -116,7 +116,7 @@ public:
     // be safe to store long term and not depend on any backend state. a pickled
     // value should itself implement `pickle`.
     //
-    // note that pickling can have side effects (e.g. a ReplyValue will do a
+    // note that pickling can have side effects (e.g. a PendingReplyValue will do a
     // remote fetch to retrieve the value to be pickled), and for that reason
     // `pickle` is not a const function.
     //
@@ -161,14 +161,14 @@ protected:
     rec_set_t* m_rec_set;
 };
 
-class ReplyShapedValue : public Value {
+class ReplyValue : public Value {
     // This class implements print/apply/getNumResults/getNextSet/getCommonRanks/getCommonSet
     // for anything that can produce a rep_set.
 public:
-    ReplyShapedValue(rec_set_t* rec_set);
-    virtual ~ReplyShapedValue();
+    ReplyValue(rec_set_t* rec_set);
+    virtual ~ReplyValue();
 
-    // ReplyShapedValue will call this function to obtain a rep_set to process.
+    // ReplyValue will call this function to obtain a rep_set to process.
     // called by print, apply, and getNumResults.
     virtual rep_set_t retrieve() const = 0;
 
@@ -250,25 +250,25 @@ class ClientValueAssignment : public Value {
     std::unique_ptr<Value> pickle() override;
     void print(std::ostream& os, rec_set_t* rec_set, const std::string& format) override;
     void apply(rec_set_t* rec_set, ValueVisitor& visitor) override;
+    void doAssignment();
 
     std::pair<size_t, bool> getNumResults() override;
     std::optional<ResultPair> getNextSet(bool rankToRank) override;
     void getCommonRanks(ResultPair& result) override;
     void getCommonSet(ResultPair& result) override;
 private:
-    void do_assignment();
     std::unique_ptr<ClientValue> m_assignee;
     std::unique_ptr<Value> m_source;
 };
 
-class ReplyValue : public ReplyShapedValue {
+class PendingReplyValue : public ReplyValue {
     // The basic result for the result of an evaluation from the back-end gdb's.
     // The result is the aggregated set of different simple results (as AIFStream's)
     // paired with the set of ranks for each.
     //
     // an alternate name for this class could be "ServerValue" - the opposite of a ClientValue.
 public:
-    ReplyValue(rec_set_t* rec_set, const std::string& expr);
+    PendingReplyValue(rec_set_t* rec_set, const std::string& expr);
     std::unique_ptr<Value> pickle() override;
 
     virtual void addMetaInfo(const std::string& metaInfo) override;
@@ -281,7 +281,7 @@ private:
     std::string m_expr;
 };
 
-class PickledReplyValue : public ReplyShapedValue {
+class PickledReplyValue : public ReplyValue {
     // PickledReplyValue is a container for a rep_set.
     // note that since it is plain old data detached from its original reply,
     // Value::getRecSet() returns nullptr.
@@ -334,7 +334,7 @@ private:
 
 // A value based on a fully distribued block map.   It acts like a reply, but the
 // blockMap detemines the layout and size
-class DistributedBlockMapValue : public ReplyShapedValue {
+class DistributedBlockMapValue : public ReplyValue {
 public:
     DistributedBlockMapValue(rec_set_t* rec_set, BlockMap*  blockMap,
                              std::unique_ptr<Value>&& val);

@@ -108,7 +108,7 @@ public:
     static std::shared_ptr<CommandNode> make();
 private:
     // internal or base commands that don't live in cmd_*.cpp files.
-    // e.g. the base "set" node which all other set commands are under.
+    // e.g. the base "maint" node which all other maint commands are under.
     static void insert_class_commands(CommandNode& root);
 
     // dummy commands that don't actually do anything except return a fake "ok" result

@@ -44,7 +44,7 @@ static int cmd_assign_cmd(rec_set_t *rec_set, int argc, const char* const argv[]
         auto varExpr = ParseString(argv[1]);
         auto val = varExpr->eval(rec_set);
 
-        auto rv = dynamic_cast<ReplyValue*>(val.get());
+        auto rv = dynamic_cast<PendingReplyValue*>(val.get());
         if (!rv) {
             PrintOutError("Only assignment to program variables is supported.\n");
             return Command::Failure;

@@ -80,6 +80,39 @@ int PrintMultiThreadMsg(const char *diName, const Bitset *group,
     return 0;
 }
 
+static int cmd_set_variable(rec_set_t* rec_set, int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("usage: set variable name=<expr>\n");
+        PrintOutError("       set variable $name=<expr>\n");
+        return Command::Failure;
+    }
+
+    try {
+        auto expr = ParseString(ArgsToString(&argv[1], argc - 1));
+        if (auto pe = getenv("PRINT_EXPR"); pe && pe[0] != '0') expr->print();
+        if (!dynamic_cast<gram::Binop*>(expr.get()) || dynamic_cast<gram::Binop*>(expr.get())->getOp() != "=") {
+            PrintOutMsg("Warning: Expression is not an assignment and might have no effect\n");
+            // this is not a fatal error.
+            // expressions like "set ($var = 2) + 2" should still result in $var == 2.
+        }
+
+        auto val = expr->evalTop(rec_set);
+        if (auto client_assignment_val = dynamic_cast<ClientValueAssignment*>(val.get())) {
+            client_assignment_val->doAssignment();
+        } else {
+            // call pickle to evaluate the expression without printing it.
+            val->pickle();
+        }
+    } catch (EvalErrorAlreadyReported& err) {
+        return Command::Failure;
+    } catch (std::exception& err) {
+        PrintOutError("%s\n", err.what());
+        return Command::Failure;
+    }
+
+    return Command::Success;
+}
+
 static int cmd_print_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
 
     if (argc < 2) return 1;
@@ -243,6 +276,11 @@ std::string GetMiValue(const std::string& expression, const std::string& ps_str)
 
 static void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
     root.addSubCmd(
+        set + " variable", nullptr, proc_ignore,
+        cmd_set_variable, cmd_set_variable_help,
+        "Evaluate an expression and assign the result to a variable.");
+
+    root.addSubCmd(
         set + " print", nullptr, proc_ignore,
         nullptr, class_set_print_help,
         "Set information about how things get printed.");
@@ -274,12 +312,20 @@ static void insert_setshow_commands(CommandNode& root, std::string set, std::str
 }
 
 void ConsoleCommandsFactory::insert_print_commands(CommandNode& root) {
+    // the "set" command is here because we emulate a gdb quirk where the
+    // "set" command is an alias to "set variable", and "set variable foo = bar"
+    // is identical to "print foo = bar", with the exception that nothing is
+    // printed as a result.
+    root.addSubCmd("set", nullptr, proc_optional, cmd_set_variable,
+                    class_set_help, "Set information about the debugger environment.");
+
     insert_setshow_commands(root, "set", "show");
     root.addSubCmd("print", "p", proc_optional, cmd_print_cmd, cmd_print_help,
                "Print the value of an expression.");
 }
 
 void MiCommandsFactory::insert_print_commands(CommandNode& root) {
+    root.addSubCmd({.name = "-gdb-set", .ptype = proc_optional, .fn = cmd_set_variable});
     root.addSubCmd({.name = "-enable-pretty-printing", .ptype = proc_optional, .fn = cmd_enable_pretty_printing_mi });
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 }

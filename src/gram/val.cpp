@@ -162,11 +162,11 @@ void Value::getCommonSet(ResultPair&) {
     throw EvalError("Type does not support operations");
 }
 
-ReplyShapedValue::ReplyShapedValue(rec_set_t* rec_set)
+ReplyValue::ReplyValue(rec_set_t* rec_set)
     : Value(rec_set)
 {}
 
-ReplyShapedValue::~ReplyShapedValue() {
+ReplyValue::~ReplyValue() {
     for (auto& [di, grp, aif] : m_replies)
         delete aif;
 }
@@ -184,7 +184,7 @@ static std::string getLabel(rec_set_t* rec_set, group_reply* reply, const std::s
     return label;
 }
 
-void ReplyShapedValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
+void ReplyValue::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
     auto rep_set = retrieve();
 
     for (auto reply : rep_set) {
@@ -197,7 +197,7 @@ void ReplyShapedValue::print(std::ostream& os, rec_set_t* rec_set, const std::st
     }
 }
 
-void ReplyShapedValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
+void ReplyValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
     auto rep_set = retrieve();
 
     for ( auto reply : rep_set) {
@@ -211,7 +211,7 @@ void ReplyShapedValue::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
     }
 }
 
-std::pair<size_t, bool> ReplyShapedValue::getNumResults() {
+std::pair<size_t, bool> ReplyValue::getNumResults() {
     auto rep_set = retrieve();
     m_numResults = 0;
 
@@ -255,7 +255,7 @@ std::pair<size_t, bool> ReplyShapedValue::getNumResults() {
 // may contain multiple di's and/or may refer to only a subset of the ranks.  Thus
 // if you did something like p $a{1,4..5} the returned bit set will be of size 3.
 // bit 1 in replyGrp maps to bit 0 or the returned grp, bit 4 maps to bit 1, etc.
-std::unique_ptr<Bitset> ReplyShapedValue::toRankBits(DbgInvoke* di, const Bitset& replyGrp) {
+std::unique_ptr<Bitset> ReplyValue::toRankBits(DbgInvoke* di, const Bitset& replyGrp) {
     // get ranks in terms of the active ranks
     auto ranks = std::unique_ptr<Bitset>(new DenseBitset(m_numResults));
     auto& [ allRanks, offset] = m_ranksPerDI[di];
@@ -270,7 +270,7 @@ std::unique_ptr<Bitset> ReplyShapedValue::toRankBits(DbgInvoke* di, const Bitset
 // This is the inverse of toRankBits.   It takes the group related to the actual results
 // and maps it back to the group defined by the given di.   And individual reply never
 // straddles multiple di's so we can pass it in as a argument
-std::unique_ptr<Bitset> ReplyShapedValue::toReplyBits(DbgInvoke* di, const Bitset& resGrp) {
+std::unique_ptr<Bitset> ReplyValue::toReplyBits(DbgInvoke* di, const Bitset& resGrp) {
     auto& [ diRanks, offset ] = m_ranksPerDI[di];
     auto replyGrp = diRanks->clone();
     auto resIdx = offset;
@@ -283,7 +283,7 @@ std::unique_ptr<Bitset> ReplyShapedValue::toReplyBits(DbgInvoke* di, const Bitse
 }
 
 // get the next reply when this is the first operand
-std::optional<ResultPair> ReplyShapedValue::getNextSet(bool rankToRank) {
+std::optional<ResultPair> ReplyValue::getNextSet(bool rankToRank) {
     if (m_replies.empty()) return std::optional<ResultPair>{};
 
     // we set the ranks here, but delay setting the aifStream because
@@ -299,7 +299,7 @@ std::optional<ResultPair> ReplyShapedValue::getNextSet(bool rankToRank) {
 // modify the result set as the second operand.   The first operand has
 // set the pr.ranks, and we are looking for the first result that
 // overlaps.
-void ReplyShapedValue::getCommonRanks(ResultPair& pr) {
+void ReplyValue::getCommonRanks(ResultPair& pr) {
 
     for (auto repIt = m_replies.begin(); repIt != m_replies.end(); ++repIt) {
         auto& [ di, repGrp, aif] = *repIt;
@@ -336,7 +336,7 @@ void ReplyShapedValue::getCommonRanks(ResultPair& pr) {
 // final part of the handshake, we're back on the first operand.
 // we've established the set of results that match (in result.ranks)
 // and now we set result.a with our result and define result.label
-void ReplyShapedValue::getCommonSet(ResultPair& result) {
+void ReplyValue::getCommonSet(ResultPair& result) {
     auto& [ di, grp, aif ] = m_replies.front();
     
     if (!result.isRankToRank || result.ranksAreEq) {
@@ -357,26 +357,26 @@ void ReplyShapedValue::getCommonSet(ResultPair& result) {
     }
 }
 
-ReplyValue::ReplyValue(rec_set_t* rec_set, const std::string& expr)
-    : ReplyShapedValue(rec_set), m_expr(expr)
+PendingReplyValue::PendingReplyValue(rec_set_t* rec_set, const std::string& expr)
+    : ReplyValue(rec_set), m_expr(expr)
 {
     if (!rec_set) {
         throw std::runtime_error("cannot evaluate " + expr + " without a process");
     }
 }
 
-std::unique_ptr<Value> ReplyValue::pickle() {
+std::unique_ptr<Value> PendingReplyValue::pickle() {
     auto reply = retrieve();
     // XXX: PE-50810: chunked values don't pickle properly.
     // they are safe to store, but won't print.
     return std::make_unique<PickledReplyValue>(std::move(reply));
 }
 
-void ReplyValue::addMetaInfo(const std::string& metaInfo) {
+void PendingReplyValue::addMetaInfo(const std::string& metaInfo) {
     m_expr = metaInfo + m_expr;
 }
 
-rep_set_t ReplyValue::retrieve() const
+rep_set_t PendingReplyValue::retrieve() const
 {
     auto rep_set = DbgEvalExpr(m_rec_set, m_expr.c_str());
     if (rep_set.isEmpty()) {
@@ -389,7 +389,7 @@ rep_set_t ReplyValue::retrieve() const
 }
 
 PickledReplyValue::PickledReplyValue(rep_set_t&& rep_set)
-    : ReplyShapedValue(nullptr)
+    : ReplyValue(nullptr)
     , m_rep_set{std::move(rep_set)}
 {}
 
@@ -424,7 +424,7 @@ AIFStream* DecompValue::getAIF() {
     if (m_aif)
         return m_aif;
 
-    auto val = dynamic_cast<ReplyValue*>(m_val.get());
+    auto val = dynamic_cast<PendingReplyValue*>(m_val.get());
     if (!val) {
         throw EvalError("Decomposition must refer to a progam value");
     }
@@ -443,11 +443,11 @@ AIFStream* DecompValue::getAIF() {
 
 DistributedBlockMapValue::DistributedBlockMapValue(rec_set_t* rec_set, BlockMap*  blockMap,
                                                    std::unique_ptr<Value>&& val)
-    : ReplyShapedValue(rec_set), m_blockMap(blockMap), m_val(std::move(val))
+    : ReplyValue(rec_set), m_blockMap(blockMap), m_val(std::move(val))
 {}
 
 rep_set_t DistributedBlockMapValue::retrieve() const {
-    auto val = dynamic_cast<ReplyValue*>(m_val.get());
+    auto val = dynamic_cast<PendingReplyValue*>(m_val.get());
     if (!val) {
         throw EvalError("Decomposition must refer to a progam value");
     }
@@ -1029,22 +1029,22 @@ ClientValueAssignment::ClientValueAssignment(std::unique_ptr<ClientValue>&& assi
 {}
 
 std::unique_ptr<Value> ClientValueAssignment::pickle() {
-    do_assignment();
+    doAssignment();
     return m_assignee->pickle();
 }
 
 void ClientValueAssignment::print(std::ostream& os, rec_set_t* rec_set, const std::string& format) {
-    do_assignment();
+    doAssignment();
     m_assignee->print(os, rec_set, format);
 }
 
 void ClientValueAssignment::apply(rec_set_t* rec_set, ValueVisitor& visitor) {
-    do_assignment();
+    doAssignment();
     m_assignee->apply(rec_set, visitor);
 }
 
 std::pair<size_t, bool> ClientValueAssignment::getNumResults() {
-    do_assignment();
+    doAssignment();
     return m_assignee->getNumResults();
 }
 
@@ -1063,6 +1063,6 @@ void ClientValueAssignment::getCommonSet(ResultPair& result) {
     return m_assignee->getCommonSet(result);
 }
 
-void ClientValueAssignment::do_assignment() {
+void ClientValueAssignment::doAssignment() {
     IdMap::setClientValue(m_assignee->getName(), *m_source);
 }

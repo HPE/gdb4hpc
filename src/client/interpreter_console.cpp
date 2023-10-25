@@ -613,13 +613,15 @@ std::shared_ptr<CommandNode> ConsoleCommandsFactory::make() {
     auto root = std::make_shared<CommandNode>("", nullptr, proc_optional, nullptr, nullptr, nullptr);
 
     insert_class_commands(*root);
+    // insert_print_commands includes the base "set" command, make sure it stays near
+    // the top of the order so that later commands can add set subcommands.
+    insert_print_commands(*root);
     insert_interpreter_commands(*root);
     insert_frame_commands(*root);
     insert_step_commands(*root);
     insert_passthru_commands(*root);
     insert_script_commands(*root);
     insert_blockmap_commands(*root);
-    insert_print_commands(*root);
     insert_env_commands(*root);
     insert_python_commands(*root);
     insert_assign_commands(*root);
@@ -636,16 +638,6 @@ std::shared_ptr<CommandNode> ConsoleCommandsFactory::make() {
     insert_procset_commands(*root);
 
     return root;
-}
-
-static void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
-    root.addSubCmd(set, nullptr, proc_ignore,
-                   nullptr, class_set_help,
-                   "Set information about the debugger environment.");
-
-    root.addSubCmd(show, nullptr, proc_ignore,
-                   nullptr, class_show_help,
-                   "Show information about the debugger environment.");
 }
 
 void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
@@ -680,5 +672,7 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
                    nullptr, class_unset_help,
                    "Unset information in the debugger environment.");
 
-    insert_setshow_commands(root, "set", "show");
+    root.addSubCmd("show", nullptr, proc_ignore,
+                   nullptr, class_show_help,
+                   "Show information about the debugger environment.");
 }

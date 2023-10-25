@@ -55,6 +55,7 @@ extern const char* const cmd_python_help[];
 extern const char* const cmd_quit_help[];
 extern const char* const cmd_release_help[];
 extern const char* const cmd_restart_help[];
+extern const char* const cmd_set_variable_help[];
 extern const char* const cmd_shell_help[];
 extern const char* const cmd_source_help[];
 extern const char* const cmd_step_help[];

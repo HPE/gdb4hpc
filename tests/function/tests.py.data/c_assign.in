@@ -52,9 +52,14 @@ a{0..2}: -13
 b{0..2}: -13
 46: p $a{0,2}::si = -15
 a{0,2}: -15
-45: p si 
+45: p si
 a{0,2}: -15
 a{1}: -13
+b{0..2}: -13
+46: set $a{1}::si = 20
+45: p si
+a{0,2}: -15
+a{1}: 20
 b{0..2}: -13
 0: break 247
 a{0..2}: Breakpoint 2: file /src/c/c_type_test.c, line 247.
@@ -123,6 +128,40 @@ The difference delta is:
 {0..2}: [9]:9
 0: compare $two_proc_array == $two_proc_array
 {0..2}: Comparison is true.
+0: set $other_two_proc_array = one_d_i
+0: p $other_two_proc_array
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+b{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: compare $other_two_proc_array == one_d_i
+{0..2}: Comparison is true.
+0: # should be the same difference delta as above
+0: compare one_d_i_init == $other_two_proc_array
+{0..2}: Comparison is false.
+The difference delta is:
+{}: [1]:1
+{}: [2]:2
+{}: [3]:3
+{}: [4]:4
+{}: [5]:5
+{}: [6]:6
+{}: [7]:7
+{}: [8]:8
+{}: [9]:9
+{0..2}: [1]:1
+{0..2}: [2]:2
+{0..2}: [3]:3
+{0..2}: [4]:4
+{0..2}: [5]:5
+{0..2}: [6]:6
+{0..2}: [7]:7
+{0..2}: [8]:8
+{0..2}: [9]:9
+0: compare $two_proc_array == $two_proc_array
+{0..2}: Comparison is true.
+0: compare $other_two_proc_array == $other_two_proc_array
+{0..2}: Comparison is true.
+0: compare $two_proc_array == $other_two_proc_array
+{0..2}: Comparison is true.
 0: kill b
 Shutting down debugger and killing application for 'b'.
 0: # the value is still available even after its host application was killed
@@ -187,30 +226,32 @@ a{0..2}: {0,1,2,3,4,5,6,7,8,9}
 0: p $var
 2
 0: # in gdb, "$var = 2; $var = $var = 3 + $var" -> 5
-0: p $var = 2
-2
+0: set $var = 2
 0: p $var = $var = 3 + $var
 5
 0: p $var
 5
 0: # in gdb, "$var = 2; $var = $var + $var = 3" -> an error
-0: p $var = 2
-2
+0: set variable $var = 2
 0: p $var = $var + $var = 3
 %.*%
 Command resulted in an error: 0: p $var = $var + $var = 3
 0: # in gdb, "$var = 2; $var = ($var = 3) + $var" -> 6
-0: p $var = 2
-2
+0: set $var = 2
 0: p $var = ($var = 3) + $var
 6
 0: p $var
 6
 0: # in gdb, "$var = 2; $var = $var + ($var = 3)" -> 5
-0: p $var = 2
-2
+0: set variable $var = 2
 0: p $var = $var + ($var = 3)
 5
 0: p $var
 5
+0: # check that the set command warns when it's not a plain assignment,
+0: # but still evaluate the expression (matches gdb behavior)
+0: set ($baz = 2) + 2
+Warning: Expression is not an assignment and might have no effect
+0: p $baz
+2
 0: q

@@ -738,6 +738,24 @@ const char* const cmd_restart_help[] = {
     "forked and set aside by the checkpoint command.",
     0};
 
+const char* const cmd_set_variable_help[] = {
+    "Summary: Evaluate an expression and assign the result to a variable.",
+    "Usage: set variable <name> = <expression>",
+    "       set <name> = <expression>",
+    "Example commands: set program_variable_foo = program_variables_bar",
+    "                  set $client_value = program_variable",
+    "",
+    "Description:",
+    "The set variable command evaluates the given expression and assigns the result to a variable.",
+    "",
+    "<name> may be a program variable or the name of a client side value. To assign to a",
+    "client side value, begin the <name> with $. <expression> may be any expression valid",
+    "in the current language.",
+    "",
+    "The set command is an alias for set variable if the given argument doesn't correspond",
+    "to a debugger setting.",
+    0};
+
 const char* const cmd_shell_help[] = {
     "Summary: Launch a shell command locally",
     "Usage: shell [-r] [command]",
@@ -1124,6 +1142,9 @@ const char* const class_set_help[] = {
     "Description:",
     "Set information relating to environment settings and behavior. If",
     "no argument is given, display a list of all valid set subcommands.",
+    "",
+    "If an argument is given that does not match a subcommand, set is an",
+    "alias for set variable.",
     0};
 
 const char* const class_set_print_help[] = {

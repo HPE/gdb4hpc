@@ -458,6 +458,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_list.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_list.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_next.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_next.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_arrays_compare.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_compare.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_arrays_chunk.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_chunk.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_arrays_print.in     ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_print.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_bt.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_bt.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cpp_catch.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_catch.in
@@ -861,6 +862,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_list.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_next.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_compare.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_chunk.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_arrays_print.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_bt.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cpp_catch.in

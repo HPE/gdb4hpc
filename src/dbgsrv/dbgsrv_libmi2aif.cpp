@@ -2439,7 +2439,9 @@ std::tuple<std::shared_ptr<ais::Type>, char*, bool> Chunker::getNext()
             auto subArrayType = std::static_pointer_cast<ais::Array>(m_var->getType());
             subArrayType = subArrayType->makeTyped(subArrayType->getElemTypePtr());
             subArrayType->setBounds(len, subArrayType->getIndex0() + m_subIdx);
-            retType = subArrayType;
+
+            retType = std::make_shared<ais::ArrayChunk>(subArrayType, m_subIdx == 0,
+                                                        maxIdx == m_maxSubIdx);
             
             m_subIdx = maxIdx+1;
 

@@ -276,6 +276,10 @@ public:
     virtual Truncater& truncater() = 0;
 };
 
+struct ArrayMetaInfo { int idx0, len; };
+struct ChunkMetaInfo { bool isBegin, isEnd; };
+using MetaInfo = std::variant<ArrayMetaInfo, ChunkMetaInfo>;
+
 // Visitor class for applying an arbitrary operation to a data structure.
 // The explicit types of the data objects being visited is made available in
 // the call-back functions, it is presented as a nested set of of
@@ -303,7 +307,7 @@ public:
     // reporting for non-data portions of the data structure.
     // This may be expanded, but is set up currently just for
     // defining the first index and total size of a collection
-    virtual void addMetaInfo(const Type* t, std::pair<int,int> info);
+    virtual void addMetaInfo(const Type* t, const MetaInfo& info);
 
     // called when an object is finished
     virtual void end();
@@ -378,7 +382,7 @@ public:
     
     void nest(const Type* t, int refIdx) override;
     void start(const Type* t) override;
-    void addMetaInfo(const Type* t, std::pair<int,int> info) override;
+    void addMetaInfo(const Type* t, const MetaInfo& info) override;
     void end() override;
     void unnest();
 
@@ -409,7 +413,7 @@ public:
     template<class T> void operator()(T x) { if (m_wrapped) (*m_wrapped)(x); }
     void nest(const Type* t, int refIdx) override;
     void start(const Type* t) override;
-    void addMetaInfo(const Type* t, std::pair<int,int> info) override;
+    void addMetaInfo(const Type* t, const MetaInfo& info) override;
     void unnest() override;
     void end() override;
     void eof() override;
@@ -1033,6 +1037,22 @@ private:
     std::shared_ptr<Filter> m_filter;
     std::unique_ptr<Array> m_ftn;
 };
+
+// One segment of an array that's been broken into chunks
+class ArrayChunk : public Type {
+public:
+    ArrayChunk();
+    ArrayChunk(std::shared_ptr<ais::Array> array, bool isBegin, bool isEnd);
+    void parseL(InterpretStream& in, Writer& out) const override;
+    void applyL(Reader& reader, Visitor& f) const override;
+    std::string getTypeName() const override;
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
+
+private:
+    std::shared_ptr<Array> m_array;
+    bool m_isBegin;
+    bool m_isEnd;
+};
     
  
 // Structure container    
@@ -1208,7 +1228,7 @@ public:
         FVisitor<OpVisitorFunc<UNARY_OP>>(OpVisitorFunc(op,out)), m_out(out) {}
     void nest(const Type* t, int /*refIdx*/) override { m_out.nest(t); }
     void start(const Type* t) override { m_out.start(t); }
-    void addMetaInfo(const Type* t, std::pair<int,int> info) override {m_out.addMetaInfo(t,info);}
+    void addMetaInfo(const Type* t, const MetaInfo& info) override {m_out.addMetaInfo(t,info);}
     void end() override { m_out.end(); }
     void unnest() override { m_out.unnest(); }
     void eof() override { m_out.eof(); }

@@ -783,7 +783,8 @@ std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
     std::make_shared<ais::Map>(),
     std::make_shared<ais::UnorderedMap>(),
     std::make_shared<ais::Multimap>(),
-    std::make_shared<ais::UnorderedMultimap>()
+    std::make_shared<ais::UnorderedMultimap>(),
+    std::make_shared<ais::ArrayChunk>()
 };
 
 std::vector<std::shared_ptr<ais::Array>> ais::Reader::m_arrayTypes =
@@ -893,9 +894,11 @@ namespace ais {
                      const std::string& asep,
                      const std::string& aclose) : Printer(parent),
                                                   open(aopen), sep(asep), close(aclose) {}
-        void addMetaInfo(const Type*, std::pair<int,int> info) {
-            m_idx0 = info.first;
-            m_len = info.second;
+        void addMetaInfo(const Type*, const MetaInfo& info) {
+            if (auto arr = std::get_if<ArrayMetaInfo>(&info)) {
+                m_idx0 = arr->idx0;
+                m_len = arr->len;
+            }
         }
         void start(const Type* t) override { Printer::start(t); out << open; }
         void startChild() override { if (m_idx++) out << sep; }
@@ -938,7 +941,7 @@ void ais::Array::applyL(Reader& reader, Visitor& f) const {
     auto len = reader.readInt();
     auto idx0 = reader.readInt();
     auto mayBeTruncated = static_cast<bool>(reader.readInt());
-    f.addMetaInfo(this, std::make_pair(idx0,len));
+    f.addMetaInfo(this, ArrayMetaInfo{idx0,len});
     f.nest(m_elemType.get());
     for (int i=0; i<len; ++i) {
         if (mayBeTruncated && !reader.readInt()) break;
@@ -1065,6 +1068,56 @@ void ais::FtnArray::printIndex(int idx, std::ostream& os) const {
 
 bool ais::FtnArray::isFortran() const { return true; }
 
+//===========================================================================
+
+ais::ArrayChunk::ArrayChunk(std::shared_ptr<ais::Array> array, bool isBegin, bool isEnd) :
+    m_array(array), m_isBegin(isBegin), m_isEnd(isEnd) {}
+
+ais::ArrayChunk::ArrayChunk() : m_isBegin(false), m_isEnd(false) {}
+
+void ais::ArrayChunk::parseL(InterpretStream& in, Writer& out) const {
+    out.writeType(*m_array);
+    out.writeInt(m_isBegin);
+    out.writeInt(m_isEnd);
+    
+    m_array->parseL(in, out);
+}
+
+void ais::ArrayChunk::applyL(Reader& reader, Visitor& f) const {
+    // ArrayChunk acts as adapter like ais::Pointer.   So the array
+    // itself is a member along with where we are in the chunk train.
+    auto array = reader.readType();
+    bool isBegin = (reader.readInt() != 0);
+    bool isEnd = (reader.readInt() != 0);
+    f.addMetaInfo(array.get(), ChunkMetaInfo{isBegin, isEnd});
+    if (array) array->apply(reader, f);
+}
+
+std::string ais::ArrayChunk::getTypeName() const {
+    return "^ArrayChunk";
+}
+
+namespace ais {
+    // This is basically the motivation for ArrayChunk, we need special handling
+    // to avoid an extra "},{" between the chunks.
+    struct ArrayChunkPrinter : public ArrayPrinter {
+        ArrayChunkPrinter(Printer& parent) : ArrayPrinter(parent, "{", ",", ",") {}
+        void addMetaInfo(const Type*, const MetaInfo& metaInfo) override {
+            if (auto chunk = std::get_if<ChunkMetaInfo>(&metaInfo)) {
+                if (!chunk->isBegin) open = "";
+                if (chunk->isEnd) close = "}";
+            }
+        }
+        void start(const Type* t) override { Printer::start(t); }
+        void startChild() override { if (m_idx++) out << sep; else out << open; }
+
+    };
+}
+
+std::unique_ptr<ais::Printer> ais::ArrayChunk::makePrinter(Printer& parent) const {
+    return std::make_unique<ArrayChunkPrinter>(parent);
+}
+    
 //===========================================================================
 
 ais::Truncater::Truncater(size_t limit) : m_limit(limit)
@@ -1300,7 +1353,7 @@ void ais::DecompArray::applyL(Reader& reader, Visitor& f) const {
             // similar logic to the previous, the caller call the first start
             if (first) first = false;
             else f.start(arrayType);
-            if (isFortran) f.addMetaInfo(this, std::make_pair(1,0));
+            if (isFortran) f.addMetaInfo(this, ArrayMetaInfo{1,0});
             f.nest(getNestType(i,it.startLevel));
         }
         outputLevel = it.startLevel;
@@ -1429,6 +1482,11 @@ ais::Vector::Vector(std::shared_ptr<Type> elemType, int len, int capacity)
 
 void ais::Vector::parseL(InterpretStream& in, Writer& out) const {
     const char* s = skipspace(in.get());
+
+    if (s[0] == '{') {
+        out.writeInt(0); // capacity
+        return Array::parseL(in, out);
+    }
 
     int len, capacity, chars;
     int n = sscanf(s, "std::vector of length %d, capacity %d%n",
@@ -2795,9 +2853,10 @@ namespace ais {
         void unnest() override {
             if (m_top) m_top->unnest();
         }
-        void addMetaInfo(const Type* t, std::pair<int,int> info) {
+        void addMetaInfo(const Type* t, const MetaInfo& info) {
             if (m_top) m_top->addMetaInfo(t, info);
         }
+
         void start(const Type* t) override { if (m_top) m_top->start(t); }
         void end() override { if (m_top) m_top->end(); }
         void startChild() override {}
@@ -2833,10 +2892,9 @@ void ais::TrackingVisitor::start(const ais::Type* t) {
     if (m_wrapped) m_wrapped->start(t);
 }
 
-void ais::TrackingVisitor::addMetaInfo(const ais::Type* t, std::pair<int,int> info) {
-    if (!m_idcs.empty()) {
-        
-        m_idcs.back().second = info.first;
+void ais::TrackingVisitor::addMetaInfo(const ais::Type* t, const MetaInfo& info) {
+    if (auto arr = std::get_if<ArrayMetaInfo>(&info)) {
+        if (!m_idcs.empty()) m_idcs.back().second = arr->idx0;
     }
     if (m_wrapped) m_wrapped->addMetaInfo(t, info);
 }
@@ -2887,7 +2945,7 @@ void ais::Visitor::operator()(long val) { operator()(static_cast<long long>(val)
 void ais::Visitor::operator()(float val) { operator()(double(val)); }
 void ais::Visitor::operator()(double val) { operator()(static_cast<long double>(val)); }
 void ais::Visitor::start(const Type*) {}
-void ais::Visitor::addMetaInfo(const Type*, std::pair<int,int>) {}
+void ais::Visitor::addMetaInfo(const Type*, const MetaInfo&) {}
 void ais::Visitor::end() {}
 void ais::Visitor::nest(const Type*, int) {}
 void ais::Visitor::unnest() {}
@@ -3040,7 +3098,7 @@ public:
 
     void nest(const ais::Type* t, int refIdx=-1) override { m_out.nest(t,refIdx); }
     void start(const ais::Type* t) override { m_out.start(t); }
-    void addMetaInfo(const ais::Type* t, std::pair<int,int> info) override {
+    void addMetaInfo(const ais::Type* t, const MetaInfo& info) override {
         m_out.addMetaInfo(t,info); }
     void end() override { m_out.end(); }
     void unnest() override { m_out.unnest(); }
@@ -3176,7 +3234,7 @@ void ais::Printer::nest(const ais::Type* t, int) {
     master.setTop(child.get());
 }
 void ais::Printer::start(const ais::Type*) { if (parent) parent->startChild(); }
-void ais::Printer::addMetaInfo(const ais::Type*, std::pair<int,int>) {}
+void ais::Printer::addMetaInfo(const ais::Type*, const MetaInfo&) {}
 void ais::Printer::end() { if (parent) parent->endChild(); }
 void ais::Printer::unnest() {
     if (parent) {

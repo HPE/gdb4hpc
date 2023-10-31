@@ -191,6 +191,16 @@ The difference delta is:
 0: p $not_here
 Not a client side variable: $not_here
 Command resulted in an error: 0: p $not_here
+48: p 1 + 2 + 4
+a{0..2}: 7
+49: p (1+2) * 4
+a{0..2}: 12
+50: p 2 * (1+4)
+a{0..2}: 10
+51: p $array+$array+$array
+{0..2}: {0,3,6,9,12,15,18,21,24,27}
+52: p $array*($array+$array)
+{0..2}: {0,2,8,18,32,50,72,98,128,162}
 0: # variables use the same namespace as assertion scripts, decompositions, and procsets
 0: build $array
 $array is already defined as a client variable.

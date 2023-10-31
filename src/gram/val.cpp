@@ -657,8 +657,12 @@ std::optional<ResultPair> BinaryFuncValue::getNextSet(bool rankToRank) {
     // need to cache for getCommonSet
     m_unprocessed.swap(res);
 
-    return ResultPair{.ranks = m_unprocessed->ranks->clone(),
-            .isRankToRank = true};
+    if (m_unprocessed->ranks) {
+        return ResultPair{.ranks = m_unprocessed->ranks->clone(),
+                              .isRankToRank = true};
+    } else {
+        return ResultPair{.isRankToRank=false};
+    }
 }
 
 // This binary value is the second term of some larger expression,
@@ -731,26 +735,30 @@ void BinaryFuncValue::getCommonRanks(ResultPair& pr) {
 }
 
 void BinaryFuncValue::getCommonSet(ResultPair& result) {
-    if (!result.isRankToRank) {
-        result.a = getSingleResult();
-        result.label = "";
-        return;
-    }
-
     // get nextSet cached the value in m_unprocessed
-    auto& r = *m_unprocessed;
-
-    if (result.ranksAreEq) {
+    if (!m_unprocessed) {
+        // was known to be !rankToRank a priori
+        result.label = "";
+        result.a = getSingleResult();
+    } else if (!result.isRankToRank) {
+        // single match, we can consume the result
+        auto& r = *m_unprocessed;
+        result.a = getAIFStream(r.a, r.b);
+        result.label = "";
+        m_unprocessed.reset();
+    } else if (result.ranksAreEq) {
+        // complete matching, we can consume the result
+        auto& r = *m_unprocessed;
         result.a = getAIFStream(r.a, r.b);
         result.label = std::move(r.label);
         m_unprocessed.reset();
-        return;
+    } else {
+        // we've only used a portion of the used ranks
+        auto& r = *m_unprocessed;
+        result.a = getAIFStream(r.a->clone(), r.b->clone());
+        *r.ranks -= *result.ranks;
+        result.label = "not the right label";
     }
-
-    // we've only used a portion of the used ranks
-    result.a = getAIFStream(r.a->clone(), r.b->clone());
-    *r.ranks -= *result.ranks;
-    result.label = "not the right label";
 }
 
 AIFStream* BinaryFuncValue::getSingleResult() {

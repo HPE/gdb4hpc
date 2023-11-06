@@ -35,7 +35,7 @@ void UnregisterBlockMap(const std::string& name);
 extern void FinishBlockMap(void);
 extern AIFStream* construct_blockmap_data(BlockMap *bm, const std::string& idx,
                                           rec_set_t* rec_set,
-                                          const rep_set_t& rep_set);
+                                          rep_set_t& rep_set);
 void PrintWithBlockMap(AIFStream* aif, BlockMap* bm, std::ostream& out);
     
 extern std::shared_ptr<ais::DecompIterator> MakeBlockMapIterator(BlockMap *bm,

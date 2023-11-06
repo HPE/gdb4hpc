@@ -392,55 +392,14 @@ group_reply_t *CopyGroupReply(group_reply_t *rep) {
  */
 
 rep_set_t::rep_set_t()
-    : m_set(nullptr), m_dataId(0), m_isChunked(false), m_returnedChunk0(false),
-      m_moreChunks(false)
+    : m_set(nullptr), m_dataId(0), m_returnedChunk0(false)
 {}
 
-rep_set_t::rep_set_t(std::vector<rep_set_t>& chunks, const Bitset* group)
-    : rep_set_t()
-{
-    mergeReplyChunkSet(chunks, group);
-}
-
-rep_set_t::rep_set_t(rep_set_t&& expiring)
-    : rep_set_t()
-{
-    *this = std::move(expiring);
-}
-
-rep_set_t& rep_set_t::operator=(rep_set_t&& expiring) {
-    if (this != &expiring) dealloc();
-
-    m_reps = std::move(expiring.m_reps);
-    m_errs = std::move(expiring.m_errs);
-
-    // XXX: m_set is a raw pointer and is the only reason we can't just do ::rep_set_t(rep_set_t&&) = default.
-    m_set = expiring.m_set;
-    expiring.m_set = nullptr;
-
-    m_dataId = expiring.m_dataId;
-    m_isChunked = expiring.m_isChunked;
-    m_returnedChunk0 = expiring.m_returnedChunk0;
-    m_moreChunks = expiring.m_moreChunks;
-    m_repsIsSorted = expiring.m_repsIsSorted;
-    m_errsIsSorted = expiring.m_errsIsSorted;
-
-    return *this;
-}
-
 rep_set_t::~rep_set_t() {
-    dealloc();
-}
-
-void rep_set_t::dealloc() {
     for (auto&& reply : m_reps)
         FreeGroupReply(reply);
     for (auto&& reply : m_errs)
         FreeGroupReply(reply);
-
-    if (m_set) {
-        FreeRecSet(m_set);
-    }
 }
 
 rep_set_t rep_set_t::clone() const
@@ -452,15 +411,18 @@ rep_set_t rep_set_t::clone() const
     for (auto&& reply : m_errs) {
         newset.m_errs.push_back(CopyGroupReply(reply));
     }
+    for (const auto& extra : m_unmergedChunks) {
+        newset.m_unmergedChunks.push_back(extra.clone());
+    }
     if (m_set) {
-        newset.m_set = NewRecSet();
-        for (auto&& recv : m_set) {
-            AddReceiverToSet(newset.m_set, CopyGroupReceiver(recv));
+        // XXX: should we really be giving this to the clone?
+        newset.m_set = std::make_unique<rec_set_t>();
+        for (auto&& recv : m_set.get()) {
+            newset.m_set->addReceiver(CopyGroupReceiver(recv));
         }
     }
 
     newset.m_dataId = m_dataId;
-    newset.m_moreChunks = m_moreChunks;
     newset.m_repsIsSorted = m_repsIsSorted;
     newset.m_errsIsSorted = m_errsIsSorted;
 
@@ -478,8 +440,6 @@ void rep_set_t::merge(rep_set_t&& tmp) {
     r.swap(tmp.m_errs);
     m_errs.insert(m_errs.end(), r.begin(), r.end());
 
-    m_isChunked |= tmp.m_isChunked;
-    m_moreChunks |= tmp.m_moreChunks;
     m_returnedChunk0 = false;
 
     if (m_dataId != tmp.m_dataId) {
@@ -490,7 +450,7 @@ void rep_set_t::merge(rep_set_t&& tmp) {
         if (!m_set) {
             std::swap(m_set,tmp.m_set);
         } else {
-            for (auto&& recv : tmp.m_set) {
+            for (auto&& recv : tmp.m_set.get()) {
                 m_set->addReceiver(CopyGroupReceiver(recv));
             }
         }
@@ -517,105 +477,6 @@ void rep_set_t::addReply(group_reply_t *rep)
     m_repsIsSorted = false;
 }
 
-void rep_set_t::writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream*&& data,
-        std::function<AIFStream* (AIFStream* oldData, AIFStream* data)> tFn)
-{
-    // creates a new reply containing the passed aif stream. new reply owns passed aif pointer.
-    const auto aif2Reply = [](const DbgInvoke::Handle& di, std::unique_ptr<Bitset>&& group, AIFStream*&& aif) {
-        auto ev = NewEvent(DBGEV_DATA);
-        ev->ev_data = aif;
-        aif = nullptr;
-        return NewGroupReply(di, std::move(group), ev);
-    };
-
-    size_t origNumReplies = m_reps.size();
-    for (size_t i = 0; i < origNumReplies && !ranks->isEmpty(); i++) {
-        auto* reply = m_reps[i];
-
-        if (reply->rep_event->ev_event != DBGEV_DATA || !ranks->hasCommonBits(*reply->rep_group)) continue;
-
-        // generate new aif via passed transform operation
-        auto newAif = tFn(EVENT_DATA(reply->rep_event), data);
-        if (!newAif) continue;
-        if (static_cast<void*>(newAif) == static_cast<void*>(EVENT_DATA(reply->rep_event))) {
-            throw std::runtime_error("Transformation function must not return original data");
-        }
-
-        // if the new data is equivalent to the data already in the reply,
-        // we can mark the data as already accounted for (for ranks matching the
-        // existing reply) and continue.
-        if (AIFStream::compareEqual(*EVENT_DATA(reply->rep_event), *newAif)) {
-            *ranks -= *reply->rep_group;
-
-            // tFn might have just spat `data` back out at us, so be careful when deleting
-            if (static_cast<void*>(newAif) != static_cast<void*>(data))
-                delete newAif;
-            continue;
-        }
-
-        // if we get here, the data is different. replace the data for ranks that
-        // overlap by removing data from the old reply and creating a new reply
-        // with the new data
-        auto commonRanks = bitset::fromAnd(*ranks, *reply->rep_group);
-
-        *ranks -= *commonRanks;
-        *reply->rep_group -= *commonRanks;
-
-        m_reps.push_back(aif2Reply(reply->rep_di, std::move(commonRanks), std::move(newAif->clone())));
-
-        // we might have completely replaced an existing reply value, remove it and
-        // update the iteration values
-        if (reply->rep_group->isEmpty()) {
-            m_reps.erase(m_reps.begin()+i);
-            FreeGroupReply(reply);
-            --i;
-            --origNumReplies;
-        }
-    }
-
-    // if any ranks are left over, add a new reply from them
-    if (!ranks->isEmpty()) {
-        m_reps.push_back(aif2Reply(nullptr, std::move(ranks), std::move(data)));
-        data = nullptr;
-    } else {
-        delete data;
-        data = nullptr;
-    }
-
-    // New replies could potentially have an already existing value.   Merge
-    // duplicates here.  The total number or possible values is small so the
-    // amount of processing here should be limited.
-    for (size_t i=origNumReplies; i<m_reps.size(); ++i) {
-        auto repI = m_reps[i];
-        auto repIe = repI->rep_event;
-
-        for (size_t j=0; j<i; ++j) {
-            auto repJ = m_reps[j];
-            auto repJe = repJ->rep_event;
-
-            if (repIe->ev_event == DBGEV_DATA && repJe->ev_event == DBGEV_DATA
-                && AIFStream::compareEqual(*EVENT_DATA(repIe), *EVENT_DATA(repJe)))
-            {
-                *repJ->rep_group |= *repI->rep_group;
-                m_reps.erase(m_reps.begin()+i);
-                --i;
-                FreeGroupReply(repI);
-            }
-        }
-    }
-
-    m_repsIsSorted = false;
-
-    // nullify passed pointers so calling function no longer has access to internal data
-    data = nullptr;
-}
-
-void rep_set_t::writeDataReply(std::unique_ptr<Bitset>&& group, AIFStream*&& data) {
-    writeTransformedReply(std::move(group), std::move(data), [](AIFStream *, AIFStream *newData) {
-        return newData;
-    });
-}
-
 void rep_set_t::addErr(group_reply_t* rep)
 {
     m_errs.push_back(rep);
@@ -627,39 +488,47 @@ bool rep_set_t::isEmpty() const
     return m_reps.empty() && m_errs.empty();
 }
 
-size_t rep_set_t::getNumReplies() const
+size_t rep_set_t::getNumReplies()
 {
     return getReplies().size();
 }
 
-group_reply_t* rep_set_t::getFirstReply() const
+group_reply_t* rep_set_t::getFirstReply()
 {
     auto msgs = getReplies();
     return msgs.empty() ? nullptr : msgs.front();
 }
 
-const std::vector<group_reply_t*>& rep_set_t::getReplies() const
+const std::vector<group_reply_t*>& rep_set_t::getReplies()
 {
-    if (m_moreChunks) {
-        // make the single reply on demand if the processing doesn't handle
-        // packetized.  -- delete the chunks and clears the m_chunks vector.
-        const_cast<rep_set_t*>(this)->mergeReplyChunks();
+    if (m_set) {
+        fetchRemainingReplyChunks();
     }
 
-    const_cast<rep_set_t*>(this)->sortReplies();
+    // a freshly cloned rep_set_t has no m_set but still has unmerged backing
+    // data, which is why this check is separate from the m_set check.
+    if (!m_unmergedChunks.empty()) {
+        mergeReplyChunks();
+    }
+
+    sortReplies();
 
     return m_reps;
 }
 
-const std::vector<group_reply_t*>& rep_set_t::getErrs() const
+const std::vector<group_reply_t*>& rep_set_t::getErrs()
 {
-    if (!m_moreChunks) {
-        // make the single reply on demand if the processing doesn't handle
-        // packetized.  -- delete the chunks and clears the m_chunks vector.
-        const_cast<rep_set_t*>(this)->mergeReplyChunks();
+    if (m_set) {
+        fetchRemainingReplyChunks();
     }
 
-    const_cast<rep_set_t*>(this)->sortErrors();
+    // a freshly cloned rep_set_t has no m_set but still has unmerged backing
+    // data, which is why this check is separate from the m_set check.
+    if (!m_unmergedChunks.empty()) {
+        mergeReplyChunks();
+    }
+
+    sortErrors();
 
     return m_errs;
 }
@@ -675,7 +544,7 @@ rep_set_t rep_set_t::getNextChunk() {
         m_returnedChunk0 = true;
         m_repsIsSorted = m_errsIsSorted = true; // reps and errs now empty
         return chunk0;
-    } else if (m_isChunked && m_moreChunks) {
+    } else if (m_set) {
         return recvChunk();
     } else {
         return rep_set_t();
@@ -687,14 +556,10 @@ void rep_set_t::setContinuation(group_recv_t* set) {
         return;
 
     if (!m_set) {
-        m_set = NewRecSet();
+        m_set = std::make_unique<rec_set_t>();
     }
-
-    if (m_set) {
-        AddReceiverToSet(m_set, CopyGroupReceiver(set));
-    }
+    m_set->addReceiver(CopyGroupReceiver(set));
     m_returnedChunk0 = false;
-    m_isChunked = m_moreChunks = true;
 }
 
 void rep_set_t::setDataId(size_t id) { m_dataId = id; }
@@ -708,19 +573,18 @@ rep_set_t rep_set_t::recvChunk()
 
     auto req = CommandToSocProto(DBGCMD_CONTINUEEVALEXPR, m_dataId);
 
-    auto chunk = DbgSendCmdAndRecvReply(m_set, req, DBGEV_DATA);
+    auto chunk = DbgSendCmdAndRecvReply(m_set.get(), req, DBGEV_DATA);
     if (!chunk.isEmpty()) {
-        m_moreChunks = chunk.m_moreChunks;
-        chunk.m_isChunked = chunk.m_returnedChunk0 = chunk.m_moreChunks = false;
+        m_set = std::move(chunk.m_set);
     } else {
-        m_moreChunks = false;
+        m_set.reset();
     }
 
     return chunk;
 }
 
 // Used to print out an error from a rep_set
-int ProcessErrorInRepSet(const rep_set_t& rep_set) {
+int ProcessErrorInRepSet(rep_set_t& rep_set) {
     if (rep_set.hasError()) {
         for (auto&& err : rep_set.getErrs()) {
             if (err->rep_group) {
@@ -1712,28 +1576,17 @@ static rep_set_t DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_t
     return reply;
 }
 
-// merge together a packetized reply into a monolithic rep_set
-// Note that this is a short term function, the goal it to process the
-// result chunks as they arrive; storing the full set of chunks
-// in memory does not help (actually hinders) the memory usage on the client
-// side
-void rep_set_t::mergeReplyChunks()
-{
-    if (!m_isChunked)
-        return;
+void rep_set_t::pickle() {
+    // if the rep_set isn't chunked, it's already in a pickled state
+    if (!m_set) return;
 
-    // Each generation of packets was reduced separately, so we'll need to build
-    // up new equivalence classes to get a combined result that was returned by
-    // every process.
+    fetchRemainingReplyChunks();
+}
 
-    std::vector<rep_set_t> chunks;
+void rep_set_t::fetchRemainingReplyChunks() {
     for (auto chunk = getNextChunk(); !chunk.isEmpty(); chunk = getNextChunk()) {
-        chunks.push_back(std::move(chunk));
+        m_unmergedChunks.push_back(std::move(chunk));
     }
-
-    mergeReplyChunkSet(chunks, nullptr);
-
-    m_isChunked = m_returnedChunk0 = m_moreChunks =  false;
 }
 
 // merge together a packetized reply into a monolithic rep_set
@@ -1741,9 +1594,17 @@ void rep_set_t::mergeReplyChunks()
 // result chunks as they arrive; storing the full set of chunks
 // in memory does not help (actually hinders) the memory usage on the client
 // side
-void rep_set_t::mergeReplyChunkSet(std::vector<rep_set_t>& chunks,
-                                   const Bitset* group)
+void rep_set_t::mergeReplyChunks()
 {
+    mergeReplyChunkSet(std::move(m_unmergedChunks));
+}
+
+// merge together a packetized reply into a monolithic rep_set
+// Note that this is a short term function, the goal it to process the
+// result chunks as they arrive; storing the full set of chunks
+// in memory does not help (actually hinders) the memory usage on the client
+// side
+void rep_set_t::mergeReplyChunkSet(std::vector<rep_set_t>&& chunks) {
     // Each generation of packets was reduced separately, so we'll need to build
     // up new equivalence classes to get a combined result that was returned by
     // every process.   FIXME: this bit of code is temporary since it allows the
@@ -1757,7 +1618,8 @@ void rep_set_t::mergeReplyChunkSet(std::vector<rep_set_t>& chunks,
         m_errs.swap(chunks[0].m_errs);
         std::swap(m_errsIsSorted, chunks[0].m_errsIsSorted);
         m_dataId = 0;
-        m_isChunked = m_returnedChunk0 = m_moreChunks = false;
+        m_returnedChunk0 = false;
+        chunks.clear();
         return;
     }
 
@@ -1765,7 +1627,7 @@ void rep_set_t::mergeReplyChunkSet(std::vector<rep_set_t>& chunks,
     // compare is sparse, so we can't just look at the first chunk.
     std::set<DbgInvoke::Handle> disSet;
     std::vector<DbgInvoke::Handle> dis;
-    for (const auto& chunk : chunks) {
+    for (auto& chunk : chunks) {
         for (const auto& reply : chunk) {
             auto di = reply->rep_di;
             if (disSet.insert(di).second)
@@ -1793,14 +1655,11 @@ void rep_set_t::mergeReplyChunkSet(std::vector<rep_set_t>& chunks,
 
         // compute the set of processes left to process
         std::unique_ptr<Bitset> toproc = nullptr;
-        if (group) {
-            toproc = group->clone();
-        } else {
-            for (auto&& r : tiers[0]) {
-                if (toproc)
-                    *toproc |= *r->rep_group;
-                else
-                    toproc = r->rep_group->clone();
+        for (auto&& r : tiers[0]) {
+            if (toproc) {
+                *toproc |= *r->rep_group;
+            } else {
+                toproc = r->rep_group->clone();
             }
         }
 
@@ -1827,7 +1686,7 @@ void rep_set_t::mergeReplyChunkSet(std::vector<rep_set_t>& chunks,
             // remove this set from the process set to process
             *toproc -= *setset;
 
-            if (!group && newChunk.size() != numTiers) {
+            if (newChunk.size() != numTiers) {
                 DPRINT("reply mismatch in MergeReplyChunks\n");
                 break;
             }
@@ -1859,6 +1718,8 @@ void rep_set_t::mergeReplyChunkSet(std::vector<rep_set_t>& chunks,
             }
         }
     }
+
+    chunks.clear();
 }
 
 // return true if l->rep_group < r->rep_group

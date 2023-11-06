@@ -120,6 +120,8 @@ public:
     // remote fetch to retrieve the value to be pickled), and for that reason
     // `pickle` is not a const function.
     //
+    // XXX: a better api might be a `void pickle()` with side effects, and a const `clone()`.
+    //
     // not every value type can be pickled, and the default implementation of
     // `pickle` throws EvalError.
     virtual std::unique_ptr<Value> pickle();

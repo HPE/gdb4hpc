@@ -246,6 +246,11 @@ AIFStream* AIFStream::clone()
         }
         return new AIFStream(m_chunks->clone());
     } else if (m_vstream) {
+        // XXX: PE-51021: the clone shares the same backing stream and can
+        // steal/consume it out from under the original AIFStream depending on
+        // the stream implementation.
+        //
+        // This path is okay to use for SingleValueStreams, which are not consumed on use.
         return new AIFStream(m_vstream);
     } else {
         throw std::runtime_error("cannot clone an empty data stream");

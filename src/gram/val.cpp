@@ -367,8 +367,7 @@ PendingReplyValue::PendingReplyValue(rec_set_t* rec_set, const std::string& expr
 
 std::unique_ptr<Value> PendingReplyValue::pickle() {
     auto reply = retrieve();
-    // XXX: PE-50810: chunked values don't pickle properly.
-    // they are safe to store, but won't print.
+    reply.pickle();
     return std::make_unique<PickledReplyValue>(std::move(reply));
 }
 
@@ -565,23 +564,7 @@ BinaryFuncValue::BinaryFuncValue(std::unique_ptr<Value>&& a,
 {}
 
 std::unique_ptr<Value> BinaryFuncValue::pickle() {
-    auto [ num_a, unique_a ] = m_a->getNumResults();
-    auto [ num_b, unique_b ] = m_b->getNumResults();
-
-    // pickled values can only refer to one value
-    if (unique_a && unique_b) {
-        if (auto maybe_result_pair = m_a->getNextSet(false)) {
-            auto& result_pair = *maybe_result_pair;
-            m_a->getCommonRanks(result_pair);
-            m_b->getCommonSet(result_pair);
-            // the expression is empty here because ClientValues don't implement getExpr()
-            return std::make_unique<AIFValue>(nullptr, "", getAIFStream(result_pair.a, result_pair.b));
-        } else {
-            throw EvalError("Value cannot be saved");
-        }
-    } else {
-        throw EvalError("Cannot store binary expression that produces multiple results in a single variable");
-    }
+    return std::make_unique<BinaryFuncValue>(m_a->pickle(), m_op, m_b->pickle());
 }
 
 void BinaryFuncValue::print(std::ostream& os, rec_set_t*, const std::string& format) {

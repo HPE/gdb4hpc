@@ -237,7 +237,7 @@ size_t BlockMap::getElementsPerRank() const {
 AIFStream *construct_blockmap_data(BlockMap *bm,
                                    const std::string& idx,
                                    rec_set_t* rec_set,
-                                   const rep_set_t& rep_set) {
+                                   rep_set_t& rep_set) {
     // Make sure that there were no errors and we received rep_set, otherwise
     // print error.
     if (rep_set.hasError()) {

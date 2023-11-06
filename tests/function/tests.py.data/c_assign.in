@@ -226,16 +226,16 @@ b{0..2}: {0,1,2,3,4,5,6,7,8,9}
 0: p $array
 a{0..2}: {0,1,2,3,4,5,6,7,8,9}
 0: p $zombie = $array + $array
-{0,2,4,6,8,10,12,14,16,18}
-0: p $zombie???PE-50810
-{0,2,4,6,8,10,12,14,16,18}
-0: # some semantic edge case tests. these should all match gdb.
+{0..2}: {0,2,4,6,8,10,12,14,16,18}
+0: p $zombie
+{0..2}: {0,2,4,6,8,10,12,14,16,18}
+0: # some semantic edge case tests. these don't all match gdb.
+0: # these are mostly here for making sure we don't segfault.
 0: # assignment used as value
 0: p ($var = 2) + 2
 4
 0: p $var
 2
-0: # in gdb, "$var = 2; $var = $var = 3 + $var" -> 5
 0: set $var = 2
 0: p $var = $var = 3 + $var
 5
@@ -246,18 +246,16 @@ a{0..2}: {0,1,2,3,4,5,6,7,8,9}
 0: p $var = $var + $var = 3
 %.*%
 Command resulted in an error: 0: p $var = $var + $var = 3
-0: # in gdb, "$var = 2; $var = ($var = 3) + $var" -> 6
 0: set $var = 2
 0: p $var = ($var = 3) + $var
-6
+5
 0: p $var
-6
-0: # in gdb, "$var = 2; $var = $var + ($var = 3)" -> 5
+5
 0: set variable $var = 2
 0: p $var = $var + ($var = 3)
-5
+6
 0: p $var
-5
+6
 0: # check that the set command warns when it's not a plain assignment,
 0: # but still evaluate the expression (matches gdb behavior)
 0: set ($baz = 2) + 2

@@ -132,12 +132,6 @@ typedef struct group_reply group_reply_t;
 ** Each group may be an error message (maintained by m_errs)
 ** or a normal message (maintained by group_reply_t).
 
-For very large arrays, rep_set_t supports the ability to hold just chunk of the array
-result at one time.   Code using the rep_set can iterate over the chunks by using the
-\a getNextChunk function.   Using this approach a client side operation could potentially
-process a terabyte sized array while never needing to allocate more than a fixed number of
-of megabytes.
-
 Most debugger replies do not have the potential to generate gigantic replies, so these
 operations can and should just use getReplies or the iterator forms.    These original
 forms will also accumulate the result chunks into a single reply, though operations that
@@ -150,14 +144,26 @@ public:
 
     ~rep_set_t();
     rep_set_t(const rep_set_t&) = delete;
-    rep_set_t(rep_set_t&&);
+    rep_set_t(rep_set_t&&) = default;
 
     // create from chunks
-    rep_set_t(std::vector<rep_set_t>& chunks, const Bitset* group);
     rep_set_t& operator=(const rep_set_t&) = delete;
-    rep_set_t& operator=(rep_set_t&&);
+    rep_set_t& operator=(rep_set_t&&) = default;
 
-    // create a copy of the contents of the rep_set
+    // `pickle` tries to convert the rep_set into a form that is storable long
+    // term and can be freely `clone`d multiple times.
+    //
+    // XXX: use with caution. not all states of rep_set_t are possible to
+    // pickle. `pickle` has no way to report that case. the safest strategy is
+    // to call `pickle` immediately after getting the rep_set from e.g.
+    // DbgEvalExpr.
+    //
+    // an example of an unpicklable state is after the rep_set's backing data
+    // has been converted to single use streams, which are not copyable by
+    // design.
+    void pickle();
+
+    // create a copy of the contents of the rep_set.
     rep_set_t clone() const;
 
     // merge the replies in `expiring` into this object
@@ -172,29 +178,6 @@ public:
     // add a successful reply
     void addReply(group_reply_t* reply);
 
-    // add a data reply associated with `ranks`. If `ranks` overlaps any
-    // existing ranks in the rep set, the transformation function tFn is called
-    // with the already existing `oldData` and the passed `data`. the result of tFn
-    // is added to the rep set, replacing any replies or parts of replies which
-    // overlap with `ranks`. tFn must not return `oldDdata`.
-    //
-    // if any portion of `ranks` does not overlap any existing replies,
-    // a new data reply is added which stores `data` without calling tFn.
-    //
-    // after this function is called, the rep set owns
-    // `ranks` and `data` and the pointers will be set to nullptr.
-    void writeTransformedReply(std::unique_ptr<Bitset>&& ranks, AIFStream*&& data,
-        std::function<AIFStream* (AIFStream* oldData, AIFStream* data)> tFn);
-
-    // add a data reply associated with `ranks`. If `ranks` overlaps any
-    // existing ranks in the rep set, the old data for those ranks is replaced
-    // with `data`. if any portion of `ranks` does not overlap any
-    // existing replies, a new data reply is added which stores `data`.
-    //
-    // after this function is called, the rep set owns
-    // `ranks` and `data` and the pointers will be set to nullptr.
-    void writeDataReply(std::unique_ptr<Bitset>&& ranks, AIFStream*&& data);
-
     // add a error reply
     void addErr(group_reply_t* reply);
 
@@ -202,44 +185,52 @@ public:
     bool isEmpty() const;
 
     // get the first non-error reply if there is one
-    group_reply_t* getFirstReply() const;
+    //
+    // XXX: PE-51027: this method is not const because it calls getReplies.
+    group_reply_t* getFirstReply();
 
     // get the number of replies in the set ( does not include errors)
-    size_t getNumReplies() const;
+    //
+    // XXX: PE-51027: this method is not const because it calls getReplies.
+    size_t getNumReplies();
 
     // access the set of replies - generally prefer the iterator for (auto&& reply : repSet)
-    const std::vector<group_reply_t*>& getReplies() const;
+    //
+    // XXX: PE-51027: this method is not const because it might fetch more data
+    // and convert the backing data into single use streams, making the reply
+    // uncloneable.
+    const std::vector<group_reply_t*>& getReplies();
 
     // acccess the set of error replies
-    const std::vector<group_reply_t*>& getErrs() const;
-
-    // get the next reply chunk - return an empty set when none remain.
-    rep_set_t getNextChunk();
+    //
+    // XXX: PE-51027: this method is not const because it might fetch more data
+    // and convert the backing data into single use streams, making the reply
+    // uncloneable.
+    const std::vector<group_reply_t*>& getErrs();
 
     // install information to get the next chunk
     void setContinuation(group_recv_t* set);
 
     // each expression result keeps and sequential id for requesting additional chunks.
     void setDataId(size_t id);
-
 private:
     void mergeReplyChunks();
-    void mergeReplyChunkSet(std::vector<rep_set_t>& chunks,
-                            const Bitset* group);
-    rep_set_t recvChunk();
+    void mergeReplyChunkSet(std::vector<rep_set_t>&& chunks);
 
-    void dealloc();
+    void fetchRemainingReplyChunks();
+    // `getNextChunk` gets the next reply chunk - it returns an empty set when none remain.
+    rep_set_t getNextChunk();
+    rep_set_t recvChunk();
 
     // these lists should always be sorted by their groups (bitset::operator<) 
     // when accessed externally
     std::vector<group_reply_t*> m_reps;  // event replies of cmd
     std::vector<group_reply_t*> m_errs;  // error events
 
-    rec_set_t* m_set;                    // for continuation of large arrays
+    std::unique_ptr<rec_set_t> m_set;    // for continuation of large arrays
     size_t m_dataId;                     // for continuation of large arrays
-    bool m_isChunked;                     // the data can be accessed in sequential pieces
     bool m_returnedChunk0;               // the first result has been returned by getNextChunk
-    bool m_moreChunks;                   // more chunks remain to be retrieved
+    std::vector<rep_set_t> m_unmergedChunks;
 
     void sortReplies();
     void sortErrors();
@@ -250,10 +241,12 @@ private:
 // Iteration support for processing the non-error replies of a rep_set_t, which
 // the overwhelmingly most common operation.   Most commonly used as:
 // for (auto&& reply : repSet)
-inline std::vector<group_reply_t*>::const_iterator begin(const rep_set_t& set) {
+inline std::vector<group_reply_t*>::const_iterator begin(rep_set_t& set) {
+    // XXX: PE-51027: getReplies is not const so `set` can't be const
     return set.getReplies().begin();
 }
-inline std::vector<group_reply_t*>::const_iterator end(const rep_set_t& set) {
+inline std::vector<group_reply_t*>::const_iterator end(rep_set_t& set) {
+    // XXX: PE-51027: getReplies is not const so `set` can't be const
     return set.getReplies().end();
 }
 
@@ -287,7 +280,7 @@ extern int SetHasError(rep_set_t *set);  // Maybe make static
 //extern void SetReplyHeadInSet(rep_set_t *set);
 extern int GetNumberOfReply(rep_set_t *set);
 //extern group_reply_t *GetNextReplyInSet(rep_set_t *set);
-extern int ProcessErrorInRepSet(const rep_set_t& rep_set);
+extern int ProcessErrorInRepSet(rep_set_t& rep_set);
 
 /*
 ** debugger client function prototypes

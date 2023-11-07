@@ -60,11 +60,6 @@ private:
     void handle_async_event(DbgInvoke::EventSet &ev_set, const Bitset &reply_set);
     void handle_target_resumed();
 
-    enum class StoppedType {END_RANGE, EXIT, BKPT_HIT};
-    void print_stopped_msg(StoppedType type,const std::string& file, const std::string& func,
-                       int line, const std::string& bkpt_id, const std::string& proc_name,
-                       const Bitset * proc_group, const std::string& fullpath);
-
     class Printer : public Interpreter::Printer {
     public:
         ~Printer() override = default;
@@ -79,6 +74,23 @@ private:
         void print_message_string(const char* str, size_t len);
 
         void print_unfiltered(const char* fmt, ...) __attribute__((format (printf,2,3)));
+
+        // *stopped,reason="breakpoint-hit",...
+        void print_stopped_breakpoint(std::string_view bkpt_id,
+                                      std::string_view proc_name,
+                                      const Bitset &group,
+                                      std::string_view func,
+                                      std::string_view file,
+                                      std::string_view fullpath, int line);
+
+        // *stopped,reason="end-stepping-range",...
+        void print_stopped_step(std::string_view proc_name, const Bitset &group, int threadId,
+                                std::string_view func, std::string_view file,
+                                std::string_view fullpath, int line);
+
+        // *stopped,reason="exited-normally",...
+        void print_stopped_exit(std::string_view proc_name, const Bitset &proc_group);
+
     private:
         Printer(MiInterpreter& parent, cli_stream_t& io);
         friend MiInterpreter::MiInterpreter(cli_stream_t& io);

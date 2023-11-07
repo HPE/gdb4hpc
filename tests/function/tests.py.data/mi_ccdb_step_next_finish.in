@@ -93,7 +93,7 @@
 *running,thread-id="all"
 ^running
 (gdb)
-*stopped,reason="end-stepping-range",proc_set="App0",group="0",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="11"}
+*stopped,reason="end-stepping-range",proc_set="App0",group="0",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="11"},thread-id="1"
 0: 1-thread-info
 1^done,proc_set="App0",group="{0}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="11"},state="break"}],current-thread-id="1"
 (gdb)
@@ -116,7 +116,7 @@
 *running,thread-id="all"
 ^running
 (gdb)
-*stopped,reason="end-stepping-range",proc_set="App0",group="0",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="13"}
+*stopped,reason="end-stepping-range",proc_set="App0",group="0",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="13"},thread-id="1"
 0: 1-thread-info
 1^done,proc_set="App0",group="{0}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="13"},state="break"}],current-thread-id="1"
 (gdb)
@@ -139,7 +139,7 @@
 *running,thread-id="all"
 ^running
 (gdb)
-*stopped,reason="end-stepping-range",proc_set="App0",group="0",frame={func="do_inc",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="5"}
+*stopped,reason="end-stepping-range",proc_set="App0",group="0",frame={func="do_inc",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="5"},thread-id="1"
 0: 1-thread-info
 1^done,proc_set="App0",group="{0}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="do_inc",file="src/c/c_inc.c",line="5"},state="break"}],current-thread-id="1"
 (gdb)
@@ -162,7 +162,7 @@
 *running,thread-id="all"
 ^running
 (gdb)
-*stopped,reason="end-stepping-range",proc_set="App0",group="0",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="14"}
+*stopped,reason="end-stepping-range",proc_set="App0",group="0",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="14"},thread-id="1"
 0: 1-thread-info
 1^done,proc_set="App0",group="{0}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="14"},state="break"}],current-thread-id="1"
 (gdb)

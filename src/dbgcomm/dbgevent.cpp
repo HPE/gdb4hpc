@@ -161,6 +161,7 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
         case DBGEV_STEP:
             e->ev_step.step_frame = dbgframe_t::copy(event->ev_step.step_frame);
             e->ev_step.step_frame_changed = event->ev_step.step_frame_changed;
+            e->ev_step.step_threadId = event->ev_step.step_threadId;
             break;
 
         case DBGEV_FRAME:

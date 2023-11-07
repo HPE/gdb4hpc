@@ -3434,6 +3434,7 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
             e->ev_event = DBGEV_STEP;
             e->ev_step.step_frame_changed = false;
             e->ev_step.step_frame = nullptr;
+            e->ev_step.step_threadId = evt->threadId;
 
             if (evt->frame) {
                 e->ev_step.step_frame = MakeFrameFromMIFrame(evt->frame, false);

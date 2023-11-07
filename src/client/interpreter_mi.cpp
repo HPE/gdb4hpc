@@ -228,38 +228,54 @@ void MiInterpreter::handle_setable_param_changed(std::string_view name, std::str
                         (int)new_value.size(), new_value.data());
 }
 
-void MiInterpreter::print_stopped_msg(StoppedType type,const std::string& file, const std::string& func,
-                       int line, const std::string& bkpt_id, const std::string& proc_name,
-                       const Bitset * proc_group, const std::string& fullpath){
+void MiInterpreter::Printer::print_stopped_breakpoint(
+    std::string_view bkpt_id, std::string_view proc_name, const Bitset &proc_group,
+    std::string_view func, std::string_view file, std::string_view fullpath,
+    int line)
+{
     std::ostringstream ss;
-    std::string group = proc_group->toSetString();
-    switch(type){
-        case StoppedType::BKPT_HIT:{
-            ss << "reason=\"breakpoint-hit\",bkptno=\"" <<bkpt_id
-               << "\",proc_set=\"" << proc_name
-               << "\",group=\"" << group.substr(1,group.length()-2)
-               << "\",frame={func=\"" << func
-               << "\",args=[],file=\"" << file
-               << "\",fullname=\""<< fullpath
-               << "\",line=\"" << line << "\"}";
-            break;
-        }
-        case StoppedType::END_RANGE:{
-            ss << "reason=\"end-stepping-range\",proc_set=\""<<proc_name
-               << "\",group=\"" << group.substr(1,group.length()-2)
-               << "\",frame={func=\"" << func
-               << "\",args=[],file=\""<< file
-               << "\",fullname=\""<< fullpath
-               << "\",line=\""<<line << "\"}";
-            break;
-        }
-        case StoppedType::EXIT:{
-            ss << "reason=\"exited-normally\", proc_set=\""<<proc_name
-                << "\",group=\"" << group.substr(1,group.length()-2) << "\"";
-            break;
-        }
-    }
-    m_printer.print_unfiltered("*stopped,%s\n", ss.str().c_str());
+    auto group_str = proc_group.toSetString();
+
+    ss << "reason=\"breakpoint-hit\",bkptno=\"" <<bkpt_id
+       << "\",proc_set=\"" << proc_name
+       << "\",group=\"" << group_str.substr(1,group_str.length()-2)
+       << "\",frame={func=\"" << func
+       << "\",args=[],file=\"" << file
+       << "\",fullname=\""<< fullpath
+       << "\",line=\"" << line << "\"}"
+    ;
+
+    print_unfiltered("*stopped,reason=\"breakpoint-hit\",%s\n", ss.str().c_str());
+}
+
+void MiInterpreter::Printer::print_stopped_step(
+    std::string_view proc_name, const Bitset &proc_group, int threadId,
+    std::string_view func, std::string_view file, std::string_view fullpath, int line)
+{
+    std::ostringstream ss;
+    auto group_str = proc_group.toSetString();
+
+    ss << "proc_set=\"" << proc_name
+       << "\",group=\"" << group_str.substr(1,group_str.length()-2)
+       << "\",frame={func=\"" << func
+       << "\",args=[],file=\""<< file
+       << "\",fullname=\""<< fullpath
+       << "\",line=\""<<line << "\"}"
+       << ",thread-id=\"" << threadId << '"'
+    ;
+
+    print_unfiltered("*stopped,reason=\"end-stepping-range\",%s\n", ss.str().c_str());
+}
+
+void MiInterpreter::Printer::print_stopped_exit(std::string_view proc_name, const Bitset &proc_group) {
+    std::ostringstream ss;
+    auto group_str = proc_group.toSetString();
+
+    ss << "procset=\"" << proc_name << "\","
+       << "group=\"" << group_str.substr(1, group_str.length() - 2) << '"'
+    ;
+
+    print_unfiltered("*stopped,reason=\"exited-normally\",%s\n", ss.str().c_str());
 }
 
 void MiInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset& /*reply_set*/) {
@@ -279,7 +295,7 @@ void MiInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset
             if (!bpset) {
                 // if unknown to client, assume it's an exit breakpoint
                 if (ev_set.event()->ev_bp->bp_type == DBGBP_EXIT_TYPE) {
-                    print_stopped_msg(StoppedType::EXIT, "", "", 0, "",ev_set.di().handle().c_str(),&ev_set.group(),"");
+                    m_printer.print_stopped_exit(ev_set.di().handle().name(), ev_set.group());
                 }
                 break;
             }
@@ -293,9 +309,12 @@ void MiInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset
 
                 case DBGBP_BREAK_TYPE:
                     if (bpset->line() > 0) {
-                        print_stopped_msg(StoppedType::BKPT_HIT, bpset->file(), bpset->function(), 
-                                          bpset->line(), std::to_string(bpset->id()), ev_set.di().handle().name(),
-                                          &ev_set.group(), ev_set.di().sourcePaths().getFullPath(bpset->file()));
+                        m_printer.print_stopped_breakpoint(
+                            std::to_string(bpset->id()), ev_set.di().handle().name(),
+                            ev_set.group(), bpset->function(),
+                            bpset->file(), ev_set.di().sourcePaths().getFullPath(bpset->file()),
+                            bpset->line()
+                        );
                     }
                     break;
 
@@ -330,9 +349,12 @@ void MiInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset
 
                 case DBGBP_BREAK_TYPE: {
                     if (bpset->line() > 0) {
-                        print_stopped_msg(StoppedType::BKPT_HIT, bpset->file(), bpset->function(), bpset->line(), 
-                                        std::to_string(bpset->id()), ev_set.di().handle().name(),&ev_set.group(),
-                                        ev_set.di().sourcePaths().getFullPath(bpset->file()));
+                        m_printer.print_stopped_breakpoint(
+                            std::to_string(bpset->id()), ev_set.di().handle().name(),
+                            ev_set.group(), bpset->function(),
+                            bpset->file(), ev_set.di().sourcePaths().getFullPath(bpset->file()),
+                            bpset->line()
+                        );
                     }
                     break;
                 }
@@ -355,12 +377,16 @@ void MiInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset
         }
 
         case DBGEV_STEP: {
-            const dbgframe_t *frame = ev_set.event()->ev_step.step_frame;
+            const auto& step = ev_set.event()->ev_step;
+            const dbgframe_t *frame = step.step_frame;
             if (frame) {
                 const auto &frameLoc = frame->getLoc();
                 auto file = frameLoc.loc_file, frame = frameLoc.loc_func;
-                print_stopped_msg(StoppedType::END_RANGE, file ? file : "unknown", frame ? frame : "unknown",
-                                  frameLoc.loc_line, "", ev_set.di().handle().name(), &ev_set.group(), ev_set.di().sourcePaths().getFullPath(file));
+                m_printer.print_stopped_step(
+                    ev_set.di().handle().name(), ev_set.group(), step.step_threadId,
+                    frame ? frame : "unknown", file ? file : "unknown",
+                    ev_set.di().sourcePaths().getFullPath(file), frameLoc.loc_line
+                );
             }
             break;
         }
@@ -376,10 +402,13 @@ void MiInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const Bitset
             const auto &loc = frame->getLoc();
 
             if (loc.loc_line > 0) {
-                print_stopped_msg(StoppedType::BKPT_HIT, loc.loc_file,
-                                  loc.loc_func, loc.loc_line, "0",
-                                  ev_set.di().handle().name(), &ev_set.group(),
-                                  ev_set.di().sourcePaths().getFullPath(loc.loc_file));
+                // XXX: fake breakpoint id of 0
+                m_printer.print_stopped_breakpoint(
+                    "0", ev_set.di().handle().name(),
+                    ev_set.group(), loc.loc_func,
+                    loc.loc_file, ev_set.di().sourcePaths().getFullPath(loc.loc_file),
+                    loc.loc_line
+                );
             } else {
                 // XXX: there should probably be a fallback here, but the old
                 // behavior didn't have it, so leaving it for now.

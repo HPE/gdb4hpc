@@ -234,15 +234,23 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
 
             e->ev_u.ev_u_step.step_frame_changed = true;
             e->ev_u.ev_u_step.step_frame = frame0a->clone();
+            e->ev_u.ev_u_step.step_threadId = 17;
 
             auto* soc = EventToSocProto(e); // frees e and frame
             auto* e2 = SocProtoToEvent(soc);
 
             CHECK(e2->ev_u.ev_u_step.step_frame_changed == true);
             sameFrame(*frame0a, *e2->ev_u.ev_u_step.step_frame);
+            CHECK(e2->ev_u.ev_u_step.step_threadId == 17);
+            free(soc);
+
+            auto* e3 = DupEvent(e2);
+            CHECK(e2->ev_u.ev_u_step.step_frame_changed == e3->ev_u.ev_u_step.step_frame_changed);
+            sameFrame(*e2->ev_u.ev_u_step.step_frame, *e3->ev_u.ev_u_step.step_frame);
+            CHECK(e2->ev_u.ev_u_step.step_threadId == e3->ev_u.ev_u_step.step_threadId);
 
             FreeEvent(e2);
-            free(soc);
+            FreeEvent(e3);
         }
 
         delete frame0a;
@@ -757,7 +765,7 @@ static char *EventSigToSocProto(dbgev ev, dbgsig_t se) {
 
 static char *EventStepToSocProto(dbgev ev, const dbgstep_t &step) {
     char *stres = EventFrameToSocProtoL(step.step_frame);
-    char* wrappedStr = MakeSocStr(ev, "%d %s %d", strlen(stres), stres, step.step_frame_changed);
+    char* wrappedStr = MakeSocStr(ev, "%d %s %d %d", strlen(stres), stres, step.step_frame_changed, step.step_threadId);
     Free(stres);
     return wrappedStr;
 }
@@ -1292,7 +1300,11 @@ static dbgframe_t *SocProtoToFrame(const char *s) {
 }
 
 static dbgstep_t SocProtoToStep(const char *s) {
-    dbgstep_t res{false, nullptr};
+    dbgstep_t res {
+        .step_frame = nullptr,
+        .step_threadId = 0,
+        .step_frame_changed = false
+    };
 
     if (!s || *s == '\0') {
         return res;
@@ -1304,6 +1316,8 @@ static dbgstep_t SocProtoToStep(const char *s) {
 
     auto changed = getint(s);
     res.step_frame_changed = static_cast<bool>(changed);
+
+    res.step_threadId = getint(s);
 
     return res;
 }

@@ -197,8 +197,9 @@ struct dbgcheckpoint_t {
 };
 
 struct dbgstep_t {
-    bool step_frame_changed; // true when a step event stepped into/out of a function
     dbgframe_t *step_frame;
+    int step_threadId;
+    bool step_frame_changed; // true when a step event stepped into/out of a function
 };
 
 struct dbgsig_t {

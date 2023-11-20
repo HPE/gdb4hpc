@@ -392,6 +392,7 @@ public:
     virtual void endChild();
 
     virtual std::string getLabel();
+    virtual void resetLabel(bool force) { parent->resetLabel(force); }
     virtual void indent(); // add indenting when printing multi-line structures
 
     Printer* parent;

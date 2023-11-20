@@ -1101,15 +1101,33 @@ namespace ais {
     // This is basically the motivation for ArrayChunk, we need special handling
     // to avoid an extra "},{" between the chunks.
     struct ArrayChunkPrinter : public ArrayPrinter {
-        ArrayChunkPrinter(Printer& parent) : ArrayPrinter(parent, "{", ",", ",") {}
+        ArrayChunkPrinter(Printer& parent) :
+            ArrayPrinter(parent, "{", ",", ","), onePerLine(false), csv(false) {
+            auto& fmt = parent.format();
+            if ((onePerLine = fmt.onePerLine)) {
+                open = ""; sep = "\n"; close = "";
+            } else if ((csv = fmt.csv)) {
+                open = close = ""; sep = ",";
+            }
+        }
         void addMetaInfo(const Type*, const MetaInfo& metaInfo) override {
             if (auto chunk = std::get_if<ChunkMetaInfo>(&metaInfo)) {
-                if (!chunk->isBegin) open = "";
-                if (chunk->isEnd) close = "}";
+                if (onePerLine) {
+                    if (!chunk->isBegin) open = "\n";
+                } else if (csv) {
+                    if (!chunk->isBegin) open = ",";
+                } else {
+                    if (!chunk->isBegin) open = "";
+                    if (chunk->isEnd) close = "}";
+                }
             }
         }
         void start(const Type* t) override { Printer::start(t); }
         void startChild() override { if (m_idx++) out << sep; else out << open; }
+        void resetLabel(bool) override { parent->resetLabel(true); }
+
+        bool onePerLine = false;
+        bool csv = false;
 
     };
 }
@@ -2845,9 +2863,10 @@ namespace ais {
             if (m_top) m_top->nest(t, refIdx);
             else {
                 out << m_label;
-                if (!m_formatter.csv) m_label.clear();
                 if (refIdx > 0) out << "\n  <" << refIdx << ">:";
                 Printer::nest(t,-1);
+
+                if (m_top) m_top->resetLabel(false);
             }
         }
         void unnest() override {
@@ -2861,6 +2880,7 @@ namespace ais {
         void end() override { if (m_top) m_top->end(); }
         void startChild() override {}
         void endChild() override {}
+        void resetLabel(bool force) override { if (force || !m_formatter.csv) m_label.clear(); }
         std::string getLabel() override { return m_label; }
 
         Formatter& getFormatter() { return m_formatter; }

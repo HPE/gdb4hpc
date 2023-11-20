@@ -6,6 +6,8 @@
 #include <iostream>
 #include <sstream>
 
+#include "unittest_macros.h"
+
 gram::Expression::~Expression() {}
 void gram::Expression::indent(int level) const {
     for (int i=0; i<level; ++i) { std::cout << "  "; }
@@ -356,4 +358,228 @@ std::string gram::ThreadedProcsetExpr::toString() const {
     ps += m_threads->toString();
     return ps;
 }
-        
+
+namespace test {
+
+template <typename T>
+void checkResult(const std::string& text) {
+    auto result = ParseString(text);
+    CHECK(result != nullptr);
+    CHECK(dynamic_cast<T*>(result.get()) != nullptr);
+}
+
+TEST_CASE("Basic parsing tests") {
+    SUBCASE("ints") {
+        checkResult<gram::Int>("1");
+        checkResult<gram::Int>("22");
+        checkResult<gram::Int>("333");
+    }
+
+    SUBCASE("floats") {
+        checkResult<gram::Float>("1.1");
+        checkResult<gram::Float>("22.22");
+        checkResult<gram::Float>("333.333");
+    }
+
+    SUBCASE("strings") {
+        checkResult<gram::String>("\"hello world\"");
+        checkResult<gram::String>("\"1\"");
+        checkResult<gram::String>("\"2.2\"");
+    }
+
+    SUBCASE("variable names (symbols)") {
+        checkResult<gram::Sym>("my_variable");
+        checkResult<gram::Sym>("MyClass");
+        checkResult<gram::Sym>("myFunc");
+    }
+
+    SUBCASE("debugger symbols") {
+        checkResult<gram::DSym>("$a");
+        checkResult<gram::DSym>("$App1");
+        checkResult<gram::DSym>("$foo");
+    }
+
+    SUBCASE("scoped values") {
+        checkResult<gram::ScopedVal>("MyCppClass::myCppFunction");
+        checkResult<gram::ScopedVal>("$App1::var");
+    }
+
+    SUBCASE("+") {
+        checkResult<gram::Binop>("1 + 1");
+        checkResult<gram::Binop>("2.2+ 3.3");
+        checkResult<gram::Binop>("foo +$bar");
+        checkResult<gram::Binop>("no+\"space\"");
+    }
+
+    SUBCASE("-") {
+        checkResult<gram::Binop>("1 - 1");
+        checkResult<gram::Binop>("2.2- 3.3");
+        checkResult<gram::Binop>("foo -$bar");
+        checkResult<gram::Binop>("no-\"space\"");
+    }
+
+    SUBCASE("*") {
+        checkResult<gram::Binop>("1 * 1");
+        checkResult<gram::Binop>("2.2* 3.3");
+        checkResult<gram::Binop>("foo *$bar");
+        checkResult<gram::Binop>("no*\"space\"");
+    }
+
+    SUBCASE("/") {
+        checkResult<gram::Binop>("1 / 1");
+        checkResult<gram::Binop>("2.2/ 3.3");
+        checkResult<gram::Binop>("foo /$bar");
+        checkResult<gram::Binop>("no/\"space\"");
+    }
+
+    SUBCASE("%") {
+        checkResult<gram::Binop>("1 % 1");
+        checkResult<gram::Binop>("2.2% 3.3");
+        checkResult<gram::Binop>("foo %$bar");
+        checkResult<gram::Binop>("no%\"space\"");
+        checkResult<gram::Binop>("ftnStruct%field");
+    }
+
+    SUBCASE("&") {
+        checkResult<gram::Binop>("1 & 1");
+        checkResult<gram::Binop>("2.2& 3.3");
+        checkResult<gram::Binop>("foo &$bar");
+        checkResult<gram::Binop>("no&\"space\"");
+    }
+
+    SUBCASE("&&") {
+        checkResult<gram::Binop>("1 && 1");
+        checkResult<gram::Binop>("2.2&& 3.3");
+        checkResult<gram::Binop>("foo &&$bar");
+        checkResult<gram::Binop>("no&&\"space\"");
+    }
+
+    SUBCASE("|") {
+        checkResult<gram::Binop>("1 | 1");
+        checkResult<gram::Binop>("2.2| 3.3");
+        checkResult<gram::Binop>("foo |$bar");
+        checkResult<gram::Binop>("no|\"space\"");
+    }
+
+    SUBCASE("||") {
+        checkResult<gram::Binop>("1 || 1");
+        checkResult<gram::Binop>("2.2|| 3.3");
+        checkResult<gram::Binop>("foo ||$bar");
+        checkResult<gram::Binop>("no||\"space\"");
+    }
+
+    SUBCASE("<") {
+        checkResult<gram::Binop>("1 < 1");
+        checkResult<gram::Binop>("2.2< 3.3");
+        checkResult<gram::Binop>("4.4 <5.5");
+        checkResult<gram::Binop>("6<7");
+    }
+
+    SUBCASE("<=") {
+        checkResult<gram::Binop>("1 <= 1");
+        checkResult<gram::Binop>("2.2<= 3.3");
+        checkResult<gram::Binop>("4.4 <=5.5");
+        checkResult<gram::Binop>("6<=7");
+    }
+
+    SUBCASE("==") {
+        checkResult<gram::Binop>("1 == 1");
+        checkResult<gram::Binop>("2.2== 3.3");
+        checkResult<gram::Binop>("4.4 ==5.5");
+        checkResult<gram::Binop>("6==7");
+    }
+
+    SUBCASE(">=") {
+        checkResult<gram::Binop>("1 >= 1");
+        checkResult<gram::Binop>("2.2>= 3.3");
+        checkResult<gram::Binop>("4.4 >=5.5");
+        checkResult<gram::Binop>("6>=7");
+    }
+
+    SUBCASE(">") {
+        checkResult<gram::Binop>("1 > 1");
+        checkResult<gram::Binop>("2.2> 3.3");
+        checkResult<gram::Binop>("4.4 >5.5");
+        checkResult<gram::Binop>("6>7");
+    }
+
+    SUBCASE("!=") {
+        checkResult<gram::Binop>("1 != 1");
+        checkResult<gram::Binop>("2.2!= 3.3");
+        checkResult<gram::Binop>("4.4 !=5.5");
+        checkResult<gram::Binop>("6!=7");
+    }
+
+    SUBCASE(".") {
+        checkResult<gram::Binop>("struct.field");
+    }
+
+    SUBCASE("->") {
+        checkResult<gram::Binop>("struct->field");
+    }
+
+    SUBCASE("@") {
+        checkResult<gram::Binop>("file@line");
+    }
+
+    SUBCASE("ranges") {
+        checkResult<gram::Range>("..");
+        checkResult<gram::Range>("0..");
+        checkResult<gram::Range>("..99");
+        checkResult<gram::Range>("0..99");
+    }
+
+    SUBCASE("conditional") {
+        checkResult<gram::Conditional>("3 == 3 ? true : false");
+    }
+
+    SUBCASE("unary ops") {
+        checkResult<gram::UnaryOp>("!true");
+        checkResult<gram::UnaryOp>("&var");
+        checkResult<gram::UnaryOp>("*ptr");
+        checkResult<gram::UnaryOp>("--var");
+        checkResult<gram::UnaryOp>("++var");
+    }
+
+    SUBCASE("subexpr") {
+        checkResult<gram::SubExpr>("(2 + 2)");
+    }
+
+    SUBCASE("function call") {
+        checkResult<gram::FuncCall>("foo(2 + 2)");
+        checkResult<gram::FuncCall>("foo()");
+    }
+
+    SUBCASE("debugger symbol array") {
+        checkResult<gram::DSymArray>("$foo{0}");
+        checkResult<gram::DSymArray>("$foo{0..3}");
+        checkResult<gram::DSymArray>("$foo{0,2,4}");
+
+        checkResult<gram::DSymArray>("$foo{*:0}");
+        checkResult<gram::DSymArray>("$foo{*:0..3}");
+        checkResult<gram::DSymArray>("$foo{*:0,2,4}");
+
+        checkResult<gram::DSymArray>("$foo{*:0}");
+        checkResult<gram::DSymArray>("$foo{*:0..3}");
+        checkResult<gram::DSymArray>("$foo{*:0,2,4}");
+    }
+
+    SUBCASE("list") {
+        checkResult<gram::List>("1,2,3,4,5");
+    }
+
+    SUBCASE("array reference") {
+        checkResult<gram::ArrayRef>("foo[34]");
+    }
+
+    SUBCASE("assert") {
+        checkResult<gram::AssertExpr>("myVar@\"foo.c\":34");
+    }
+
+    SUBCASE("cast expression") {
+        checkResult<gram::CastExpr>("(MyType)my_var");
+        checkResult<gram::CastExpr>("(MyType*)&my_var");
+    }
+}
+
+} // namespace test

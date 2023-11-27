@@ -49,7 +49,7 @@ enum class DbgQuitType { Default, Kill, Detach };
 ** inside the rec_set_t.
 */
 struct group_recv {
-    // FIXME: rec_di should be a DbgInvoke::Handle
+    // FIXME: rec_di should be a DbgInvoke::Handle. PE-51301
     DbgInvoke& rec_di;
     std::unique_ptr<Bitset> rec_group;
 };

@@ -437,6 +437,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_invalidated.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_invalidated.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/command_timeout.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/command_timeout.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_assign.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_assign.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_assign_decomp.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_assign_decomp.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_breakpoint.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_breakpoint.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_breakpoint_pending.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_breakpoint_pending.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_checkpoint0.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint0.in
@@ -841,6 +842,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_invalidated.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/command_timeout.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_assign.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_assign_decomp.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_breakpoint.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_breakpoint_pending.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint0.in

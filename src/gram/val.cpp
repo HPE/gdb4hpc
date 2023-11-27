@@ -30,6 +30,58 @@ struct BlockMap;
 typedef struct BlockMap BlockMap;
 extern BlockMap *FindBlockMap(const std::string& blockmap);
 
+namespace {
+
+namespace bm { // blockmap helpers
+
+AIFStream *construct_blockmap_data(BlockMap* bm, const std::string& idx,
+                                   const DecompValue::Mappings& mappings, rep_set_t& rep_set)
+{
+    // Make sure that there were no errors and we received rep_set, otherwise
+    // print error.
+    if (rep_set.hasError()) {
+        PrintOutError("Cannot build blockmap due to error in reply!\n");
+        return nullptr;
+    }
+    if (rep_set.isEmpty()) {
+        PrintOutError("Cannot build blockmap due to empty reply!\n");
+        return nullptr;
+    }
+
+    // Create an array of aif values
+    auto da = std::vector<AIFStream*>{mappings.num_ranks()};
+
+    // process rep_set, placing the AIF data into the array
+    for (auto&& reply : rep_set) {
+        // A blockmap across multiple DI's seems weird, but we can track
+        // an offset for the mapping, so it's not a lot of work
+        const auto& [rcvGrp, offset] = mappings.offset_map().at(reply->rep_di);
+        auto repGrp = reply->rep_group.get();
+        auto dsIdx = offset;
+
+        // A blockmap across a subset of the procset is a bit more likely,
+        // so note how we're testing the rsvGrp first since it determines 
+        // the index within the result
+        for (size_t i = 0, n = rcvGrp->sizeInBits(); i < n; ++i) {
+            if (rcvGrp->test(i)) {
+                // Check if this rank is in this reply
+                if (repGrp->test(i)) {
+                    // Why is the join here?
+                    da[dsIdx] = EVENT_DATA(reply->rep_event)->join();
+                }
+                ++dsIdx;
+            }
+        }
+    }
+
+    auto blockIter = MakeBlockMapIterator(bm, idx);
+    return new AIFStream{blockIter, da};
+}
+
+} // namespace bmap
+
+} // anonymous namespace
+
 std::map<std::string, std::unique_ptr<Value>> IdMap::m_client_values;
 
 std::pair<dbgprocset_t*,bool> IdMap::getProcset(const std::string& procs) {
@@ -407,6 +459,13 @@ DecompValue::DecompValue(rec_set_t* rec_set, BlockMap*  blockMap,
     : SingleValue(rec_set), m_blockMap(blockMap), m_val(std::move(val))
 {}
 
+std::unique_ptr<Value> DecompValue::pickle() {
+    auto [mappings, rep_set] = getMappingsAndReply();
+    return std::make_unique<PickledDecompValue>(
+        m_blockMap, mappings, rep_set, m_idx
+    );
+}
+
 void DecompValue::addIndex(const std::string& idx) {
     m_idx += idx;
 }
@@ -419,25 +478,108 @@ void DecompValue::print(std::ostream& os, rec_set_t*,
     os << "\n";
 }
 
-AIFStream* DecompValue::getAIF() {
-    if (m_aif)
-        return m_aif;
-
-    auto val = dynamic_cast<PendingReplyValue*>(m_val.get());
+std::pair<DecompValue::Mappings, rep_set_t> DecompValue::getMappingsAndReply() {
+    auto val = dynamic_cast<ReplyValue*>(m_val.get());
     if (!val) {
         throw EvalError("Decomposition must refer to a progam value");
     }
+
+    if (!m_val->getRecSet()) {
+        throw EvalError("Missing mapping information");
+    }
+    auto mappings = DecompValue::Mappings(*m_val->getRecSet());
 
     if (!m_idx.empty()) {
         auto os = std::ostringstream{};
         os << "[[|(" << m_blockMap->getDefinition() << ")" << m_idx << "]]";
         val->addMetaInfo(os.str());
     }
-
     auto rep_set = val->retrieve();
 
-    auto aif = construct_blockmap_data(m_blockMap, m_idx, val->getRecSet(), rep_set);
+    return {std::move(mappings), std::move(rep_set)};
+}
+
+AIFStream* DecompValue::getAIF() {
+    if (m_aif)
+        return m_aif;
+
+    auto [mappings, rep_set] = getMappingsAndReply();
+
+    auto aif = bm::construct_blockmap_data(m_blockMap, m_idx, mappings, rep_set);
     return m_aif = aif;
+}
+
+DecompValue::Mappings::Mappings(const rec_set_t& rec_set) {
+    // map each DI to the subset of involved ranks and to an offset
+    // within the out ranks
+    auto rcvs = rec_set.getReceivers();
+    for (auto rcv : rcvs) {
+        m_offset_map[rcv->rec_di.handle()] = std::make_pair(rcv->rec_group->clone(), m_num_ranks);
+        m_num_ranks += rcv->rec_group->numSet();
+    }
+}
+
+DecompValue::Mappings::Mappings(const DecompValue::Mappings& other) {
+    for (const auto& [dih, pair] : other.m_offset_map) {
+        m_offset_map.insert(
+            std::make_pair(dih, std::make_pair(pair.first->clone(), pair.second))
+        );
+    }
+
+    m_num_ranks = other.m_num_ranks;
+}
+
+const DecompValue::Mappings::OffsetMap& DecompValue::Mappings::offset_map() const {
+    return m_offset_map;
+}
+
+size_t DecompValue::Mappings::num_ranks() const {
+    return m_num_ranks;
+}
+
+PickledDecompValue::PickledDecompValue(BlockMap* blockmap,
+                                       const rec_set_t& receivers,
+                                       const rep_set_t& reply,
+                                       std::string_view idx)
+    : SingleValue(nullptr)
+    , m_blockmap{blockmap}
+    , m_pickled_reply{reply.clone()}
+    , m_mappings(receivers)
+    , m_idx{idx}
+{
+    m_pickled_reply.pickle();
+}
+
+PickledDecompValue::PickledDecompValue(BlockMap* blockmap,
+                                       const DecompValue::Mappings& mappings,
+                                       const rep_set_t& reply,
+                                       std::string_view idx)
+    : SingleValue(nullptr)
+    , m_blockmap{blockmap}
+    , m_pickled_reply{reply.clone()}
+    , m_mappings(mappings)
+    , m_idx{idx}
+{
+    m_pickled_reply.pickle();
+}
+
+std::unique_ptr<Value> PickledDecompValue::pickle() {
+    return std::make_unique<PickledDecompValue>(
+        m_blockmap, m_mappings, m_pickled_reply, m_idx
+    );
+}
+
+void PickledDecompValue::print(std::ostream& os, rec_set_t*, const std::string& fmt) {
+    auto aif = getAIF();
+    aif->print(os, "", fmt);
+    os << "\n";
+}
+
+AIFStream* PickledDecompValue::getAIF() {
+    auto working_reply = m_pickled_reply.clone(); // needs to be an lvalue in below fn call
+    return bm::construct_blockmap_data(
+        m_blockmap, m_idx, m_mappings, working_reply
+    );
 }
 
 DistributedBlockMapValue::DistributedBlockMapValue(rec_set_t* rec_set, BlockMap*  blockMap,
@@ -445,8 +587,14 @@ DistributedBlockMapValue::DistributedBlockMapValue(rec_set_t* rec_set, BlockMap*
     : ReplyValue(rec_set), m_blockMap(blockMap), m_val(std::move(val))
 {}
 
+std::unique_ptr<Value> DistributedBlockMapValue::pickle() {
+    return std::make_unique<DistributedBlockMapValue>(
+        nullptr, m_blockMap, m_val->pickle()
+    );
+}
+
 rep_set_t DistributedBlockMapValue::retrieve() const {
-    auto val = dynamic_cast<PendingReplyValue*>(m_val.get());
+    auto val = dynamic_cast<ReplyValue*>(m_val.get());
     if (!val) {
         throw EvalError("Decomposition must refer to a progam value");
     }

@@ -364,6 +364,10 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_assign"
         runTest(self)
 
+    def test_c_assign_decomp(self):
+        self.base_name = "c_assign_decomp"
+        runTest(self)
+
     def test_c_breakpoint(self):
         self.base_name = "c_breakpoint"
         runTest(self)

@@ -100,7 +100,9 @@ static int cmd_set_variable(rec_set_t* rec_set, int argc, const char* const argv
         if (auto client_assignment_val = dynamic_cast<ClientValueAssignment*>(val.get())) {
             client_assignment_val->doAssignment();
         } else {
-            // call pickle to evaluate the expression without printing it.
+            // call pickle to evaluate the expression without printing it. note
+            // that we ignore Client.print_save_last and never save the value
+            // because that's what gdb does.
             val->pickle();
         }
     } catch (EvalErrorAlreadyReported& err) {
@@ -148,7 +150,13 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, const char* const argv[])
         {
             auto pager = std::make_unique<cli_pager>();
             auto val = expr->evalTop(rec_set);
-            val->print(OutMsgStream(), rec_set, format);
+
+            if (!Client.print_save_last) {
+                val->print(OutMsgStream(), rec_set, format);
+            } else {
+                IdMap::setClientValue("$", *val);
+                IdMap::cloneClientValue("$")->print(OutMsgStream(), rec_set, format);
+            }
         }
     } catch (EvalErrorAlreadyReported& err) {
         return 1; // this was not reported as the command failing
@@ -237,6 +245,29 @@ static int cmd_show_print_pretty_cmd() {
     return 1;
 }
 
+static int cmd_set_print_cache_last(int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("Usage: set print cache-last on|off\n");
+        return Command::Failure;
+    }
+
+    if (strcmp(argv[1],"on") == 0) {
+        Client.print_save_last = true;
+    } else if (strcmp(argv[1], "off") == 0) {
+        Client.print_save_last = false;
+    } else {
+        PrintOutError("Unrecognized option %s, use \"on\" or \"off\".\n", argv[1]);
+        return Command::Failure;
+    }
+
+    return Command::Success;
+}
+
+static int cmd_show_print_cache_last() {
+    PrintOutMsg("Value caching is %s.\n", Client.print_save_last ? "on" : "off");
+    return Command::Success;
+}
+
 // remove new lines and escape quotes so output can be added to an MI response
 std::string FormatMIValue(std::string origValue) {
     auto value = std::move(origValue);
@@ -309,6 +340,16 @@ static void insert_setshow_commands(CommandNode& root, std::string set, std::str
         show + " print pretty", nullptr, proc_optional, cmd_show_print_pretty_cmd,
         cmd_show_print_pretty_help,
         "Show if pretty printing of structures is enabled.");
+
+    root.addSubCmd(
+        set + " print value-caching", nullptr, proc_optional, cmd_set_print_cache_last,
+        cmd_set_print_cache_last_help,
+        "Set value caching behavior when printing.");
+
+    root.addSubCmd(
+        show + " print value-caching", nullptr, proc_optional, cmd_show_print_cache_last,
+        cmd_set_print_cache_last_help, /* intentionally reuse the set help here */
+        "Show if value caching is enabled when printing.");
 }
 
 void ConsoleCommandsFactory::insert_print_commands(CommandNode& root) {

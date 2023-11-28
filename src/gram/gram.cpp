@@ -85,7 +85,7 @@ void gram::DSym::printL(int) const {
 }
 
 std::string gram::DSym::toString() const {
-    return '$' + m_sym;
+    return m_sym;
 }
 
 gram::DSymArray::DSymArray(const std::string& sym, Expression* idcs) : DSym(sym), m_idcs(idcs) {}
@@ -96,7 +96,7 @@ void gram::DSymArray::printL(int level) const {
 }
 
 std::string gram::DSymArray::toString() const {
-    return '$' + m_sym + '{' + m_idcs->toString() + '}';
+    return m_sym + '{' + m_idcs->toString() + '}';
 }
 
 std::vector<const gram::AssertExpr*> gram::DSymArray::getAssertions() const {

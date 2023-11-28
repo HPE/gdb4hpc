@@ -217,6 +217,28 @@ a{0..2}: 10
 10
 0: compare $ii == $ii_constant
 Comparison is true.
+0: # value caching
+0: # value caching is disabled by default
+0: show print value-caching
+Value caching is off.
+0: print $
+Not a client side variable: $
+Command resulted in an error: 0: print $
+0: set print value-caching on
+0: show print value-caching
+Value caching is on.
+0: # value caching stores last printed item in `$`
+0: print one_d_i
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: print $
+a{0..2}: {0,1,2,3,4,5,6,7,8,9}
+0: print one_d_i + $
+{0..2}: {0,2,4,6,8,10,12,14,16,18}
+0: print $
+{0..2}: {0,2,4,6,8,10,12,14,16,18}
+0: set print value-caching off
+0: show print value-caching
+Value caching is off.
 0: kill $a
 Shutting down debugger and killing application for 'a'.
 0: # values outlive their source applications

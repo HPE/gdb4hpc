@@ -83,7 +83,7 @@ std::unique_ptr<Value> gram::DSym::eval(rec_set_t* rec_set) const {
 }
 
 std::unique_ptr<Value> gram::DSymArray::eval(rec_set_t* rec_set) const {
-    if (auto bm = IdMap::getBlockmapForName("$" + m_sym)) {
+    if (auto bm = IdMap::getBlockmapForName(m_sym)) {
         auto val = m_idcs->eval(rec_set);
 
         auto os = std::ostringstream{};

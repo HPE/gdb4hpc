@@ -1948,6 +1948,30 @@ const char *const cmd_set_print_pretty_help[] = {
     "multiple lines with indenting.",
     0};
 
+const char* const cmd_set_print_cache_last_help[] = {
+    "Summary: Enable or disable value caching when using the print command.",
+    "Usage: set print value-caching [\"on\"|\"off\"]",
+    "       show print value-caching",
+    "",
+    "Default setting: off",
+    "",
+    "Description:",
+    "When value caching is enabled, every value printed with the print command will",
+    "be cached in the debug variable \"$\". You can then use \"$\" like any other",
+    "value.",
+    "",
+    "Example:",
+    "dbg all> print one_d_i",
+    "app{0..2}: {1,2,3,4,5,6,7,8,9,10}",
+    "dbg all> print $",
+    "app{0..2}: {1,2,3,4,5,6,7,8,9,10}",
+    "dbg all> print intarray + $",
+    "app{0..2}: {2,4,6,8,10,12,14,16,18,20}",
+    "dbg all> print $",
+    "app{0..2}: {2,4,6,8,10,12,14,16,18,20}",
+    "",
+    "Enabling value caching has a performance cost and is disabled by default.",
+    0};
 
 /*
  * Class usage subcommands

@@ -153,6 +153,7 @@ extern const char* const cmd_set_print_entryframe_help[];
 extern const char* const cmd_set_print_sourceonstep_help[];
 extern const char* const cmd_set_print_elements_help[];
 extern const char* const cmd_set_print_pretty_help[];
+extern const char* const cmd_set_print_cache_last_help[];
 
 /*
  * Class set breakpoint subcommands

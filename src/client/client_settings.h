@@ -41,6 +41,7 @@ struct clnt_settings : public ClientSettingsInterface {
     int print_source_on_step;                      /* Print line after each step? */
     int print_elements;                            /* Number of elements to print in arrays or char * strings */
     bool print_pretty;                             // print indented structures
+    bool print_save_last;                          // Save last printed expression in `$`?
     int sync_wait;                                 /* Treat asynchronous cmds as sync? */
     int sync_blocked;                              /* Current blocked on async cmd? */
     const char* proto;                             /* Default debugger protocol */

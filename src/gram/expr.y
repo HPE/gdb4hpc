@@ -31,6 +31,7 @@ static gram::Expression* ParseResult = nullptr;
     double v_float;
     std::string* v_str;
     std::string* v_sym;
+    std::string* v_dsym;
     gram::Expression* v_expr;
 }
 
@@ -53,6 +54,7 @@ int	expr_lex(YYSTYPE *);
 %token <v_float>    FLOAT
 %token <v_str>      STRING
 %token <v_sym>      SYM
+%token <v_dsym>     DSYM
 
 %token	COND		"?"
 %token	COLON		":"
@@ -90,8 +92,6 @@ int	expr_lex(YYSTYPE *);
 %token	PLUSPLUS	"++"
 %token	MINUSMINUS	"--"
 
-%token DOLLAR                   "$"
-
 %type <v_expr>	start expr 
 
  // todo --, ++, : for thread scope
@@ -127,7 +127,7 @@ expr : STRING { $$ = new gram::String{*$1}; delete $1; }
 
 expr : SYM { $$ = new gram::Sym{*$1}; delete $1; }
 
-expr : "$" SYM { $$ = new gram::DSym(*$2); delete $2; }
+expr : DSYM { $$ = new gram::DSym(*$1); delete $1; }
 
 expr : expr "::" expr { $$ = new gram::ScopedVal($1, $3); }
 
@@ -197,13 +197,13 @@ expr : expr "(" expr ")" { $$ = new gram::FuncCall($1, $3); }
 
 expr : expr "(" ")" { $$ = new gram::FuncCall($1, nullptr); }
 
-expr : "$" SYM "{" expr "}" { $$ = new gram::DSymArray(*$2, $4); delete $2; }
+expr : DSYM "{" expr "}" { $$ = new gram::DSymArray(*$1, $3); delete $1; }
 
-expr : "$" SYM "{" "*" ":" expr "}" { auto pe = new gram::ThreadedProcsetExpr(nullptr, $6);
-                                      $$ = new gram::DSymArray(*$2, pe); delete $2; }
+expr : DSYM "{" "*" ":" expr "}" { auto pe = new gram::ThreadedProcsetExpr(nullptr, $5);
+                                   $$ = new gram::DSymArray(*$1, pe); delete $1; }
 
-expr : "$" SYM "{" expr ":" expr "}" { auto pe = new gram::ThreadedProcsetExpr($4, $6);
-                                       $$ = new gram::DSymArray(*$2, pe); delete $2; }
+expr : DSYM "{" expr ":" expr "}" { auto pe = new gram::ThreadedProcsetExpr($3, $5);
+                                    $$ = new gram::DSymArray(*$1, pe); delete $1; }
 
 expr : expr "," expr { $$ = new gram::List($1, $3); }
 
@@ -257,6 +257,12 @@ expr_lex(YYSTYPE *lv)
             s = e+1;
             return STRING;
         }
+    } else if (*s == '$') {
+        auto end = s + 1;
+        while (isword(*end)) end++;
+        lv->v_dsym = new std::string(s, end);
+        s = end;
+        return DSYM;
     } else if (isword(*s)) {
         auto e = s+1;
         for ( ; *e && isword(*e); ++e) ;
@@ -296,7 +302,6 @@ expr_lex(YYSTYPE *lv)
     case ']': return RBRCK;
     case ',': return COMMA;
     case '@': return (isLocation(s) ? ATLOCATION : AT);
-    case '$': return DOLLAR;
     default: --s; break;
     };
 

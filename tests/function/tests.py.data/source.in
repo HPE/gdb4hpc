@@ -1,0 +1,11 @@
+0: source --maint-disable-echo ./tests.py.data/sourceme.rc
+hello from the sourced file
+child line two
+child line three
+0: maint echo parent line two
+parent line two
+0: maint echo parent line three
+parent line three
+0: maint echo parent line four
+parent line four
+0: q

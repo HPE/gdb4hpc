@@ -1,0 +1,4 @@
+maint echo hello from the sourced file
+maint echo child line two
+maint echo child line three
+maint set echo on

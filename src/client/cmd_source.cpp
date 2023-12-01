@@ -30,7 +30,22 @@ static int cmd_source_cmd(int argc, const char* const argv[]) {
         return Command::Failure;
     }
 
-    stream_args = NewCLIArgs(CLI_FILE_STREAM, argv[1], NULL, NULL);
+    // check for --maint-disable-echo. this undocumented flag helps
+    // with testing the source command.
+    const auto [filename, disable_echo] = [&]() -> std::pair<const char*, bool> {
+        if (std::string_view{argv[1]} == "--maint-disable-echo" && argc >= 3) {
+            return {argv[2], true};
+        } else {
+            return {argv[1], false};
+        }
+    }();
+
+    if (disable_echo) {
+        // it's assumed that this will be re-enabled somewhere else.
+        Client.echo = 0;
+    }
+
+    stream_args = NewCLIArgs(CLI_FILE_STREAM, filename, NULL, NULL);
 
     // Create and set the new stream
     if (SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::CLI, stream_args, 0)) {

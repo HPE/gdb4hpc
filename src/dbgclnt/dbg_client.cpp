@@ -23,6 +23,7 @@
 #include <mutex>
 #include <filesystem>
 #include <fstream>
+#include <ranges>
 
 #include "script_client.h"
 #include "dbg_client.h"
@@ -43,7 +44,10 @@ public:
     int getFd() const;
     cli_stream_t* getStream() const { return i_stream; }
     void invoke() { if (i_rtn) { (*i_rtn)(); } }
+
     void mask(bool masked);
+    // `mask` masks the input. when an input is masked, `getFd` returns -1.
+
 private:
     int i_fd;
     cli_stream_t* i_stream;
@@ -52,6 +56,46 @@ private:
     // This needs a lock because the MRNet error callback is threaded and will
     // mess with the inpcb_t object during printing error messages
     mutable std::recursive_mutex i_mutex;
+};
+
+struct InputList {
+    // `InputList` is a wrapper around a list of inpcb_t.
+    std::vector<std::unique_ptr<inpcb_t>> inputs;
+
+    inpcb_t* get_active_input();
+    // `get_active_input` returns an input that is active (has data waiting to
+    // be read on its file descriptor). if no inputs are active, it returns
+    // nullptr.
+    //
+    // if multiple inputs in the list are active simultaneously,
+    // `get_active_input` returns the active input that appears latest in the
+    // list. this means that newer inputs have higher priority in ties. the tie
+    // breaker *only* happens when *multiple* inputs are active. the first input
+    // in the list will still be returned over the last if the first is active
+    // and the last isn't.
+    //
+    // this priority strategy is useful for file inputs because they are always
+    // considered active. since they are always active, the newest file input
+    // will always be returned from `get_active_input`, which gets us the
+    // following:
+    //   1. user input will automatically be blocked after a source command is
+    //      run, and unblocked when the source command completes.
+    //   2. source commands can themselves safely call recursive source commands.
+    //      the new child source input will have a higher priority than the
+    //      parent, pausing the parent until the child is done.
+
+    void add_input(int fd, cli_stream_t* stream, void (*invoke_fn)(void));
+    // `add_input` creates a new inpcb_t from the arguments and appends it the
+    // the end of the list.
+
+    void remove_input(const cli_stream_t* stream);
+    // `remove_input` searches the list for the first inpcb_t that contains
+    // `stream` and removes it from the list. `stream` is not deleted.
+
+    void mask_all_inputs();
+    void unmask_all_inputs();
+    // `mask_all_inputs` and `unmask_all_inputs` mask/unmask each input respectively.
+    // see inpcb_t::mask.
 };
 
 struct OutputCallbacks {
@@ -89,13 +133,17 @@ GetTrampolineArgs(const char* prog, const char* const* args);
 */
 static std::vector<int> DbgSigList;
 static std::vector<int> DbgUnblockableSigList;
+
+// FIXME: these fd variables and the functions that use them
+//        should be wrapped up in a class
 static fd_set dispatch_fds;
 static int high_fd;
+
 static OutputCallbacks OutputCB;
 static int async_pending;     // used to track completion of async events
 static rec_set_t *async_set;  // full set of async receivers
 
-static std::vector<inpcb_t*> InputCBs;
+auto InputCBs = InputList{};
 
 // If a sync command doesn't return in this many seconds, attempt to cancel it. 0 means no
 // timeout is applied.
@@ -777,7 +825,6 @@ static void RemoveGroupFromAsyncSet(DbgInvoke *di, const Bitset *group) {
 */
 int DbgCheckEvents(void) {
     int status;
-    int res = 0;
     struct timeval tv = {0, 10000};
 
     // reset the fd_set
@@ -789,7 +836,7 @@ int DbgCheckEvents(void) {
     */
 
     if (auto* script = script::getCurrentScript(); script && script->hasReadyAsserts()) {
-        res = 1;
+        return 1;
     }
     // Loop through each dbginvoke entry and check for events.
     for (auto& dih : DbgInvoke::getAll()) {
@@ -825,7 +872,7 @@ int DbgCheckEvents(void) {
     /*
     ** Add the input fd to the fd_set to select on. This enables input events.
     */
-    for (auto inputCB : InputCBs) {
+    for (auto& inputCB : InputCBs.inputs) {
         int ifd = inputCB->getFd();
         if (ifd >= 0) {
             if (high_fd < ifd) {
@@ -836,62 +883,41 @@ int DbgCheckEvents(void) {
         }
     }
 
-    /*
-    ** Main select event polling loop.
-    */
-    for (;;) {
-        // from the select manpage, nfds is the highest-numbered file descriptor
-        // in any of the three sets, plus 1. 
-        status = select(high_fd + 1, &dispatch_fds, nullptr, nullptr, &tv);
+    // from the select manpage, nfds is the highest-numbered file descriptor
+    // in any of the three sets, plus 1. 
+    status = select(high_fd + 1, &dispatch_fds, nullptr, nullptr, &tv);
 
-        switch (status) {
-            case -1:
-                switch (errno) {
-                    case EINTR:
-                        DPRINT("DbgCheckEvents: EINTR\n");
-                        if (res) {
-                            return res;
-                        }
-                        continue;
+    switch (status) {
+        case -1:
+            switch (errno) {
+                case EINTR:
+                    // just return 0 and try again next time the fn is called
+                    DPRINT("DbgCheckEvents: EINTR\n");
+                    return 0;
 
-                    // We expect EINVAL if there are no fd's in the fd_set. The
-                    // high_fd should be negative in this case and select will
-                    // return with -1 and errno set to EINVAL.
-                    case EINVAL:
-                        DPRINT("DbgCheckEvents: EINVAL\n");
-                        return res;
+                // We expect EINVAL if there are no fd's in the fd_set. The
+                // high_fd should be negative in this case and select will
+                // return with -1 and errno set to EINVAL.
+                case EINVAL:
+                    DPRINT("DbgCheckEvents: EINVAL\n");
+                    return 0;
 
-                    default:
-                        PrintOutError("select: %s\n", strerror(errno));
-                        return -1;
-                }
-                break;
+                default:
+                    PrintOutError("select: %s\n", strerror(errno));
+                    return -1;
+            }
+            break;
 
-            case 0:
-                // DPRINT("DbgCheckEvents: select returned 0, res is %d\n",
-                // res);
-                return res;
+        case 0:
+            return 0;
 
-            default:
-                for (auto inputCB : InputCBs) {
-                    if (int ifd = inputCB->getFd(); ifd >= 0) {
-                        // If the InputCB was set, then we don't want to dispatch
-                        // the graph. Commands can take awhile to return and if the
-                        // user was typing something we don't want to issue a new
-                        // command. The user has a second to type before being
-                        // locked out.
-                        if (FD_ISSET(ifd, &dispatch_fds)) {
-                            DbgSwitchCurrentStream(inputCB->getStream());
-                        }
-                    }
-                }
-                return 1;
-        }
+        default:
+            return 1;
     }
 
     // We should never reach here...
     DPRINT("DbgCheckEvents: At final return\n");
-    return 1;
+    return -1;
 }
 
 /*
@@ -941,13 +967,9 @@ void DbgDispatchEvents(void) {
     /*
     ** Process any input.
     */
-    for (auto inputCB : InputCBs) {
-        int ifd = inputCB->getFd();
-        if (ifd >= 0 && FD_ISSET(ifd, &dispatch_fds)) {
-            // DPRINT("DbgDispatchEvents: InputCB.i_fd is set\n");
-            DbgSwitchCurrentStream(inputCB->getStream());
-            inputCB->invoke();
-        }
+    if (auto* input = InputCBs.get_active_input()) {
+        DbgSwitchCurrentStream(input->getStream());
+        input->invoke();
     }
 
     if (auto* script = script::getCurrentScript()) {
@@ -1201,34 +1223,25 @@ void DbgHandleOutput(const std::function<void (DbgInvoke *, const std::vector<st
 ** Set local input stream handler.
 */
 void DbgHandleInput(int fd, cli_stream_t* stream, void (*inp)(void)) {
-    if (fd != -1){
-        auto InputCB = new inpcb_t(fd, stream, inp);
-        InputCBs.push_back(InputCB);
-    }
+    InputCBs.add_input(fd, stream, inp);
 }
 
 void DbgUnhandleInput(cli_stream_t* stream) {
-    auto loc = std::find_if(InputCBs.begin(), InputCBs.end(),
-                            [stream] (auto x) { return x->getStream() == stream; });
-    if (loc != InputCBs.end()) {
-        auto hndlr = *loc;
-        InputCBs.erase(loc);
-        delete hndlr;
-    }
+    InputCBs.remove_input(stream);
 }
 
 /*
 ** Mask input stream events temporarily
 */
 void DbgMaskInput() {
-    for (auto cb : InputCBs) cb->mask(true);
+    InputCBs.mask_all_inputs();
 }
 
 /*
 ** Remove temporary input stream mask.
 */
 void DbgUnmaskInput() {
-    for (auto cb : InputCBs) cb->mask(false);
+    InputCBs.unmask_all_inputs();
 }
 
 /*
@@ -3630,3 +3643,39 @@ bool DbgSetLogDir(const std::string& logdir) {
     setenv("CTI_LOG_DIR", logdir.c_str(), 1);
     return true;
 }
+
+inpcb_t* InputList::get_active_input() {
+    // traverse the list in reverse to give priority to newer inputs
+    for (const auto& input : std::ranges::reverse_view(this->inputs)) {
+        int ifd = input->getFd();
+        if (ifd >= 0 && FD_ISSET(ifd, &dispatch_fds)) {
+            return input.get();
+        }
+    }
+
+    return nullptr;
+}
+
+void InputList::add_input(int fd, cli_stream_t* stream, void (*invoke_fn)(void)) {
+    if (fd != -1){
+        auto input = std::make_unique<inpcb_t>(fd, stream, invoke_fn);
+        this->inputs.emplace_back(std::move(input));
+    }
+}
+
+void InputList::remove_input(const cli_stream_t* stream) {
+    auto loc = std::find_if(this->inputs.begin(), this->inputs.end(),
+                            [stream] (auto& x) { return x->getStream() == stream; });
+    if (loc != this->inputs.end()) {
+        this->inputs.erase(loc);
+    }
+}
+
+void InputList::mask_all_inputs() {
+    for (auto& input : this->inputs) input->mask(true);
+}
+
+void InputList::unmask_all_inputs() {
+    for (auto& input : this->inputs) input->mask(false);
+}
+

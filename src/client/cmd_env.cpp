@@ -556,6 +556,37 @@ static int cmd_maint_show_sync_cmd() {
     return 1;
 }
 
+static int maint_set_echo_cmd(int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("Not enough command arguments.\n");
+        PrintOutError("Expected: maint set echo [on|off]\n");
+        return Command::Failure;
+    }
+
+    auto s = std::string_view{argv[1]};
+
+    if (s == "on") {
+        Client.echo = 1;
+    } else if (s == "off") {
+        Client.echo = 0;
+    } else {
+        PrintOutError("Usage: maint set echo [on|off]\n");
+        return Command::Failure;
+    }
+
+    return Command::Success;
+}
+
+static int maint_show_echo_cmd() {
+    if (Client.echo) {
+        PrintOutMsg("Echoing of commands during batch mode is on.\n");
+    } else {
+        PrintOutMsg("Echoing of commands during batch mode is off.\n");
+    }
+
+    return Command::Success;
+}
+
 static int cmd_info_status_cmd(rec_set_t *rec_set) {
     dbgstatus_t *s;
 
@@ -1218,6 +1249,9 @@ void ConsoleCommandsFactory::insert_env_commands(CommandNode& root) {
         cmd_maint_show_sync_cmd,
         cmd_maint_show_sync_help,
         "Show setting of synchronous event mode.");
+
+    root.addSubCmd({ .name = "maint set echo", .ptype = proc_ignore, .fn = maint_set_echo_cmd });
+    root.addSubCmd({ .name = "maint show echo", .ptype = proc_ignore, .fn = maint_show_echo_cmd });
 
     root.addSubCmd(
         "unset environment", nullptr, proc_ignore,

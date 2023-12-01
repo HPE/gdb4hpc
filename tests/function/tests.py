@@ -873,6 +873,10 @@ class FunctionTests(Gdb4hpcTest):
 
         runTest(self)
 
+    def test_source(self):
+        self.base_name = "source"
+        runTest(self)
+
     def test_command_timeout(self):
         self.base_name = "command_timeout"
         runTest(self)

@@ -1,8 +1,10 @@
 #
 # hpcc_script_8.rc
 #
-# Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
 #
+
+maint set sync on
 
 #
 # Launch our processes
@@ -19,45 +21,25 @@ set error 1.0e-14 1.0e-13 absolute
 # Lets start by blindly comparing the scalar inputs to the HPL_dgemm function call.
 
 build $dgemm
-	assert $broken{1}::ORDER@"HPL_dgemm.c":467 = $working{1}::ORDER@"HPL_dgemm.c":467
-	assert $broken{1}::TRANSA@"HPL_dgemm.c":467 = $working{1}::TRANSA@"HPL_dgemm.c":467
-	assert $broken{1}::TRANSB@"HPL_dgemm.c":467 = $working{1}::TRANSB@"HPL_dgemm.c":467
-	assert $broken{1}::M@"HPL_dgemm.c":467 = $working{1}::M@"HPL_dgemm.c":467
-	assert $broken{1}::N@"HPL_dgemm.c":467 = $working{1}::N@"HPL_dgemm.c":467
-	assert $broken{1}::K@"HPL_dgemm.c":467 = $working{1}::K@"HPL_dgemm.c":467
-	assert $broken{1}::ALPHA@"HPL_dgemm.c":467 = $working{1}::ALPHA@"HPL_dgemm.c":467
-	assert $broken{1}::LDA@"HPL_dgemm.c":467 = $working{1}::LDA@"HPL_dgemm.c":467
-	assert $broken{1}::LDB@"HPL_dgemm.c":467 = $working{1}::LDB@"HPL_dgemm.c":467
-	assert $broken{1}::BETA@"HPL_dgemm.c":467 = $working{1}::BETA@"HPL_dgemm.c":467
-	assert $broken{1}::LDC@"HPL_dgemm.c":467 = $working{1}::LDC@"HPL_dgemm.c":467
+	assert $broken::ORDER@"HPL_dgemm.c":467 == $working::ORDER@"HPL_dgemm.c":467
+	assert $broken::ORDER@"HPL_dgemm.c":467 == $working::ORDER@"HPL_dgemm.c":467
+	assert $broken::TRANSA@"HPL_dgemm.c":467 == $working::TRANSA@"HPL_dgemm.c":467
+	assert $broken::TRANSB@"HPL_dgemm.c":467 == $working::TRANSB@"HPL_dgemm.c":467
+	assert $broken::M@"HPL_dgemm.c":467 == $working::M@"HPL_dgemm.c":467
+	assert $broken::N@"HPL_dgemm.c":467 == $working::N@"HPL_dgemm.c":467
+	assert $broken::K@"HPL_dgemm.c":467 == $working::K@"HPL_dgemm.c":467
+	assert $broken::ALPHA@"HPL_dgemm.c":467 == $working::ALPHA@"HPL_dgemm.c":467
+	assert $broken::LDA@"HPL_dgemm.c":467 == $working::LDA@"HPL_dgemm.c":467
+	assert $broken::LDB@"HPL_dgemm.c":467 == $working::LDB@"HPL_dgemm.c":467
+	assert $broken::BETA@"HPL_dgemm.c":467 == $working::BETA@"HPL_dgemm.c":467
+	assert $broken::LDC@"HPL_dgemm.c":467 == $working::LDC@"HPL_dgemm.c":467
 end
 
+start $dgemm
+
+info script $dgemm results
+
 # RESULT:
-#
-# The following is the assertion script summary:
-#
-# *** Difference found between ALPHA and ALPHA! ***									  
-# In AssertID:7													      
-# *** Difference found between BETA and BETA! ***									    
-# In AssertID:10													     
-# *** The interpreter has halted.											    
-# Assertion script $dgemm complete.												     
-# Successful Assertion Set Iterations: 1										     
-# Total Passed Assertions: 20												
-# Total Warned Assertions: 0												 
-# Total Failed Assertions: 2												 
-# Assertion summary:													 
-# AssertID 1:  Pass: 2 Warn: 0 Fail: 0										       
-# AssertID 2:  Pass: 2 Warn: 0 Fail: 0										       
-# AssertID 3:  Pass: 2 Warn: 0 Fail: 0										       
-# AssertID 4:  Pass: 2 Warn: 0 Fail: 0										       
-# AssertID 5:  Pass: 2 Warn: 0 Fail: 0										       
-# AssertID 6:  Pass: 2 Warn: 0 Fail: 0										       
-# AssertID 7:  Pass: 1 Warn: 0 Fail: 1										       
-# AssertID 8:  Pass: 2 Warn: 0 Fail: 0										       
-# AssertID 9:  Pass: 2 Warn: 0 Fail: 0										       
-# AssertID 10:  Pass: 1 Warn: 0 Fail: 1										      
-# AssertID 11:  Pass: 2 Warn: 0 Fail: 0
 #
 # Note that there was 1 sucessful assertion set iteration. Meaning that the HPL_dgemm was called at some point
 # in the control flow before it was called at line 382 of HPL_pdupdateTT.c without failure. We did detect a

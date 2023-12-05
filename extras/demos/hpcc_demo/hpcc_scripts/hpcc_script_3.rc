@@ -1,8 +1,10 @@
 #
 # hpcc_script_3.rc
 #
-# Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
 #
+
+maint set sync on
 
 #
 # Launch our processes
@@ -32,19 +34,23 @@ end
 #
 
 build $resid0
-	assert $scalar{$broken::*GRID@"HPL_pdtest.c":407} = $scalar{$working::*GRID@"HPL_pdtest.c":407}
-	assert $scalar{$broken::N@"HPL_pdtest.c":407} = $scalar{$working::N@"HPL_pdtest.c":407}
-	assert $scalar{$broken::NB@"HPL_pdtest.c":407} = $scalar{$working::NB@"HPL_pdtest.c":407}
-	assert $scalar{$broken::mat.ld@"HPL_pdtest.c":407} = $scalar{$working::mat.ld@"HPL_pdtest.c":407}
-	assert $scalar{$broken::*GRID@"HPL_pdtest.c":409} = $scalar{$working::*GRID@"HPL_pdtest.c":409}
-	assert $scalar{$broken::N@"HPL_pdtest.c":409} = $scalar{$working::N@"HPL_pdtest.c":409}
-	assert $scalar{$broken::NB@"HPL_pdtest.c":409} = $scalar{$working::NB@"HPL_pdtest.c":409}
-	assert $scalar{$broken::mat.ld@"HPL_pdtest.c":409} = $scalar{$working::mat.ld@"HPL_pdtest.c":409}
+	assert $scalar{$broken::*GRID@"HPL_pdtest.c":407} == $scalar{$working::*GRID@"HPL_pdtest.c":407}
+	assert $scalar{$broken::N@"HPL_pdtest.c":407} == $scalar{$working::N@"HPL_pdtest.c":407}
+	assert $scalar{$broken::NB@"HPL_pdtest.c":407} == $scalar{$working::NB@"HPL_pdtest.c":407}
+	assert $scalar{$broken::mat.ld@"HPL_pdtest.c":407} == $scalar{$working::mat.ld@"HPL_pdtest.c":407}
+	assert $scalar{$broken::*GRID@"HPL_pdtest.c":409} == $scalar{$working::*GRID@"HPL_pdtest.c":409}
+	assert $scalar{$broken::N@"HPL_pdtest.c":409} == $scalar{$working::N@"HPL_pdtest.c":409}
+	assert $scalar{$broken::NB@"HPL_pdtest.c":409} == $scalar{$working::NB@"HPL_pdtest.c":409}
+	assert $scalar{$broken::mat.ld@"HPL_pdtest.c":409} == $scalar{$working::mat.ld@"HPL_pdtest.c":409}
 end
+
+start $resid0
+
+info script $resid0 results
 
 #
 # Bptr is the global N by 1 b matrix. Bptr points to a region inside of mat.A to avoid uneeded reallocation of
-# memory. We can use ccdb to break at HPL_pdtest.c:407, continue to the breakpoint, set a breakpoint at 
+# memory. We can use gdb4hpc to break at HPL_pdtest.c:407, continue to the breakpoint, set a breakpoint at 
 # HPL_pdlange.c:200 (which is the start of the HPL_NORM_I calculation) and then issue a print on mp and nq
 # to get the following:
 #
@@ -59,16 +65,23 @@ end
 # This means that ranks 0 and 2 hold onto the actual information for Bptr. We should only compare those two ranks.
 # Rank 0 contains 520 elements of b. Rank 2 contains 480 elements of b.
 #
-# We need to cast the dereferenced Bptr pointer to the proper dimension so that ccdb is able to grab the amount of
+# We need to cast the dereferenced Bptr pointer to the proper dimension so that gdb4hpc is able to grab the amount of
 # data we are expecting. C language does not provide a way for us to determine this directly from a pointer alone!
 #
 
+run
+
 build $resid0_Bptr
-	assert $broken{0}::(double[520])*Bptr@"HPL_pdtest.c":407 = $working{0}::(double[520])*Bptr@"HPL_pdtest.c":407
-	assert $broken{0}::(double[520])*Bptr@"HPL_pdtest.c":409 = $working{0}::(double[520])*Bptr@"HPL_pdtest.c":409
-	assert $broken{2}::(double[480])*Bptr@"HPL_pdtest.c":407 = $working{2}::(double[480])*Bptr@"HPL_pdtest.c":407
-	assert $broken{2}::(double[480])*Bptr@"HPL_pdtest.c":409 = $working{2}::(double[480])*Bptr@"HPL_pdtest.c":409
+	assert $broken::(double[520])(*Bptr)@"HPL_pdtest.c":407 == $working::(double[520])(*Bptr)@"HPL_pdtest.c":407
+	assert $broken{0}::(double[520])(*Bptr)@"HPL_pdtest.c":407 == $working{0}::(double[520])(*Bptr)@"HPL_pdtest.c":407
+	assert $broken{0}::(double[520])(*Bptr)@"HPL_pdtest.c":409 == $working{0}::(double[520])(*Bptr)@"HPL_pdtest.c":409
+	assert $broken{2}::(double[480])(*Bptr)@"HPL_pdtest.c":407 == $working{2}::(double[480])(*Bptr)@"HPL_pdtest.c":407
+	assert $broken{2}::(double[480])(*Bptr)@"HPL_pdtest.c":409 == $working{2}::(double[480])(*Bptr)@"HPL_pdtest.c":409
 end
+
+start $resid0_Bptr
+
+info script $resid0_Bptr results
 
 # 
 # RESULT:

@@ -705,20 +705,25 @@ std::pair<std::string,bool> SubArray::removeRngs(Mi2Aif& mi, const std::string& 
         if (auto beg = findExprMatchT(s.rbegin(), s.rend()); beg != s.rend()) {
             s.erase(beg.base()-1, s.end());
         }
-        try {
-            LazyMIVar var{mi, s};
-            auto type = var.getType();
-            if (dynamic_cast<ais::KokkosView*>(type.get()))
-                return std::make_pair(s,false);
-            else if (dynamic_cast<ais::RajaView*>(type.get()))
-                return std::make_pair(s, false);
-            else if (dynamic_cast<ais::FtnArray*>(type.get()))
-                isFtnArray = true;
-            else
+
+        // if s == expr, the call to .getType in the block would cause infinite
+        // recursion because .getType calls removeRngs.
+        if (s != expr) {
+            try {
+                LazyMIVar var{mi, s};
+                auto type = var.getType();
+                if (dynamic_cast<ais::KokkosView*>(type.get()))
+                    return std::make_pair(s,false);
+                else if (dynamic_cast<ais::RajaView*>(type.get()))
+                    return std::make_pair(s, false);
+                else if (dynamic_cast<ais::FtnArray*>(type.get()))
+                    isFtnArray = true;
+                else
+                    return retVal;
+            } catch (dbgevent_t* evt) {
+                FreeEvent(evt);
                 return retVal;
-        } catch (dbgevent_t* evt) {
-            FreeEvent(evt);
-            return retVal;
+            }
         }
     }
 

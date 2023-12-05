@@ -1,8 +1,10 @@
 #
 # hpcc_script_5.rc
 #
-# Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
 #
+
+maint set sync on
 
 #
 # Launch our processes
@@ -29,10 +31,14 @@ decomposition $scalar
 end
 
 build $pdgesv_args
-	assert $scalar{$broken::*GRID@"HPL_pdtest.c":200} = $scalar{$working::*GRID@"HPL_pdtest.c":200}
-	assert $scalar{$broken::*ALGO@"HPL_pdtest.c":200} = $scalar{$working::*ALGO@"HPL_pdtest.c":200}
-	assert $scalar{$broken::mat@"HPL_pdtest.c":200} = $scalar{$working::mat@"HPL_pdtest.c":200}
+	assert $scalar{$broken::*GRID@"HPL_pdtest.c":200} == $scalar{$working::*GRID@"HPL_pdtest.c":200}
+	assert $scalar{$broken::*ALGO@"HPL_pdtest.c":200} == $scalar{$working::*ALGO@"HPL_pdtest.c":200}
+	assert $scalar{$broken::mat@"HPL_pdtest.c":200} == $scalar{$working::mat@"HPL_pdtest.c":200}
 end
+
+start $pdgesv_args
+
+info script $pdgesv_args results
 
 # RESULT:
 #
@@ -41,18 +47,25 @@ end
 # Next lets examine HPL_pdgesv. This is a wrapper for possibly three function calls. Lets create assertions
 # for mat.X at each of these. Note that this function transforms the symbolic mat name into A.
 
+run
+
 build $pdgesv_matX
-	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":97 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":97
-	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":103 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":103
-	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":107 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":107
-	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":112 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":112
-	assert $broken{0}::(double[520])*A.X@"HPL_pdgesv.c":115 = $working{0}::(double[520])*A.X@"HPL_pdgesv.c":115
-	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":97 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":97
-	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":103 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":103
-	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":107 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":107
-	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":112 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":112
-	assert $broken{1}::(double[480])*A.X@"HPL_pdgesv.c":115 = $working{1}::(double[480])*A.X@"HPL_pdgesv.c":115
+	assert $broken::(double[520])(*A.X)@"HPL_pdgesv.c":97 == $working::(double[520])(*A.X)@"HPL_pdgesv.c":97
+	assert $broken{0}::(double[520])(*A.X)@"HPL_pdgesv.c":97 == $working{0}::(double[520])(*A.X)@"HPL_pdgesv.c":97
+	assert $broken{0}::(double[520])(*A.X)@"HPL_pdgesv.c":103 == $working{0}::(double[520])(*A.X)@"HPL_pdgesv.c":103
+	assert $broken{0}::(double[520])(*A.X)@"HPL_pdgesv.c":107 == $working{0}::(double[520])(*A.X)@"HPL_pdgesv.c":107
+	assert $broken{0}::(double[520])(*A.X)@"HPL_pdgesv.c":112 == $working{0}::(double[520])(*A.X)@"HPL_pdgesv.c":112
+	assert $broken{0}::(double[520])(*A.X)@"HPL_pdgesv.c":115 == $working{0}::(double[520])(*A.X)@"HPL_pdgesv.c":115
+	assert $broken{1}::(double[480])(*A.X)@"HPL_pdgesv.c":97 == $working{1}::(double[480])(*A.X)@"HPL_pdgesv.c":97
+	assert $broken{1}::(double[480])(*A.X)@"HPL_pdgesv.c":103 == $working{1}::(double[480])(*A.X)@"HPL_pdgesv.c":103
+	assert $broken{1}::(double[480])(*A.X)@"HPL_pdgesv.c":107 == $working{1}::(double[480])(*A.X)@"HPL_pdgesv.c":107
+	assert $broken{1}::(double[480])(*A.X)@"HPL_pdgesv.c":112 == $working{1}::(double[480])(*A.X)@"HPL_pdgesv.c":112
+	assert $broken{1}::(double[480])(*A.X)@"HPL_pdgesv.c":115 == $working{1}::(double[480])(*A.X)@"HPL_pdgesv.c":115
 end
+
+start $pdgesv_matX
+
+info script $pdgesv_matX results
 
 # RESULT:
 #
@@ -70,16 +83,27 @@ end
 #         This data has not been written yet, so we would expect the last column to be uninitialized. We should omit
 #         this column until the solve data has been written.
 
+run
+
 build $pdgesv_matA
-	assert $broken{0}::(double[520][520])*A.A@"HPL_pdgesv.c":97 = $working{0}::(double[520][520])*A.A@"HPL_pdgesv.c":97
-	assert $broken{0}::(double[520][520])*A.A@"HPL_pdgesv.c":107 = $working{0}::(double[520][520])*A.A@"HPL_pdgesv.c":107
-	assert $broken{0}::(double[520][520])*A.A@"HPL_pdgesv.c":112 = $working{0}::(double[520][520])*A.A@"HPL_pdgesv.c":112
-	assert $broken{0}::(double[520][520])*A.A@"HPL_pdgesv.c":115 = $working{0}::(double[520][520])*A.A@"HPL_pdgesv.c":115
-	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesv.c":97 = $working{1}::(double[520][480])*A.A@"HPL_pdgesv.c":97
-	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesv.c":107 = $working{1}::(double[520][480])*A.A@"HPL_pdgesv.c":107
-	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesv.c":112 = $working{1}::(double[520][480])*A.A@"HPL_pdgesv.c":112
-	assert $broken{1}::(double[520][480])*A.A@"HPL_pdgesv.c":115 = $working{1}::(double[520][480])*A.A@"HPL_pdgesv.c":115
+	# Because we are comparing so much data, this script takes a little longer.
+	# We'll turn on verbose breakpoints to track the progression of the script.
+	set verbose-breakpoints on
+
+	assert $broken::(double[520][520])(*A.A)@"HPL_pdgesv.c":97 == $working::(double[520][520])(*A.A)@"HPL_pdgesv.c":97
+	assert $broken{0}::(double[520][520])(*A.A)@"HPL_pdgesv.c":97 == $working{0}::(double[520][520])(*A.A)@"HPL_pdgesv.c":97
+	assert $broken{0}::(double[520][520])(*A.A)@"HPL_pdgesv.c":107 == $working{0}::(double[520][520])(*A.A)@"HPL_pdgesv.c":107
+	assert $broken{0}::(double[520][520])(*A.A)@"HPL_pdgesv.c":112 == $working{0}::(double[520][520])(*A.A)@"HPL_pdgesv.c":112
+	assert $broken{0}::(double[520][520])(*A.A)@"HPL_pdgesv.c":115 == $working{0}::(double[520][520])(*A.A)@"HPL_pdgesv.c":115
+	assert $broken{1}::(double[520][480])(*A.A)@"HPL_pdgesv.c":97 == $working{1}::(double[520][480])(*A.A)@"HPL_pdgesv.c":97
+	assert $broken{1}::(double[520][480])(*A.A)@"HPL_pdgesv.c":107 == $working{1}::(double[520][480])(*A.A)@"HPL_pdgesv.c":107
+	assert $broken{1}::(double[520][480])(*A.A)@"HPL_pdgesv.c":112 == $working{1}::(double[520][480])(*A.A)@"HPL_pdgesv.c":112
+	assert $broken{1}::(double[520][480])(*A.A)@"HPL_pdgesv.c":115 == $working{1}::(double[520][480])(*A.A)@"HPL_pdgesv.c":115
 end
+
+start $pdgesv_matA
+
+info script $pdgesv_matA results
 
 # RESULT:
 #

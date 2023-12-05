@@ -1,9 +1,9 @@
 #!/bin/bash
 #
 # build_demo.sh
-# A primer script to automagically build the ccdb demo.
+# A primer script to automagically build the gdb4hpc demo.
 #
-# Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.

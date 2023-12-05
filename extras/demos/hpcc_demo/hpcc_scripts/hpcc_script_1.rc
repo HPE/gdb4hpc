@@ -1,8 +1,15 @@
 #
 # hpcc_script_1.rc
 #
-# Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
 #
+
+#
+# This command makes gdb4hpc wait until the assertion script later in the .rc file
+# finishes before running any more commands. This is only necessary in a .rc file that
+# will be run with the source command.
+#
+maint set sync on
 
 #
 # Launch our processes
@@ -29,13 +36,23 @@ end
 # that goes into this calculation.
 #
 build $resid1
-	assert $scalar{$broken::resid0@"HPL_pdtest.c":418} = $scalar{$working::resid0@"HPL_pdtest.c":418}
-	assert $scalar{$broken::TEST->epsil@"HPL_pdtest.c":418} = $scalar{$working::TEST->epsil@"HPL_pdtest.c":418}
-	assert $scalar{$broken::AnormI@"HPL_pdtest.c":418} = $scalar{$working::AnormI@"HPL_pdtest.c":418}
-	assert $scalar{$broken::XnormI@"HPL_pdtest.c":418} = $scalar{$working::XnormI@"HPL_pdtest.c":418}
-	assert $scalar{$broken::BnormI@"HPL_pdtest.c":418} = $scalar{$working::BnormI@"HPL_pdtest.c":418}
-	assert $scalar{$broken::N@"HPL_pdtest.c":418} = $scalar{$working::N@"HPL_pdtest.c":418}
+	assert $scalar{$broken::resid0@"HPL_pdtest.c":418} == $scalar{$working::resid0@"HPL_pdtest.c":418}
+	assert $scalar{$broken::TEST->epsil@"HPL_pdtest.c":418} == $scalar{$working::TEST->epsil@"HPL_pdtest.c":418}
+	assert $scalar{$broken::AnormI@"HPL_pdtest.c":418} == $scalar{$working::AnormI@"HPL_pdtest.c":418}
+	assert $scalar{$broken::XnormI@"HPL_pdtest.c":418} == $scalar{$working::XnormI@"HPL_pdtest.c":418}
+	assert $scalar{$broken::BnormI@"HPL_pdtest.c":418} == $scalar{$working::BnormI@"HPL_pdtest.c":418}
+	assert $scalar{$broken::N@"HPL_pdtest.c":418} == $scalar{$working::N@"HPL_pdtest.c":418}
 end
+
+#
+# Run the script
+#
+start $resid1
+
+#
+# Check the results of the script
+#
+info script $resid1 results
 
 #
 # RESULT:

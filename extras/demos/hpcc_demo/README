@@ -1,7 +1,7 @@
 Using the gdb4hpc Comparative Debugging Feature demo sources
 
 Certain components, files or programs contained within this package or product 
-are Copyright 2013, 2020 Hewlett Packard Enterprise Development LP.
+are Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
 
 To run the demos, do the following:
 
@@ -11,12 +11,21 @@ To run the demos, do the following:
 2. Run the provided build_demo.sh build script. This will ensure a properly
    setup environment and automatically build all the necessary binaries.
 
-3. Load the gdb4hpc module and start gdb4hpc.
+3. Load the gdb4hpc module and start gdb4hpc. Start gdb4hpc with the --echo command so
+   that commands from the provided .rc files are printed as they are executed.
 
-4. Follow the steps described in the "Using the gdb4hpc Comparative Debugging
-   Feature" white paper or use the provided scripts in the hpcc_scripts
-   directory. The script can be used inside gdb4hpc using the source command. For
-   example, if gdb4hpc is started from the parent directory, you would issue the
-   following command:
+4. Use the provided .rc files in the hpcc_scripts directory. The script can be used inside
+   gdb4hpc using the source command. For example, if gdb4hpc is started from the parent
+   directory, you would issue the following command:
 
       source hpcc_scripts/hpcc_script_1.rc
+
+   Each .rc should be run from a new instance of gdb4hpc. An easy way to start a new
+   gdb4hpc instance and immediately run an .rc file is:
+
+      gdb4hpc --echo --exec "source hpcc_scripts/hpcc_script_1.rc"
+
+   Or the equivalent shorter version:
+
+      gdb4hpc -ex "source hpcc_scripts/hpcc_script_1.rc"
+

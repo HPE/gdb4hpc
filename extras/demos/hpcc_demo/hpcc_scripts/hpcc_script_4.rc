@@ -1,8 +1,10 @@
 #
 # hpcc_script_4.rc
 #
-# Copyright 2013,2020 Hewlett Packard Enterprise Development LP.
+# Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
 #
+
+maint set sync on
 
 #
 # Launch our processes
@@ -34,13 +36,18 @@ set error 1.0e-14 1.0e-13 absolute
 #
 
 build $pdtest_matX
-        assert $broken{0}::(double[520])*mat.X@"HPL_pdtest.c":198 = $working{0}::(double[520])*mat.X@"HPL_pdtest.c":198
-        assert $broken{0}::(double[520])*mat.X@"HPL_pdtest.c":200 = $working{0}::(double[520])*mat.X@"HPL_pdtest.c":200
-        assert $broken{0}::(double[520])*mat.X@"HPL_pdtest.c":201 = $working{0}::(double[520])*mat.X@"HPL_pdtest.c":201
-        assert $broken{1}::(double[480])*mat.X@"HPL_pdtest.c":198 = $working{1}::(double[480])*mat.X@"HPL_pdtest.c":198
-        assert $broken{1}::(double[480])*mat.X@"HPL_pdtest.c":200 = $working{1}::(double[480])*mat.X@"HPL_pdtest.c":200
-        assert $broken{1}::(double[480])*mat.X@"HPL_pdtest.c":201 = $working{1}::(double[480])*mat.X@"HPL_pdtest.c":201
+        assert $broken::(double[520])(*mat.X)@"HPL_pdtest.c":198 == $working::(double[520])(*mat.X)@"HPL_pdtest.c":198
+        assert $broken{0}::(double[520])(*mat.X)@"HPL_pdtest.c":198 == $working{0}::(double[520])(*mat.X)@"HPL_pdtest.c":198
+        assert $broken{0}::(double[520])(*mat.X)@"HPL_pdtest.c":200 == $working{0}::(double[520])(*mat.X)@"HPL_pdtest.c":200
+        assert $broken{0}::(double[520])(*mat.X)@"HPL_pdtest.c":201 == $working{0}::(double[520])(*mat.X)@"HPL_pdtest.c":201
+        assert $broken{1}::(double[480])(*mat.X)@"HPL_pdtest.c":198 == $working{1}::(double[480])(*mat.X)@"HPL_pdtest.c":198
+        assert $broken{1}::(double[480])(*mat.X)@"HPL_pdtest.c":200 == $working{1}::(double[480])(*mat.X)@"HPL_pdtest.c":200
+        assert $broken{1}::(double[480])(*mat.X)@"HPL_pdtest.c":201 == $working{1}::(double[480])(*mat.X)@"HPL_pdtest.c":201
 end
+
+start $pdtest_matX
+
+info script $pdtest_matX results
 
 # RESULT:
 #

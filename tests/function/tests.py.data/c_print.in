@@ -49,6 +49,10 @@ a{0..2}: struct test_struct {
 }
 21: p struct_test_1.i
 a{0..2}: 1
+21: p (&struct_test_1)->i
+a{0..2}: 1
+21: p ((&struct_test_1)->i)
+a{0..2}: 1
 22: p struct_test_1.d
 a{0..2}: 2.2
 23: p struct_test_1.c_ptr

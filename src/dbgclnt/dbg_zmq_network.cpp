@@ -134,7 +134,8 @@ int ZMQNetNetwork::forceExit() {
     return 0;
 }
 
-ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork, zmqnet::Stream::Id streamId, zmqnet::Communicator communicator) 
+ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork,
+    zmqnet::Stream::Id streamId, zmqnet::Communicator communicator)
     : m_parentNetwork{parentNetwork}
 {
     // create "sync" stream
@@ -158,10 +159,39 @@ ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &
     m_stream = std::make_unique<zmqnet::Stream>(
         parentNetwork.registerStream(communicator, streamId, "libzmqnetagg.so",
                                      "run", zmqnet::sync::WaitForAll{}));
+
+    // Start heartbeat monitor if not disabled
+    if (auto gdb4hpc_heartbeat_ms = ::getenv(GDB4HPC_HEARTBEAT_MS)) {
+        try {
+            // Parse setting
+            auto parsed = std::stoi(gdb4hpc_heartbeat_ms);
+
+            // Must be nonnegative
+            if (parsed < 0) {
+                PrintOutMsg("Warning: invalid setting for " GDB4HPC_HEARTBEAT_MS ": %s\n",
+                    gdb4hpc_heartbeat_ms);
+
+            // If positive, enable
+            } else if (parsed > 0) {
+                m_parentNetwork.startHeartbeat(parsed);
+            }
+
+            // Disable if zero or negative
+
+        } catch (...) {
+            PrintOutMsg("Warning: failed to parse " GDB4HPC_HEARTBEAT_MS ": %s\n",
+                gdb4hpc_heartbeat_ms);
+        }
+
+    // Enable with default interval 3000ms
+    } else {
+        m_parentNetwork.startHeartbeat(3000);
+    }
 }
 
-ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator) 
-    : CommandStream(parentNetwork, static_cast<zmqnet::Stream::Id>(streamId), communicator)
+ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &parentNetwork,
+    ZMQNetStream streamId, zmqnet::Communicator communicator)
+    : CommandStream(parentNetwork, static_cast<zmqnet::Stream::Id>(streamId), std::move(communicator))
 {}
 
 void ZMQNetNetwork::StreamTable::CommandStream::sendCommand(const char *command, size_t len) {
@@ -220,7 +250,8 @@ ZMQNetNetwork::StreamTable::CommandStream::internalExtractResult(bool cancellabl
     auto stopWaiting = [&](){
         return (m_commands_sent == m_shared_result.results_received) // message arrived
             || g_extract_result_cancel_flag                          // user cancelled wait
-            || (timeout.count() > 0 && time_elapsed >= timeout);     // timed out
+            || (timeout.count() > 0 && time_elapsed >= timeout)      // timed out
+            || (m_parentNetwork.heartbeatRunning() && !m_parentNetwork.heartbeatLive());
     };
 
     // wait for result or cancellation
@@ -257,6 +288,9 @@ ZMQNetNetwork::StreamTable::CommandStream::internalExtractResult(bool cancellabl
         // timed out
         LOG("done waiting. timed out\n");
         return ProtoNothing(ProtoNothing::Why::TimedOut);
+    } else if (!m_parentNetwork.heartbeatLive()) {
+        // ZMQNet heartbeat failed
+        return ProtoNothing(ProtoNothing::Why::JobEnded);
     } else {
         // the user cancelled the operation
         LOG("done waiting. user cancelled wait.\n");

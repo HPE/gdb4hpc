@@ -1018,6 +1018,14 @@ int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
         // switch on the event to check if the event changed the status or if
         // we need to do any special pre-processing
         switch (EVENT_EV(event)) {
+
+            // At least one rank exited, set shutdown flag
+            // Some WLMs / WLM configurations will kill the entire job when
+            // one rank ends
+            case DBGEV_EXIT:
+                di->setShutdown();
+                break;
+
             // These events coorespond to possible status changes
             case DBGEV_BPHIT:
             case DBGEV_BPDEL:
@@ -1040,10 +1048,9 @@ int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
                             break;
                     }
                 }
-                // fall through
+            // fall through
             case DBGEV_STEP:
             case DBGEV_SIGNAL:
-            case DBGEV_EXIT:
             case DBGEV_ERROR:
             default:
                 // do nothing
@@ -1498,8 +1505,13 @@ static rep_set_t DbgRecvReply(group_recv_t *set, dbgev req_type, dbgev alt_req_t
 
         switch (nothing->why) {
             case Why::CancelledByUser: // fall through
-            case Why::TimedOut: {
-                const char* error_string = nothing->why == Why::CancelledByUser ? "cancelled" : "timed out";
+            case Why::TimedOut:
+            case Why::JobEnded: {
+                const char* error_string = (nothing->why == Why::CancelledByUser)
+                    ? "cancelled"
+                    : (nothing->why == Why::TimedOut)
+                        ? "timed out"
+                        : "job ended";
 
                 // omit di and group bitset from the error since this error will
                 // eventually snowball into abandoning the command in *all* dis involved,
@@ -3508,8 +3520,16 @@ rep_set_t DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
         return 0;
     }(quit_type, di.processType());
 
-    auto do_blocking_exit = true;
-    {
+    auto job_running = true;
+    auto all_quits_received = false;
+
+    // Check via CTI with the WLM to see if the application is still running
+    if (!cti_appIsValid(di.appId())) {
+
+        PrintOutMsg("Job has already exited. Attempting to clean up...\n");
+        job_running = false;
+
+    } else {
         // send quit command. this should disconnect gdb on the backend and leave the
         // job in a stopped state. the communication network is still alive.
         auto quit_result = [](DbgInvoke& recipient, int detach) {
@@ -3525,20 +3545,22 @@ rep_set_t DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
         }(di, detach);
 
         // nullptr means sucess and the blocking teardown will probably succeed.
-        do_blocking_exit = quit_result.isEmpty();
+        if (!quit_result.isEmpty()) {
+
+            // something went wrong with DBGCMD_QUIT, so sync exit probably won't work.
+            PrintOutMsg("Warning: There was an error shutting down the debugger. Attempting to clean up...\n");
+            all_quits_received = false;
+        }
 
         // merge the results. this deletes tmp_result
         result.merge(std::move(quit_result));
     }
 
-    if (do_blocking_exit) {
+    if (job_running && all_quits_received) {
         di.proto().syncExit(&di);
     } else {
-        // something went wrong with DBGCMD_QUIT, so sync exit probably won't work.
-        PrintOutMsg("Warning: There was an error shutting down the debugger. Attempting to clean up...\n");
         di.proto().forceExit(&di);
     }
-
 
     // Clean up the job.
     // In some circumstances like attach and --non-mpi launch, no exit breakpoint was set,
@@ -3546,26 +3568,29 @@ rep_set_t DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
     // the job might be gone already. This isn't a critical error and the information
     // would be useless to the user, so only print an error if we originally launched the
     // app (not if we attached).
-    if (detach) {
-        auto Launched = DbgInvoke::ProcessType::Launched;
-        if (cti_killApp(di.appId(), SIGCONT) && di.processType() == Launched) {
-            PrintOutMsg("Warning: an error occurred during release of $%s.\n",
-                          di.handle().c_str());
-            PrintOutMsg("The job might be stuck waiting for a SIGCONT.\n");
-        }
+    if (job_running) {
+        if (detach) {
+            auto Launched = DbgInvoke::ProcessType::Launched;
+            if (cti_killApp(di.appId(), SIGCONT) && di.processType() == Launched) {
+                PrintOutMsg("Warning: an error occurred during release of $%s.\n",
+                            di.handle().c_str());
+                PrintOutMsg("The job might be stuck waiting for a SIGCONT.\n");
+            }
 
-        // Now that the app is running again, release it from cti so it won't be
-        // killed when cti is killed
-        if (cti_releaseApp(di.appId())) {
-            PrintOutMsg("Warning: an error occurred during release of $%s.\n",
-                          di.handle().c_str());
-            PrintOutMsg("The job might be killed before completing.\n");
-        }
-    } else {
-        auto Launched = DbgInvoke::ProcessType::Launched;
-        if (cti_killApp(di.appId(), SIGKILL) && di.processType() == Launched) {
-            PrintOutMsg("Warning: an error occurred during cleanup of $%s.\n", di.handle().c_str());
-            PrintOutMsg("Your job might still be running.\n");
+            // Now that the app is running again, release it from cti so it won't be
+            // killed when cti is killed
+            if (cti_releaseApp(di.appId())) {
+                PrintOutMsg("Warning: an error occurred during release of $%s.\n",
+                            di.handle().c_str());
+                PrintOutMsg("The job might be killed before completing.\n");
+            }
+
+        } else {
+            auto Launched = DbgInvoke::ProcessType::Launched;
+            if (cti_killApp(di.appId(), SIGKILL) && di.processType() == Launched) {
+                PrintOutMsg("Warning: an error occurred during cleanup of $%s.\n", di.handle().c_str());
+                PrintOutMsg("Your job might still be running.\n");
+            }
         }
     }
 

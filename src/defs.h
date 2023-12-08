@@ -41,6 +41,9 @@
 // refresh, workaround implemented for PE-48149
 #define GDB4HPC_REFRESH_DWARF_INFO "GDB4HPC_REFRESH_DWARF_INFO"
 
+// Heartbeat interval in milliseconds (0 to disable, default 3000ms)
+#define GDB4HPC_HEARTBEAT_MS "GDB4HPC_HEARTBEAT_MS"
+
 #ifdef ZPL
 #define LANG_ZPL 7
 #define ZPL_TAG "zcmap"

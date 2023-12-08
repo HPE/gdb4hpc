@@ -174,7 +174,7 @@ ZMQNetClientProtocol::receiveReply(DbgInvoke *di, const Bitset *target, std::chr
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (di->isShutdown()) {
-        return {};
+        return ProtoNothing{ProtoNothing::Why::JobEnded};
     }
 
     return getNetwork<ZMQNetNetwork>(di).receiveReply(target, timeout);

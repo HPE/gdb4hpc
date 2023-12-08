@@ -67,6 +67,7 @@ struct ProtoNothing {
         CancelledByUser, // the user cancelled the proto operation
         TimedOut,        // the proto operation timed out
         InternalError,   // unspecified internal error
+        JobEnded,        // job was already ended by WLM
     };
 
     ProtoNothing() : why{Why::InternalError} {};

@@ -2,6 +2,8 @@
 title: Tools for working with array values in gdb4hpc
 ---
 
+# Tools For Working with Array Values in Gdb4hpc
+
 This covers tools and techniques for working with arrays, matrices, and C++ collections.   
 
 ## The range operator

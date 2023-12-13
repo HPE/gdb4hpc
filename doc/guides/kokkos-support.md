@@ -2,6 +2,8 @@
 title: "Kokkos Support in Gdb4hpc"
 ---
 
+# Kokkos Support in Gdb4hpc
+
 ## Printing kokkos::Views
 
 gdb4hpc 4.15 lets you print the contents of the most common kokkos::View arrays, at least those with the usual "left" or "right" layouts.    

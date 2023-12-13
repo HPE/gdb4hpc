@@ -2,6 +2,8 @@
 title: Gdb4hpc Tutorial
 ---
 
+# Gdb4hpc Tutorial
+
 This expands on the *Getting Started with Gdb4hpc* to cover some gdb4hpc specific topics:
 
 - Comparative debugging

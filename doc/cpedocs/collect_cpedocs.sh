@@ -10,15 +10,13 @@
 # This script should be run from the directory it lives in.
 
 # Stop immediately if anything unexpected happens
-set -e
+set -ex
 
 echo "Creating output directory structure..."
 
 OUTPUT_DIR="cpedocs_gdb4hpc"
 mkdir -p "$OUTPUT_DIR/man"
-echo "  mkdir $OUTPUT_DIR/man"
 mkdir -p "$OUTPUT_DIR/guides"
-echo "  mkdir $OUTPUT_DIR/guides"
 
 echo "Collecting files..."
 
@@ -26,11 +24,7 @@ echo "Collecting files..."
 cp ./cpedocs_index_chunk.md "$OUTPUT_DIR"
 
 # Collect man pages
-# Intentionally using a for loop instead of `cp ./man/*.md` for a more verbose output
-for f in ../man/*.md; do
-  echo "  $f -> $OUTPUT_DIR/man/"
-  cp "$f" "$OUTPUT_DIR/man/"
-done
+cp ../man/gdb4hpc.1.md "$OUTPUT_DIR/man"
 
 # Collect guides
 for f in ../guides/*.md; do
@@ -38,9 +32,14 @@ for f in ../guides/*.md; do
   cp "$f" "$OUTPUT_DIR/guides"
 done
 
-echo "Removing files that shouldn't go into cpedocs..."
-echo "  rm $OUTPUT_DIR/man/README.md"
-rm "$OUTPUT_DIR/man/README.md"
+# We swap out some manpage headings like "NAME" to make the search experience in sphinx a little better.
+confirm_and_replace() {
+	# Relying on the fact that set -e was called at the top of the script for error checking
+	grep "$1" "$3"
+	sed -i "s/$1/$2/" "$3"
+}
+
+confirm_and_replace "# NAME" "# gdb4hpc Man Page" "$OUTPUT_DIR/man/gdb4hpc.1.md"
 
 echo "Done. Output directory is $OUTPUT_DIR."
 echo "Now copy $OUTPUT_DIR to /CPEDocs/doc/debugging-tools."

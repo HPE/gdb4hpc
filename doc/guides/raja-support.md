@@ -2,6 +2,8 @@
 title: "RAJA Support in Gdb4hpc"
 ---
 
+# RAJA Support in Gdb4hpc
+
 Gdb4hpc includes support for debugging a parallel program that uses the `RAJA` Performance
 Portability Layer (https://raja.readthedocs.io/en/develop/).
 

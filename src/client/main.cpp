@@ -288,7 +288,7 @@ static void readInitCommandsFile() {
             PrintOutMsg("Initializing from %s\n", path.c_str());
             for (std::string line; std::getline(stream, line); ) {
                 DPRINT("Queued command from %s: %s\n", filename.c_str(), line.c_str());
-                QueueCommand(line);
+                DbgQueueCommand(line);
             }
         } else {
             PrintOutMsg("Warning: failed to open %s for reading.\n", filename.c_str());
@@ -501,7 +501,7 @@ int main(int argc, char *argv[]) {
     auto args = parse_argv(argc, argv);
 
     for (const auto& queued : args.queued_commands) {
-        QueueCommand(queued);
+        DbgQueueCommand(queued);
     }
 
     DbgSetSyncCommandTimeout(args.command_timeout);
@@ -509,8 +509,6 @@ int main(int argc, char *argv[]) {
     // Initialize the settings to the default values
     Client.confirm = args.confirm;         // Confirm dangerous commands?
     Client.quit = 0;                       // Quit the debugger?
-    Client.echo = args.echo;               // Echo each command in batch mode?
-    Client.keep_going = args.keep_going;   // Ignore errors in batch mode?
     Client.unsafe = 0;                     // Be unsafe?
     Client.early_entry = 0;                // Enter at pmi_init?
     Client.non_stop = 1;                   // Launch applications in non stop mode?
@@ -571,7 +569,8 @@ int main(int argc, char *argv[]) {
         // XXX: CLI_FILE_STREAM NewCLIArgs expects nullptrs to represent "unspecified".
         // no in_file_p here because we would have exited above if it was empty.
         const char* out_file_p = args.out_file.empty() ? nullptr : args.out_file.c_str();
-        cli_args = NewCLIArgs(CLI_FILE_STREAM, args.in_file.c_str(), out_file_p, out_file_p);
+        cli_args = NewCLIArgs(CLI_FILE_STREAM, args.in_file.c_str(), out_file_p, out_file_p,
+                              static_cast<cli_option>(args.echo), static_cast<cli_option>(args.keep_going));
     } else {
         // Use the default CLI
         // Check to see if stdin is a tty, if not set the default CLI to
@@ -616,7 +615,7 @@ int main(int argc, char *argv[]) {
     started = 1;
 
     // Execute commands that have been queued at startup (e.g. immediate attach)
-    ExecuteQueuedCommands();
+    DbgExecuteQueuedCommands();
 
     // Main event loop
     for (;;) {

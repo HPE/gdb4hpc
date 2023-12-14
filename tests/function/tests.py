@@ -372,6 +372,10 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_breakpoint"
         runTest(self)
 
+    def test_c_breakpoint_save(self):
+        self.base_name = "c_breakpoint_save"
+        runTest(self)
+
     @avocado.skipUnless(lambda t: t.params.get("mrnet_flag", default=False), "mrnet_flag not set")
     def test_c_breakpoint_mrnet(self):
         self.base_name = "c_breakpoint"
@@ -879,6 +883,10 @@ class FunctionTests(Gdb4hpcTest):
 
     def test_command_timeout(self):
         self.base_name = "command_timeout"
+        runTest(self)
+
+    def test_source(self):
+        self.base_name = "source"
         runTest(self)
 
     # these skip comments on the raja tests about "non-slurm" systems might really only

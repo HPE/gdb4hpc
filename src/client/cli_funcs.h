@@ -38,6 +38,15 @@ enum cli_type {
 };
 typedef enum cli_type cli_type_t;
 
+// intentionally not an enum class.
+// this is meant for interfacing with NewCLIArgs, a legacy C function.
+// temporary until PE-51474 is done.
+enum cli_option {
+    CLI_DISABLE = 0, // to support static_cast<bool>
+    CLI_ENABLE = 1,
+    CLI_INHERIT,
+};
+
 enum class interpreter_type { CLI, MI };
 
 /*
@@ -72,6 +81,12 @@ struct file_stream_args {
     cli_stream_t* fallback_stream; // fallback stream for NULL cases above. if the
                                    // fallback is NULL and attempted to be used,
                                    // stream initialization will fail.
+
+    bool echo;                     // if true, the stream should echo commands as they're executed.
+
+    bool keep_going;               // if true, the stream shouuld keep executing commands
+                                   // in the file even if one fails. if false, the stream
+                                   // should destroy when a command fails.
 };
 typedef struct file_stream_args file_stream_args_t;
 
@@ -212,6 +227,16 @@ struct cli_stream_t {
     cli_stream_args_t *cs_args; /* cli arguments used to initialize stream */
     cli_logging_t cs_logging;   // setting for loggind output
     std::string cs_prefix;
+
+    bool echo() const;
+    // `should_echo` returns true if commands should be echoed as they are run.
+
+    bool keep_going() const;
+    // different stream types have different behaviors when a command they run fails.
+    // some stream types have a default behavior of destroying the stream upon a command
+    // failure. if `keep_going` returns true, this default behavior is overwritten and
+    // the stream should keep going anyway.
+
 #define cs_notty_in cs_args->notty_args.in
 #define cs_notty_out cs_args->notty_args.out
 #define cs_notty_err cs_args->notty_args.err
@@ -363,10 +388,16 @@ extern void DestroyCurrentCLIStream(void);
 extern void SetDefaultCLIStream(void);
 extern cli_stream_args_t *NewCLIArgs(cli_type_t, ...);
 extern void DestroyCLIArgs(cli_type_t, cli_stream_args_t *);
-// TODO rename
+
 extern bool DbgInterpreterSet(std::string_view interpreter_name);
 extern bool DbgInterpreterExec(std::string_view interpreter_name, std::string_view text);
 extern bool DbgInterpret(std::string_view text);
+
+extern void DbgQueueCommand(const std::string &command);
+// queue a command to later be executed by DbgExecuteQueuedCommands
+
+extern size_t DbgExecuteQueuedCommands();
+// execute all commands in the command queue managed by DbgQueueCommand
 
 /*
 ** Output functions

@@ -1,4 +1,4 @@
-0: source --maint-disable-echo ./tests.py.data/sourceme.rc
+0: source --no-echo ./tests.py.data/sourceme.rc
 hello from the sourced file
 child line two
 child line three

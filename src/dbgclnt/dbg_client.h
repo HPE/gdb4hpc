@@ -358,6 +358,16 @@ rep_set_t DbgSetLineBreak(rec_set_t *, int, const char *, int, const char*);
 rep_set_t DbgSetFuncBreak(rec_set_t *, int, const char *, const char *, const char*);
 rep_set_t DbgSetWatch(rec_set_t *, int, char *);
 rep_set_t DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::string &regex);
+
+int DbgGetBPNum();
+// `DbgGetBPNum` returns the id of the last break/catch/watchpoint set.
+// certain commands can use it with the convenience variable "$bpnum"
+//   dbg all> break ...
+//   dbg all> ignore $bpnum 10
+//
+// note that if the underlying breakpoint is deleted, this number will
+// still refer to it (this matches gdb behavior).
+
 rep_set_t DbgInfoBreakpoints(rec_set_t *recSet);
 rep_set_t DbgSetCheckpoint(rec_set_t* recSet);
 // return empty set on success, otherwise reply will contain error

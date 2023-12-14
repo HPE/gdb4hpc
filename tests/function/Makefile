@@ -28,6 +28,7 @@ TESTS = \
    ./bin/${PE_ENV}/C++/cpp_arrays_print.x \
    ./bin/${PE_ENV}/C++/cpp_catch.x \
    ./bin/${PE_ENV}/C++/c_moved.x \
+   ./bin/${PE_ENV}/C++/cpp_points.x \
    ./bin/${PE_ENV}/fortran/ftn_cmp_diff.x \
    ./bin/${PE_ENV}/fortran/ftn_arrays.x \
    ./bin/${PE_ENV}/fortran/ftn_decomp.x \
@@ -197,6 +198,9 @@ shmemTest :
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_arrays_print.x : ./bin/${PE_ENV}/C++/cpp_arrays_print.o
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+./bin/${PE_ENV}/C++/cpp_points.x : ./bin/${PE_ENV}/C++/cpp_points.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/c_moved.x : ./src/c/c_list.c

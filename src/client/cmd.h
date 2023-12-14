@@ -98,12 +98,5 @@ private:
     std::shared_ptr<CommandNode> m_default;
 };
 
-/*
-** Function prototypes
-*/
-
-extern void QueueCommand(const std::string &command);
-extern size_t ExecuteQueuedCommands();
-
 // external access to the help command
 extern void PrintHelpEntry(const char *const *);

@@ -24,6 +24,7 @@
 #include <sys/wait.h>
 #include <sys/ioctl.h>
 #include <iostream>
+#include <deque>
 
 #include "client.h"
 #include "useful.h"
@@ -43,6 +44,7 @@ static void ProgOutLineStrings(DbgInvoke *, const std::vector<std::string> &line
  */
 static cli_stream_t *CurrentStream; /* Current cli stream */
 static std::vector<cli_stream_t*> AllStreams;
+static std::deque<std::string> pendingCommandQueue{}; /* Commands queued, waiting to be executed */
 
 // connection to interpreter printing functions
 Interpreter::Printer& cli_get_current_printer() {
@@ -145,6 +147,35 @@ bool DbgInterpreterSet(std::string_view name) {
 
     PrintOutError("No such interpreter: %*s\n", (int)name.size(), name.data());
     return false;
+}
+
+void DbgQueueCommand(const std::string &command) {
+    // Don't queue pure whitespace
+    if (command.find_first_not_of(" \t\n\v\f\r") != std::string::npos) {
+        pendingCommandQueue.push_back(command);
+    }
+}
+
+size_t DbgExecuteQueuedCommands() {
+    const auto r = pendingCommandQueue.size();
+
+    if (r == 0) return 0;
+
+    // preserve prompt
+    cli_save_stream();
+
+    while (pendingCommandQueue.size()) {
+        auto command = std::move(pendingCommandQueue.front());
+        pendingCommandQueue.pop_front();
+        if (!DbgInterpret(command.c_str())) {
+            PrintOutError("Command failed: %s\n", command.c_str());
+            if (!CurrentStream->keep_going()) break;
+        }
+    }
+
+    cli_restore_stream();
+
+    return r;
 }
 
 void DestroyCLI(void) {
@@ -325,6 +356,22 @@ cli_stream_t::~cli_stream_t() {
     DestroyCLIArgs(cs_type, cs_args);
 }
 
+bool cli_stream_t::echo() const {
+    // the only streams that implement echoing are file streams
+    switch (cs_type) {
+        case CLI_FILE_STREAM: return cs_args->file_args.echo;
+        default: return false;
+    }
+}
+
+bool cli_stream_t::keep_going() const {
+    // the only streams that implement keep going are file streams
+    switch (cs_type) {
+        case CLI_FILE_STREAM: return cs_args->file_args.keep_going;
+        default: return false;
+    }
+}
+
 cli_stream_args_t *NewCLIArgs(cli_type_t type, ...) {
     cli_stream_args_t *rtn;
     va_list args;
@@ -371,7 +418,18 @@ cli_stream_args_t *NewCLIArgs(cli_type_t type, ...) {
             if ((tmpstr = va_arg(args, char *)) != NULL) {
                 rtn->file_err_path = strdup(tmpstr);
             }
-            rtn->file_fallback_stream = CurrentStream;
+
+            rtn->file_args.fallback_stream = CurrentStream; // nullptr ok
+
+            // cli_option is promoted to int when passed in va_arg
+            auto echo_opt = static_cast<cli_option>(va_arg(args, int));
+            auto keep_going_opt = static_cast<cli_option>(va_arg(args, int));
+
+            auto echo_default = CurrentStream ? CurrentStream->echo() : false;
+            auto keep_going_default = CurrentStream ? CurrentStream->keep_going() : false;
+
+            rtn->file_args.echo = echo_opt == CLI_INHERIT ? echo_default : static_cast<bool>(echo_opt);
+            rtn->file_args.keep_going = keep_going_opt == CLI_INHERIT ? keep_going_default : static_cast<bool>(keep_going_opt);
             break;
     }
 

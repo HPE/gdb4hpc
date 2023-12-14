@@ -32,11 +32,6 @@
 #include "mi_funcs.h"
 #include "interpreter_mi.h"
 
-/*
-** Internal global variables
-*/
-static std::deque<std::string> pendingCommandQueue{}; /* Commands queued, waiting to be executed */
-
 CommandNode::CommandNode(const std::string& name, const char* alias,
                  cmdptype ptype, Command cmd,
                  const char* const* help,
@@ -156,37 +151,6 @@ void PrintHelpEntry(const char *const * helpStrArray) {
     PrintOutMsg("\n");
 
     return;
-}
-
-// queue a command to later be executed by ExecuteQueuedCommands
-void QueueCommand(const std::string &command) {
-    // Don't queue pure whitespace
-    if (command.find_first_not_of(" \t\n\v\f\r") != std::string::npos) {
-        pendingCommandQueue.push_back(command);
-    }
-}
-
-// execute all commands in the command queue managed by QueueCommand
-size_t ExecuteQueuedCommands() {
-    const auto r = pendingCommandQueue.size();
-
-    if (r == 0) return 0;
-    
-    // preserve prompt
-    cli_save_stream();
-
-    while (pendingCommandQueue.size()) {
-        auto command = std::move(pendingCommandQueue.front());
-        pendingCommandQueue.pop_front();
-        if (!DbgInterpret(command.c_str())) {
-            PrintOutError("Command failed: %s\n", command.c_str());
-            if (!Client.keep_going) break;
-        }
-    }
-    
-    cli_restore_stream();
-
-    return r;
 }
 
 // Locate a command from user input.

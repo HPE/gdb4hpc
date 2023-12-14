@@ -74,7 +74,7 @@ public:
     // `value` is a mutable reference.
     static void setClientValue(std::string_view name, Value& value);
 private:
-    // return true if `name` refers to a client value
+    // return true if `name` does not refer to an existing client value
     static bool clientValueIdIsAvailable(std::string_view name);
 
     static std::map<std::string, std::unique_ptr<Value>> m_client_values;

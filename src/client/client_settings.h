@@ -31,8 +31,6 @@ enum class PendingBrkType {
 struct clnt_settings : public ClientSettingsInterface {
     int confirm;                                   /* Confirm dangerous commands */
     int quit;                                      /* Quit the debugger? */
-    bool echo;                                     /* Echo each command in batch mode? */
-    bool keep_going;                               /* Ignore errors in batch mode? */
     int unsafe;                                    // Attempt to work with a non-mpi application
     int early_entry;                               // Start debugging before continuing to an entry breakpoint
     int non_stop;                                  // Launch applications in non stop mode

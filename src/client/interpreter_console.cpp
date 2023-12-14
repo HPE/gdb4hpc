@@ -675,4 +675,9 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
     root.addSubCmd("show", nullptr, proc_ignore,
                    nullptr, class_show_help,
                    "Show information about the debugger environment.");
+
+    root.addSubCmd("save", nullptr, proc_ignore,
+                   nullptr, cmd_save_help,
+                   "Save debugger state to a file.");
+
 }

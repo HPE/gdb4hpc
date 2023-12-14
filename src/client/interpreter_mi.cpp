@@ -236,7 +236,7 @@ void MiInterpreter::Printer::print_stopped_breakpoint(
     std::ostringstream ss;
     auto group_str = proc_group.toSetString();
 
-    ss << "reason=\"breakpoint-hit\",bkptno=\"" <<bkpt_id
+    ss << "bkptno=\"" <<bkpt_id
        << "\",proc_set=\"" << proc_name
        << "\",group=\"" << group_str.substr(1,group_str.length()-2)
        << "\",frame={func=\"" << func

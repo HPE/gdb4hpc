@@ -143,7 +143,10 @@ static OutputCallbacks OutputCB;
 static int async_pending;     // used to track completion of async events
 static rec_set_t *async_set;  // full set of async receivers
 
-auto InputCBs = InputList{};
+static auto InputCBs = InputList{};
+
+// value of $bpnum
+static auto g_bpnum = -1;
 
 // If a sync command doesn't return in this many seconds, attempt to cancel it. 0 means no
 // timeout is applied.
@@ -2230,6 +2233,8 @@ rep_set_t DbgSetLineBreak(rec_set_t *set, int allowPending, const char *file, in
         di->breakpoints().recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
+    g_bpnum = id;
+
     return result;
 }
 
@@ -2252,6 +2257,8 @@ rep_set_t DbgSetFuncBreak(rec_set_t *set, int allowPending, const char *file,
         di->breakpoints().recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
+    g_bpnum = id;
+
     return result;
 }
 
@@ -2273,6 +2280,8 @@ rep_set_t DbgSetWatch(rec_set_t *set, int type, char *expr) {
         di->breakpoints().recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
 
+    g_bpnum = id;
+
     return result;
 }
 
@@ -2286,6 +2295,8 @@ rep_set_t DbgSetCatch(rec_set_t *recSet, const std::string &event, const std::st
         auto* di = reply->rep_di.lock();
         di->breakpoints().recordBreakpoint(*EVENT_BP(reply->rep_event), reply->rep_group.get());
     }
+
+    g_bpnum = id;
 
     return result;
 }
@@ -3704,3 +3715,6 @@ void InputList::unmask_all_inputs() {
     for (auto& input : this->inputs) input->mask(false);
 }
 
+int DbgGetBPNum() {
+    return g_bpnum;
+}

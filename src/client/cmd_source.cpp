@@ -23,29 +23,42 @@
 #include "useful.h"
 
 static int cmd_source_cmd(int argc, const char* const argv[]) {
-    cli_stream_args_t *stream_args;
+    const auto [filename, echo, keep_going] = [&]() {
+        struct Args {
+            const char* filename = nullptr;
+            cli_option echo = CLI_INHERIT;
+            cli_option keep_going = CLI_INHERIT;
+        };
 
-    if (argc < 2) {
-        PrintOutError("source command requires pathname of file to source.\n");
+        auto result = Args{};
+
+        // starting at 1 to skip "source"
+        for (auto i = 1; i < argc; i++) {
+            auto arg = std::string_view{argv[i]};
+            if (arg == "--echo") {
+                result.echo = CLI_ENABLE;
+            } else if (arg == "--no-echo") {
+                result.echo = CLI_DISABLE;
+            } else if (arg == "--keep-going") {
+                result.keep_going = CLI_ENABLE;
+            } else if (arg == "--no-keep-going") {
+                result.keep_going = CLI_DISABLE;
+            } else {
+                // interpret anything else as the filename and stop parsing
+                result.filename = arg.data();
+                break;
+            }
+        }
+
+        return result;
+    }();
+
+    if (!filename) {
+        PrintOutError("Usage: source [--echo|--no-echo|--keep-going|--no-keep-going]* <filename>\n");
         return Command::Failure;
     }
 
-    // check for --maint-disable-echo. this undocumented flag helps
-    // with testing the source command.
-    const auto [filename, disable_echo] = [&]() -> std::pair<const char*, bool> {
-        if (std::string_view{argv[1]} == "--maint-disable-echo" && argc >= 3) {
-            return {argv[2], true};
-        } else {
-            return {argv[1], false};
-        }
-    }();
-
-    if (disable_echo) {
-        // it's assumed that this will be re-enabled somewhere else.
-        Client.echo = 0;
-    }
-
-    stream_args = NewCLIArgs(CLI_FILE_STREAM, filename, NULL, NULL);
+    auto* stream_args = NewCLIArgs(CLI_FILE_STREAM, filename, nullptr, nullptr, echo, keep_going);
 
     // Create and set the new stream
     if (SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::CLI, stream_args, 0)) {

@@ -9,6 +9,39 @@ Created network...
 Connected to application...
 Launch complete.
 a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:58
+0: # ensure that $bpnum starts as -1 and that enable, disable, ignore, and condition are all aware of it
+5: enable $bpnum
+Invalid id: -1. (from "$bpnum")
+Command resulted in an error: 5: enable $bpnum
+6: enable -once $bpnum
+Invalid id: -1. (from "$bpnum")
+Command resulted in an error: 6: enable -once $bpnum
+7: enable -delete $bpnum
+Invalid id: -1. (from "$bpnum")
+Command resulted in an error: 7: enable -delete $bpnum
+8: ignore $bpnum 10
+Invalid id -1. (from "$bpnum").
+Command resulted in an error: 8: ignore $bpnum 10
+9: condition $bpnum true
+Invalid id -1. (from "$bpnum")
+Command resulted in an error: 9: condition $bpnum true
+0: # ensure that misparsed number returns something other than -1 so we can be sure we
+0: # actually looked up $bpnum above
+5: enable nan
+Invalid id: 0. (from "nan")
+Command resulted in an error: 5: enable nan
+6: enable -once nan
+Invalid id: 0. (from "nan")
+Command resulted in an error: 6: enable -once nan
+7: enable -delete nan
+Invalid id: 0. (from "nan")
+Command resulted in an error: 7: enable -delete nan
+8: ignore nan 10
+Invalid id 0. (from "nan").
+Command resulted in an error: 8: ignore nan 10
+9: condition nan true
+Invalid id 0. (from "nan")
+Command resulted in an error: 9: condition nan true
 4: # Set a breakpoint at specified line numbers:
 5: break c_type_test.c:198
 a{0..2}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c, line 198.
@@ -120,6 +153,32 @@ a{0..2}: Breakpoint 4, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/te
 50: p ii
 a{0..2}: 9
 51: info br
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:198
+    already hit 1 time
+a{0..2}         4   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202
+    already hit 2 times
+0: # test $bpnum
+0: break 202
+a{0..2}: Breakpoint 5: file /src/c/c_type_test.c, line 202.
+0: info br
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:198
+    already hit 1 time
+a{0..2}         4   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202
+    already hit 2 times
+a{0..2}         5   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202
+0: ignore $bpnum 10
+0: info br
+Procset         Num Type           Disp Enb What
+a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:198
+    already hit 1 time
+a{0..2}         4   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202
+    already hit 2 times
+a{0..2}         5   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:202
+    ignore next 10 hits
+0: delete $bpnum
+0: info br
 Procset         Num Type           Disp Enb What
 a{0..2}         1   breakpoint     keep y   in main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:198
     already hit 1 time

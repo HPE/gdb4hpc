@@ -126,6 +126,17 @@ const char* const cmd_break_help[] = {
     "apply only to the given thread(s).",
     0};
 
+const char* const cmd_save_breakpoints_help[] = {
+    "Summary: Save breakpoint state to a file.",
+    "Usage: save breakpoints <filename>",
+    "",
+    "Save the current breakpoints, watchpoints, and catchpoints to a file on disk.",
+    "Use the source command to restore them.",
+    "",
+    "The saved file contains plaintext gdb4hpc commands and can be edited with any",
+    "text editor.",
+    0};
+
 const char* const cmd_compare_help[] = {
     "Summary: Compare command.",
     "Usage: compare <expr1> = <expr2>",
@@ -774,13 +785,22 @@ const char* const cmd_shell_help[] = {
 
 const char* const cmd_source_help[] = {
     "Summary: Read and execute debugger commands.",
-    "Usage: source <filename>",
-    "Example command: source myfile",
+    "Usage: source [--echo|--no-echo|--keep-going|--no-keep-going]* <filename>",
+    "Example commands: source myfile",
+    "                  source --echo --keep-going myfile",
     "",
     "Arguments: filename (path to named command file)",
+    "           --echo/--no-echo (enable or disable echoing)",
+    "           --keep-going/--no-keep-going (change behavior on error)",
     "",
     "Description:",
     "Read debugger commands from a file to automate debugging tasks.",
+    "The --echo and --keep-going flags change the behavior of gdb4hpc while",
+    "running the commands. --echo tells gdb4hpc to print out each command",
+    "it executes along with the line number it corresponds to in the sourced file.",
+    "--keep-going tells gdb4hpc to continue executing the contents of a file, even",
+    "if a command fails. If no flags are specified, the behavior is inherited from",
+    "the current environment.",
     0};
 
 const char* const cmd_step_help[] = {
@@ -1188,6 +1208,10 @@ const char* const class_show_help[] = {
     "Description:",
     "Show information relating to environment settings and behavior. If",
     "no argument is given, display a list of all valid show subcommands.",
+    0};
+
+const char* const cmd_save_help[] = {
+    "Save debugger state to a file. Use the source command to load the state.",
     0};
 
 const char* const class_show_print_help[] = {

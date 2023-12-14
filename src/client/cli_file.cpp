@@ -151,7 +151,7 @@ static int cli_file_get_line(cli_stream_t **stream) {
         return 1;
     }
 
-    if (Client.echo == true && cs->cs_buf[0] != '\n' && cs->cs_buf[0] != '\0') {
+    if (cs->echo() && cs->cs_buf[0] != '\n' && cs->cs_buf[0] != '\0') {
         // cs->cs_buf has a \n on the end
         //
         // we use the output stream directly instead of PrintOutMsg so that the output
@@ -163,7 +163,7 @@ static int cli_file_get_line(cli_stream_t **stream) {
         // cs->cs_buf has a \n on the end
         PrintOutError("Command resulted in an error: %d: %s", cs->cs_line, cs->cs_buf); 
 
-        if (Client.keep_going == false) {
+        if (!cs->keep_going()) {
             // Reenable input
             ::free(cs->cs_buf);
             cs->cs_buf = nullptr;

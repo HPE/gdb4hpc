@@ -18,6 +18,9 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <map>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 #include "client.h"
 #include "useful.h"
@@ -458,6 +461,8 @@ static int cmd_delete_checkpoint_cmd(rec_set_t *rec_set, int argc, const char* c
     }
 
     errno = 0;
+    // note that we *don't* use parse_breakpoint_id here - checkpoints are distinct from
+    // break/catch/watchpoints.
     auto id = strtoul(argv[2], nullptr, 10);
     if (errno) {
         usage();
@@ -470,6 +475,24 @@ static int cmd_delete_checkpoint_cmd(rec_set_t *rec_set, int argc, const char* c
     }
 
     return 1;
+}
+
+// parse a string that represents a break/catch/watchpoint id and return the id
+// number. the input can be a number or the special string "$bpnum" which
+// represents the id of the last break/catch/watchpoint that was set. (but not checkpoint)
+//
+// if the input can't be parsed, returns 0.
+//
+// note that $bpnum might be -1 or the id of a breakpoint that has been deleted.
+// the caller of this function should make sure the returned value is valid.
+static int parse_breakpoint_id(std::string_view str) {
+    if (str == "$bpnum") return DbgGetBPNum();
+
+    char* leftover;
+    const auto parsed_id = ::strtol(str.data(), &leftover, 10);
+
+    if (*leftover) return 0;
+    return parsed_id;
 }
 
 static int cmd_delete_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -487,37 +510,32 @@ static int cmd_delete_cmd(rec_set_t *rec_set, int argc, const char* const argv[]
         */
         if (!cli_query("Delete all breakpoints in focus?")) return 1;
     } else {
-        if (!IsInteger(argv[1])) {
-            PrintOutError("Numeric argument required (breakpoint number).\n");
-            return 0;
-        }
-
-        bp_id = atoi(argv[1]);
+        bp_id = parse_breakpoint_id(argv[1]);
 
         if (bp_id <= 0) {
-            PrintOutError("Invalid breakpoint %d.\n", bp_id);
-            return 0;
+            PrintOutError("Invalid id %d. (from \"%s\")\n", bp_id, argv[1]);
+            return Command::Failure;
         }
     }
 
     // The dbg_client layer handles all the of the details here
     if (auto rep_set = DbgDeleteBreak(rec_set, bp_id); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        return 0;
+        return Command::Failure;
     }
-    return 1;
+    return Command::Success;
 }
 
 static int cmd_disable_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
-    int bp_id = 0;
+    if (argc < 2) {
+        PrintOutError("Usage: disable <break/catch/watchpoint id>\n");
+        return Command::Failure;
+    }
 
-    if (argc > 1) {
-        if (!IsInteger(argv[1])) {
-            PrintOutError("Numeric argument required (breakpoint number).\n");
-            return 0;
-        }
-
-        bp_id = atoi(argv[1]);
+    const auto bp_id = parse_breakpoint_id(argv[1]);
+    if (bp_id <= 0) {
+        PrintOutError("Invalid id %d. (from \"%s\"\n", bp_id, argv[1]);
+        return Command::Failure;
     }
 
     // The dbg_client layer handles all the of the details here
@@ -549,13 +567,15 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, const char* const argv[]
         } else if (strcmp(argv[argp], "-delete") == 0) {
             ++argp;
             ++delete_cmd;
-        } else if (IsInteger(argv[argp])) {
-            bp_id = atoi(argv[argp]);
-            ++argp;
         } else {
-            PrintOutError("Unknown command argument %s.\n", argv[argp]);
-            return 0;
+            bp_id = parse_breakpoint_id(argv[argp]);
+            break;
         }
+    }
+
+    if (bp_id <= 0) {
+        PrintOutError("Invalid id: %d. (from \"%s\")\n", bp_id, argv[argp]);
+        return Command::Failure;
     }
 
     // you cannot set once and delete at the same time
@@ -563,58 +583,55 @@ static int cmd_enable_cmd(rec_set_t *rec_set, int argc, const char* const argv[]
         PrintOutError(
             "The -once and -delete arguments cannot be used at the same "
             "time.\n");
-        return 0;
+        return Command::Failure;
     }
 
     // The dbg_client layer handles all the of the details here
     if (auto rep_set = DbgEnableBreak(rec_set, bp_id, once, delete_cmd); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-
-        return 0;
+        return Command::Failure;
     }
 
-    return 1;
+    return Command::Success;
 }
 
 static int cmd_ignore_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
-
     if (argc != 3) {
-        PrintOutError("Arguments required <breakpoint-number> <ignore-count>.\n");
-        return 0;
+        PrintOutError("Arguments required <break/catch/watchpoint id> <ignore-count>.\n");
+        return Command::Failure;
+    }
+
+    int bp_id = parse_breakpoint_id(argv[1]);
+    if (bp_id <= 0) {
+        PrintOutError("Invalid id %d. (from \"%s\").\n", bp_id, argv[1]);
+        return Command::Failure;
     }
 
     char* ep;
-    int bp_id = strtol(argv[1], &ep, 10);
-    if (bp_id <= 0 || *ep) {
-        PrintOutError("Invalid breakpoint number %s.\n", argv[1]);
-        return 0;
-    }
     int n = strtol(argv[2], &ep, 10);
     if (n < 0 || *ep) {
         PrintOutError("Invalid ignore count %s.\n", argv[2]);
-        return 0;
+        return Command::Failure;
     }
 
     // The dbg_client layer handles all the of the details here
     if (auto rep_set = DbgIgnoreBreak(rec_set, bp_id, n); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        return 0;
+        return Command::Failure;
     }
 
-    return 1;
+    return Command::Success;
 }
 
 static int cmd_condition_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
-
     if (argc < 2) {
         PrintOutError("Breakpoint number required.\n");
     }
 
-    char* ep;
-    int bp_id = strtol(argv[1], &ep, 10);
-    if (bp_id <= 0 || *ep) {
-        PrintOutError("Invalid breakpoint number %s.\n", argv[1]);
-        return 0;
+    int bp_id = parse_breakpoint_id(argv[1]);
+    if (bp_id <= 0) {
+        PrintOutError("Invalid id %d. (from \"%s\")\n", bp_id, argv[1]);
+        return Command::Failure;
     }
 
     auto cond = ArgsToString(argv+2, argc-2);
@@ -622,10 +639,10 @@ static int cmd_condition_cmd(rec_set_t *rec_set, int argc, const char* const arg
     // The dbg_client layer handles all the of the details here
     if (auto rep_set = DbgConditionBreak(rec_set, bp_id, cond); rep_set.hasError()) {
         ProcessErrorInRepSet(rep_set);
-        return 0;
+        return Command::Failure;
     }
 
-    return 1;
+    return Command::Success;
 }
 
 namespace {
@@ -636,6 +653,12 @@ namespace {
         ~BPCnts() {};
         void retrieve(rec_set_t* rec_set);
         std::string get(const std::string &handle, const Bitset *group, int id);
+
+        struct IgnoreSet {
+            std::unique_ptr<Bitset> group;
+            int ignore_count;
+        };
+        std::vector<IgnoreSet> get_ignore_counts(const std::string &handle, int bp_fe_id);
     private:
         rep_set_t rep_set;
     };
@@ -711,6 +734,33 @@ std::string BPCnts::get(const std::string &handle, const Bitset *group, int id) 
     }
                         
     return res.str();
+}
+
+std::vector<BPCnts::IgnoreSet>
+BPCnts::get_ignore_counts(const std::string &proc_name, int requested_bp) {
+    if (rep_set.isEmpty()) return {};
+
+    auto result = std::vector<BPCnts::IgnoreSet>{};
+
+    for (const auto* reply : rep_set) {
+        if (reply->rep_di.name() != proc_name) continue;
+
+        auto is = std::istringstream(reply->rep_event->ev_u.ev_u_string);
+        // the backend is aware of frontend ids and reports the result with frontend ids,
+        // the name "be_bp" means "the frontend breakpoint id as reported by the backend"
+        int be_bp, hit_count, ignore_count;
+        while ((is >> be_bp >> hit_count >> ignore_count) && be_bp != requested_bp) {}
+        if (be_bp != requested_bp) continue;
+
+        if (ignore_count > 0) {
+            result.emplace_back(BPCnts::IgnoreSet{
+                .group = reply->rep_group->clone(),
+                .ignore_count = ignore_count,
+            });
+        }
+    }
+
+    return result;
 }
 
 static int cmd_info_breakpoints_cmd_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -834,7 +884,7 @@ static int cmd_info_breakpoints_cmd_console(rec_set_t *rec_set, int argc, const 
                     auto enabled = std::string{isEnabled ? "y" : "n"};
                     auto disp = BPDispToStr(disp_set.disp);
 
-                    printBP(bpset, recv_ptr->rec_di.handle().c_str(), 
+                    printBP(bpset, recv_ptr->rec_di.handle().name(),
                             group, disp, enabled);
                 } // for (isEnabled)
             }
@@ -978,6 +1028,167 @@ static int cmd_show_break_pending_cmd() {
     return 1;
 }
 
+// given a breakpoint/watchpoint/catchpoint (`mapped_bp`), current
+// `ignore_counts`, and the procset that the breakpoint is on (`proc_name`),
+// return a string of commands that could be used to reconstruct it.
+//
+// the returned commands assume that a job with the same name as `proc_name` has already
+// been launched and that it was launched with the same number of ranks as it was
+// originally.
+//
+// on failure, the function returns an empty string.
+static std::string reconstruct_breakpoint_commands(const MappedBreakpoint& mapped_bp,
+                                                   BPCnts& ignore_counts,
+                                                   const std::string& proc_name)
+{
+    auto ss = std::ostringstream{};
+
+    // focus only on ranks where this breakpoint was set
+    ss << "focus $" << proc_name << mapped_bp.ranksSet()->toSetString() << std::endl;
+
+    // breakpoint command
+    switch (mapped_bp.type()) {
+        case DBGBP_BREAK_TYPE: {
+            ss << "break";
+            if (mapped_bp.line() > 0 && !mapped_bp.file().empty()) {
+                ss << " " << mapped_bp.file() << ":" << mapped_bp.line();
+            } else if (!mapped_bp.function().empty()) {
+                ss << " " << mapped_bp.function();
+            } else if (!mapped_bp.address().empty()) {
+                ss << " *" << mapped_bp.address();
+            } else {
+                // failure: no location
+                return "";
+            }
+
+            break;
+        }
+
+        case DBGBP_WATCH_TYPE: {
+            ss << "watch " << mapped_bp.watchExpression();
+            break;
+        }
+
+        case DBGBP_CATCH_TYPE: {
+            // catchpoints store their parameter in .watchExpression. this is a human
+            // readable string and not always appropriate for directly using in a catch command.
+            // we need to transform certain ones back into their command versions.
+            auto type = mapped_bp.watchExpression();
+
+            const auto type_map = std::vector<std::pair<std::string, std::string>> {
+                {"exception throw", "throw"},
+                {"exception catch", "catch"},
+                {"load of library matching", "load"},
+                {"load of library", "load"},
+                {"unload of library matching", "unload"},
+                {"unload of library", "unload"},
+            };
+            // others don't need any transformation
+
+            for (const auto& [find, replace] : type_map) {
+                if (type.starts_with(find)) {
+                    type.replace(0, find.size(), replace);
+                    break;
+                }
+            }
+
+            ss << "catch " << type;
+            break;
+        }
+
+        default: {
+            // failure: unimplemented bp type
+            return "";
+        }
+    }
+
+    // append thread to breakpoint command
+    if (!mapped_bp.threadId().empty()) {
+        ss << " thread " << mapped_bp.threadId();
+    }
+
+    // end breakpoint command
+    ss << std::endl;
+
+    // rest of the function is setting ignore/enabled/disposition/condition
+
+    // condition
+    if (!mapped_bp.condition().empty()) {
+        // XXX: PE-51457: conditions are stored client side on a logical
+        // breakpoint but can differ on each physical breakpoint on the
+        // backend. saving the condition this way is wrong in some
+        // situations (see ticket) but is the best we can do for now.
+        ss << "condition $bpnum " << mapped_bp.condition() << std::endl;
+    }
+
+    // enabled/disabled
+    if (*mapped_bp.ranksSet() != *mapped_bp.enabledSet()) {
+        auto disabled_set = mapped_bp.enabledSet()->clone();
+        disabled_set->invert();
+
+        ss << "focus $" << proc_name << disabled_set->toSetString() << std::endl;
+        ss << "disable $bpnum" << std::endl;
+    }
+
+    // dispositions
+    for (const auto& disp_set : mapped_bp.dispSetList()) {
+        if (disp_set.disp != DBGBP_KEEP_DISP) {
+            ss << "focus $" << proc_name << disp_set.group->toSetString() << std::endl;
+            // assuming the only other two options are keep and delete
+            const auto option = disp_set.disp == DBGBP_DISABLE_DISP ? "-once" : "-delete";
+            ss << "enable " << option << " $bpnum" << std::endl;
+        }
+    }
+
+    // ignore counts
+    for (const auto& ignore_set : ignore_counts.get_ignore_counts(proc_name, mapped_bp.id())) {
+        ss << "focus $" << proc_name << ignore_set.group->toSetString() << std::endl;
+        ss << "ignore $bpnum " << ignore_set.ignore_count << std::endl;
+    }
+
+    return ss.str();
+}
+
+static int save_breakpoints_cmd(rec_set_t* rec_set, int argc, const char* const argv[]) {
+    // filename required. argc starts counting from "breakpoints" in "set breakpoints <filename>".
+    if (argc < 2) {
+        PrintOutError("Usage: save breakpoints [filename]\n");
+        return Command::Failure;
+    }
+
+    auto filename = std::filesystem::path{argv[1]};
+
+    auto outfile = std::ofstream{filename};
+    if (!outfile.is_open()) {
+        PrintOutError("Failed to open %s for writing.\n", filename.c_str());
+        return Command::Failure;
+    }
+
+    auto ignore_counts = BPCnts{};
+    ignore_counts.retrieve(rec_set);
+
+    for (const auto& rec : rec_set) {
+        for (const auto& mapped_bp : rec->rec_di.breakpoints()) {
+            const auto command = reconstruct_breakpoint_commands(mapped_bp, ignore_counts,
+                                                                 rec->rec_di.handle().name());
+            if (command.empty()) {
+                PrintOutMsg("Warning: Failed to saved breakpoint %s::%d.\n",
+                            rec->rec_di.handle().c_str(), mapped_bp.id());
+                continue;
+            }
+            outfile << command << std::endl;
+        }
+    }
+
+    outfile << "focus $all" << std::endl;
+
+    outfile.close();
+
+    PrintOutMsg("Saved breakpoints to %s.\nUse the source command to load them.\n",
+                filename.c_str());
+    return Command::Success;
+}
+
 void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
     root.addSubCmd(
         set + " breakpoint", nullptr, proc_ignore,
@@ -1036,6 +1247,10 @@ void ConsoleCommandsFactory::insert_break_commands(CommandNode& root) {
     root.addSubCmd(
         "catch", nullptr, proc_required, cmd_catch_cmd, 
         cmd_catch_help, "Set catchpoint on specified event.");
+
+    root.addSubCmd(
+        "save breakpoints", nullptr, proc_required, save_breakpoints_cmd,
+        cmd_save_breakpoints_help, "Save breakpoints to a file.");
 
     insert_setshow_commands(root, "set", "show");
 }

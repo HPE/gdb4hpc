@@ -17,6 +17,11 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <ranges>
+
 #include "client.h"
 #include "useful.h"
 #include "blockmap_client.h"
@@ -485,6 +490,150 @@ int cmd_blockmap_end_cmd(ConsoleInterpreter& console) {
     return 1;
 }
 
+std::string reconstruct_blockmap_commands_long(const BlockMap& bmap) {
+    std::ostringstream oss;
+
+    const auto rank = bmap.getRank();
+
+    oss << "decomposition " << bmap.getName() << std::endl;
+
+    oss << "dimension ";
+    for (auto i = 0; i < rank; i++) {
+        if (i > 0) oss << ", ";
+        const auto& dim = bmap.getDimension(i);
+        oss << dim.size;
+    }
+    oss << std::endl;
+
+    oss << "distribute ";
+    for (auto i = 0; i < rank; i++) {
+        if (i > 0) oss << ", ";
+        const auto& dim = bmap.getDimension(i);
+        switch (dim.distribution) {
+            case Distribution::Block: oss << "block"; break;
+            case Distribution::Cyclic: oss << "cyclic"; break;
+            case Distribution::Star: oss << "*"; break;
+            case Distribution::BlockCyclic: oss << dim.blockCyclic; break;
+            default: oss << "unknown"; break; // should never actually happen
+        }
+    }
+    oss << std::endl;
+
+    oss << "proc_grid ";
+    for (auto i = 0; i < rank; i++) {
+        if (i > 0) oss << ", ";
+        const auto& dim = bmap.getDimension(i);
+        if (dim.numProcs == 1) {
+            oss << "*";
+        } else {
+            oss << dim.numProcs;
+        }
+    }
+    oss << std::endl;
+
+    oss << "dim_order ";
+    for (auto i = 0; i < rank; i++) {
+        if (i > 0) oss << ", ";
+        const auto& dim = bmap.getDimension(i);
+        if (dim.dim_order == static_cast<int>(Distribution::Star)) {
+            oss << "*";
+        } else {
+            oss << dim.dim_order;
+        }
+    }
+    oss << std::endl;
+
+    oss << "end" << std::endl;
+
+    return oss.str();
+}
+
+std::string reconstruct_blockmap_commands_concise(const BlockMap& bmap) {
+    auto oss = std::ostringstream{};
+
+    oss << "decomposition " << bmap.getName() << " ";
+    for (auto i = 0; i < bmap.getRank(); i++) {
+        if (i > 0) oss << ", ";
+        const auto& dim = bmap.getDimension(i);
+        dim.printConcise(oss, false);
+    }
+    oss << std::endl;
+
+    return oss.str();
+}
+
+std::string reconstruct_blockmap_commands(const BlockMap& bmap) {
+    if (bmap.isConcise()) return reconstruct_blockmap_commands_concise(bmap);
+    return reconstruct_blockmap_commands_long(bmap);
+}
+
+int save_blockmaps(std::ranges::input_range auto&& blockmaps, std::filesystem::path filename) {
+    auto outfile = std::ofstream{filename};
+    if (!outfile) {
+        PrintOutError("Failed to open %s for writing.\n", filename.c_str());
+        return Command::Failure;
+    }
+
+    for (const auto& bmap : blockmaps) {
+        auto commands = reconstruct_blockmap_commands(*bmap);
+        if (commands.empty()) {
+            PrintOutError("Failed to save decomposition %s.\n", bmap->getName().c_str());
+            return Command::Failure;
+        }
+
+        outfile << commands;
+    }
+
+    if (outfile) {
+        PrintOutError("Failed to save decompositions.\n");
+        return Command::Success;
+    } else {
+        return Command::Failure;
+    }
+}
+
+int save_decomp_cmd(int argc, const char* const argv[]) {
+    if (argc == 2) {
+        // assume "save decompositions <filename>" form and save all blockmaps
+        auto filename = std::filesystem::path{argv[1]};
+
+        if (save_blockmaps(GetBlockMapList(), filename) == Command::Success) {
+            PrintOutMsg("Saved decompositions to %s. Use the source command to load them.\n", argv[1]);
+            return Command::Success;
+        } else {
+            // error already printed
+            return Command::Failure;
+        }
+    } else if (argc >= 3) {
+        // assume "save decomposition $name <filename>" form and save a single blockmap
+        auto name = std::string_view{argv[1]};
+        if (!name.starts_with('$')) {
+            PrintOutError("Expected a name beginning with $.\n");
+            return Command::Failure;
+        }
+
+        auto blockmap = FindBlockMap(std::string{name});
+        if (!blockmap) {
+            PrintOutError("Not a decomposition: %s\n", argv[1]);
+            return Command::Failure;
+        }
+
+        auto filename = std::filesystem::path{argv[2]};
+
+        if (save_blockmaps(std::views::single(blockmap), filename) == Command::Success) {
+            PrintOutMsg("Saved %s to %s. Use the source command to load it.\n",
+                        argv[1], argv[2]);
+            return Command::Success;
+        } else {
+            // error already printed
+            return Command::Failure;
+        }
+    } else {
+        PrintOutError("Usage: save decompositions [$name] <filename>\n");
+        return Command::Failure;
+    }
+}
+
 std::shared_ptr<CommandNode> make_blockmap_command_tree() {
     // blockmap alt commands
     auto root = std::make_shared<CommandNode>("", nullptr, proc_ignore, nullptr, nullptr, nullptr);
@@ -530,6 +679,21 @@ std::shared_ptr<CommandNode> make_blockmap_command_tree() {
 
 } // anonymous namespace
 
+// the entry point for this function is from cmd_delete_cmd in cmd_break.cpp
+int delete_decomp_cmd(int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("Usage: delete $decomposition\n");
+        return Command::Failure;
+    }
+
+    if (UnregisterBlockMap(argv[1])) {
+        return Command::Success;
+    } else {
+        PrintOutError("Failed to delete decomposition %s.\n", argv[1]);
+        return Command::Failure;
+    }
+}
+
 /********************************
  * command init functions
  ********************************/
@@ -561,9 +725,13 @@ void ConsoleCommandsFactory::insert_blockmap_commands(CommandNode& root) {
         .desc = "Display help about using decomposition \"dim_order\" command."});
 
     root.addSubCmd({
-        .name = "info decomposition", .ptype = proc_ignore,
+        .name = "info decompositions", .ptype = proc_ignore,
         .fn = cmd_info_decomposition_cmd_console, .help = cmd_info_decomposition_help,
         .desc = "Display currently defined decomposition schemes."});
+    root.addSubCmd({
+        .name = "save decompositions", .ptype = proc_ignore,
+        .fn = save_decomp_cmd, .help = cmd_save_decomp_help,
+        .desc = "Save a decomposition definition to a file."});
 }
 
 void MiCommandsFactory::insert_blockmap_commands(CommandNode& root) {

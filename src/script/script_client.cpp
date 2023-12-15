@@ -47,15 +47,7 @@ ScriptRunner* getCurrentScript() {
     return getScript(g_currentScriptName);
 }
 
-ScriptRunner* setCurrentScript(const char* name) {
-    return setCurrentScript(std::string{name});
-}
-
-ScriptRunner* setCurrentScript(const std::string_view& name) {
-    return setCurrentScript(std::string(name.data(), name.length()));
-}
-
-ScriptRunner* setCurrentScript(const std::string& name) {
+ScriptRunner* setCurrentScript(std::string_view name) {
     LOG("Set current script to " << quoted(name));
 
     // special case: pass "" to remove current script
@@ -72,16 +64,8 @@ ScriptRunner* setCurrentScript(const std::string& name) {
     return script;
 }
 
-ScriptRunner* getScript(const char* name) {
-    return getScript(std::string{name});
-}
-
-ScriptRunner* getScript(const std::string_view& name) {
-    return getScript(std::string(name.data(), name.length()));
-}
-
-ScriptRunner* getScript(const std::string& name) {
-    auto it = g_scripts.find(name);
+ScriptRunner* getScript(std::string_view name) {
+    auto it = g_scripts.find(std::string{name});
     if (it != g_scripts.end()) {
         return it->second.get();
     }
@@ -100,6 +84,17 @@ ScriptRunner* saveScript(std::unique_ptr<data::Script>&& script) {
 
     g_scripts.emplace(name, std::make_unique<ScriptRunner>(std::move(script)));
     return getScript(name);
+}
+
+bool deleteScript(std::string_view name) {
+    if (g_currentScriptName == name) {
+        // script is running, don't delete it!
+        return false;
+    }
+
+    g_scripts.erase(std::string{name});
+
+    return true;
 }
 
 const ScriptTable& scripts() {
@@ -121,6 +116,10 @@ std::string ScriptRunner::string() const {
 
 std::string ScriptRunner::string(size_t lines) const {
     return m_script->string(lines);
+}
+
+const data::Script& ScriptRunner::data() const {
+    return *m_script;
 }
 
 bool ScriptRunner::install() {
@@ -742,6 +741,10 @@ bool ScriptRunner::deleteBreakpoints() {
     }
 
     return true;
+}
+
+const data::Assertion& SR::Assertion::data() const {
+    return m_assert;
 }
 
 const std::vector<std::pair<int, const data::ProgramLocation*>>& SR::Assertion::breakpointLocations() const {

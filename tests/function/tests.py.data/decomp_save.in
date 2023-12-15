@@ -1,0 +1,83 @@
+18: decomposition $block1_3 120 / 3
+23: decomposition $block1_4 120 / 4
+28: decomposition $cyclic1_3 120 % 3
+33: decomposition $cyclic1_4 120 % 4
+38: decomposition $blockCyclic1_3 120/3%5
+43: decomposition $blockCyclic1_4 120/4%5
+48: decomposition $block2_3 12/3,10
+53: decomposition $block2_4 12/4,10
+58: decomposition $cyclic2_3 12%3,10
+63: decomposition $cyclic2_4 12%4, 10
+68: decomposition $blockCyclic2_3 24/3%2,5
+73: decomposition $blockCyclic2_4 24/4%2,5
+78: decomposition $blockT_3 10,12/3
+83: decomposition $blockT_4
+83: dimension 10,12
+83: distribute *,block
+83: proc_grid *,4
+83: end
+0: info decomposition
+Defined decompositions:
+$block1_3: 120/3
+$block1_4: 120/4
+$block2_3: 12/3, 10
+$block2_4: 12/4, 10
+$blockCyclic1_3: 120/3%5
+$blockCyclic1_4: 120/4%5
+$blockCyclic2_3: 24/3%2, 5
+$blockCyclic2_4: 24/4%2, 5
+$blockT_3: 10, 12/3
+$blockT_4:
+	dimension 10,12
+	distribute *,block
+	proc_grid *,4
+	dim_order *,1
+
+$cyclic1_3: 120%3
+$cyclic1_4: 120%4
+$cyclic2_3: 12%3, 10
+$cyclic2_4: 12%4, 10
+0: save decompositions ./tmp/decomps.txt
+Saved decompositions to ./tmp/decomps.txt. Use the source command to load them.
+18: delete $block1_3
+23: delete $block1_4
+28: delete $cyclic1_3
+33: delete $cyclic1_4
+38: delete $blockCyclic1_3
+43: delete $blockCyclic1_4
+48: delete $block2_3
+53: delete $block2_4
+58: delete $cyclic2_3
+63: delete $cyclic2_4
+68: delete $blockCyclic2_3
+73: delete $blockCyclic2_4
+78: delete $blockT_3
+0: save decomposition $blockT_4 ./tmp/decomp_single.txt
+Saved $blockT_4 to ./tmp/decomp_single.txt. Use the source command to load it.
+83: delete $blockT_4
+0: info decomposition
+Defined decompositions:
+0: source --no-echo ./tmp/decomps.txt
+0: source --no-echo ./tmp/decomp_single.txt
+0: info decomposition
+Defined decompositions:
+$block1_3: 120/3
+$block1_4: 120/4
+$block2_3: 12/3, 10
+$block2_4: 12/4, 10
+$blockCyclic1_3: 120/3%5
+$blockCyclic1_4: 120/4%5
+$blockCyclic2_3: 24/3%2, 5
+$blockCyclic2_4: 24/4%2, 5
+$blockT_3: 10, 12/3
+$blockT_4:
+	dimension 10,12
+	distribute *,block
+	proc_grid *,4
+	dim_order *,1
+
+$cyclic1_3: 120%3
+$cyclic1_4: 120%4
+$cyclic2_3: 12%3, 10
+$cyclic2_4: 12%4, 10
+0: q

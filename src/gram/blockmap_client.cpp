@@ -118,10 +118,8 @@ void RegisterBlockMap(std::shared_ptr<BlockMap> bm) {
     block_map_table[bm->getName()] = bm;
 }
 
-void UnregisterBlockMap(const std::string& name) {
-    if (auto loc = block_map_table.find(name); loc != block_map_table.end()) {
-        block_map_table.erase(loc);
-    }
+bool UnregisterBlockMap(const std::string& name) {
+    return block_map_table.erase(name) == 1;
 }
 
 std::string BlockMap::oldMsg() const {

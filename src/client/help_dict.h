@@ -68,6 +68,7 @@ extern const char* const cmd_viewset_help[];
 extern const char* const cmd_watch_help[];
 extern const char* const cmd_whatis_help[];
 extern const char* const cmd_decomposition_help[];
+extern const char* const cmd_save_decomp_help[];
 extern const char* const cmd_build_help[];
 extern const char* const cmd_start_help[];
 extern const char* const cmd_stop_help[];
@@ -81,6 +82,7 @@ extern const char* const cmd_script_assert_help[];
 extern const char* const cmd_script_end_help[];
 extern const char* const cmd_script_set_help[];
 extern const char* const cmd_script_show_help[];
+extern const char* const cmd_save_script_help[];
 
 extern const char* const cmd_set_pager_help[];
 extern const char* const cmd_show_pager_help[];

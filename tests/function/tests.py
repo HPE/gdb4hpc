@@ -626,6 +626,10 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "assert_invalidated"
         runTest(self)
 
+    def test_assert_save(self):
+        self.base_name = "assert_save"
+        runTest(self)
+
     def test_ftn_arrays(self):
         self.base_name = "ftn_arrays"
         runTest(self)
@@ -684,6 +688,10 @@ class FunctionTests(Gdb4hpcTest):
 
     def test_cpp_decomp2(self):
         self.base_name = "cpp_decomp2"
+        runTest(self)
+
+    def test_decomp_save(self):
+        self.base_name = "decomp_save"
         runTest(self)
 
     def test_cpp_bt(self):

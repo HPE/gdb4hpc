@@ -19,6 +19,9 @@
 
 #include <cmath>
 #include <iostream>
+#include <filesystem>
+#include <fstream>
+#include <ranges>
 
 #include "script_client.h"
 #include "script_settings.h"
@@ -211,7 +214,7 @@ int cmd_info_script_cmd_console(int argc, const char* const argv[]) {
     if (argc < 3 || std::string_view(argv[2]) != "results") {
         PrintOutMsg("Assertion script $%s:\n", script->name().c_str());
         auto maxDigitLen = static_cast<int>(std::log10(script->asserts().size())) + 1;
-        for (const auto& assert : script->asserts()) {
+        for (const auto& assert : script->data().asserts()) {
             auto ss = std::ostringstream{};
             ss << "Assertion " << std::setw(maxDigitLen) << assert.id() << ": "
                << assert.string()
@@ -644,6 +647,103 @@ int cmd_script_show_cmd(int argc, const char* const argv[]) {
     return 1;
 }
 
+std::string reconstruct_assert_commands(const script::data::Assertion& assert) {
+    std::ostringstream oss;
+
+    // per-assert settings
+    for (const auto& [key, value] : assert.settings().mapView()) {
+        oss << "set " << key << " " << script::settings::shortString(value) << "\n";
+    }
+
+    // the assert expression
+    oss << "assert " << assert.string() << "\n";
+
+    return oss.str();
+}
+
+int save_scripts(std::ranges::input_range auto&& scripts, std::filesystem::path filename) {
+    auto outfile = std::ofstream{filename};
+    if (outfile) {
+        PrintOutError("Failed to open %s for writing.\n", filename.c_str());
+        return Command::Failure;
+    }
+
+    for (const auto* script : scripts) {
+        outfile << "build $" << script->name() << std::endl;
+
+        // script-wide settings
+        for (const auto& [key, value] : script->data().scriptSettings().mapView()) {
+            outfile << "set " << key << " " << script::settings::shortString(value) << std::endl;
+        }
+
+        // emit each assert command
+        for (const auto& assert : script->data().asserts()) {
+            const auto commands = reconstruct_assert_commands(assert);
+            if (commands.empty()) {
+                PrintOutMsg("Warning: failed to save assertion:\n");
+                PrintOutMsg("  \"%s\"\n", assert.string().c_str());
+                continue;
+            }
+            outfile << commands << std::endl;
+        }
+
+        outfile << "end" << std::endl;
+    }
+
+    if (outfile) {
+        return Command::Success;
+    } else {
+        PrintOutError("Failed to save assertion scripts.\n");
+        return Command::Failure;
+    }
+}
+
+int save_scripts_cmd(int argc, const char* const argv[]) {
+    if (argc == 2) {
+        // assume "save scripts <filename>" form and save all scripts
+        auto filename = std::filesystem::path{argv[1]};
+
+        auto scripts = script::scripts() // name -> ptr map
+            | std::views::keys
+            | std::views::transform([](const auto& name) { return script::getScript(name); })
+        ;
+
+        if (save_scripts(scripts, filename) == Command::Success) {
+            PrintOutMsg("Saved assertion scripts to %s. Use the source command to load them.\n", argv[1]);
+            return Command::Success;
+        } else {
+            // error already printed
+            return Command::Failure;
+        }
+    } else if (argc >= 3) {
+        // assume "save script $name <filename>" form and save a single script
+        auto name = std::string_view{argv[1]};
+        // scripts are stored without leading $
+        if (name.starts_with('$')) {
+            name = name.substr(1);
+        }
+
+        auto* script = script::getScript(name);
+        if (!script) {
+            PrintOutError("Assertion script \"%s\" doesn't exist.\n", argv[1]);
+            return Command::Failure;
+        }
+
+        auto filename = std::filesystem::path{argv[2]};
+
+        if (save_scripts(std::views::single(script), filename) == Command::Success) {
+            PrintOutMsg("Saved %s to %s. Use the source command to load it.\n", argv[1], argv[2]);
+            return Command::Success;
+        } else {
+            // error already printed
+            return Command::Failure;
+        }
+    } else {
+        PrintOutError("Usage: save scripts [$name] <filename>\n");
+        return Command::Failure;
+    }
+}
+
 std::shared_ptr<CommandNode> make_script_command_tree() {
     auto root = std::make_shared<CommandNode>(proc_ignore, nullptr);
 
@@ -679,6 +779,25 @@ std::shared_ptr<CommandNode> make_script_command_tree() {
 
 } // anonymous namespace
 
+// the entry point for this function is from cmd_delete_cmd in cmd_break.cpp
+int delete_script_cmd(int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("Usage: delete $script\n");
+        return Command::Failure;
+    }
+
+    auto name = std::string_view{argv[1]};
+    // scripts are stored without the leading $
+    if (name.starts_with('$')) name = name.substr(1);
+
+    if (script::deleteScript(name)) {
+        return Command::Success;
+    } else {
+        PrintOutError("Failed to delete assertion script %s.\n", argv[1]);
+        return Command::Failure;
+    }
+}
+
 /********************************
  * command init functions
  ********************************/
@@ -696,6 +815,10 @@ void ConsoleCommandsFactory::insert_script_commands(CommandNode& root) {
         .name = "stop", .ptype = proc_ignore,
         .fn = cmd_stop_cmd,
         .help = cmd_stop_help, .desc = "Stop the currently executing assertion script."});
+    root.addSubCmd({
+        .name = "save scripts", .ptype = proc_ignore,
+        .fn = save_scripts_cmd,
+        .help = cmd_save_script_help, .desc = "Save an assertion script to a file."});
 
     root.addSubCmd("info diff", nullptr, proc_ignore,
                    cmd_info_diff_cmd,

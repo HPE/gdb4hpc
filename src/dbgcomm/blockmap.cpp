@@ -332,6 +332,10 @@ void BlockMap::Iterator::getIdcs(std::vector<int>& idcs) const {
 
 bool BlockMap::isRerank(int rank) const { return getRank() && getRank() != rank; }
 
+bool BlockMap::isConcise() const {
+    return !m_oldStyle;
+}
+
 void BlockMap::setDimOrder(const std::vector<int>& order) {
     auto n = order.size();
     m_dims.resize(n);

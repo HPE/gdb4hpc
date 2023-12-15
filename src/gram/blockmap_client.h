@@ -30,7 +30,10 @@ extern BlockMap *FindBlockMap(const std::string& blockmap);
 extern bool VerifyBlockMap(BlockMap*);
 extern BlockMap *NewBlockMap(const std::string& name);
 void RegisterBlockMap(std::shared_ptr<BlockMap> blockmap);
-void UnregisterBlockMap(const std::string& name);
+
+// remove `name` from internal blockmap list. returns true if `name` existed and was
+// removed, `false` if it never existed in the first place.
+bool UnregisterBlockMap(const std::string& name);
 
 extern void FinishBlockMap(void);
 

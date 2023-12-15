@@ -51,10 +51,6 @@ private:
         size_t failures = 0;
     };
 
-private:
-    class Expression;
-    class Assertion;
-    class Ranks;
 public:
     ScriptRunner(std::unique_ptr<data::Script>&& script);
 
@@ -67,6 +63,8 @@ public:
     std::string string() const;
     // return the first n lines of the assertion script as a string
     std::string string(size_t lines) const;
+    // `data` returns the read-only version of the associated script.
+    const data::Script& data() const;
 
     // install assertion script event handlers to appropriate dis and set
     // breakpoints. changes the global "current" script to this one. returns
@@ -206,6 +204,9 @@ public:
 
     auto id() const { return m_assert.id(); }
 
+    // `data` returns the read-only version of the associated assert.
+    const data::Assertion& data() const;
+
     // Create/delete breakpoints needed to evaluate this expression. returns true on success.
     bool setBreakpoints();
     bool deleteBreakpoints();
@@ -332,19 +333,22 @@ ScriptRunner* getCurrentScript();
 // Set the current script to a script previously saved to the internal script
 // table with saveScript(). returns ScriptRunner for specified script if one is
 // found, nullptr otherwise. pass "" to set current script to none.
-ScriptRunner* setCurrentScript(const char* name);
-ScriptRunner* setCurrentScript(const std::string_view& name);
-ScriptRunner* setCurrentScript(const std::string& name);
+ScriptRunner* setCurrentScript(std::string_view name);
 
 // look up script by name (no leading $) and return it if found. returns nullptr
 // otherwise.
-ScriptRunner* getScript(const char* name);
-ScriptRunner* getScript(const std::string_view& name);
-ScriptRunner* getScript(const std::string& name);
+ScriptRunner* getScript(std::string_view name);
 
 // save a script into the internal script table. returns the newly created
 // ScriptRunner on success and nullptr on failure.
 ScriptRunner* saveScript(std::unique_ptr<data::Script>&& script);
+
+// remove the script with `name` from the internal script table.
+// `name` should not contain the leading $. if the script is currently running,
+// the deletion will not be done and the function returns false.
+//
+// returns true on success.
+bool deleteScript(std::string_view name);
 
 using ScriptTable = std::map<std::string, std::unique_ptr<ScriptRunner>>;
 

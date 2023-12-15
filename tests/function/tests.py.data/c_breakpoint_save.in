@@ -78,8 +78,7 @@ b{0..1}         14  catchpoint     keep y   vfork
 b{0..1}         15  catchpoint     keep y   exec
 b{0..1}         16  watchpoint     keep y   global
 0: save breakpoints ./tmp/breaks.txt
-Saved breakpoints to ./tmp/breaks.txt.
-Use the source command to load them.
+Saved breakpoints to ./tmp/breaks.txt. Use the source command to load them.
 0: delete
 Delete all breakpoints in focus? (y or n) Warning: No default given, assuming y
 0: info break

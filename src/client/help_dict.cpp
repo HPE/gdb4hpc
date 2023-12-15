@@ -237,19 +237,22 @@ const char* const cmd_defset_help[] = {
     0};
 
 const char* const cmd_delete_help[] = {
-    "Summary: Delete a breakpoint or checkpoint.",
+    "Summary: Delete breakpoints and other items.",
     "Usage: delete <breakpoint id>",
     "       delete checkpoint <checkpoint id>",
-    "Example command: delete 1",
-    "                 delete checkpoint 2",
+    "       delete $decomposition",
+    "       delete $assertion_script",
     "Shortcut: d",
     "",
-    "Arguments: breakpoint or checkpoint id",
+    "Arguments: The name or id number of the item to delete.",
     "",
-    "Description:",
+    "For breakpoints and checkpoints:",
     "Delete the breakpoint or checkpoint specified by the id argument in",
     "every application rank in the current process set. If no argument is",
     "supplied, all breakpoints in the current process set are deleted.",
+    "",
+    "For decompositions and assertion scripts:",
+    "Delete the decomposition or assertion script with the given $name.",
     0};
 
 const char* const cmd_directmode_help[] = {
@@ -1057,6 +1060,17 @@ const char * const cmd_decomposition_help[] = {
     "more for details.",
     0
 };
+
+const char* const cmd_save_decomp_help[] = {
+    "Summary: Save decomposition state to a file.",
+    "Usage: save decompositions <filename>",
+    "       save decomposition $name <filename>",
+    "",
+    "Saves decomposition(s) to a file on disk. Use the source command to restore them.",
+    "",
+    "The saved file contains plaintext gdb4hpc commands and can be edited with any",
+    "text editor.",
+    0};
 
 const char * const cmd_build_help[] = {
     "Summary: Assertion script creation command.",
@@ -2277,6 +2291,17 @@ const char* const cmd_script_show_help[] = {
     "written after the set command, and none before. \"per script\" settings",
     "will apply to the entire script, even to asserts written before the set",
     "command was given.",
+    0};
+
+const char* const cmd_save_script_help[] = {
+    "Summary: Save assertion script state to a file.",
+    "Usage: save scripts <filename>",
+    "       save script $name <filename>",
+    "",
+    "Saves assertion script(s) to a file on disk. Use the source command to restore them.",
+    "",
+    "The saved file contains plaintext gdb4hpc commands and can be edited with any",
+    "text editor.",
     0};
 
 const char * const cmd_script_assert_help[] = {

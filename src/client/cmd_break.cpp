@@ -25,6 +25,14 @@
 #include "client.h"
 #include "useful.h"
 #include "interpreter_mi.h"
+#include "script_client.h"
+#include "blockmap_client.h"
+
+// in cmd_script.cpp
+extern int delete_script_cmd(int argc, const char* const argv[]);
+
+// in cmd_blockmap.cpp
+extern int delete_decomp_cmd(int argc, const char* const argv[]);
 
 struct BreakArgs {
     // XXX symbol_or_number should probably be split into two members. emulating old behavior for now...
@@ -495,14 +503,13 @@ static int parse_breakpoint_id(std::string_view str) {
     return parsed_id;
 }
 
-static int cmd_delete_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
-    int bp_id = 0;
-
-    // if deleting a checkpoint, defer to specific delete checkpoint function
-    using namespace std::string_literals;
-    if (argc >= 2 && argv[1] && "checkpoint"s == argv[1]) {
-        return cmd_delete_checkpoint_cmd(rec_set, argc, argv);
+static int cmd_delete_breakpoint_cmd(rec_set_t* rec_set, int argc, const char* const argv[]) {
+    if (!rec_set) {
+        PrintOutError("No process, use launch/attach first.\n");
+        return Command::Failure;
     }
+
+    auto bp_id = int{0};
 
     if (argc < 2) {
         /*
@@ -524,6 +531,40 @@ static int cmd_delete_cmd(rec_set_t *rec_set, int argc, const char* const argv[]
         return Command::Failure;
     }
     return Command::Success;
+}
+
+static int cmd_delete_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
+    // FIXME: this function needs to know about a lot of different systems and is not
+    // limited to breakpoints any more. to reduce header/namespace pollution in
+    // cmd_break.cpp, this function could probably be moved to a new cmd_delete.cpp.
+
+    // figure out what we're deleting
+    using namespace std::string_literals;
+    if (argc >= 2 && argv[1] && "checkpoint"s == argv[1]) {
+        return cmd_delete_checkpoint_cmd(rec_set, argc, argv);
+    } else if (argc >= 2 && *argv[1] == '$') {
+        // an argument that starts with a $ could be an assertion script, decomposition,
+        // $bpnum or client side convenience variable
+
+        auto name = std::string_view{argv[1]};
+
+        if (name == "$bpnum") {
+            // special breakpoint value $bpnum
+            return cmd_delete_breakpoint_cmd(rec_set, argc, argv);
+        } else if (script::getScript(name.substr(1))) {
+            return delete_script_cmd(argc, argv);
+        } else if (FindBlockMap(argv[1])) {
+            return delete_decomp_cmd(argc, argv);
+        }
+
+        // TODO client side variables
+
+        PrintOutError("Can't delete unknown item: %s\n", argv[1]);
+        return Command::Failure;
+    } else {
+        // otherwise assume breakpoint
+        return cmd_delete_breakpoint_cmd(rec_set, argc, argv);
+    }
 }
 
 static int cmd_disable_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -1159,7 +1200,7 @@ static int save_breakpoints_cmd(rec_set_t* rec_set, int argc, const char* const 
     auto filename = std::filesystem::path{argv[1]};
 
     auto outfile = std::ofstream{filename};
-    if (!outfile.is_open()) {
+    if (!outfile) {
         PrintOutError("Failed to open %s for writing.\n", filename.c_str());
         return Command::Failure;
     }
@@ -1172,7 +1213,7 @@ static int save_breakpoints_cmd(rec_set_t* rec_set, int argc, const char* const 
             const auto command = reconstruct_breakpoint_commands(mapped_bp, ignore_counts,
                                                                  rec->rec_di.handle().name());
             if (command.empty()) {
-                PrintOutMsg("Warning: Failed to saved breakpoint %s::%d.\n",
+                PrintOutMsg("Warning: Failed to save breakpoint %s::%d.\n",
                             rec->rec_di.handle().c_str(), mapped_bp.id());
                 continue;
             }
@@ -1182,11 +1223,14 @@ static int save_breakpoints_cmd(rec_set_t* rec_set, int argc, const char* const 
 
     outfile << "focus $all" << std::endl;
 
-    outfile.close();
-
-    PrintOutMsg("Saved breakpoints to %s.\nUse the source command to load them.\n",
-                filename.c_str());
-    return Command::Success;
+    if (outfile) {
+        PrintOutMsg("Saved breakpoints to %s. Use the source command to load them.\n",
+                    filename.c_str());
+        return Command::Success;
+    } else {
+        PrintOutError("Failed to save breakpoints.\n");
+        return Command::Failure;
+    }
 }
 
 void insert_setshow_commands(CommandNode& root, std::string set, std::string show) {
@@ -1223,8 +1267,8 @@ void ConsoleCommandsFactory::insert_break_commands(CommandNode& root) {
         "break", "b", proc_required, cmd_break_cmd_console,
         cmd_break_help, "Set breakpoint at specified line or function.");
     root.addSubCmd(
-        "delete", "d", proc_required, cmd_delete_cmd,
-        cmd_delete_help, "Delete a breakpoint or checkpoint.");
+        "delete", "d", proc_optional, cmd_delete_cmd,
+        cmd_delete_help, "Delete breakpoints and other items.");
     root.addSubCmd(
         "disable", nullptr, proc_required, cmd_disable_cmd,
         cmd_disable_help, "Disable a breakpoint.");

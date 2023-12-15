@@ -56,6 +56,9 @@ public:
 
     bool isRerank(int dim) const;
 
+    // return true if the blockmap was created with the concise command syntax
+    bool isConcise() const;
+
     class Indexer1D;
     class Iterator;
 

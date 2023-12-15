@@ -1,0 +1,249 @@
+1: launch $a{2} bin/CRAY/c/c_type_test.x
+Launch complete.
+a{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
+2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
+Launch complete.
+b{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
+3: # stop before exiting
+4: focus $a
+4: break 247
+a{0..1}: Breakpoint 1: file /src/c/c_type_test.c, line 247.
+5: focus $b
+5: break 242
+b{0..1}: Breakpoint 1: file /src/c/c_cmp_diff.c, line 242.
+5: focus $all
+5: build $scalars
+6:     set stop off
+7:     
+8:     # all of these should pass
+9:     assert $a{0..1}::assertTest@"c_type_test.c":166 !=  $b{0..1}::assertTest@"c_cmp_diff.c":161
+10:     assert           $a{0}::uc@"c_type_test.c":173 <              $b{0}::uc@"c_cmp_diff.c":168
+11:     assert          $a{0}::ush@"c_type_test.c":173 <=            $b{0}::ush@"c_cmp_diff.c":168
+12:     assert               $a::c@"c_type_test.c":166 ==   $b::one_d_i_init[1]@"c_cmp_diff.c":161
+13:     
+14:     # all of these should fail
+15:     assert  $a{0}::ld@"c_type_test.c":200 >=  $b{0}::ld@"c_cmp_diff.c":195
+16:     assert $a{0}::lli@"c_type_test.c":200 >  $b{0}::lli@"c_cmp_diff.c":195
+17:     assert   $a{0}::i@"c_type_test.c":200 ==   $b{0}::i@"c_cmp_diff.c":195
+18:     
+19:     # given a comparison with a true difference of 1.0...
+21:     # pass with difference under warning threshold
+22:     set error 1.01 2
+23:     assert $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+24:     
+25:     # generate a warning by reducing acceptable error
+26:     set error 0.99 2
+27:     assert $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+28:     
+29:     # generate an error by reducing acceptable error
+30:     set error 0.1 0.99
+31:     assert $a{0}::d@"c_type_test.c":200 == $b{0}::d@"c_cmp_diff.c":195
+32:     
+33:     # stop at this failure
+34:     set stop on
+35:     assert $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
+41: end
+Assertion script $scalars compiled.
+0: info script $scalars
+Assertion script $scalars:
+Assertion 1: $a{0..1}::assertTest@"c_type_test.c":166 != $b{0..1}::assertTest@"c_cmp_diff.c":161
+Assertion 2: $a{0}::uc@"c_type_test.c":173 < $b{0}::uc@"c_cmp_diff.c":168
+Assertion 3: $a{0}::ush@"c_type_test.c":173 <= $b{0}::ush@"c_cmp_diff.c":168
+Assertion 4: $a::c@"c_type_test.c":166 == $b::one_d_i_init[1]@"c_cmp_diff.c":161
+Assertion 5: $a{0}::ld@"c_type_test.c":200 >= $b{0}::ld@"c_cmp_diff.c":195
+Assertion 6: $a{0}::lli@"c_type_test.c":200 > $b{0}::lli@"c_cmp_diff.c":195
+Assertion 7: $a{0}::i@"c_type_test.c":200 == $b{0}::i@"c_cmp_diff.c":195
+Assertion 8: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Assertion 9: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Assertion 10: $a{0}::d@"c_type_test.c":200 == $b{0}::d@"c_cmp_diff.c":195
+Assertion 11: $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
+Use "info script $scalars results" for results.
+0: save script $scalars ./tmp/scalars.txt
+Saved $scalars to ./tmp/scalars.txt. Use the source command to load it.
+0: delete $scalars
+0: delete $scalars_but_nonexistent
+Can't delete unknown item: $scalars_but_nonexistent
+Command resulted in an error: 0: delete $scalars_but_nonexistent
+5: build $second_one
+9:     assert $a{0..1}::assertTest@"c_type_test.c":166 != $b{0..1}::assertTest@"c_cmp_diff.c":161
+0: end
+Assertion script $second_one compiled.
+5: build $third_one
+10:     assert $a{0}::uc@"c_type_test.c":173 < $b{0}::uc@"c_cmp_diff.c":168
+0: end
+Assertion script $third_one compiled.
+0: save scripts ./tmp/multi.txt
+Saved assertion scripts to ./tmp/multi.txt. Use the source command to load them.
+0: delete $second_one
+0: delete $third_one
+0: info script
+Saved assertion scripts:
+0: info script $scalars
+Assertion script "$scalars" doesn't exist.
+Expected "info script $name"
+Command resulted in an error: 0: info script $scalars
+0: source --no-echo ./tmp/scalars.txt
+Assertion script $scalars compiled.
+0: source --no-echo ./tmp/multi.txt
+Assertion script $second_one compiled.
+Assertion script $third_one compiled.
+0: info script
+Saved assertion scripts:
+$scalars
+$second_one
+$third_one
+0: info script $scalars
+Assertion script $scalars:
+Assertion 1: $a{0..1}::assertTest@"c_type_test.c":166 != $b{0..1}::assertTest@"c_cmp_diff.c":161
+Assertion 2: $a{0}::uc@"c_type_test.c":173 < $b{0}::uc@"c_cmp_diff.c":168
+Assertion 3: $a{0}::ush@"c_type_test.c":173 <= $b{0}::ush@"c_cmp_diff.c":168
+Assertion 4: $a::c@"c_type_test.c":166 == $b::one_d_i_init[1]@"c_cmp_diff.c":161
+Assertion 5: $a{0}::ld@"c_type_test.c":200 >= $b{0}::ld@"c_cmp_diff.c":195
+Assertion 6: $a{0}::lli@"c_type_test.c":200 > $b{0}::lli@"c_cmp_diff.c":195
+Assertion 7: $a{0}::i@"c_type_test.c":200 == $b{0}::i@"c_cmp_diff.c":195
+Assertion 8: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Assertion 9: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Assertion 10: $a{0}::d@"c_type_test.c":200 == $b{0}::d@"c_cmp_diff.c":195
+Assertion 11: $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
+Use "info script $scalars results" for results.
+0: info script $second_one
+Assertion script $second_one:
+Assertion 1: $a{0..1}::assertTest@"c_type_test.c":166 != $b{0..1}::assertTest@"c_cmp_diff.c":161
+Use "info script $second_one results" for results.
+0: info script $third_one
+Assertion script $third_one:
+Assertion 1: $a{0}::uc@"c_type_test.c":173 < $b{0}::uc@"c_cmp_diff.c":168
+Use "info script $third_one results" for results.
+42: maint set sync on
+43: start $scalars
+Sending continue to application...
+Assertion 11: $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234 failed. Stopping script.
+Assertion script $scalars finished.
+Use "info script $scalars results" to view results.
+Assertion script $scalars stopped.
+44: frame
+a{0}: #0  main at /src/c/c_type_test.c:239
+b{0}: #0  main at /src/c/c_cmp_diff.c:234
+a{1}: #0  main at /src/c/c_type_test.c:247
+b{1}: #0  main at /src/c/c_cmp_diff.c:242
+44: info script
+Saved assertion scripts:
+$scalars
+$second_one
+$third_one
+45: info script $scalars
+Assertion script $scalars:
+Assertion  1: $a{0..1}::assertTest@"c_type_test.c":166 != $b{0..1}::assertTest@"c_cmp_diff.c":161
+Assertion  2: $a{0}::uc@"c_type_test.c":173 < $b{0}::uc@"c_cmp_diff.c":168
+Assertion  3: $a{0}::ush@"c_type_test.c":173 <= $b{0}::ush@"c_cmp_diff.c":168
+Assertion  4: $a::c@"c_type_test.c":166 == $b::one_d_i_init[1]@"c_cmp_diff.c":161
+Assertion  5: $a{0}::ld@"c_type_test.c":200 >= $b{0}::ld@"c_cmp_diff.c":195
+Assertion  6: $a{0}::lli@"c_type_test.c":200 > $b{0}::lli@"c_cmp_diff.c":195
+Assertion  7: $a{0}::i@"c_type_test.c":200 == $b{0}::i@"c_cmp_diff.c":195
+Assertion  8: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Assertion  9: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Assertion 10: $a{0}::d@"c_type_test.c":200 == $b{0}::d@"c_cmp_diff.c":195
+Assertion 11: $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
+Use "info script $scalars results" for results.
+46: info script $scalars results
+Results summary for script $scalars:
+
+Total full runs: 1
+Total assertion evaluations this run: 65
+Passed: 14, Passed with warning: 10, Failed: 41, Indeterminate: 0
+Assertion results:
+
+Assertion 1:
+$a{0..1}::assertTest@"c_type_test.c":166 != $b{0..1}::assertTest@"c_cmp_diff.c":161
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 2:
+$a{0}::uc@"c_type_test.c":173 < $b{0}::uc@"c_cmp_diff.c":168
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 3:
+$a{0}::ush@"c_type_test.c":173 <= $b{0}::ush@"c_cmp_diff.c":168
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 4:
+$a::c@"c_type_test.c":166 == $b::one_d_i_init[1]@"c_cmp_diff.c":161
+Passes: 1, Passes with warnings: 0, Failures: 0.
+
+Assertion 5:
+$a{0}::ld@"c_type_test.c":200 >= $b{0}::ld@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 0, Failures: 10.
+
+Assertion 6:
+$a{0}::lli@"c_type_test.c":200 > $b{0}::lli@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 0, Failures: 10.
+
+Assertion 7:
+$a{0}::i@"c_type_test.c":200 == $b{0}::i@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 0, Failures: 10.
+
+Assertion 8, configured with error: 1, 2:
+$a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Passes: 10, Passes with warnings: 0, Failures: 0.
+
+Assertion 9, configured with error: 0.99, 2:
+$a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 10, Failures: 0.
+
+Assertion 10, configured with error: 0.1, 0.99:
+$a{0}::d@"c_type_test.c":200 == $b{0}::d@"c_cmp_diff.c":195
+Passes: 0, Passes with warnings: 0, Failures: 10.
+
+Assertion 11, configured with stop, error: 0.1, 0.99:
+$a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
+Passes: 0, Passes with warnings: 0, Failures: 1.
+
+48: info diff
+Stored assertion deltas:
+In assertion script $scalars:
+For assertion 5: $a{0}::ld@"c_type_test.c":200 >= $b{0}::ld@"c_cmp_diff.c":195
+Comparison is false.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 6: $a{0}::lli@"c_type_test.c":200 > $b{0}::lli@"c_cmp_diff.c":195
+Comparison is false.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 7: $a{0}::i@"c_type_test.c":200 == $b{0}::i@"c_cmp_diff.c":195
+Comparison is false.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 9: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Comparison is warn.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 10: $a{0}::d@"c_type_test.c":200 == $b{0}::d@"c_cmp_diff.c":195
+Comparison is false.
+The difference delta is:
+{0}: 1
+(x10)
+
+For assertion 11: $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
+Comparison is false.
+The difference delta is:
+{0}: 1
+
+In assertion script $second_one:
+In assertion script $third_one:
+49: info diff $scalars 9
+For assertion 9: $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
+Comparison is warn.
+The difference delta is:
+{0}: 1
+(x10)
+
+52: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

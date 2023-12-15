@@ -9,6 +9,7 @@
 #include <variant>
 #include <string>
 #include <array>
+#include <map>
 
 namespace script::settings {
 
@@ -59,8 +60,22 @@ struct Assertion {
 
         return nullptr;
     }
+
     const Item getSetting(const std::string& name) const {
         return const_cast<Assertion&>(*this).getSetting(name);
+    }
+
+    // return a map of name -> Item. Items are references to data in the assertion and are
+    // only valid as long as the script is valid.
+    //
+    // FIXME: this should just copy the Items. no reason to return mutable Items - Items
+    // just don't have value semantics yet.
+    std::map<const char*, Item> mapView() const {
+        return {
+            { token::Stop, &this->stopOnFailure },
+            { token::VbAsserts, &this->verboseEval },
+            { token::Error, &this->error },
+        };
     }
 
     bool stopOnFailure;              // stop the script if this assertion fails
@@ -88,8 +103,21 @@ struct Script {
 
         return nullptr;
     }
+
     const Item getSetting(const std::string& name) const {
         return const_cast<Script&>(*this).getSetting(name);
+    }
+
+    // return a map of name -> Item. Items are references to data in the script and are
+    // only valid as long as the script is valid.
+    //
+    // FIXME: this should just copy the Items. no reason to return mutable Items - Items
+    // just don't have value semantics yet.
+    std::map<const char*, Item> mapView() const {
+        return {
+            { token::Halt, &this->haltUponEnd },
+            { token::VbBPs, &this->verboseBreakpoints },
+        };
     }
 
     bool haltUponEnd;        // send halt to all involved ranks when script stops

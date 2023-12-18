@@ -509,6 +509,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_tile.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_tile.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_decomp.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_decomp.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_reductions.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_reductions.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/save_all.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/save_all.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/kokkos.in      ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/kokkos.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_console_exec.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_console_exec.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_basics_errors.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_errors.in
@@ -920,6 +921,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_tile.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_decomp.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_reductions.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/save_all.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_console_exec.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_errors.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_basics_exec.in

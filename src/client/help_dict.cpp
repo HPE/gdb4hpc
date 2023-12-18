@@ -1228,6 +1228,17 @@ const char* const cmd_save_help[] = {
     "Save debugger state to a file. Use the source command to load the state.",
     0};
 
+const char* const cmd_save_all_help[] = {
+    "Summary: Save all debugger state to a file.",
+    "Usage: save all <filename>",
+    "",
+    "Saves all breakpoints, decompositions, and assertion scripts to a file on disk.",
+    "Use the source command to restore them.",
+    "",
+    "The saved file contains plaintext gdb4hpc commands and can be edited with any",
+    "text editor.",
+    0};
+
 const char* const class_show_print_help[] = {
     "Summary: Show print command.",
     "Usage: show print [<subcommand>]",

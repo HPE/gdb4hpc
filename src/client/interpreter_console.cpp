@@ -636,6 +636,7 @@ std::shared_ptr<CommandNode> ConsoleCommandsFactory::make() {
     insert_comp_commands(*root);
     insert_go_commands(*root);
     insert_procset_commands(*root);
+    insert_utils_commands(*root);
 
     return root;
 }

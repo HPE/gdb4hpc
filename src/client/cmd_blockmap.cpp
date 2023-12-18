@@ -17,7 +17,6 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <ranges>
@@ -33,6 +32,9 @@
 /*
 ** Static global variables
 */
+
+// also called from cmd_utils.cpp
+int save_all_blockmaps(std::ostream& os);
 
 namespace {
 
@@ -567,41 +569,37 @@ std::string reconstruct_blockmap_commands(const BlockMap& bmap) {
     return reconstruct_blockmap_commands_long(bmap);
 }
 
-int save_blockmaps(std::ranges::input_range auto&& blockmaps, std::filesystem::path filename) {
-    auto outfile = std::ofstream{filename};
-    if (!outfile) {
-        PrintOutError("Failed to open %s for writing.\n", filename.c_str());
-        return Command::Failure;
-    }
+int save_blockmaps(std::ranges::input_range auto&& blockmaps, std::ostream& os) {
+    int result = Command::Success;
 
     for (const auto& bmap : blockmaps) {
         auto commands = reconstruct_blockmap_commands(*bmap);
+        os << commands;
+
         if (commands.empty()) {
             PrintOutError("Failed to save decomposition %s.\n", bmap->getName().c_str());
-            return Command::Failure;
+            result = Command::Failure;
+            continue;
         }
-
-        outfile << commands;
     }
 
-    if (outfile) {
-        PrintOutError("Failed to save decompositions.\n");
-        return Command::Success;
-    } else {
-        return Command::Failure;
-    }
+    return result;
 }
 
 int save_decomp_cmd(int argc, const char* const argv[]) {
     if (argc == 2) {
         // assume "save decompositions <filename>" form and save all blockmaps
-        auto filename = std::filesystem::path{argv[1]};
+        auto outfile = std::ofstream{argv[1]};
+        if (!outfile) {
+            PrintOutError("Failed to open %s for writing.\n", argv[1]);
+            return Command::Failure;
+        }
 
-        if (save_blockmaps(GetBlockMapList(), filename) == Command::Success) {
+        if ((save_all_blockmaps(outfile) == Command::Success) && outfile) {
             PrintOutMsg("Saved decompositions to %s. Use the source command to load them.\n", argv[1]);
             return Command::Success;
         } else {
-            // error already printed
+            PrintOutError("Failed to save decompositions.\n");
             return Command::Failure;
         }
     } else if (argc >= 3) {
@@ -618,11 +616,14 @@ int save_decomp_cmd(int argc, const char* const argv[]) {
             return Command::Failure;
         }
 
-        auto filename = std::filesystem::path{argv[2]};
+        auto outfile = std::ofstream{argv[2]};
+        if (!outfile) {
+            PrintOutError("Failed to open %s for writing.\n", argv[2]);
+            return Command::Failure;
+        }
 
-        if (save_blockmaps(std::views::single(blockmap), filename) == Command::Success) {
-            PrintOutMsg("Saved %s to %s. Use the source command to load it.\n",
-                        argv[1], argv[2]);
+        if ((save_blockmaps(std::views::single(blockmap), outfile) == Command::Success) && outfile) {
+            PrintOutMsg("Saved %s to %s. Use the source command to load it.\n", argv[1], argv[2]);
             return Command::Success;
         } else {
             // error already printed
@@ -692,6 +693,10 @@ int delete_decomp_cmd(int argc, const char* const argv[]) {
         PrintOutError("Failed to delete decomposition %s.\n", argv[1]);
         return Command::Failure;
     }
+}
+
+int save_all_blockmaps(std::ostream& os) {
+    return save_blockmaps(GetBlockMapList(), os);
 }
 
 /********************************

@@ -145,4 +145,5 @@ private:
     static void insert_comp_commands(CommandNode& root);
     static void insert_go_commands(CommandNode& root);
     static void insert_procset_commands(CommandNode& root);
+    static void insert_utils_commands(CommandNode& root);
 };

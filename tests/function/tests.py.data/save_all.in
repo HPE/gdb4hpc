@@ -1,0 +1,87 @@
+1: launch $a{2} bin/CRAY/c/c_type_test.x
+Launch complete.
+a{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
+2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
+Launch complete.
+b{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
+3: # stop before exiting
+4: focus $a
+4: break 247
+a{0..1}: Breakpoint 1: file /src/c/c_type_test.c, line 247.
+5: focus $b
+5: break 242
+b{0..1}: Breakpoint 1: file /src/c/c_cmp_diff.c, line 242.
+5: focus $all
+0: info break
+Procset         Num Type           Disp Enb What
+a{0..1}         1   breakpoint     keep y   in main at /src/c/c_type_test.c:247
+b{0..1}         1   breakpoint     keep y   in main at /src/c/c_cmp_diff.c:242
+78: decomposition $blockT_3 10,12/3
+83: decomposition $blockT_4
+83:   dimension 10,12
+83:   distribute *,block
+83:   proc_grid *,4
+83: end
+0: info decompositions
+Defined decompositions:
+$blockT_3: 10, 12/3
+$blockT_4:
+	dimension 10,12
+	distribute *,block
+	proc_grid *,4
+	dim_order *,1
+
+5: build $assert
+33:     # stop at this failure
+34:     set stop on
+35:     assert $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
+0: end
+Assertion script $assert compiled.
+0: info script
+Saved assertion scripts:
+$assert
+0: info script $assert
+Assertion script $assert:
+Assertion 1: $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
+Use "info script $assert results" for results.
+0: save all ./tmp/all.txt
+Saved debugger state to ./tmp/all.txt. Use the source command to load it.
+0: delete 1
+0: delete $blockT_3
+0: delete $blockT_4
+0: delete $assert
+0: info breakpoints
+Procset         Num Type           Disp Enb What
+a{0..1}: No breakpoints or watchpoints.
+b{0..1}: No breakpoints or watchpoints.
+0: info decompositions
+Defined decompositions:
+0: info scripts
+Saved assertion scripts:
+0: source --no-echo ./tmp/all.txt
+a{0..1}: Breakpoint 2: file /cray/css/users/chandlej/home/chandlej/Code/gdb4hpc/cdst-gdb4hpc/tests/function/src/c/c_type_test.c, line 247.
+b{0..1}: Breakpoint 2: file /cray/css/users/chandlej/home/chandlej/Code/gdb4hpc/cdst-gdb4hpc/tests/function/src/c/c_cmp_diff.c, line 242.
+Assertion script $assert compiled.
+0: info break
+Procset         Num Type           Disp Enb What
+a{0..1}         2   breakpoint     keep y   in main at /src/c/c_type_test.c:247
+b{0..1}         2   breakpoint     keep y   in main at /src/c/c_cmp_diff.c:242
+0: info decompositions
+Defined decompositions:
+$blockT_3: 10, 12/3
+$blockT_4:
+	dimension 10,12
+	distribute *,block
+	proc_grid *,4
+	dim_order *,1
+
+0: info script
+Saved assertion scripts:
+$assert
+0: info script $assert
+Assertion script $assert:
+Assertion 1: $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
+Use "info script $assert results" for results.
+0: q
+Shutting down debugger and killing application for 'a'.
+Shutting down debugger and killing application for 'b'.

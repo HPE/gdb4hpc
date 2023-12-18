@@ -945,6 +945,10 @@ class FunctionTests(Gdb4hpcTest):
 
         runTest(self)
 
+    def test_save_all(self):
+        self.base_name = "save_all"
+        runTest(self)
+
     def test_mi_backtrace(self):
         self.base_name = "mi_backtrace"
         runTest(self, interpreter="mi")

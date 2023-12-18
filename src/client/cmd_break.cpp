@@ -18,7 +18,6 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <map>
-#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -27,12 +26,6 @@
 #include "interpreter_mi.h"
 #include "script_client.h"
 #include "blockmap_client.h"
-
-// in cmd_script.cpp
-extern int delete_script_cmd(int argc, const char* const argv[]);
-
-// in cmd_blockmap.cpp
-extern int delete_decomp_cmd(int argc, const char* const argv[]);
 
 struct BreakArgs {
     // XXX symbol_or_number should probably be split into two members. emulating old behavior for now...
@@ -537,6 +530,11 @@ static int cmd_delete_cmd(rec_set_t *rec_set, int argc, const char* const argv[]
     // FIXME: this function needs to know about a lot of different systems and is not
     // limited to breakpoints any more. to reduce header/namespace pollution in
     // cmd_break.cpp, this function could probably be moved to a new cmd_delete.cpp.
+
+    // in cmd_script.cpp
+    extern int delete_script_cmd(int argc, const char* const argv[]);
+    // in cmd_blockmap.cpp
+    extern int delete_decomp_cmd(int argc, const char* const argv[]);
 
     // figure out what we're deleting
     using namespace std::string_literals;
@@ -1190,20 +1188,10 @@ static std::string reconstruct_breakpoint_commands(const MappedBreakpoint& mappe
     return ss.str();
 }
 
-static int save_breakpoints_cmd(rec_set_t* rec_set, int argc, const char* const argv[]) {
-    // filename required. argc starts counting from "breakpoints" in "set breakpoints <filename>".
-    if (argc < 2) {
-        PrintOutError("Usage: save breakpoints [filename]\n");
-        return Command::Failure;
-    }
-
-    auto filename = std::filesystem::path{argv[1]};
-
-    auto outfile = std::ofstream{filename};
-    if (!outfile) {
-        PrintOutError("Failed to open %s for writing.\n", filename.c_str());
-        return Command::Failure;
-    }
+// also called from cmd_utils.cpp
+int save_all_breakpoints(rec_set_t* rec_set, std::ostream& os) {
+    auto result = Command::Success;
+    auto should_refocus = false;
 
     auto ignore_counts = BPCnts{};
     ignore_counts.retrieve(rec_set);
@@ -1212,23 +1200,45 @@ static int save_breakpoints_cmd(rec_set_t* rec_set, int argc, const char* const 
         for (const auto& mapped_bp : rec->rec_di.breakpoints()) {
             const auto command = reconstruct_breakpoint_commands(mapped_bp, ignore_counts,
                                                                  rec->rec_di.handle().name());
+            os << command << std::endl;
             if (command.empty()) {
-                PrintOutMsg("Warning: Failed to save breakpoint %s::%d.\n",
+                PrintOutError("Warning: Failed to save breakpoint %s::%d.\n",
                             rec->rec_di.handle().c_str(), mapped_bp.id());
+                result = Command::Failure;
                 continue;
             }
-            outfile << command << std::endl;
+
+            // the reconstructed breakpoint commands include a focus command.
+            // make sure to reset the focus afterwards.
+            should_refocus = true;
         }
     }
 
-    outfile << "focus $all" << std::endl;
+    // XXX: we have no way to know if this was actually the focus state when the
+    // user started the source command.
+    if (should_refocus) os << "focus $all" << std::endl;
 
-    if (outfile) {
-        PrintOutMsg("Saved breakpoints to %s. Use the source command to load them.\n",
-                    filename.c_str());
+    return result;
+}
+
+static int save_breakpoints_cmd(rec_set_t* rec_set, int argc, const char* const argv[]) {
+    // filename required. argc starts counting from "breakpoints" in "set breakpoints <filename>".
+    if (argc < 2) {
+        PrintOutError("Usage: save breakpoints [filename]\n");
+        return Command::Failure;
+    }
+
+    auto outfile = std::ofstream{argv[1]};
+    if (!outfile) {
+        PrintOutError("Failed to open %s for writing.\n", argv[1]);
+        return Command::Failure;
+    }
+
+    if ((save_all_breakpoints(rec_set, outfile) == Command::Success) && outfile) {
+        PrintOutMsg("Saved breakpoints to %s. Use the source command to load them.\n", argv[1]);
         return Command::Success;
     } else {
-        PrintOutError("Failed to save breakpoints.\n");
+        // error already printed
         return Command::Failure;
     }
 }

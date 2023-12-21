@@ -49,7 +49,6 @@ enum class DbgQuitType { Default, Kill, Detach };
 ** inside the rec_set_t.
 */
 struct group_recv {
-    // FIXME: rec_di should be a DbgInvoke::Handle. PE-51301
     DbgInvoke& rec_di;
     std::unique_ptr<Bitset> rec_group;
 };
@@ -57,6 +56,8 @@ typedef struct group_recv group_recv_t;
 
 std::strong_ordering operator<=>(const group_recv&, const group_recv&);
 bool operator==(const group_recv&, const group_recv&);
+
+class PickledRecSet;
 
 /*
 ** This is used to describe which ranks to send commands to in the dbgclnt
@@ -77,6 +78,10 @@ public:
     rec_set_t(const rec_set_t&) = delete;
     rec_set_t& operator=(const rec_set_t&) = delete;
     std::unique_ptr<rec_set_t> clone() const;
+    rec_set_t(rec_set_t&&);
+
+    // `pickle` returns a copy of the rec_set_t that is safe to store long term.
+    PickledRecSet pickle() const;
 
     void addReceiver(group_recv_t* rec);
     // remove receiver with the same memory address as rec from internal list.
@@ -108,6 +113,47 @@ inline std::vector<group_recv_t*>::const_iterator end(const rec_set_t* set) {
     return set->getReceivers().end();
 }
 
+class PickledRecSet {
+    // rec_set_t stores group_recvs and group_recvs store DbgInvoke&. the
+    // reference makes it unsafe to store group_recvs and thus rec_set_ts
+    // between commands since the user could release the DbgInvoke and
+    // invalidate the reference. PickledRecSet is a version of rec_set_t that
+    // stores handles instead of references and is safe for storage.
+public:
+    PickledRecSet clone() const;
+    void merge(PickledRecSet&& other);
+
+    struct GroupRecv {
+        // a group_recv that is safe to store long terem
+
+        DbgInvoke::Handle dih;
+        std::unique_ptr<Bitset> group;
+
+        // `instantiate` creates a group_recv from the pickled version. if the stored
+        // handle has become invalid since being stored, `instantiate` returns nullptr.
+        group_recv* instantiate() const;
+    };
+
+    void addReceiver(const group_recv& recv);
+    const std::vector<GroupRecv>& getReceivers() const;
+
+    void setThreads(const char* threads);
+    const char* getThreads() const;
+
+    // `instantiate` creates a usable rec_set from the pickled version. if any
+    // stored DbgInvoke handles are invalid, their group_recvs are omitted from
+    // the resulting rec_set_t.
+    rec_set_t instantiate() const;
+
+private:
+    void addReceiver(const GroupRecv& recv);
+    void addReceiver(GroupRecv&& recv);
+
+    std::vector<GroupRecv> m_recs;
+
+    // emulating legacy char* behavior of rec_set_t where nullptr is a valid state
+    std::optional<std::string> m_threads;
+};
 
 /*
 ** A group reply is the actual element placed inside the rep_set_t lists.
@@ -208,8 +254,8 @@ public:
     // uncloneable.
     const std::vector<group_reply_t*>& getErrs();
 
-    // install information to get the next chunk
-    void setContinuation(group_recv_t* set);
+    // install information to get the next chunk. copies `set`.
+    void setContinuation(const group_recv_t* set);
 
     // each expression result keeps and sequential id for requesting additional chunks.
     void setDataId(size_t id);
@@ -227,9 +273,9 @@ private:
     std::vector<group_reply_t*> m_reps;  // event replies of cmd
     std::vector<group_reply_t*> m_errs;  // error events
 
-    std::unique_ptr<rec_set_t> m_set;    // for continuation of large arrays
-    size_t m_dataId;                     // for continuation of large arrays
-    bool m_returnedChunk0;               // the first result has been returned by getNextChunk
+    std::unique_ptr<PickledRecSet> m_set; // for continuation of large arrays
+    size_t m_dataId;                      // for continuation of large arrays
+    bool m_returnedChunk0;                // the first result has been returned by getNextChunk
     std::vector<rep_set_t> m_unmergedChunks;
 
     void sortReplies();

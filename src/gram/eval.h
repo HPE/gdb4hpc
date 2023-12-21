@@ -327,42 +327,12 @@ public:
 
     void addIndex(const std::string& idx);
 
-    class Mappings {
-        // FIXME: The existence of class is kind of nasty. Once rec_set_ts are
-        // updated to store DbgInvoke::Handles instead of DbgInvoke&, this class can
-        // be removed and the pickled value can simply store the rec_set_t.
-        //
-        // In order to construct a decomposition AIFStream, some mapping data has to
-        // be calculated from a rec_set_t. This is a problem when pickling
-        // decomposition values since rec_set_ts are not safe to store long term and
-        // thus can't be stored in the pickled decomposition value. rec_set_ts are
-        // not safe to store because they hold a raw reference to a DbgInvoke, which
-        // could be released between the pickled decomposition value's creation and
-        // use.
-        //
-        // Mappings is a cache of the data that is calculated from the rec_set_t
-        // that is safe to store indefinitely.
-
-    public:
-        using OffsetMap = std::map<DbgInvoke::Handle, std::pair<std::unique_ptr<Bitset>, size_t>>;
-
-        Mappings(const rec_set_t& rec_set);
-        explicit Mappings(const Mappings& other); // deep copy
-        Mappings(Mappings&&) = default;
-
-        const OffsetMap& offset_map() const;
-        size_t num_ranks() const;
-
-    private:
-        OffsetMap m_offset_map = OffsetMap{};
-        size_t m_num_ranks = 0;
-    };
-
 protected:
     virtual AIFStream* getAIF() override;
 
 private:
-    std::pair<DecompValue::Mappings, rep_set_t> getMappingsAndReply();
+    rec_set_t& getRecSet();
+    rep_set_t getReply();
 
     BlockMap* m_blockMap;
     std::unique_ptr<Value> m_val;
@@ -373,8 +343,7 @@ private:
 // AIFStream without needing to make a call to the backend.
 class PickledDecompValue : public SingleValue {
 public:
-    PickledDecompValue(BlockMap* blockmap, const rec_set_t& receivers, const rep_set_t& reply, std::string_view idx);
-    PickledDecompValue(BlockMap* blockmap, const DecompValue::Mappings& mappings, const rep_set_t& reply, std::string_view idx);
+    PickledDecompValue(BlockMap* blockmap, PickledRecSet&& rec_set, rep_set_t&& pickled_reply, std::string_view idx);
 
     std::unique_ptr<Value> pickle() override;
 
@@ -384,7 +353,7 @@ private:
 
     BlockMap* m_blockmap;
     rep_set_t m_pickled_reply;
-    DecompValue::Mappings m_mappings;
+    PickledRecSet m_rec_set;
     std::string m_idx;
 };
 

@@ -32,10 +32,8 @@ extern BlockMap *FindBlockMap(const std::string& blockmap);
 
 namespace {
 
-namespace bm { // blockmap helpers
-
 AIFStream *construct_blockmap_data(BlockMap* bm, const std::string& idx,
-                                   const DecompValue::Mappings& mappings, rep_set_t& rep_set)
+                                   const PickledRecSet& rec_set, rep_set_t& rep_set)
 {
     // Make sure that there were no errors and we received rep_set, otherwise
     // print error.
@@ -48,14 +46,25 @@ AIFStream *construct_blockmap_data(BlockMap* bm, const std::string& idx,
         return nullptr;
     }
 
+    auto num_ranks = size_t{0};
+    auto offset_map = std::map<DbgInvoke::Handle, std::pair<std::unique_ptr<Bitset>, size_t>>{};
+
+    // map each DI to the subset of involved ranks and to an offset
+    // within the out ranks
+    const auto& rcvs = rec_set.getReceivers();
+    for (const auto& rcv : rcvs) {
+        offset_map[rcv.dih] = std::make_pair(rcv.group->clone(), num_ranks);
+        num_ranks += rcv.group->numSet();
+    }
+
     // Create an array of aif values
-    auto da = std::vector<AIFStream*>{mappings.num_ranks()};
+    auto da = std::vector<AIFStream*>{num_ranks};
 
     // process rep_set, placing the AIF data into the array
     for (auto&& reply : rep_set) {
         // A blockmap across multiple DI's seems weird, but we can track
         // an offset for the mapping, so it's not a lot of work
-        const auto& [rcvGrp, offset] = mappings.offset_map().at(reply->rep_di);
+        const auto& [rcvGrp, offset] = offset_map.at(reply->rep_di);
         auto repGrp = reply->rep_group.get();
         auto dsIdx = offset;
 
@@ -77,8 +86,6 @@ AIFStream *construct_blockmap_data(BlockMap* bm, const std::string& idx,
     auto blockIter = MakeBlockMapIterator(bm, idx);
     return new AIFStream{blockIter, da};
 }
-
-} // namespace bmap
 
 } // anonymous namespace
 
@@ -460,9 +467,12 @@ DecompValue::DecompValue(rec_set_t* rec_set, BlockMap*  blockMap,
 {}
 
 std::unique_ptr<Value> DecompValue::pickle() {
-    auto [mappings, rep_set] = getMappingsAndReply();
+    auto& rec_set = getRecSet();
+    auto rep_set = getReply();
+    rep_set.pickle();
+
     return std::make_unique<PickledDecompValue>(
-        m_blockMap, mappings, rep_set, m_idx
+        m_blockMap, rec_set.pickle(), std::move(rep_set), m_idx
     );
 }
 
@@ -478,94 +488,58 @@ void DecompValue::print(std::ostream& os, rec_set_t*,
     os << "\n";
 }
 
-std::pair<DecompValue::Mappings, rep_set_t> DecompValue::getMappingsAndReply() {
+rec_set_t& DecompValue::getRecSet() {
     auto val = dynamic_cast<ReplyValue*>(m_val.get());
     if (!val) {
         throw EvalError("Decomposition must refer to a progam value");
     }
 
-    if (!m_val->getRecSet()) {
+    if (!val->getRecSet()) {
         throw EvalError("Missing mapping information");
     }
-    auto mappings = DecompValue::Mappings(*m_val->getRecSet());
+
+    return *val->getRecSet();
+}
+
+rep_set_t DecompValue::getReply() {
+    auto val = dynamic_cast<ReplyValue*>(m_val.get());
+    if (!val) {
+        throw EvalError("Decomposition must refer to a progam value");
+    }
 
     if (!m_idx.empty()) {
         auto os = std::ostringstream{};
         os << "[[|(" << m_blockMap->getDefinition() << ")" << m_idx << "]]";
         val->addMetaInfo(os.str());
     }
-    auto rep_set = val->retrieve();
-
-    return {std::move(mappings), std::move(rep_set)};
+    return val->retrieve();
 }
 
 AIFStream* DecompValue::getAIF() {
     if (m_aif)
         return m_aif;
 
-    auto [mappings, rep_set] = getMappingsAndReply();
+    auto& rec_set = getRecSet();
+    auto reply = getReply();
 
-    auto aif = bm::construct_blockmap_data(m_blockMap, m_idx, mappings, rep_set);
+    auto aif = construct_blockmap_data(m_blockMap, m_idx, rec_set.pickle(), reply);
     return m_aif = aif;
 }
 
-DecompValue::Mappings::Mappings(const rec_set_t& rec_set) {
-    // map each DI to the subset of involved ranks and to an offset
-    // within the out ranks
-    auto rcvs = rec_set.getReceivers();
-    for (auto rcv : rcvs) {
-        m_offset_map[rcv->rec_di.handle()] = std::make_pair(rcv->rec_group->clone(), m_num_ranks);
-        m_num_ranks += rcv->rec_group->numSet();
-    }
-}
-
-DecompValue::Mappings::Mappings(const DecompValue::Mappings& other) {
-    for (const auto& [dih, pair] : other.m_offset_map) {
-        m_offset_map.insert(
-            std::make_pair(dih, std::make_pair(pair.first->clone(), pair.second))
-        );
-    }
-
-    m_num_ranks = other.m_num_ranks;
-}
-
-const DecompValue::Mappings::OffsetMap& DecompValue::Mappings::offset_map() const {
-    return m_offset_map;
-}
-
-size_t DecompValue::Mappings::num_ranks() const {
-    return m_num_ranks;
-}
-
 PickledDecompValue::PickledDecompValue(BlockMap* blockmap,
-                                       const rec_set_t& receivers,
-                                       const rep_set_t& reply,
+                                       PickledRecSet&& rec_set,
+                                       rep_set_t&& pickled_reply,
                                        std::string_view idx)
     : SingleValue(nullptr)
     , m_blockmap{blockmap}
-    , m_pickled_reply{reply.clone()}
-    , m_mappings(receivers)
+    , m_pickled_reply{std::move(pickled_reply)}
+    , m_rec_set{std::move(rec_set)}
     , m_idx{idx}
-{
-    m_pickled_reply.pickle();
-}
-
-PickledDecompValue::PickledDecompValue(BlockMap* blockmap,
-                                       const DecompValue::Mappings& mappings,
-                                       const rep_set_t& reply,
-                                       std::string_view idx)
-    : SingleValue(nullptr)
-    , m_blockmap{blockmap}
-    , m_pickled_reply{reply.clone()}
-    , m_mappings(mappings)
-    , m_idx{idx}
-{
-    m_pickled_reply.pickle();
-}
+{}
 
 std::unique_ptr<Value> PickledDecompValue::pickle() {
     return std::make_unique<PickledDecompValue>(
-        m_blockmap, m_mappings, m_pickled_reply, m_idx
+        m_blockmap, m_rec_set.clone(), m_pickled_reply.clone(), m_idx
     );
 }
 
@@ -577,8 +551,8 @@ void PickledDecompValue::print(std::ostream& os, rec_set_t*, const std::string& 
 
 AIFStream* PickledDecompValue::getAIF() {
     auto working_reply = m_pickled_reply.clone(); // needs to be an lvalue in below fn call
-    return bm::construct_blockmap_data(
-        m_blockmap, m_idx, m_mappings, working_reply
+    return construct_blockmap_data(
+        m_blockmap, m_idx, m_rec_set, working_reply
     );
 }
 

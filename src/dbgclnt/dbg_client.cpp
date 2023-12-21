@@ -263,6 +263,24 @@ std::unique_ptr<rec_set_t> rec_set_t::clone() const {
     return r;
 }
 
+rec_set_t::rec_set_t(rec_set_t&& other) {
+    m_recs = std::move(other.m_recs);
+    m_threads = other.m_threads;
+    other.m_threads = nullptr;
+}
+
+PickledRecSet rec_set_t::pickle() const {
+    auto result = PickledRecSet{};
+
+    for (const auto* recv : m_recs) {
+        result.addReceiver(*recv);
+    }
+
+    result.setThreads(m_threads);
+
+    return result;
+}
+
 void rec_set_t::setThreads(const char* threads)
 {
     char* t = ( threads && threads[0] ? strdup(threads) : nullptr);
@@ -389,6 +407,90 @@ void rec_set_t::merge(std::unique_ptr<rec_set_t>&& other) {
     merge(std::move(*other));
 }
 
+PickledRecSet PickledRecSet::clone() const {
+    auto result = PickledRecSet{};
+
+    for (const auto& recv : m_recs) {
+        result.m_recs.emplace_back(GroupRecv{
+            .dih = recv.dih,
+            .group = recv.group->clone(),
+        });
+    }
+
+    result.m_threads = m_threads;
+
+    return result;
+}
+
+void PickledRecSet::merge(PickledRecSet&& other) {
+    for (auto&& recv : other.m_recs) {
+        addReceiver(std::move(recv));
+    }
+}
+
+void PickledRecSet::addReceiver(const group_recv_t& recv) {
+    addReceiver(PickledRecSet::GroupRecv{
+        .dih = recv.rec_di.handle(),
+        .group = recv.rec_group->clone(),
+    });
+}
+
+void PickledRecSet::addReceiver(const PickledRecSet::GroupRecv& recv) {
+    addReceiver(PickledRecSet::GroupRecv{
+        .dih = recv.dih,
+        .group = recv.group->clone(),
+    });
+}
+
+void PickledRecSet::addReceiver(PickledRecSet::GroupRecv&& recv) {
+    for (auto& my_recv : m_recs) {
+        if (my_recv.dih == recv.dih) {
+            *my_recv.group |= *recv.group;
+            return;
+        }
+    }
+
+    m_recs.emplace_back(std::move(recv));
+}
+
+const std::vector<PickledRecSet::GroupRecv>& PickledRecSet::getReceivers() const {
+    return m_recs;
+}
+
+void PickledRecSet::setThreads(const char* threads) {
+    m_threads = threads ? std::optional{std::string{threads}} : std::nullopt;
+}
+
+const char* PickledRecSet::getThreads() const {
+    return m_threads ? m_threads->c_str() : nullptr;
+}
+
+rec_set_t PickledRecSet::instantiate() const {
+    auto result = rec_set_t();
+
+    for (const auto& rec : m_recs) {
+        if (auto* recv = rec.instantiate()) {
+            result.addReceiver(recv); // result takes ownership of recv
+        }
+    }
+
+    result.setThreads(m_threads ? m_threads->c_str() : nullptr);
+
+    return result;
+}
+
+group_recv* PickledRecSet::GroupRecv::instantiate() const {
+    if (auto* di = this->dih.lock()) {
+        return new group_recv {
+            .rec_di = *di,
+            .rec_group = this->group->clone(),
+        };
+    }
+
+    // expired
+    return nullptr;
+}
+
 // This returns the number of dbginvoke_t in the rec_set
 static int GetNumberOfReceivers(rec_set_t *set) {
     return set ? set->getReceivers().size() : 0;
@@ -465,15 +567,7 @@ rep_set_t rep_set_t::clone() const
     for (const auto& extra : m_unmergedChunks) {
         newset.m_unmergedChunks.push_back(extra.clone());
     }
-    if (m_set) {
-        // XXX: should we really be giving this to the clone?
-        newset.m_set = std::make_unique<rec_set_t>();
-        for (auto&& recv : m_set.get()) {
-            newset.m_set->addReceiver(CopyGroupReceiver(recv));
-        }
-    }
 
-    newset.m_dataId = m_dataId;
     newset.m_repsIsSorted = m_repsIsSorted;
     newset.m_errsIsSorted = m_errsIsSorted;
 
@@ -501,9 +595,7 @@ void rep_set_t::merge(rep_set_t&& tmp) {
         if (!m_set) {
             std::swap(m_set,tmp.m_set);
         } else {
-            for (auto&& recv : tmp.m_set.get()) {
-                m_set->addReceiver(CopyGroupReceiver(recv));
-            }
+            m_set->merge(std::move(*tmp.m_set));
         }
     }
 
@@ -602,14 +694,14 @@ rep_set_t rep_set_t::getNextChunk() {
     }
 }
 
-void rep_set_t::setContinuation(group_recv_t* set) {
+void rep_set_t::setContinuation(const group_recv_t* set) {
     if (!set)
         return;
 
     if (!m_set) {
-        m_set = std::make_unique<rec_set_t>();
+        m_set = std::make_unique<PickledRecSet>();
     }
-    m_set->addReceiver(CopyGroupReceiver(set));
+    m_set->addReceiver(*set);
     m_returnedChunk0 = false;
 }
 
@@ -622,9 +714,10 @@ rep_set_t rep_set_t::recvChunk()
         return rep_set_t();
     }
 
+    auto rec_set = m_set->instantiate();
     auto req = CommandToSocProto(DBGCMD_CONTINUEEVALEXPR, m_dataId);
 
-    auto chunk = DbgSendCmdAndRecvReply(m_set.get(), req, DBGEV_DATA);
+    auto chunk = DbgSendCmdAndRecvReply(&rec_set, req, DBGEV_DATA);
     if (!chunk.isEmpty()) {
         m_set = std::move(chunk.m_set);
     } else {

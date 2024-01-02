@@ -178,9 +178,6 @@ static int cmd_info_threads_cmd_console(rec_set_t *rec_set, int argc, const char
 
     ProcessErrorInRepSet(rep_set);
 
-    std::ostringstream ss;
-    std::string current_thread_id="current-thread-id=\"";
-
     // process replies
     for (auto&& reply : rep_set) {
         auto handle = reply->rep_di.c_str();
@@ -212,12 +209,16 @@ static int cmd_info_threads_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int ar
     auto rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
 
     ProcessErrorInRepSet(rep_set);
-
-    std::ostringstream ss;
-    std::string current_thread_id="current-thread-id=\"";
+    std::ostringstream abc;
 
     // process replies
     for (auto&& reply : rep_set) {
+        if (!abc.str().empty()){
+            abc<<",";
+        }else{
+            abc<<"msgs=[";
+        }
+        
         auto handle = reply->rep_di.c_str();
         const auto group = reply->rep_group.get();
 
@@ -226,17 +227,22 @@ static int cmd_info_threads_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int ar
         std::istringstream is(str);
         std::string line;
 
+        std::string current_thread_id="current-thread-id=\"";
+        std::ostringstream ss;
+
         while (std::getline(is,line)) {
             PrintMIThread(line, ss, current_thread_id);
         }
 
         if (!ss.str().empty()){
-            ss<<"],"<<current_thread_id<<"\"";
-            mi.set_result("proc_set=\"%s\",group=\"%s\",threads=%s",
-                            handle, group->toSetString().c_str(),ss.str().c_str());
+            ss<<"]";
         }
-    }
 
+        abc << "{proc_set=\""<<handle<<"\",group=\""<<group->toSetString().c_str()<<"\","<<current_thread_id<<"\", threads="<<ss.str().c_str()<<"}";
+    }
+    
+    abc<<"]";
+    mi.set_result("%s",abc.str().c_str());
     return Command::Success;
 }
 

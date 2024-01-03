@@ -157,7 +157,7 @@ TEST_CASE("construct Commands") {
 class TestInterpreter : public Interpreter {
 public:
     std::string_view name() const override { return "test"; }
-    std::string complete_text(std::string_view text) const override { return std::string{text}; }
+    Completions complete_text(std::string_view, std::string_view) const { return {}; };
     bool can_interpret(std::string_view) const override { return true; }
     bool interpret(std::string_view) override { return true; }
     ~TestInterpreter() override = default;

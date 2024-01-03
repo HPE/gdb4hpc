@@ -392,6 +392,9 @@ extern void DestroyCLIArgs(cli_type_t, cli_stream_args_t *);
 extern bool DbgInterpreterSet(std::string_view interpreter_name);
 extern bool DbgInterpreterExec(std::string_view interpreter_name, std::string_view text);
 extern bool DbgInterpret(std::string_view text);
+// `DbgComplete` asks the current stream's current interpreter to generate
+// completions for the `partial_word` is contained in `buffer`.
+extern Interpreter::Completions DbgComplete(std::string_view partial_word, std::string_view buffer);
 
 extern void DbgQueueCommand(const std::string &command);
 // queue a command to later be executed by DbgExecuteQueuedCommands

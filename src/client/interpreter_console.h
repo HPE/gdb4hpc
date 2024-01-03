@@ -19,7 +19,7 @@ public:
     // interpreter interface:
 
     std::string_view name() const override;
-    std::string complete_text(std::string_view line) const override; // unimplemented
+    Completions complete_text(std::string_view partial_word, std::string_view buffer) const override;
     bool can_interpret(std::string_view line) const override;
     bool interpret(std::string_view line) override;
     Interpreter::Printer& get_printer() override;

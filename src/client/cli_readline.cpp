@@ -1,18 +1,13 @@
 /******************************************************************************\
  * cli_readline.c - External readline CLI routines.
  *
- * Copyright 2011-2015,2020 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2023 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
  * Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
  *
  ******************************************************************************/
 
@@ -50,6 +45,8 @@ static bool should_repeat_line(const char *line);
 static char *expand_line(const char *line);
 static void record_and_execute_line(const char *line);
 static void rl_handle_line(char *);
+
+static char** generate_completions(const char* text, int start, int end);
 
 cli_externals_t *cli_get_readline_funcs(void) {
     cli_externals_t *rtn;
@@ -131,6 +128,9 @@ static int cli_readline_init(cli_stream_t **stream) {
     // Set history size to 800
     stifle_history(800);
 
+    // Allow gdb4hpc specific branches in .editrc
+    rl_readline_name = "gdb4hpc";
+
     // Read in the editline rc file, this will fail silently.
     struct passwd *pw = getpwuid(getuid());
     if (pw) {
@@ -140,6 +140,9 @@ static int cli_readline_init(cli_stream_t **stream) {
         rl_read_init_file(init_file_loc);
         Free(init_file_loc);
     }
+
+    // set tab completion hook
+    rl_attempted_completion_function = generate_completions;
 
     return 0;
 }
@@ -352,11 +355,45 @@ static void rl_handle_line(char *line) {
     } else {
         rl_set_prompt("");
     }
+}
 
-    // PE-29468 : this function is called in a call-back from editline and 
-    // calling rl_forced_update_display at this point causes a double print of
-    // prompt.   I believe it's related to editline switching between buffered
-    // and unbuffered - in any case, the next call when the callback returns is
-    // a refresh so the call here is unnecessary.
-    //rl_forced_update_display();
+// `generate_completions` asks the current interpreter to complete the word
+// fragment `partial_word` which is a substring in `rl_line_buffer` at indices [`start`, `end`).
+//
+// readline wants a peculiarly formatted array of char* as the result:
+// - result[0]: the shortest common substring - this will *replace* `partial_word` when tab is pressed.
+// - result[1]: the first completion option
+// - result[2]: the second completion option
+// - ...
+// - result[n]: nullptr
+//
+// the returned array is deeply freed by readline and must be allocated with malloc.
+//
+// if nullptr is returned, readline will fall back to its internal filesystem based
+// completions.
+static char** generate_completions(const char* partial_word, int start, int end) {
+    auto completions = DbgComplete(
+        std::string_view{partial_word, static_cast<size_t>(end - start)},
+        std::string_view{rl_line_buffer, static_cast<size_t>(rl_end)}
+    );
+
+    if (!completions.possibilities.empty()) {
+        const auto& possibilities = completions.possibilities;
+        auto replacement = completions.calc_common_prefix();
+
+        // the replacement + all other possibilities + nullptr
+        const auto result_size = possibilities.size() + 2;
+
+        auto result = static_cast<char**>(::malloc(sizeof(char*) * result_size));
+        result[0] = ::strdup(replacement.c_str());
+        for (auto i = size_t{0}; i < possibilities.size(); i++) {
+            result[i + 1] = ::strdup(possibilities[i].c_str());
+        }
+        result[result_size - 1] = nullptr;
+
+        return result;
+    } else {
+        // no completions provided by interpreter, fall back to readline's filesystem completion
+        return nullptr;
+    }
 }

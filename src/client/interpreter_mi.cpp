@@ -72,11 +72,6 @@ std::string_view MiInterpreter::name() const {
     return "mi";
 }
 
-std::string MiInterpreter::complete_text(std::string_view line) const {
-    // Completion is unimplemented for this interpreter
-    return std::string{line};
-}
-
 bool MiInterpreter::can_interpret(std::string_view line) const {
     auto find_result = m_mi_commands->findCmd(line);
     return std::get_if<CommandNode::Parts>(&find_result) != nullptr
@@ -656,4 +651,10 @@ void MiCommandsFactory::insert_dummy_commands(CommandNode& root) {
     for (const auto& [key, value] : dummy_map) {
         root.addSubCmd({ .name = key, .ptype = proc_ignore, .fn = make_dummy(value) });
     }
+}
+
+Interpreter::Completions
+MiInterpreter::complete_text(std::string_view /*partial_word*/, std::string_view /*buffer*/) const {
+    // unimplemented
+    return {};
 }

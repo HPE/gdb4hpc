@@ -40,17 +40,14 @@ public:
     // interpreter-exec command.
     virtual std::string_view name() const = 0;
 
-    // Given `text`, complete_text tries to transform it into a string that the
-    // interpreter understands. If that isn't possible, it returns a copy of
-    // `text`.
+    // Given a `partial_word` in `buffer`, complete_text returns possible
+    // Completions of the `partial_word`. If no completions are possible,
+    // complete_text returns an empty Completions object.
     //
-    // This function is currently not implemented by any interpreter.
-    //
-    // TODO making a copy of `text` on failure seems a little wasteful. consider
-    // changing this api to return a string_view which would save the copy on
-    // the failure case and let the caller decide when to copy on the success case,
-    // or maybe just a std::optional<std::string>.
-    virtual std::string complete_text(std::string_view text) const = 0;
+    // `partial_word` must be contained within `buffer`. i.e. the implementation
+    // is allowed to compare memory addresses of `partial_word` with `buffer`.
+    class Completions;
+    virtual Completions complete_text(std::string_view partial_word, std::string_view buffer) const = 0;
 
     // Given `text`, can_interpret returns true if it would be appropriate to
     // call interpret(`text`).
@@ -124,4 +121,17 @@ private:
     //
     // get_printer is intentionally private and only accessible from cli_funcs.
     virtual Printer& get_printer() = 0;
+};
+
+struct Interpreter::Completions {
+    // a representation of completion possibilities for a partially typed-in interpreter command.
+
+    // `calc_common_prefix` calculates and returns the longest string of
+    // characters common among all `possibilities`.
+    //
+    // if there are no possibilities in the list, this function returns "".
+    std::string calc_common_prefix() const;
+
+    // `possibilities` can and should be modified from the outside.
+    std::vector<std::string> possibilities;
 };

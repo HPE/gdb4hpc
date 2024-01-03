@@ -139,6 +139,11 @@ bool DbgInterpret(std::string_view text) {
     return CurrentStream->cs_current_interpreter->interpret(text);
 }
 
+Interpreter::Completions DbgComplete(std::string_view partial_word, std::string_view buffer) {
+    // cs_current_interpreter will never be null after the cli_stream_t ctor
+    return CurrentStream->cs_current_interpreter->complete_text(partial_word, buffer);
+}
+
 bool DbgInterpreterSet(std::string_view name) {
     if (auto intr = getOrCreateInterpreter(name)) {
         CurrentStream->cs_current_interpreter = intr;

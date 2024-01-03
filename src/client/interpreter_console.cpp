@@ -40,11 +40,6 @@ std::string_view ConsoleInterpreter::name() const {
     return "console";
 }
 
-std::string ConsoleInterpreter::complete_text(std::string_view line) const {
-    // Completion is unimplemented for this interpreter
-    return std::string{line};
-}
-
 bool ConsoleInterpreter::can_interpret(std::string_view line) const {
     auto find_result = m_commands_stack.back()->findCmd(line);
     return std::get_if<CommandNode::Parts>(&find_result) != nullptr;
@@ -681,4 +676,23 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
                    nullptr, cmd_save_help,
                    "Save debugger state to a file.");
 
+}
+
+Interpreter::Completions
+ConsoleInterpreter::complete_text(std::string_view partial_word, std::string_view buffer) const {
+    auto comps = Interpreter::Completions{};
+
+    if (partial_word.data() == buffer.data()) {
+        // complete the command name
+        for (const auto& command_node : m_commands_stack.back()->getSubCmds()) {
+            const auto fullname = command_node->getFullName();
+            if (fullname.starts_with(partial_word)) {
+                comps.possibilities.emplace_back(command_node->getFullName());
+            }
+        }
+    } else {
+        // TODO implement richer completion
+    }
+
+    return comps;
 }

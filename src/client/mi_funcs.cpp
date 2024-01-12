@@ -109,18 +109,10 @@ Var::Var(const std::string& name, const std::string& frame, const std::string& e
 void Var::update(bool allValues, bool& isFirst, std::ostream& os)
 {
     auto newValue = GetMiValue(m_expression, m_procset);
+    
+    if (newValue == m_value) return;
 
-    //remove procset info from value string
-    std::string val="";
-    static std::regex value_regex(R"(\w+\{?[\s\S]*\}?\:([\s\S]*))"); 
-    std::smatch match;
-    if (std::regex_match(newValue, match, value_regex)) {
-        val = match[1].str();
-    }
-
-    if (val == m_value) return;
-
-    m_value = std::move(val);
+    m_value = std::move(newValue);
     auto inScope = !m_value.empty();
 
     if (isFirst) isFirst = false;
@@ -158,17 +150,15 @@ std::string Vars::create(const std::string& inname, const std::string& frame,
 
     //get procset and remove it from value string
     std::string procset="";
-    std::string val="";
-    static std::regex value_regex(R"((\w+)\{?[\s\S]*\}?\:([\s\S]*))"); 
+    static std::regex value_regex(R"((\w+)(?:\{([\d\.]+)\})?\:[\s\S]*)"); 
     std::smatch match;
     if (std::regex_match(value, match, value_regex)) {
         procset = match[1].str();
-        val = match[2].str();
     }
     
-    os << "ok,name=\"" << name << "\", proc_set=\"" << procset << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< val << "\"";
+    os << "ok,name=\"" << name << "\", proc_set=\"" << procset << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
     // and store it
-    m_vars.insert( std::make_pair(name, Var{name, frame, expression, procset, std::move(val)}));
+    m_vars.insert( std::make_pair(name, Var{name, frame, expression, procset, std::move(value)}));
 
     return os.str();
 }

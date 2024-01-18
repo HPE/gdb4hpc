@@ -57,7 +57,7 @@
 ^done,proc_set="App0",files=[{file="/src/c/c_inc.c",fullname="/src/c/c_inc.c"}]
 (gdb)
 0: 1-thread-info
-1^done,proc_set="App0",group="{0..1}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="9"},state="break"}],current-thread-id="1"
+1^done,msgs=[{proc_set="App0",group="{0..1}",current-thread-id="1", threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="9"},state="break"}]}]
 (gdb)
 0: 1-stack-list-variables --simple-values
 1^done,proc_set="App0",group="0..1",variables=[{name="argc",type="int",proc_set="App0",group="0..1"},{name="argv",type="char **",proc_set="App0",group="0..1"},{name="inc",type="unsigned int",proc_set="App0",group="0..1"}]
@@ -89,7 +89,7 @@
 (gdb)
 *stopped,reason="end-stepping-range",proc_set="App0",group="0..1",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="11"},thread-id="1"
 0: 1-thread-info
-1^done,proc_set="App0",group="{0..1}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="11"},state="break"}],current-thread-id="1"
+1^done,msgs=[{proc_set="App0",group="{0..1}",current-thread-id="1", threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="11"},state="break"}]}]
 (gdb)
 0: 1-stack-list-variables --simple-values
 1^done,proc_set="App0",group="0..1",variables=[{name="argc",type="int",proc_set="App0",group="0..1"},{name="argv",type="char **",proc_set="App0",group="0..1"},{name="inc",type="unsigned int",proc_set="App0",group="0..1"}]
@@ -112,7 +112,7 @@
 (gdb)
 *stopped,reason="end-stepping-range",proc_set="App0",group="0..1",frame={func="main",args=[],file="/src/c/c_inc.c",fullname="/src/c/c_inc.c",line="13"},thread-id="1"
 0: 1-thread-info
-1^done,proc_set="App0",group="{0..1}",threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="13"},state="break"}],current-thread-id="1"
+1^done,msgs=[{proc_set="App0",group="{0..1}",current-thread-id="1", threads=[{id="1",target-id="c_inc.x",frame={addr="0xf00f",func="main",file="src/c/c_inc.c",line="13"},state="break"}]}]
 (gdb)
 0: 1-stack-list-variables --simple-values
 1^done,proc_set="App0",group="0..1",variables=[{name="argc",type="int",proc_set="App0",group="0..1"},{name="argv",type="char **",proc_set="App0",group="0..1"},{name="inc",type="unsigned int",proc_set="App0",group="0..1"}]

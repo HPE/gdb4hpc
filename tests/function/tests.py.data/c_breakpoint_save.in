@@ -9,7 +9,8 @@ b{0..1}: Breakpoint 1, loop_stuff() at /src/C++/cpp_points.cpp:17
 0: focus $b{0}
 0: disable 1
 0: focus $all
-0: info thread
+0: # threads expected to look something like this, but some systems add MPI threads so we can't rely on it
+0: info thread???
 b{0..1}:   Id    Frame
 b{0..1}: * 1-2   "cpp_points.x" loop_stuff () at src/C++/cpp_points.cpp:17
 b{0..1}:

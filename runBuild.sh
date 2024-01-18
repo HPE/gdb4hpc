@@ -269,6 +269,62 @@ check_exit_status
 cp -a $top_level/doc/guides/*.html $install_dir/share/doc/.
 check_exit_status
 
+echo ""
+echo "*******************************************************"
+echo "******************* BUILDING VSCODE PLUGIN *******************"
+echo "*******************************************************"
+echo ""
+
+node_version="v18.18.0"
+if [[ ! -d "./build/node-$node_version" ]]; then
+    # Download node and set up build tools
+    mkdir -p build
+    check_exit_status
+    cd build
+    check_exit_status
+
+    node_url="https://arti.hpc.amslabs.hpecorp.net/artifactory/nodejs.org-download-remote/release/$node_version"
+    target_arch=$(get_arch)
+
+    if [[ "$target_arch" == "$cdst_arch_x86_64" ]]; then
+        node_arch="x64"
+    elif [[ "$target_arch" == "$cdst_arch_aarch64" ]]; then
+        node_arch="arm64"
+    else
+        echo "Unknown arch: $target_arch"
+        exit 1
+    fi
+
+    wget "$node_url/node-$node_version-linux-$node_arch.tar.xz"
+    check_exit_status
+
+    tar -xf "node-$node_version-linux-$node_arch.tar.xz"
+    check_exit_status
+
+    mv "node-$node_version-linux-$node_arch" "./node-$node_version"
+    check_exit_status
+fi
+
+export PATH="$top_level/build/node-$node_version/bin:$PATH"
+
+cd $top_level
+check_exit_status
+
+cd "$top_level/vscode-ext"
+check_exit_status
+
+npm ci
+check_exit_status
+
+npm prune
+check_exit_status
+
+npm run package
+check_exit_status
+
+cp *.vsix "$install_dir/libexec/"
+check_exit_status
+
 echo "############################################"
 echo "#              Done with build             #"
 echo "############################################"

@@ -1,0 +1,242 @@
+{
+  "name": "ccdb",
+  "displayName": "CCDB",
+  "version": "1.1.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.hpe.com/hpcde/cdst-gdb4hpc.git"
+  },
+  "license": "SEE LICENSE IN",
+  "description": "C/C++ Debugging Support for Visual Studio Code",
+  "keywords": [
+    "C++",
+    "C",
+    "GDB4HPC",
+    "CCDB"
+  ],
+  "icon": "",
+  "engines": {
+    "vscode": "^1.59.0"
+  },
+  "categories": [
+    "Debuggers"
+  ],
+  "scripts": {
+    "dev": "npm install",
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./src",
+    "watch": "tsc -watch -p ./src",
+    "build": "tsc -p ./src",
+    "package": "vsce package --no-yarn"
+  },
+  "dependencies": {
+    "@vscode/debugadapter": "^1.49.0",
+    "@vscode/debugprotocol": "^1.51.0",
+    "gdb": "^0.1.0-pre",
+    "latest": "^0.2.0",
+    "node": "^18.18.0",
+    "node-pty": "^1.0.0",
+    "tail-stream": "^0.3.4",
+    "await-notify": "^1.0.1"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.2.13",
+    "@types/glob": "^7.1.4",
+    "@types/mocha": "^9.0.0",
+    "@types/node": "^14.14.37",
+    "@types/vscode": "^1.59.0",
+    "@typescript-eslint/eslint-plugin": "^4.29.3",
+    "@typescript-eslint/parser": "^4.29.3",
+    "@vscode/debugadapter-testsupport": "^1.49.0",
+    "@vscode/vsce": "^2.0.0",
+    "eslint": "^7.32.0",
+    "glob": "^7.1.7",
+    "gts": "^3.1.0",
+    "mocha": "^9.1.0",
+    "react-dom": "^18.2.0",
+    "ts-loader": "^8.1.0",
+    "typescript": "^4.3.5"
+  },
+  "main": "./out/extension",
+  "activationEvents": [
+    "onStartupFinished",
+    "onDebug"
+  ],
+  "workspaceTrust": {
+    "request": "never"
+  },
+  "contributes": {
+    "configuration": {
+      "title": "CCDB",
+      "properties": {}
+    },
+    "views": {
+      "debug": [
+        {
+          "id": "focus",
+          "name": "Focus",
+          "icon": "${eye}",
+          "contextualTitle": "Focus"
+        },
+        {
+          "type": "webview",
+          "id": "compareView",
+          "name": "Comparisons",
+          "icon": "${eye}",
+          "contextualTitle": "Comparisons"
+        },
+        {
+          "type": "webview",
+          "id": "assertView",
+          "name": "Assertion Scripts",
+          "icon": "${eye}",
+          "contextualTitle": "Assertions"
+        }
+      ]
+    },
+    "breakpoints": [
+      {
+        "language": "cpp"
+      },
+      {
+        "language": "c"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "ccdb",
+        "label": "C/C++ Debug (CCDB)",
+        "program": "./out/debugAdapter.js",
+        "runtime": "node",
+        "languages": [
+          "c",
+          "cpp"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Absolute path of program to debug",
+                "default": ""
+              },
+              "args": {
+                "type": "array",
+                "description": "Arguments to pass to inferior",
+                "default": []
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Working directory of the target",
+                "default": "${workspaceFolder}"
+              },
+              "env": {
+                "type": "object",
+                "description": "Environment variables to set in debugger shell",
+                "default": {}
+              },
+              "dbgversion": {
+                "type": "string",
+                "description": "Path to debugger",
+                "default": "gdb4hpc"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "ccdb",
+            "request": "launch",
+            "name": "CCDB",
+            "dbgversion": "gdb4hpc",
+            "program": "",
+            "args": "",
+            "cwd": "",
+            "env": {
+              "GDB4HPC_DEBUG_INTERPRETER": "1"
+            }
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "focus.refreshEntry",
+        "title": "Refresh"
+      },
+      {
+        "command": "focus.addEntry",
+        "title": "Add"
+      },
+      {
+        "command": "focus.selectEntry",
+        "title": "Select"
+      },
+      {
+        "command": "compareView.runCompares",
+        "title": "Run"
+      },
+      {
+        "command": "compareView.addEntry",
+        "title": "Add"
+      },
+      {
+        "command": "assertView.runScripts",
+        "title": "Run"
+      },
+      {
+        "command": "assertView.addEntry",
+        "title": "Add"
+      },
+      {
+        "command": "assertView.getInfo",
+        "title": "Results"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "focus.refreshEntry",
+          "when": "view == focus",
+          "group": "navigation"
+        },
+        {
+          "command": "focus.addEntry",
+          "when": "view == focus",
+          "group": "navigation"
+        },
+        {
+          "command": "compareView.runCompares",
+          "when": "view == compareView",
+          "group": "navigation"
+        },
+        {
+          "command": "compareView.addEntry",
+          "when": "view == compareView",
+          "group": "navigation"
+        },
+        {
+          "command": "assertView.runScripts",
+          "when": "view == assertView",
+          "group": "navigation"
+        },
+        {
+          "command": "assertView.addEntry",
+          "when": "view == assertView",
+          "group": "navigation"
+        },
+        {
+          "command": "assertView.getInfo",
+          "when": "view == assertView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "focus.selectEntry",
+          "group": "inline"
+        }
+      ]
+    }
+  }
+}

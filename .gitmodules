@@ -18,22 +18,6 @@
 	path = external/python_extras
 	url = git@github.hpe.com:hpcde/cdst-python-extras.git
 	branch = master
-[submodule "external/zmqnet"]
-	path = external/zmqnet
-	branch = master
-	url = git@github.hpe.com:hpcde/cdst-zmqnet.git
-[submodule "external/changelog"]
-	path = external/changelog
-	url = git@github.hpe.com:hpcde/devops-changlog.git
-	branch = master
-[submodule "external/doctest"]
-	path = external/doctest
-	url = git@github.hpe.com:hpcde/cdst-doctest.git
-	branch = hpe
-[submodule "external/openmp"]
-	path = external/openmp
-	url = git@github.hpe.com:hpcde/cdst-openmp.git
-	branch = hpe
 [submodule "external/pebuildenv"]
 	path = external/pebuildenv
 	url = git@github.hpe.com:hpcde/mpt-pebuildenv.git
@@ -42,4 +26,19 @@
 	path = rpmbuild/SOURCES/set_default
 	url = git@github.hpe.com:hpcde/cdeux-set-default.git
 	branch = master
-
+[submodule "external/zmqnet"]
+	path = external/zmqnet
+	url = git@github.hpe.com:hpcde/cdst-zmqnet.git
+	branch = master
+[submodule "external/changelog"]
+	path = external/changelog
+	url = git@github.hpe.com:hpcde/devops-changelog.git
+	branch = master
+[submodule "external/openmp"]
+	path = external/openmp
+	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-llvm-mirror-openmp.git
+	branch = hpe
+[submodule "external/doctest"]
+	path = external/doctest
+	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-doctest.git
+	branch = hpe

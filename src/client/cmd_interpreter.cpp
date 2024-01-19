@@ -31,6 +31,40 @@ int interpreter_exec_console(int argc, const char* const argv[]) {
     return result;
 }
 
+int interpreter_complete(int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("Usage: maint complete ...<>\n");
+        return Command::Failure;
+    }
+
+    auto command = ArgvStream(argc, argv).asString(1);
+    auto cursor_pos = command.find("<>");
+
+    if (cursor_pos == std::string::npos) {
+        PrintOutError("Include \"<>\" where you want completion to happen from.\n");
+        return Command::Failure;
+    }
+
+    auto cursor_word = command.rfind(" ", cursor_pos);
+    if (cursor_word != std::string::npos) {
+        cursor_word += 1;
+    } else {
+        cursor_word = 0;
+    }
+
+    command.erase(cursor_pos, 2);
+
+    const auto comps = DbgComplete(std::string_view{&command[cursor_word], cursor_pos - cursor_word}, command);
+
+    PrintOutMsg("include filesystem: %d\n", comps.include_filesystem);
+
+    for (const auto& comp : comps.possibilities) {
+        PrintOutMsg("%s\n", comp.c_str());
+    }
+
+    return Command::Success;
+}
+
 int interpreter_exec_mi(int argc, const char* const argv[]) {
     if (argc < 3) {
         PrintOutError("Usage: %s console|mi <command>\n", argv[0]);
@@ -57,6 +91,10 @@ void ConsoleCommandsFactory::insert_interpreter_commands(CommandNode& root) {
         .name = "interpreter-exec", .ptype = proc_ignore, .fn = interpreter_exec_console,
         .help = cmd_interpreter_exec_help,
         .desc = "Execute a command under a specific interpreter."});
+
+    root.addSubCmd({
+        .name = "maint complete", .ptype = proc_ignore, .fn = interpreter_complete,
+        .help = nullptr, .desc = "Text command completion"});
 }
 
 void MiCommandsFactory::insert_interpreter_commands(CommandNode& root) {

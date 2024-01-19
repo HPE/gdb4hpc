@@ -371,9 +371,12 @@ static void rl_handle_line(char *line) {
 //
 // if nullptr is returned, readline will fall back to its internal filesystem based
 // completions.
-static char** generate_completions(const char* partial_word, int start, int end) {
+static char** generate_completions(const char* /*partial_word*/, int start, int end) {
+    // the DbgComplete API expects that the passed partial word is part of the passed buffer.
+    // the `partial_word` passed by readline here is actually the result of ::strdup and
+    // doesn't satisfy this, so we create a string view ourselves.
     auto completions = DbgComplete(
-        std::string_view{partial_word, static_cast<size_t>(end - start)},
+        std::string_view{rl_line_buffer + start, rl_line_buffer + end},
         std::string_view{rl_line_buffer, static_cast<size_t>(rl_end)}
     );
 
@@ -392,8 +395,12 @@ static char** generate_completions(const char* partial_word, int start, int end)
         result[result_size - 1] = nullptr;
 
         return result;
-    } else {
+    } else if (completions.include_filesystem) {
         // no completions provided by interpreter, fall back to readline's filesystem completion
+        return nullptr;
+    } else {
+        // no completions provided by interpreter, and we shouldn't even show filenames
+        rl_attempted_completion_over = true;
         return nullptr;
     }
 }

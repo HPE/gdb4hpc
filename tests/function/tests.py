@@ -1003,6 +1003,10 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "mi_ccdb_assert"
         runTest(self, interpreter="mi")
 
+    def test_completions_nolaunch(self):
+        self.base_name = "completions_nolaunch"
+        runTest(self)
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

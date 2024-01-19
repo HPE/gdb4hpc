@@ -48,7 +48,9 @@ CommandNode::CommandNode(const std::string& name, const char* alias,
 
 CommandNode::CommandNode(CommandNode::CtorArgs&& args)
     : CommandNode(args.name, args.alias, args.ptype, args.fn, args.help, args.desc)
-{}
+{
+    m_completionFn = args.completion;
+}
 
 CommandNode::CommandNode(cmdptype ptype, Command defaultCmd) :
     m_ptype(ptype), m_func(nullptr), m_help(nullptr), m_desc(nullptr)
@@ -91,6 +93,24 @@ void CommandNode::addSubCmd(const std::string& name, const char* alias, cmdptype
 
 void CommandNode::addSubCmd(CommandNode::CtorArgs&& args) {
     addSubCmd(std::make_shared<CommandNode>(std::move(args)));
+}
+
+Interpreter::Completions CommandNode::completeText(
+    std::string_view partialWord, std::string_view buffer,
+    const Interpreter& intr, const dbgprocset_t *procset, const ArgvStream& argv)
+{
+    if (m_completionFn) {
+        return m_completionFn(partialWord, buffer, intr, procset, argv);
+    } else {
+        // fallback to listing subcommands
+        auto comps = Interpreter::Completions{};
+        for (const auto& subcmd : m_subCmds) {
+            if (subcmd->getShortName().starts_with(partialWord)) {
+                comps.possibilities.emplace_back(subcmd->getShortName());
+            }
+        }
+        return comps;
+    }
 }
 
 static std::unique_ptr<rec_set_t> getRecSetForCommand(cmdptype ptype, dbgprocset_t* procset) {
@@ -153,10 +173,13 @@ void PrintHelpEntry(const char *const * helpStrArray) {
     return;
 }
 
-// Locate a command from user input.
-// If a matching command is found, return the command object and the
-// arguments for that command. If not found, return an error describing why.
-std::variant<CommandNode::Parts, CommandNode::ErrStr> CommandNode::findCmd(std::string_view cmd) {
+struct CommandNode::Traversal {
+    // the results of a command node tree traversal
+    CommandNode::Parts final_parts;
+    CommandNode::ErrStr stop_error;
+};
+
+CommandNode::Traversal CommandNode::traverse(std::string_view cmd) {
     auto* cp = this;
 
     const auto spcSlash = "/ \t\n";
@@ -182,12 +205,24 @@ std::variant<CommandNode::Parts, CommandNode::ErrStr> CommandNode::findCmd(std::
         }
     }
 
-    if (!err.empty()) {
-        return err;
-    } else {
-        end = (cp->getShortName().empty() ? 0 : cmd.find_first_not_of(spc, end));
-        return Parts{ .command = cp, .args = std::string{cmd.substr(std::min(cmd.size(),end))} };
-    }
+    // special case for nodes with an m_default (which conventionally have a ""
+    // as shortName), those should get the whole line as args
+    end = (cp->getShortName().empty() ? 0 : cmd.find_first_not_of(spc, end));
+
+    return {
+        .final_parts = CommandNode::Parts{ .command = cp, .args = std::string{cmd.substr(std::min(cmd.size(),end))} },
+        .stop_error = err,
+    };
+}
+
+std::variant<CommandNode::Parts, CommandNode::ErrStr> CommandNode::findCmd(std::string_view cmd) {
+    auto result = traverse(cmd);
+    if (!result.stop_error.empty()) return result.stop_error;
+    return result.final_parts;
+}
+
+CommandNode::Parts CommandNode::findCmdBestMatch(std::string_view cmd) {
+    return traverse(cmd).final_parts;
 }
 
 std::variant<CommandNode*, CommandNode::ErrStr> CommandNode::findSubCmd(std::string_view cmd) {

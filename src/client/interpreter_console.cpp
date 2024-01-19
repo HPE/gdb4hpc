@@ -680,19 +680,50 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
 
 Interpreter::Completions
 ConsoleInterpreter::complete_text(std::string_view partial_word, std::string_view buffer) const {
-    auto comps = Interpreter::Completions{};
+    auto [cmd, args] = m_commands_stack.back()->findCmdBestMatch(stripped(buffer));
 
-    if (partial_word.data() == buffer.data()) {
-        // complete the command name
-        for (const auto& command_node : m_commands_stack.back()->getSubCmds()) {
-            const auto fullname = command_node->getFullName();
-            if (fullname.starts_with(partial_word)) {
-                comps.possibilities.emplace_back(command_node->getFullName());
-            }
-        }
+     // should never happen. findCmdBestMatch will return the root node at worst.
+    if (!cmd) return {};
+
+    auto argv = ArgvStream{};
+    argv.parseAndAppendArgs(cmd->getShortName() + " " + args);
+
+    if (cmd->getShortName() == "help") {
+        // short circuit on help - it needs more global context than normal
+        // commands to do completion.
+        return complete_help(partial_word, buffer);
+    } else if (!partial_word.empty() && argv.argc() == 1 && cmd->getShortName().size() >= partial_word.size()) {
+        // the user is still typing the command name. we complete the command
+        // name before deferring to command specific impls
+        //
+        // this branch is chosen even for some commands that appear at first to
+        // have an argc() > 1 like "set print elem" because we use the short
+        // name when constructing argv above, which peels off "set print" for us
+        // and argv[0] becomes "elem".
+        auto comps = Interpreter::Completions{};
+        comps.possibilities.emplace_back(cmd->getShortName());
+        return comps;
     } else {
-        // TODO implement richer completion
+        // do command-specific completion
+        return cmd->completeText(partial_word, buffer, *this, CurrentProcSet(), argv);
     }
-
-    return comps;
 }
+
+Interpreter::Completions ConsoleInterpreter::complete_help(std::string_view partial_word, std::string_view buffer) const {
+    // pretend we're completing a normal command that starts after "help".
+    // this recursive strategy has a side effect of eventually running
+    // command-specific completions. e.g. "help launch <tab>" will run the launch
+    // specific completions and might populate the line with more arguments meant
+    // for the real command. this might look a little weird, but it won't break
+    // anything. once the user presses enter, the help command is smart enough
+    // to ignore the extra stuff.
+
+    // the API of complete_text requires that `partial_word` live within `buffer` so
+    // we need to be a little fancy in crafting the new arguments for it.
+    const auto help_chars = buffer.substr(0, buffer.find_first_of(" \n\r\t"));
+    // should never happen, but prevent infinite recursion/exception throws if it does
+    if (help_chars.size() == 0 || help_chars.size() > buffer.size()) return {};
+
+    return complete_text(partial_word, buffer.substr(help_chars.size()));
+}
+

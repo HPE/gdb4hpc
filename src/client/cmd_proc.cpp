@@ -153,6 +153,13 @@ static int cmd_launch_cmd(int argc, const char* const argv[]) {
     }
 }
 
+static Interpreter::Completions cmd_launch_completion(std::string_view, std::string_view, const Interpreter&, const dbgprocset_t*, const ArgvStream&) {
+    // TODO: richer launch completion. for now, we just emulate old behavior
+    auto comps = Interpreter::Completions{};
+    comps.include_filesystem = true;
+    return comps;
+}
+
 /*
 ** Invoke helper routine. Invoke one or more processes.
 ** Note that the invoke process always operates synchronously.
@@ -1230,9 +1237,10 @@ void ConsoleCommandsFactory::insert_proc_commands(CommandNode& root) {
         cmd_info_application_cmd,
         cmd_info_application_help,
         "Show attached/launched applications under debugger control.");
-    root.addSubCmd(
-        "launch", nullptr, proc_ignore, cmd_launch_cmd,
-        cmd_launch_help, "Launch an application.");
+    root.addSubCmd({
+        .name = "launch", .ptype = proc_ignore,
+        .fn = cmd_launch_cmd, .completion = cmd_launch_completion,
+        .help = cmd_launch_help, .desc = "Launch an application."});
     root.addSubCmd(
         "attach", nullptr, proc_ignore, cmd_attach_cmd,
         cmd_attach_help, "Attach to an application.");

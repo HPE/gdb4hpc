@@ -38,12 +38,17 @@ public:
             const char* const* help,
             const char* desc);
 
+    // function signature for text completion functions
+    using CompletionFn =
+        std::function<Interpreter::Completions(std::string_view /*partialWord*/, std::string_view /*buffer*/, const Interpreter&, const dbgprocset_t*, const ArgvStream&)>;
+
     // enables nice things like cmd.addSubCmd({.name = "...", .desc = "..."})
     struct CtorArgs {
         std::string name;
         const char* alias = nullptr;
         cmdptype ptype;
         Command fn;
+        CompletionFn completion = nullptr;
         const char* const* help = nullptr;
         const char* desc = nullptr;
     };
@@ -78,6 +83,24 @@ public:
     using ErrStr = std::string;
     std::variant<Parts, ErrStr> findCmd(std::string_view cmdLine);
 
+    // similar to `findCmd`, but more lenient. `findCmdBestMatch` will search
+    // the command tree iterating through `line` word by word until either the
+    // end of the `line` is reached or a mismatch/ambiguity is found. e.g.
+    // findCmdBestMatch("set print this_subcmd_doesnt_exist") returns the node
+    // corresponding to "print" instead of an error.
+    Parts findCmdBestMatch(std::string_view line);
+
+    // using this node's completion function, generate completions for
+    // `partialWord` which is a substring of `buffer`. some extra context is
+    // provided for the completion function via `intr`, `procset` (might be
+    // nullptr), and `argv`.
+    //
+    // if this node doesn't have a completion function, a default behavior of
+    // matching the command node's subcommands is used.
+    Interpreter::Completions completeText(
+        std::string_view partialWord, std::string_view buffer,
+        const Interpreter& intr, const dbgprocset_t *procset, const ArgvStream& argv);
+
     // run a command with set of arguments
     int execute(Interpreter& intr, dbgprocset_t *s, int argc, const char* const argv[]);
 
@@ -85,6 +108,8 @@ public:
 
 private:
 
+    struct Traversal;
+    Traversal traverse(std::string_view line);
     std::variant<CommandNode*, ErrStr> findSubCmd(std::string_view cmd);
 
     std::string m_fullName;       // e.g. "set print elements"
@@ -92,6 +117,7 @@ private:
     const char* m_alias;          // optional 
     cmdptype m_ptype;
     Command m_func;
+    CompletionFn m_completionFn = nullptr;
     const char* const* m_help;
     const char* m_desc;
     std::vector<std::shared_ptr<CommandNode>> m_subCmds;

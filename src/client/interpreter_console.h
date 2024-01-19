@@ -36,6 +36,7 @@ public:
     void attach_observers();
 private:
     bool print_help(std::string_view line);
+    Interpreter::Completions complete_help(std::string_view partial_word, std::string_view buffer) const;
 
     std::vector<std::shared_ptr<CommandNode>> m_commands_stack;
 

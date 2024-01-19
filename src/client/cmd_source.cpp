@@ -69,7 +69,14 @@ static int cmd_source_cmd(int argc, const char* const argv[]) {
     return Command::Success;
 }
 
+static Interpreter::Completions cmd_source_completion(std::string_view, std::string_view, const Interpreter&, const dbgprocset_t*, const ArgvStream&) {
+    auto comps = Interpreter::Completions{};
+    comps.include_filesystem = true;
+    return comps;
+}
+
 void ConsoleCommandsFactory::insert_source_commands(CommandNode& root) {
-    root.addSubCmd("source", nullptr, proc_ignore, cmd_source_cmd,
-               cmd_source_help, "Read debugger commands from a file.");
+    root.addSubCmd({ .name = "source", .ptype = proc_ignore,
+                     .fn = cmd_source_cmd, .completion = cmd_source_completion,
+                     .help = cmd_source_help, .desc = "Read debugger commands from a file." });
 }

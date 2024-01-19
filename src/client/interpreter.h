@@ -134,4 +134,9 @@ struct Interpreter::Completions {
 
     // `possibilities` can and should be modified from the outside.
     std::vector<std::string> possibilities;
+
+    // if set to true, the function consuming the Completions should fall back to
+    // completing the partially typed string with filesystem files/directories if
+    // `possibilities` is empty.
+    bool include_filesystem = false;
 };

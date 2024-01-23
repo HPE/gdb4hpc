@@ -61,7 +61,7 @@ static int cmd_source_cmd(int argc, const char* const argv[]) {
     auto* stream_args = NewCLIArgs(CLI_FILE_STREAM, filename, nullptr, nullptr, echo, keep_going);
 
     // Create and set the new stream
-    if (SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::CLI, stream_args, 0)) {
+    if (SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::CLI, stream_args)) {
         PrintOutError("Could not create a cli stream from the given file.\n");
         return Command::Failure;
     }

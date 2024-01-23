@@ -40,13 +40,17 @@ public:
     // interpreter-exec command.
     virtual std::string_view name() const = 0;
 
+    // get_prompt returns a textual prompt that should go on the beginning of
+    // each line in an interactive session with the interpreter.
+    virtual std::string get_prompt() const;
+
     // Given a `partial_word` in `buffer`, complete_text returns possible
     // Completions of the `partial_word`. If no completions are possible,
     // complete_text returns an empty Completions object.
     //
     // `partial_word` must be contained within `buffer`. i.e. the implementation
     // is allowed to compare memory addresses of `partial_word` with `buffer`.
-    class Completions;
+    struct Completions;
     virtual Completions complete_text(std::string_view partial_word, std::string_view buffer) const = 0;
 
     // Given `text`, can_interpret returns true if it would be appropriate to

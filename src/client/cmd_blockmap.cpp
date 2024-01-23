@@ -260,9 +260,7 @@ int cmd_decomposition_cmd(Interpreter& intr, int argc, const char* const argv[])
 
         CurrentBlockMap = std::make_shared<BlockMap>(argv[1]);
 
-        console->push_commands(make_blockmap_command_tree());
-
-        cli_inc_prompt();
+        console->push_commands(make_blockmap_command_tree(), std::string{""} + argv[1] + "> ");
         return 1;
     } else {
         // Create the decomposition from a single line definition
@@ -486,7 +484,6 @@ int cmd_blockmap_end_cmd(ConsoleInterpreter& console) {
 
     // reset to normal command processing
     CurrentBlockMap.reset();
-    cli_dec_prompt();
     console.pop_commands();
 
     return 1;

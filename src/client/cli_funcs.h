@@ -186,8 +186,7 @@ private:
 ** CLI stream for I/O
 */
 struct cli_stream_t {
-    cli_stream_t(cli_type_t type, interpreter_type interpreter, cli_stream_args_t *args,
-                 int nprom, va_list pargs);
+    cli_stream_t(cli_type_t type, interpreter_type interpreter, cli_stream_args_t *args);
     ~cli_stream_t();
     
     cli_type_t cs_type;  /* cli stream type */
@@ -211,11 +210,6 @@ struct cli_stream_t {
     cli_out_t cs_out;      /* stream to output to */
     FILE *cs_fperr = nullptr;      /* stream to send errors to */
     FILE *cs_fpprog = nullptr;     // stream for program output
-    int cs_nprom = 0;        /* number of prompt levels */
-    int cs_plevel = 0;       /* current prompt level */
-    char **cs_prompts = nullptr;   /* format strings for prompts to display */
-    char *cs_prompt = nullptr;     /* current prompt, expanded from format string */
-    char *cs_tmp_prompt = nullptr; /* used to temporarily save a prompt */
     char *cs_buf = nullptr;        /* current line buffer */
     size_t cs_buf_size = 0;  /* size of current line buffer in elements */
     int cs_buf_point = 0;    /* current index into line buffer */
@@ -383,7 +377,7 @@ extern cli_externals_t *cli_get_file_funcs(void);
 */
 extern void InitCLI(cli_type_t, interpreter_type, cli_stream_args_t *);
 extern void DestroyCLI(void);
-extern int SetNewCLIStream(cli_type_t, interpreter_type, cli_stream_args_t *, int, ...);
+extern int SetNewCLIStream(cli_type_t, interpreter_type, cli_stream_args_t *);
 extern void DestroyCurrentCLIStream(void);
 extern void SetDefaultCLIStream(void);
 extern cli_stream_args_t *NewCLIArgs(cli_type_t, ...);
@@ -395,6 +389,8 @@ extern bool DbgInterpret(std::string_view text);
 // `DbgComplete` asks the current stream's current interpreter to generate
 // completions for the `partial_word` that is contained in `buffer`.
 extern Interpreter::Completions DbgComplete(std::string_view partial_word, std::string_view buffer);
+// `DbgGetPrompt` returns the current interpreter prompt
+extern std::string DbgGetPrompt();
 
 extern void DbgQueueCommand(const std::string &command);
 // queue a command to later be executed by DbgExecuteQueuedCommands
@@ -426,11 +422,6 @@ extern bool SetProgramOutputFile(const char* file);
 /*
 ** CLI helper functions
 */
-// Used to increment/decrement the current prompt
-extern void cli_inc_prompt(void);
-extern void cli_dec_prompt(void);
-// Returns the current prompt
-extern char *cli_get_prompt(void);
 // Used to handle input on the CLI stream cs_fpin
 extern void cli_handle_input(void);
 // Used to save the current state of a stream

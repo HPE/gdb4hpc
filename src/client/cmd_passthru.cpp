@@ -64,9 +64,7 @@ int cmd_directmode_cmd(ConsoleInterpreter& console, rec_set_t *rec_set, int argc
         return cmd_maint_direct_cmd(console, rec_set, argc, argv);
     }
 
-    console.push_commands(make_gdbmode_command_tree());
-
-    cli_inc_prompt();
+    console.push_commands(make_gdbmode_command_tree(), "gdbmode> ");
 
     PrintOutMsg(
         "Entering gdb pass-thru mode. Type \"end\" to exit mode...\n\n");
@@ -109,8 +107,6 @@ int cmd_directmode_end_cmd(ConsoleInterpreter& console, rec_set_t *rec_set) {
 
     auto rep_set = DbgRestoreAfterDirectCmd(rec_set);
     ProcessErrorInRepSet(rep_set);
-
-    cli_dec_prompt();
 
     console.pop_commands();
 

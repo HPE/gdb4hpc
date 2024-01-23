@@ -144,7 +144,8 @@ dbgprocset_t *CreateTempProcSetSlice(dbgprocset_t *ps, slice_t *ps_slice) {
     }
 
     // Create the name for this temporary process set
-    auto ps_name = std::string{ps->s_name} + "_temp";
+    const auto bitset = ps_slice->createBitset();
+    auto ps_name = std::string{ps->s_name} + bitset->toSetString();
 
     // create the new procset
     new_procset = NewProcSet(ps_name.c_str(), DBGSET_TEMP, ps_slice->getThreads());

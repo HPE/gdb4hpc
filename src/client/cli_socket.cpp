@@ -271,10 +271,8 @@ static int cli_socket_handle_input(cli_stream_t **stream) {
         DbgInterpret(cmd_buf);
         // Free the cmd_buf
         Free(cmd_buf);
-        if (cs->cs_nprom > 0) {
-            PrintOutUnformatted("%s", cli_get_prompt());
-            cs->cs_out.flush();
-        }
+        PrintOutUnformatted("%s", DbgGetPrompt().c_str());
+        cs->cs_out.flush();
     }
 
     DPRINT("Exit cli_socket_handle_input\n");

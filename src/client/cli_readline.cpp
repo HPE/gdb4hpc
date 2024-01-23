@@ -105,8 +105,10 @@ static int cli_readline_init(cli_stream_t **stream) {
     ** Readline init stuff.
     */
     rl_callback_handler_install(
-        cli_get_prompt(),
-        rl_handle_line);  // Setup the readline callback handler.
+        "",              // the initial prompt. the real prompt will be obtained from
+                         // the current interpreter once the interpreter is set up.
+                         // the user will never see this one.
+        rl_handle_line); // Setup the readline callback handler.
 
     // Setup the history
     using_history();
@@ -185,9 +187,6 @@ static int cli_readline_handle_char(cli_stream_t **) {
 static int cli_readline_save_stream(cli_stream_t **stream) {
     cli_stream_t *cs = (*stream);
 
-    cs->cs_tmp_prompt = cs->cs_prompt;
-    cs->cs_prompt = nullptr;
-
     cs->cs_buf_point = rl_point;
     cs->cs_buf = rl_copy_text(0, rl_end);
     rl_set_prompt("");
@@ -200,9 +199,7 @@ static int cli_readline_save_stream(cli_stream_t **stream) {
 static int cli_readline_restore_stream(cli_stream_t **stream) {
     cli_stream_t *cs = (*stream);
 
-    cs->cs_prompt = cs->cs_tmp_prompt;
-
-    rl_set_prompt(cs->cs_prompt);
+    rl_set_prompt(DbgGetPrompt().c_str());
     rl_replace_line(cs->cs_buf, 0);
     rl_point = cs->cs_buf_point;
     rl_forced_update_display();
@@ -214,7 +211,7 @@ static int cli_readline_restore_stream(cli_stream_t **stream) {
 
 static int cli_readline_reset_stream(cli_stream_t **) {
     rl_prep_terminal(0);
-    rl_set_prompt(cli_get_prompt());
+    rl_set_prompt(DbgGetPrompt().c_str());
     rl_replace_line("", 0);
     rl_forced_update_display();
 
@@ -351,7 +348,7 @@ static void rl_handle_line(char *line) {
 
     // Check for quit condition, on quit we reset prompt to empty.
     if (!Client.quit) {
-        rl_set_prompt(cli_get_prompt());
+        rl_set_prompt(DbgGetPrompt().c_str());
     } else {
         rl_set_prompt("");
     }

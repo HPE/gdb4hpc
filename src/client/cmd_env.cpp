@@ -308,22 +308,19 @@ int ShellMode::sendToShell(int argc, const char* const argv[]) {
 void ShellMode::enter(ConsoleInterpreter& console)
 {
     PrintOutMsg("Entering shell mode, use exit or suspend to leave.\n");
-    console.push_commands(ShellMode::make_command_tree());
-    cli_inc_prompt();
+    console.push_commands(ShellMode::make_command_tree(), "shell> ");
 }
 
 // Leave shell mode
 int ShellMode::exit(ConsoleInterpreter& console) {
     PrintOutMsg("\nExiting shell mode.\n");
     m_subshell.reset();
-    cli_dec_prompt();
     console.pop_commands();
     return Command::Success;
 }
 
 int ShellMode::suspend(ConsoleInterpreter& console) {
     PrintOutMsg("\nReturning to gdb4hpc.\n");
-    cli_dec_prompt();
     console.pop_commands();
     return Command::Success;
 }
@@ -990,7 +987,7 @@ static int class_new_ui_cmd(int argc, const char* const argv[]) {
 
     auto tty = argv[2];
     auto cli_args = NewCLIArgs(CLI_FILE_STREAM, tty, tty, tty, /*echo*/ CLI_DISABLE, /*keep_going*/ CLI_ENABLE);
-    SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::MI, cli_args, 0);
+    SetNewCLIStream(CLI_FILE_STREAM, interpreter_type::MI, cli_args);
 
     // Set back to the default stream since this make be part of a sequence of
     // -iex arguments

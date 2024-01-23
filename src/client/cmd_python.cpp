@@ -101,14 +101,12 @@ std::shared_ptr<CommandNode> PythonMode::make_command_tree() {
 // Start python mode
 void PythonMode::enter(ConsoleInterpreter& console) {
     PrintOutMsg("Entering python interpreter, use exit to leave.\n");
-    console.push_commands(PythonMode::make_command_tree());
-    cli_inc_prompt();
+    console.push_commands(PythonMode::make_command_tree(), "python> ");
 }
 
 // Leave shell mode
 int PythonMode::exit(ConsoleInterpreter& console) {
     PrintOutMsg("\nExiting python interpreter.\n");
-    cli_dec_prompt();
     console.pop_commands();
     return 1;
 }

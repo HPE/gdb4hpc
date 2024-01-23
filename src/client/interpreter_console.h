@@ -31,14 +31,25 @@ public:
     // change the command set. examples of such commands are gdbmode, decomp,
     // and build.
     void push_commands(std::shared_ptr<CommandNode> root);
+    // include an optional `prompt` to change the prompt while in the command
+    // tree. the prompt will be displayed literally with no spaces or
+    // prompt-like characters added by the interpreter. if `prompt` is "",
+    // fall back to a default prompt which displays the current procset.
+    void push_commands(std::shared_ptr<CommandNode> root, std::string_view prompt);
     void pop_commands();
+
+    std::string get_prompt() const override;
 
     void attach_observers();
 private:
     bool print_help(std::string_view line);
     Interpreter::Completions complete_help(std::string_view partial_word, std::string_view buffer) const;
 
-    std::vector<std::shared_ptr<CommandNode>> m_commands_stack;
+    struct CommandTree {
+        std::shared_ptr<CommandNode> tree;
+        std::string prompt; // if "", fall back to default implementation
+    };
+    std::vector<CommandTree> m_commands_stack;
 
     // observers
     std::vector<std::unique_ptr<ObservableConnection>> m_obsv_conns;

@@ -377,8 +377,7 @@ int cmd_build_cmd(ConsoleInterpreter& console, int argc, const char* const argv[
     auto name = std::string{argv[1]+1};
     g_pendingScript = std::make_unique<script::data::Script>(name);
 
-    console.push_commands(make_script_command_tree());
-    cli_inc_prompt();
+    console.push_commands(make_script_command_tree(), name + "> ");
 
     return 1;
 }
@@ -492,7 +491,6 @@ int cmd_script_end_cmd(ConsoleInterpreter& console) {
         PrintOutError("Tried to compile a nonexistent assertion script.\n");
     }
 
-    cli_dec_prompt();
     console.pop_commands();
     return Command::Success;
 }

@@ -34,7 +34,7 @@
 /*
 ** Static internal definitions
 */
-static cli_stream_t *NewCLIStream(cli_type_t, interpreter_type, cli_stream_args_t *, int, ...);
+static cli_stream_t *NewCLIStream(cli_type_t, interpreter_type, cli_stream_args_t *);
 static void cli_handle_error(void);
 static void ProgOutLineStream(DbgInvoke *, FILE *);
 static void ProgOutLineStrings(DbgInvoke *, const std::vector<std::string> &lines);
@@ -61,21 +61,20 @@ void InitCLI(cli_type_t default_type, interpreter_type interpreter,
     switch (default_type) {
         case CLI_NOTTY_STREAM:
             // There are no prompts for tty-less streams
-            stream = NewCLIStream(CLI_NOTTY_STREAM, interpreter, default_args, 0);
+            stream = NewCLIStream(CLI_NOTTY_STREAM, interpreter, default_args);
             break;
 
         case CLI_TTY_STREAM:
             stream =
-                NewCLIStream(CLI_TTY_STREAM, interpreter,
-                             default_args, 2, "dbg %s> ", "> ");
+                NewCLIStream(CLI_TTY_STREAM, interpreter, default_args);
             break;
 
         case CLI_SOCKET_STREAM:
-            stream = NewCLIStream(CLI_SOCKET_STREAM, interpreter, default_args, 0);
+            stream = NewCLIStream(CLI_SOCKET_STREAM, interpreter, default_args);
             break;
 
         case CLI_FILE_STREAM:
-            stream = NewCLIStream(CLI_FILE_STREAM, interpreter, default_args, 0);
+            stream = NewCLIStream(CLI_FILE_STREAM, interpreter, default_args);
             break;
     }
     stream->cs_num = 0;
@@ -144,6 +143,10 @@ Interpreter::Completions DbgComplete(std::string_view partial_word, std::string_
     return CurrentStream->cs_current_interpreter->complete_text(partial_word, buffer);
 }
 
+std::string DbgGetPrompt() {
+    return CurrentStream->cs_current_interpreter->get_prompt();
+}
+
 bool DbgInterpreterSet(std::string_view name) {
     if (auto intr = getOrCreateInterpreter(name)) {
         CurrentStream->cs_current_interpreter = intr;
@@ -193,22 +196,15 @@ void DestroyCLI(void) {
     CurrentStream = nullptr;
 }
 
-int SetNewCLIStream(cli_type_t type, interpreter_type interpreter,
-                    cli_stream_args_t *args, int nprom, ...) {
-    va_list pargs;
+int SetNewCLIStream(cli_type_t type, interpreter_type interpreter, cli_stream_args_t *args) {
     cli_stream_t *stream;
 
     // clear the current line this should contain a prompt
     cli_clear_line();
 
-    // First create the new stream
-    va_start(pargs, nprom);
+    stream = new cli_stream_t(type, interpreter, args);
 
-    stream = new cli_stream_t(type, interpreter, args, nprom, pargs);
-
-    va_end(pargs);
-
-        // Make sure the call didn't fail
+    // Make sure the call didn't fail
     if (stream == NULL) {
         return 1;
     }
@@ -258,22 +254,11 @@ void SetDefaultCLIStream(void) {
     cli_reset_stream();
 }
 
-static cli_stream_t *NewCLIStream(cli_type_t type, interpreter_type interpreter,
-                                  cli_stream_args_t *args,
-                                  int nprom, ...) {
-    va_list pargs;
-
-    va_start(pargs, nprom);
-
-    auto rtn = new cli_stream_t(type, interpreter, args, nprom, pargs);
-
-    va_end(pargs);
-
-    return rtn;
+static cli_stream_t *NewCLIStream(cli_type_t type, interpreter_type interpreter, cli_stream_args_t *args) {
+    return new cli_stream_t(type, interpreter, args);
 }
 
-cli_stream_t::cli_stream_t(cli_type_t type, interpreter_type interpreter,cli_stream_args_t *args,
-                           int nprom, va_list pargs)
+cli_stream_t::cli_stream_t(cli_type_t type, interpreter_type interpreter, cli_stream_args_t *args)
     : cs_type(type)
     , cs_args(args)
     , cs_logging(cs_out)
@@ -291,16 +276,6 @@ cli_stream_t::cli_stream_t(cli_type_t type, interpreter_type interpreter,cli_str
 
         cs_current_interpreter = intr;
         cs_interpreters.insert({std::string{intr->name()}, intr});
-    }
-
-    // Set the prompts if the user supplied any
-    if (nprom > 0) {
-        cs_nprom = nprom;
-        cs_prompts = (char **)Alloc(sizeof(char *) * nprom);
-
-        for (int n = 0; n < nprom; n++) {
-            cs_prompts[n] = strdup(va_arg(pargs, char *));
-        }
     }
 
     switch (type) {
@@ -341,11 +316,6 @@ cli_stream_t::cli_stream_t(cli_type_t type, interpreter_type interpreter,cli_str
 
 cli_stream_t::~cli_stream_t() {
     DbgUnhandleInput(this);
-
-    if (cs_prompts) {
-        for (int n = 0; n < cs_nprom; n++) Free(cs_prompts[n]);
-        free(cs_prompts);
-    }
 
     // call to external destroy function
     if (cs_ext_funcs->external_destroy) {
@@ -577,57 +547,11 @@ void cli_clear_line(void) {
     }
 }
 
-void cli_inc_prompt(void) {
-    if (CurrentStream == NULL) return;
-
-    if (CurrentStream->cs_plevel >= CurrentStream->cs_nprom - 1) return;
-
-    CurrentStream->cs_plevel++;
-}
-
-void cli_dec_prompt(void) {
-    if (CurrentStream == NULL) return;
-
-    if (CurrentStream->cs_plevel == 0) return;
-
-    CurrentStream->cs_plevel--;
-}
-
 bool cli_is_interactive() {
     // return true if we have a stream, the stream has an input, and it's a tty
     return CurrentStream != NULL &&
         CurrentStream->cs_fpin != NULL &&
         CurrentStream->cs_type == CLI_TTY_STREAM;
-}
-
-char *cli_get_prompt(void) {
-    cli_stream_t *cs = CurrentStream;
-    dbgprocset_t *s = CurrentProcSet();
-    const char *set_name;
-    int plen = 0;
-
-    if (cs == NULL) return NULL;
-
-    if (cs->cs_nprom <= 0) return NULL;
-
-    // free the old prompt
-    if (cs->cs_prompt != NULL) Free(cs->cs_prompt);
-
-    if (s != (dbgprocset_t *)NULL)
-        set_name = s->s_name.c_str();
-    else
-        set_name = "none";
-
-    plen = strlen(cs->cs_prompts[cs->cs_plevel]) + strlen(set_name) + 1;
-
-    // Alloc the new prompt. This will be slightly longer than we actually need
-    // if there are format characters in the CommandStream prompt string.
-    cs->cs_prompt = (char *)Alloc(sizeof(char) * plen);
-
-    // Create the new prompt and return it
-    snprintf(cs->cs_prompt, plen, cs->cs_prompts[cs->cs_plevel], set_name);
-
-    return cs->cs_prompt;
 }
 
 static const char* cli_query_prompt_fmt_string(cli_query_default default_val) {

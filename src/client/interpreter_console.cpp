@@ -2,7 +2,7 @@
 #include "interpreter_console.h"
 
 #include "str.h"
-#include "client.h"
+#include "client_settings.h"
 #include "cmd.h"
 
 using namespace std::string_literals;
@@ -33,7 +33,7 @@ void log(const char* fmt, ...) {
 ConsoleInterpreter::ConsoleInterpreter(cli_stream_t& io)
     : m_printer(*this, io)
 {
-    m_commands_stack.emplace_back(ConsoleCommandsFactory::make());
+    m_commands_stack.emplace_back(ConsoleInterpreter::CommandTree{ ConsoleCommandsFactory::make(), "" });
 }
 
 std::string_view ConsoleInterpreter::name() const {
@@ -41,7 +41,7 @@ std::string_view ConsoleInterpreter::name() const {
 }
 
 bool ConsoleInterpreter::can_interpret(std::string_view line) const {
-    auto find_result = m_commands_stack.back()->findCmd(line);
+    auto find_result = m_commands_stack.back().tree->findCmd(line);
     return std::get_if<CommandNode::Parts>(&find_result) != nullptr;
 }
 
@@ -52,7 +52,7 @@ bool ConsoleInterpreter::interpret(std::string_view line) {
         return true;
     }
 
-    auto find_result = m_commands_stack.back()->findCmd(line);
+    auto find_result = m_commands_stack.back().tree->findCmd(line);
 
     if (auto* parts = std::get_if<CommandNode::Parts>(&find_result)) {
         auto& [cmd, args] = *parts;
@@ -95,7 +95,11 @@ Interpreter::Printer& ConsoleInterpreter::get_printer() {
 }
 
 void ConsoleInterpreter::push_commands(std::shared_ptr<CommandNode> root) {
-    m_commands_stack.push_back(root);
+    m_commands_stack.emplace_back(CommandTree{ root, "" });
+}
+
+void ConsoleInterpreter::push_commands(std::shared_ptr<CommandNode> root, std::string_view prompt) {
+    m_commands_stack.emplace_back(CommandTree{ root, std::string{prompt} });
 }
 
 void ConsoleInterpreter::pop_commands() {
@@ -107,6 +111,20 @@ void ConsoleInterpreter::pop_commands() {
         // communicate to the user other than "something is wrong"
         PrintOutError("Internal error: couldn't change commands.\n");
     }
+}
+
+std::string ConsoleInterpreter::get_prompt() const {
+    const auto prompt = m_commands_stack.back().prompt;
+    if (!prompt.empty()) return prompt;
+
+    // default to "dbg current_procset> "
+    if (const auto* current_procset = CurrentProcSet()) {
+        return "dbg " + current_procset->s_name + "> ";
+    }
+
+    // should never get here because current_procset should never be null,
+    // but let's not segfault in the prompt function of all places if it is.
+    return "dbg >";
 }
 
 void ConsoleInterpreter::attach_observers() {
@@ -126,7 +144,7 @@ bool ConsoleInterpreter::print_help(std::string_view line) {
 
     // show all available help
     if (argv.argc() < 2) {
-        for (auto cmd : m_commands_stack.back()->getSubCmds()) {
+        for (auto cmd : m_commands_stack.back().tree->getSubCmds()) {
             // we mark undocumented commands as undocumented by setting their description
             // to nullptr, e.g. the select-frame command.
             if (cmd && cmd->getDesc()) {
@@ -138,7 +156,7 @@ bool ConsoleInterpreter::print_help(std::string_view line) {
 
     // show specific help
     auto cmdStr = argv.asString(1);
-    auto find_result = m_commands_stack.back()->findCmd(cmdStr);
+    auto find_result = m_commands_stack.back().tree->findCmd(cmdStr);
 
     if (std::holds_alternative<CommandNode::Parts>(find_result)) {
         auto [cmd, argv] = std::get<CommandNode::Parts>(find_result);
@@ -680,7 +698,7 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
 
 Interpreter::Completions
 ConsoleInterpreter::complete_text(std::string_view partial_word, std::string_view buffer) const {
-    auto [cmd, args] = m_commands_stack.back()->findCmdBestMatch(stripped(buffer));
+    auto [cmd, args] = m_commands_stack.back().tree->findCmdBestMatch(stripped(buffer));
 
      // should never happen. findCmdBestMatch will return the root node at worst.
     if (!cmd) return {};

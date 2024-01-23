@@ -8,6 +8,7 @@ import * as pty from 'node-pty';
 import {clearInterval} from 'timers';
 import { Procset} from './FocusProvider';
 import { compare_list } from './CompareProvider';
+//import { decomp_list } from './DecompostionProvider';
 
 export var pe_list: Procset[] = [];
 
@@ -484,6 +485,21 @@ export class GDB4HPC extends EventEmitter {
       })
     });
 	}
+
+  public buildDecomposition(new_decomp: any): Promise<any> {
+    return new Promise(resolve => {
+      if (new_decomp.length == 0){
+        resolve(false);
+      }
+      
+      let cmds = new_decomp.join("\n");
+      this.sendCommand(cmds);
+      this.sendCommand(`-decomposition-list`).then((record: Record)=>{
+        let decomps = record.getInfo("decompositions");
+        resolve(decomps);
+      });      
+    });
+  }
 
   private runComparison(comparison: any): Promise<boolean> {
     return new Promise(resolve => {

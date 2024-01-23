@@ -6,6 +6,7 @@ import {DebugSession} from './DebugSession';
 import { Procset, FocusProvider} from './FocusProvider';
 import { CompareProvider } from './CompareProvider';
 import { AssertionProvider } from './AssertionProvider';
+import { DecompositionProvider } from './DecompostionProvider';
 
 
 class GDB4HPCConfigurationProvider implements vscode.DebugConfigurationProvider {
@@ -48,14 +49,19 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory('ccdb', factory));
   context.subscriptions.push(vscode.commands.registerCommand('getContext', () => context));
 
-  //Add Focus Panel to sidebar
-
-  let focusProvider = new FocusProvider();
   let session = factory.getSession();
+  
+  //Add Focus Panel to sidebar
+  let focusProvider = new FocusProvider();
   vscode.window.registerTreeDataProvider('focus', focusProvider);
   vscode.commands.registerCommand('focus.refreshEntry', () => {focusProvider.refresh(session)});
   vscode.commands.registerCommand('focus.addEntry', () => {focusProvider.addPe(session)});
   vscode.commands.registerCommand('focus.selectEntry', (entry: Procset) => {focusProvider.changeFocus(session,entry.name)});
+
+  //Add decomposition panel to sidebar
+  let decompositionProvider = new DecompositionProvider(context.extensionUri, session);
+  vscode.window.registerWebviewViewProvider("decompView", decompositionProvider);
+  vscode.commands.registerCommand('decompView.addEntry', () => {decompositionProvider.addDecomposition()});
 
   //Add comparison panel to sidebar
   let compareProvider = new CompareProvider(context.extensionUri, session);

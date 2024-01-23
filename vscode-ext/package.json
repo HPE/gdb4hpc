@@ -80,6 +80,13 @@
         },
         {
           "type": "webview",
+          "id": "decompView",
+          "name": "Decompositions",
+          "icon": "${eye}",
+          "contextualTitle": "Decompositions"
+        },
+        {
+          "type": "webview",
           "id": "compareView",
           "name": "Comparisons",
           "icon": "${eye}",
@@ -173,6 +180,10 @@
         "title": "Select"
       },
       {
+        "command": "decompView.addEntry",
+        "title": "Add"
+      },
+      {
         "command": "compareView.runCompares",
         "title": "Run"
       },
@@ -203,6 +214,11 @@
         {
           "command": "focus.addEntry",
           "when": "view == focus",
+          "group": "navigation"
+        },
+        {
+          "command": "decompView.addEntry",
+          "when": "view == decompView",
           "group": "navigation"
         },
         {

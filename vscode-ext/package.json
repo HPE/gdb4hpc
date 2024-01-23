@@ -1,6 +1,6 @@
 {
-  "name": "ccdb",
-  "displayName": "CCDB",
+  "name": "gdb4hpc",
+  "displayName": "GDB4HPC",
   "version": "1.1.1",
   "repository": {
     "type": "git",
@@ -11,8 +11,7 @@
   "keywords": [
     "C++",
     "C",
-    "GDB4HPC",
-    "CCDB"
+    "GDB4HPC"
   ],
   "icon": "",
   "engines": {
@@ -67,7 +66,7 @@
   },
   "contributes": {
     "configuration": {
-      "title": "CCDB",
+      "title": "GDB4HPC",
       "properties": {}
     },
     "views": {
@@ -111,8 +110,8 @@
     ],
     "debuggers": [
       {
-        "type": "ccdb",
-        "label": "C/C++ Debug (CCDB)",
+        "type": "gdb4hpc",
+        "label": "C/C++ Debug (GDB4HPC)",
         "program": "./out/debugAdapter.js",
         "runtime": "node",
         "languages": [
@@ -152,9 +151,9 @@
         },
         "initialConfigurations": [
           {
-            "type": "ccdb",
+            "type": "gdb4hpc",
             "request": "launch",
-            "name": "CCDB",
+            "name": "GDB4HPC",
             "dbgversion": "gdb4hpc",
             "program": "",
             "args": "",

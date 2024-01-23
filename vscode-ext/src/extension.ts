@@ -23,8 +23,8 @@ class GDB4HPCConfigurationProvider implements vscode.DebugConfigurationProvider 
       const editor = vscode.window.activeTextEditor;
       
       if (editor && (editor.document.languageId === 'cpp' || editor.document.languageId === 'c')) {
-        config.type = 'ccdb';
-        config.name = 'Launch CCDB';
+        config.type = 'gdb4hpc';
+        config.name = 'Launch GDB4HPC';
         config.request = 'launch';
         config.stopOnEntry = true;
       }
@@ -43,10 +43,10 @@ class GDB4HPCConfigurationProvider implements vscode.DebugConfigurationProvider 
 
 export function activate(context: vscode.ExtensionContext) {
   const provider = new GDB4HPCConfigurationProvider();
-  context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('ccdb', provider));
+  context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('gdb4hpc', provider));
 
   let factory = new InlineDebugAdapterFactory();
-	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory('ccdb', factory));
+	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory('gdb4hpc', factory));
   context.subscriptions.push(vscode.commands.registerCommand('getContext', () => context));
 
   let session = factory.getSession();

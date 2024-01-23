@@ -2,9 +2,9 @@
     "version": "1.1.1",
     "configurations": [
         {
-            "type": "ccdb",
+            "type": "gdb4hpc",
             "request": "launch",
-            "name": "CCDB",
+            "name": "GDB4HPC",
             "dbgversion": "/root/test_install_dir/gdb4hpc/4.16.0.99/bin/gdb4hpc",
             "apps": [
                 {

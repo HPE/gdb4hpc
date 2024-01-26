@@ -56,8 +56,6 @@ int interpreter_complete(int argc, const char* const argv[]) {
 
     const auto comps = DbgComplete(std::string_view{&command[cursor_word], cursor_pos - cursor_word}, command);
 
-    PrintOutMsg("include filesystem: %d\n", comps.include_filesystem);
-
     for (const auto& comp : comps.possibilities) {
         PrintOutMsg("%s\n", comp.c_str());
     }

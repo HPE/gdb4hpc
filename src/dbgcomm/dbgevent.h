@@ -142,7 +142,8 @@ enum dbgev {
     DBGEV_ERROR,
     DBGEV_DATA_CHUNK,
     DBGEV_THREADINFO,
-    DBGEV_STRING
+    DBGEV_STRING,
+    DBGEV_SYMBOLS,
 };
 typedef enum dbgev dbgev;
 
@@ -233,6 +234,15 @@ struct dbgstatus_t {
 };
 typedef struct dbgstatus_t dbgstatus_t;
 
+struct dbgsymbols_t {
+    struct Symbol {
+        std::string name;
+    };
+
+    std::vector<Symbol> debug;
+    std::vector<Symbol> nondebug;
+};
+
 struct dbgevent_t {
     dbgev ev_event;
 
@@ -258,6 +268,7 @@ struct dbgevent_t {
         dbgerr_t ev_u_err;
         dbgvers_t ev_u_vers;
         dbgsources_t *ev_u_sources;
+        dbgsymbols_t *ev_u_symbols;
     } ev_u;
 // These are generic and should not be used outside the format/event functions.
 #define ev_string ev_u.ev_u_string

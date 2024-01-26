@@ -506,6 +506,41 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
         FreeEvent(e2);
         free(soc);
     }
+
+    SUBCASE("DBGEV_SYMBOLS") {
+        const auto debug = std::vector<dbgsymbols_t::Symbol> {
+            { .name = "Interpreter::Completions::add_variable_symbol_names(DbgInvoke const&, std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >);" },
+            { .name = "Interpreter::Completions::calc_common_prefix[abi:cxx11]() const;" },
+            { .name = "Interpreter::Completions::has_filesystem_names() const;" },
+            { .name = "Interpreter::Printer::print_error(char const*, ...);" },
+        };
+        const auto nondebug = std::vector<dbgsymbols_t::Symbol> {
+            { .name = "main" },
+            { .name = "_exit" },
+            { .name = "_dl_open_ext_lib" },
+        };
+
+        auto* syms = new dbgsymbols_t{ .debug = debug, .nondebug = nondebug };
+        auto* e = NewEvent(DBGEV_SYMBOLS);
+        e->ev_u.ev_u_symbols = syms;
+        syms = nullptr;
+
+        auto* soc = EventToSocProto(e); // frees e
+        auto* e2 = SocProtoToEvent(soc);
+
+        CHECK(e2->ev_u.ev_u_symbols->debug.size() == debug.size());
+        for (auto i = size_t{0}; i < debug.size(); i++) {
+            CHECK(e2->ev_u.ev_u_symbols->debug[i].name == debug[i].name);
+        }
+
+        CHECK(e2->ev_u.ev_u_symbols->nondebug.size() == nondebug.size());
+        for (auto i = size_t{0}; i < nondebug.size(); i++) {
+            CHECK(e2->ev_u.ev_u_symbols->nondebug[i].name == nondebug[i].name);
+        }
+
+        FreeEvent(e2);
+        free(soc);
+    }
 }
 
 TEST_CASE("CommandToSocProto") {
@@ -912,6 +947,24 @@ static char *EventSourcesToSocProto(dbgev ev, dbgsources_t *se) {
     return wrappedStr;
 }
 
+static char* EventSymbolsToSocProto(dbgev ev, const dbgsymbols_t* syms) {
+    auto data = std::ostringstream{};
+
+    data << syms->debug.size() << ' ';
+
+    for (const auto& sym : syms->debug) {
+        data << sym.name.size() << ' ' << sym.name << ' ';
+    }
+
+    data << syms->nondebug.size() << ' ';
+
+    for (const auto& sym : syms->nondebug) {
+        data << sym.name.size() << ' ' << sym.name << ' ';
+    }
+
+    return MakeSocStr(ev, data.str().c_str());
+}
+
 /*
 ** This is the main function that converts an event to network protocol
 */
@@ -1007,6 +1060,11 @@ char* EventToSocProto(dbgevent_t *e)
     case DBGEV_SOURCES:
         res = EventSourcesToSocProto(ev, e->ev_sources);
         break;
+
+    case DBGEV_SYMBOLS:
+        res = EventSymbolsToSocProto(ev, e->ev_u.ev_u_symbols);
+        break;
+
     }
 
     FreeEvent(e);
@@ -1405,6 +1463,24 @@ static dbgsources_t *SocProtoToSources(const char *s) {
     return res;
 }
 
+static dbgsymbols_t* SocProtoToSymbols(const char* s) {
+    auto result = new dbgsymbols_t{};
+
+    auto len_debug = getint(s);
+    if (len_debug < 0) return result;
+    for (auto i = size_t{0}; i < static_cast<size_t>(len_debug); i++) {
+        result->debug.emplace_back(dbgsymbols_t::Symbol{ .name = getStdString(s) });
+    }
+
+    auto len_nondebug = getint(s);
+    if (len_nondebug < 0) return result;
+    for (auto i = size_t{0}; i < static_cast<size_t>(len_nondebug); i++) {
+        result->nondebug.emplace_back(dbgsymbols_t::Symbol{ .name = getStdString(s) });
+    }
+
+    return result;
+}
+
 /*
 ** This is the main function that converts a network protocol string back into
 ** an event.
@@ -1570,6 +1646,12 @@ dbgevent_t *SocProtoToEvent(const char *s) {
             evdata = getstring(s);
             e->ev_sources = SocProtoToSources(evdata);
             Free(evdata);
+            break;
+
+        case DBGEV_SYMBOLS:
+            evdata = getstring(s);
+            e->ev_u.ev_u_symbols = SocProtoToSymbols(evdata);
+            ::free(evdata);
             break;
     }
 

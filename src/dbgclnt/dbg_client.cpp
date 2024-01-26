@@ -1503,8 +1503,6 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
     // checks on the a.out
 
     // The frontend debug presence can fail silently
-    // FIXME: This will fail if using --gdb=/path/to/gdb:/path/to/datadir form.
-    // See PE-46911
     const auto& gdbPath = args.gdb_path;
     di->instantiateFrontendGdb(gdbPath.empty() ? nullptr : gdbPath.c_str());
 

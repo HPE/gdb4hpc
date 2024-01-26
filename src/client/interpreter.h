@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <string_view>
 #include <memory>
+#include <filesystem>
 
 #include "dbginvoke.h"
 
@@ -50,7 +51,7 @@ public:
     //
     // `partial_word` must be contained within `buffer`. i.e. the implementation
     // is allowed to compare memory addresses of `partial_word` with `buffer`.
-    struct Completions;
+    class Completions;
     virtual Completions complete_text(std::string_view partial_word, std::string_view buffer) const = 0;
 
     // Given `text`, can_interpret returns true if it would be appropriate to
@@ -127,8 +128,39 @@ private:
     virtual Printer& get_printer() = 0;
 };
 
-struct Interpreter::Completions {
+class Interpreter::Completions {
     // a representation of completion possibilities for a partially typed-in interpreter command.
+    //
+    // to use this class:
+    // 1. instantiate an empty instance
+    // 2. add custom string possibilities to `possibilities`
+    // 3. add dynamic possibilities with the various `add_*` functions
+    // 4. call `calc_common_prefix` to get the best completion from all added possibilities
+public:
+
+    // `possibilities` can and should be modified from the outside. the various
+    // add_* functions add to it.
+    std::vector<std::string> possibilities;
+
+    // given a `partial_path`, complete the path and add matching filesystem
+    // completions to `possibilities`.
+    void add_filesystem_names(std::filesystem::path partial_path);
+    bool has_filesystem_names() const;
+
+    // given a `partial_fn_name`, add matching
+    // function symbol names associated with `di` to `possibilities`.
+    void add_function_symbol_names(const DbgInvoke& di, std::string_view partial_fn_name);
+    bool has_function_symbol_names() const;
+
+    // TODO
+    //
+    // // given a `partial_word` variable name that lives in `buffer`, add matching
+    // // variable symbol names (global, local, and member) associated with `di` to `possibilities`.
+    // void add_variable_symbol_names(const DbgInvoke& di, std::string_view partial_word, std::string_view buffer);
+    //
+    // // given a `partial_word` source file name that lives in `buffer`, add matching
+    // // source file names associated with `di` to `possibilities`.
+    // void add_source_file_names(const DbgInvoke& di, std::string_view partial_word, std::string_view buffer);
 
     // `calc_common_prefix` calculates and returns the longest string of
     // characters common among all `possibilities`.
@@ -136,11 +168,8 @@ struct Interpreter::Completions {
     // if there are no possibilities in the list, this function returns "".
     std::string calc_common_prefix() const;
 
-    // `possibilities` can and should be modified from the outside.
-    std::vector<std::string> possibilities;
+private:
 
-    // if set to true, the function consuming the Completions should fall back to
-    // completing the partially typed string with filesystem files/directories if
-    // `possibilities` is empty.
-    bool include_filesystem = false;
+    bool m_has_filesystem_names = false;
+    bool m_has_function_symbol_names = false;
 };

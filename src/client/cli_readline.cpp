@@ -16,6 +16,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <unordered_set>
+#include <filesystem>
 
 #include <editline/readline.h>
 #include <fcntl.h>
@@ -367,7 +368,9 @@ static void rl_handle_line(char *line) {
 // the returned array is deeply freed by readline and must be allocated with malloc.
 //
 // if nullptr is returned, readline will fall back to its internal filesystem based
-// completions.
+// completions unless `rl_attempted_competion_over` is true. despite this behavior, we implement
+// our own filesystem completions to have better control of the timing of the operation
+// and don't actually use readline's.
 static char** generate_completions(const char* /*partial_word*/, int start, int end) {
     // the DbgComplete API expects that the passed partial word is part of the passed buffer.
     // the `partial_word` passed by readline here is actually the result of ::strdup and
@@ -377,27 +380,31 @@ static char** generate_completions(const char* /*partial_word*/, int start, int 
         std::string_view{rl_line_buffer, static_cast<size_t>(rl_end)}
     );
 
-    if (!completions.possibilities.empty()) {
-        const auto& possibilities = completions.possibilities;
-        auto replacement = completions.calc_common_prefix();
+    // tell readline that we don't want its default completion behavior even on an empty result
+    rl_attempted_completion_over = true;
+    if (completions.possibilities.empty()) return nullptr;
 
-        // the replacement + all other possibilities + nullptr
-        const auto result_size = possibilities.size() + 2;
+    // now convert possibilities to the format that readline wants
+    const auto& possibilities = completions.possibilities;
+    auto replacement = completions.calc_common_prefix();
 
-        auto result = static_cast<char**>(::malloc(sizeof(char*) * result_size));
-        result[0] = ::strdup(replacement.c_str());
-        for (auto i = size_t{0}; i < possibilities.size(); i++) {
-            result[i + 1] = ::strdup(possibilities[i].c_str());
-        }
-        result[result_size - 1] = nullptr;
+    // the replacement + all other possibilities + nullptr
+    const auto result_size = possibilities.size() + 2;
 
-        return result;
-    } else if (completions.include_filesystem) {
-        // no completions provided by interpreter, fall back to readline's filesystem completion
-        return nullptr;
-    } else {
-        // no completions provided by interpreter, and we shouldn't even show filenames
-        rl_attempted_completion_over = true;
-        return nullptr;
+    auto result = static_cast<char**>(::malloc(sizeof(char*) * result_size));
+    result[0] = ::strdup(replacement.c_str());
+    for (auto i = size_t{0}; i < possibilities.size(); i++) {
+        result[i + 1] = ::strdup(possibilities[i].c_str());
     }
+    result[result_size - 1] = nullptr;
+
+    // normally readline will complete the partial word with `replacement` and then add
+    // a ' ' to the end. this is annoying for a user when completing directories
+    // since they have to press backspace after every single file completion. if
+    // we are completing with a directory name, supress that behavior.
+    if (completions.has_filesystem_names() && std::filesystem::is_directory(replacement)) {
+        rl_completion_append_character = '\0';
+    }
+
+    return result;
 }

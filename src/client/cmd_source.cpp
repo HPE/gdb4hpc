@@ -69,9 +69,11 @@ static int cmd_source_cmd(int argc, const char* const argv[]) {
     return Command::Success;
 }
 
-static Interpreter::Completions cmd_source_completion(std::string_view, std::string_view, const Interpreter&, const dbgprocset_t*, const ArgvStream&) {
+static Interpreter::Completions cmd_source_completion(
+    std::string_view partial_word, std::string_view, const Interpreter&, const dbgprocset_t*, const ArgvStream&)
+{
     auto comps = Interpreter::Completions{};
-    comps.include_filesystem = true;
+    comps.add_filesystem_names(partial_word);
     return comps;
 }
 

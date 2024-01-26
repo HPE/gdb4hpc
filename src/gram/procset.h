@@ -101,6 +101,7 @@ void SetProcSetThreads(dbgprocset_t* procSet, const char* threads);
 std::string GetProcSetString(const char* setName, const Bitset* group, const char* threads);
 std::unique_ptr<Bitset> sliceBitset(const dbg_over_set_t &overlay_set, const slice_t *slice);
 DbgInvoke::Handle getFirstDbgInvoke(const dbgprocset_t& procset);
+std::vector<DbgInvoke::Handle> getDbgInvokes(const dbgprocset_t& procset);
 
 extern void InitProcSet(void);
 extern void FinishProcSet(void);

@@ -7,6 +7,7 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include <stddef.h>
 
 #include "dbgclnt_settings.h"
 #include "dbgclnt_breakpoints.h"
@@ -214,12 +215,9 @@ public:
     void setNetwork(std::unique_ptr<DebugClientNetwork>&& net);
 
     // Create an interface to a local instance of gdb for future utility usecases like
-    // listing source files etc. The interface's implementation is determined by the
-    // frontend_impl_type argument. See dbgclnt_debugfe.* files for availble interfaces.
+    // listing source files etc. See dbgclnt_debugfe.* files for availble interfaces.
     // If the DbgInvoke already has a frontend gdb interface, it is destroyed. Pass
-    // nullptr to remove the interface without replacing it. If an invalid implementation
-    // type is passed, the existing interface is destroyed and the interface is set to
-    // nullptr.
+    // nullptr to use the gdb-guard binary shipped with gdb4hpc.
     //
     // On success, this function returns the newly instantiated interface. On failure, it
     // returns nullptr.

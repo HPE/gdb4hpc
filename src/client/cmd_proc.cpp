@@ -153,10 +153,12 @@ static int cmd_launch_cmd(int argc, const char* const argv[]) {
     }
 }
 
-static Interpreter::Completions cmd_launch_completion(std::string_view, std::string_view, const Interpreter&, const dbgprocset_t*, const ArgvStream&) {
+static Interpreter::Completions cmd_launch_completion(
+    std::string_view partial_word, std::string_view, const Interpreter&, const dbgprocset_t*, const ArgvStream&)
+{
     // TODO: richer launch completion. for now, we just emulate old behavior
     auto comps = Interpreter::Completions{};
-    comps.include_filesystem = true;
+    comps.add_filesystem_names(partial_word);
     return comps;
 }
 

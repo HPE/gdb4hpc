@@ -130,6 +130,15 @@ DbgInvoke::Handle getFirstDbgInvoke(const dbgprocset_t& procset) {
     return procset.s_over_sets.empty() ? nullptr : procset.s_over_sets[0]->s_di;
 }
 
+std::vector<DbgInvoke::Handle> getDbgInvokes(const dbgprocset_t& procset) {
+    auto handles = std::vector<DbgInvoke::Handle>{};
+    for (const auto* over_set : procset.s_over_sets) {
+        if (!over_set) continue; // should never actually happen
+        handles.emplace_back(over_set->s_di);
+    }
+    return handles;
+}
+
 /*
 ** Create a temporary process set from a slice
 */

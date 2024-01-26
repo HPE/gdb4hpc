@@ -1,5 +1,4 @@
 0: maint complete <>
-include filesystem: 0
 assign
 attach
 backtrace
@@ -60,18 +59,14 @@ viewset
 watch
 whatis
 0: maint complete de<>
-include filesystem: 0
 decomposition
 defset
 delete
 0: maint complete dec<>
-include filesystem: 0
 decomposition
 0: maint complete set<>
-include filesystem: 0
 set
 0: maint complete set <>
-include filesystem: 0
 args
 breakpoint
 command-timeout
@@ -90,7 +85,6 @@ scheduler-locking
 substitute-path
 variable
 0: maint complete maint <>
-include filesystem: 0
 complete
 echo
 set
@@ -98,12 +92,10 @@ show
 sleep
 system
 0: maint complete maint set <>
-include filesystem: 0
 earlyentry
 sync
 unsafe
 0: maint complete help <>
-include filesystem: 0
 assign
 attach
 backtrace
@@ -164,7 +156,6 @@ viewset
 watch
 whatis
 0: maint complete help set <>
-include filesystem: 0
 args
 breakpoint
 command-timeout
@@ -182,8 +173,17 @@ print
 scheduler-locking
 substitute-path
 variable
-0: maint complete source <>
-include filesystem: 1
-0: maint complete launch <>
-include filesystem: 1
+0: # these test files/directories are created by the test harness
+0: maint complete source ./tmp/completions_f<>
+./tmp/completions_fs/
+0: maint complete source ./tmp/completions_fs<>
+./tmp/completions_fs/
+0: maint complete source ./tmp/completions_fs/<>
+./tmp/completions_fs/c_inc.o
+./tmp/completions_fs/c_inc.x
+0: maint complete launch ./tmp/completions_fs/c_<>
+./tmp/completions_fs/c_inc.o
+./tmp/completions_fs/c_inc.x
+0: maint complete launch ./tmp/completions_fs/c_inc.x<>
+./tmp/completions_fs/c_inc.x
 0: q

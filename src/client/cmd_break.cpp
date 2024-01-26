@@ -88,6 +88,19 @@ static rep_set_t send_break_command(rec_set_t *rec_set, const BreakArgs& args) {
 // returns true on success
 static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args);
 
+static Interpreter::Completions cmd_break_completion(
+    std::string_view partial_word, std::string_view, const Interpreter&, const dbgprocset_t* procset, const ArgvStream&)
+{
+    auto comps = Interpreter::Completions{};
+    if (procset) {
+        for (const auto& dih : getDbgInvokes(*procset)) {
+            if (!dih.lock()) continue; // expired procset, skip silently
+            comps.add_function_symbol_names(*dih.lock(), partial_word);
+        }
+    }
+    return comps;
+}
+
 static int cmd_break_cmd_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
     auto maybe_args = parse_break_args(rec_set, argc, argv);
     if (!maybe_args) {
@@ -1273,9 +1286,10 @@ void ConsoleCommandsFactory::insert_break_commands(CommandNode& root) {
         cmd_info_breakpoints_cmd_console, cmd_info_breakpoints_help,
         "Show status of breakpoints.");
 
-    root.addSubCmd(
-        "break", "b", proc_required, cmd_break_cmd_console,
-        cmd_break_help, "Set breakpoint at specified line or function.");
+    root.addSubCmd({
+        .name = "break", .alias = "b", .ptype = proc_required,
+        .fn = cmd_break_cmd_console, .completion = cmd_break_completion,
+        .help = cmd_break_help, .desc = "Set breakpoint at specified line or function."});
     root.addSubCmd(
         "delete", "d", proc_optional, cmd_delete_cmd,
         cmd_delete_help, "Delete breakpoints and other items.");

@@ -2,7 +2,7 @@
  * GDB/MI frontend interface routines
  * TODO: This does not support asynchronous commands.
  *
- * Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2024 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -24,9 +24,6 @@
 #include "dbgclnt_debugfe.h"
 #include "defs.h"
 #include "useful.h"
-
-#define GDB_MIN_VERS 7.2
-#define GDB_EXPECTED_ARCH "x86_64"
 
 DbgFE::DbgFE(const char* gdbPath) {
 
@@ -59,9 +56,6 @@ DbgFE::DbgFE(const char* gdbPath) {
         FreeEvent(e);
         return;
     }
-
-    // no need to startup debugger, we are not attaching onto anything.
-    dbg_status = DBGSTAT_STOPPED;
 }
 
 /*
@@ -568,6 +562,52 @@ dbgevent_t *DbgFE::getScope(const char *location) {
     e->ev_vars = result;
 
     return e;
+}
+
+dbgevent_t* DbgFE::getFunctionSymbolNames() {
+    auto cmd = MISymbolInfoFunctions(
+        /* include nondebug */ true,
+        /* type filter */ nullptr,
+        /* name filter */ nullptr, 
+        /* max results */ -1
+    );
+    auto cmd_cleanup = OnScopeExit([&](){ MICommandFree(cmd); });
+    dbgevent_t* result = nullptr;
+
+    sendCmd(cmd);
+    if (!MICommandResultOK(cmd)) {
+        EVENT_ERROR(result, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        return result;
+    }
+
+    result = NewEvent(DBGEV_SYMBOLS);
+
+    auto* mi_symbols = MIGetSymbolInfo(cmd);
+    auto mi_symbols_cleanup = OnScopeExit([&](){ MISymbolInfoFree(mi_symbols); });
+    if (!mi_symbols) {
+        FreeEvent(result);
+        EVENT_ERROR(result, DBGERR_DEBUGGER, "Failed to extract symbol info");
+        return result;
+    }
+
+    auto dbg_symbols = new dbgsymbols_t{};
+
+    MIListSet(mi_symbols->debug);
+    for (MIFileSymbols* fs; (fs = static_cast<MIFileSymbols*>(MIListGet(mi_symbols->debug))); ) {
+        MIListSet(fs->symbols);
+        for (MISymbol* s; (s = static_cast<MISymbol*>(MIListGet(fs->symbols))); ) {
+            dbg_symbols->debug.emplace_back(s->name);
+        }
+    }
+
+    MIListSet(mi_symbols->nondebug);
+    for (MISymbol* s; (s = static_cast<MISymbol*>(MIListGet(mi_symbols->nondebug))); ) {
+        dbg_symbols->nondebug.emplace_back(s->name);
+    }
+
+    result->ev_u.ev_u_symbols = dbg_symbols;
+
+    return result;
 }
 
 static const std::array<std::string, 16> parallel_entry_pt_strs

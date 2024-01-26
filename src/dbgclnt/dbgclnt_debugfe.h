@@ -2,7 +2,7 @@
  * Frontend debugger interface definition
  * TODO: This does not support asynchronous commands.
  *
- * Copyright 2013-2023 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2024 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -10,20 +10,13 @@
  * no part of this work or its content may be used, reproduced or disclosed
  * in any form.
  *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
  ******************************************************************************/
 
-#ifndef _DBGCLNT_DEBUGFE_H
-#define _DBGCLNT_DEBUGFE_H
+#pragma once
 
-#include "dense_bitset.h"
+#include "bitset.h"
 #include "dbgevent.h"
 #include "dbgcmd.h"
-
 
 class DbgFE {
 public:
@@ -38,6 +31,10 @@ public:
     dbgevent_t *setSourcePath(DbgDirOp op, const char *);
     dbgevent_t *getSourcePath();
     dbgevent_t *getScope(const char *);
+
+    // runs -symbol-info-functions --include-nondebug.
+    // returned event is DBGEV_SYMBOLS, or nullptr/DBGEV_ERROR on error.
+    dbgevent_t *getFunctionSymbolNames();
 
     //--------------------------------------------------
     // for managing a set of pending locations to list
@@ -59,11 +56,8 @@ public:
  private:
     dbgevent_t* setup_gdbmi_environment();
     void sendCmd(struct MICommand* cmd);
-    
+
     struct MISession* m_session;
-    dbgstat dbg_status = DBGSTAT_INITIALISING;
     bool m_listIsPending = false;
     std::vector<Location> m_listLocs;
 };
-
-#endif /* !_DBGCLNT_DEBUGFE_H */

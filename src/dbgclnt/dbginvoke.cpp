@@ -5,6 +5,7 @@
 #include "dbgclnt_proto.h"
 #include "dbg_client.h"
 #include "path.h"
+#include "dense_bitset.h"
 
 #include <getopt.h>
 #include <algorithm>

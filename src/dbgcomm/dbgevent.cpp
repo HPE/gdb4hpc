@@ -210,6 +210,10 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
             e->ev_sources = DupSources(event->ev_sources);
             break;
 
+        case DBGEV_SYMBOLS:
+            e->ev_u.ev_u_symbols = event->ev_u.ev_u_symbols;
+            break;
+
         case DBGEV_OK:
         case DBGEV_NONE:
             break;
@@ -480,6 +484,10 @@ void FreeEvent(dbgevent_t *event) {
 
         case DBGEV_SOURCES:
             FreeSources(event->ev_sources);
+            break;
+
+        case DBGEV_SYMBOLS:
+            delete event->ev_u.ev_u_symbols;
             break;
 
         // Anything that doesn't alloc should go here
@@ -889,6 +897,9 @@ void PrintDbgEvent(dbgevent_t *event) {
         case DBGEV_CMD:
             PrintOutMsg("DBGEV_CMD");
             break;
+        case DBGEV_SYMBOLS:
+            PrintOutMsg("DBGEV_SYMBOLS");
+            break;
         case DBGEV_NONE:
             PrintOutMsg("DBGEV_NONE");
             break;
@@ -899,62 +910,7 @@ void PrintDbgEvent(dbgevent_t *event) {
 }
 
 const char *EventToStr(const dbgevent_t *event) {
-    switch (event->ev_event) {
-        case DBGEV_OK:
-            return "DBGEV_OK";
-        case DBGEV_BPHIT:
-            return "DBGEV_BPHIT";
-        case DBGEV_SIGNAL:
-            return "DBGEV_SIGNAL";
-        case DBGEV_HALT:
-            return "DBGEV_HALT";
-        case DBGEV_EXIT:
-            return "DBGEV_EXIT";
-        case DBGEV_STEP:
-            return "DBGEV_STEP";
-        case DBGEV_BPINFO:
-            return "DBGEV_BPINFO";
-        case DBGEV_BPSET:
-            return "DBGEV_BPSET";
-        case DBGEV_BPDEL:
-            return "DBGEV_BPDEL";
-        case DBGEV_CHECKPOINT:
-            return "DBGEV_CHECKPOINT";
-        case DBGEV_FRAME:
-            return "DBGEV_FRAME";
-        case DBGEV_LOC:
-            return "DBGEV_LOC";
-        case DBGEV_VARS:
-            return "DBGEV_VARS";
-        case DBGEV_TYPE:
-            return "DBGEV_TYPE";
-        case DBGEV_THREADINFO:
-            return "DBGEV_THREADINFO";
-        case DBGEV_STRING:
-            return "DBGEV_STRING";
-        case DBGEV_LIST:
-            return "DBGEV_LIST";
-        case DBGEV_SOURCEPATH:
-            return "DBGEV_SOURCEPATH";
-        case DBGEV_DATA:
-            return "DBGEV_DATA";
-        case DBGEV_DATA_CHUNK:
-            return "DBGEV_DATA_CHUNK";
-        case DBGEV_STAT:
-            return "DBGEV_STAT";
-        case DBGEV_VERS:
-            return "DBGEV_VERS";
-        case DBGEV_SOURCES:
-            return "DBGEV_SOURCES";
-        case DBGEV_CMD:
-            return "DBGEV_CMD";
-        case DBGEV_NONE:
-            return "DBGEV_NONE";
-        case DBGEV_ERROR:
-            return "DBGEV_ERROR";
-    }
-
-    return "UNKNOWN_EVENT";
+    return DbgevToStr(event->ev_event);
 }
 
 const char *DbgevToStr(dbgev ev) {
@@ -1007,6 +963,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_SOURCES";
         case DBGEV_CMD:
             return "DBGEV_CMD";
+        case DBGEV_SYMBOLS:
+            return "DBGEV_SYMBOLS";
         case DBGEV_NONE:
             return "DBGEV_NONE";
         case DBGEV_ERROR:

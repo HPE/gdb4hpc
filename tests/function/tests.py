@@ -1005,6 +1005,10 @@ class FunctionTests(Gdb4hpcTest):
 
     def test_completions_nolaunch(self):
         self.base_name = "completions_nolaunch"
+        # make dummy filesystem to test filesystem completions
+        os.makedirs(getTmpDir() + "/completions_fs", exist_ok=True)
+        open(getTmpDir() + "/completions_fs/c_inc.x", "a").close()
+        open(getTmpDir() + "/completions_fs/c_inc.o", "a").close()
         runTest(self)
 
 class c_commnode_fanout(Gdb4hpcTest):

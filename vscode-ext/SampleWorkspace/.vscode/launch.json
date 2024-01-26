@@ -8,7 +8,7 @@
             "dbgversion": "/root/test_install_dir/gdb4hpc/4.16.0.99/bin/gdb4hpc",
             "apps": [
                 {
-                    "name": "App0{10}",
+                    "procset": "App0{10}",
                     "program":"/root/cdst-gdb4hpc/tests/function/bin/CRAY/C++/cpp_bd_test.x",
                     "args": "--gpu --non-mpi"
                 }

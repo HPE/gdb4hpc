@@ -8,7 +8,6 @@ import * as pty from 'node-pty';
 import {clearInterval} from 'timers';
 import { Procset} from './FocusProvider';
 import { compare_list } from './CompareProvider';
-//import { decomp_list } from './DecompostionProvider';
 
 export var pe_list: Procset[] = [];
 

@@ -3,7 +3,7 @@ Running GDB4HPC debugger in VSCode:
 Log into the desired machine in vscode.
 Open the extensions panel on the left.
 Click on "..." located next to the Extensions header and choose "install from VSIX..."
-Use the vsix file located in the rpm.
+Use the vsix file located in the rpm's share/vscode directory.
 The VSCode window might need to be reloaded once the extension is installed.
 
 Open the Run and Debug panel.

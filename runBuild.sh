@@ -322,6 +322,9 @@ check_exit_status
 npm run package
 check_exit_status
 
+cp *.vsix "$install_dir/libexec/"
+check_exit_status
+
 echo "############################################"
 echo "#              Done with build             #"
 echo "############################################"

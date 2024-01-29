@@ -205,6 +205,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 # Binaries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/bin
 %{__cp} -a %{external_build_dir}/bin/gdb4hpc ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/bin
+%{__cp} -a %{external_build_dir}/libexec/gdb4hpc-1.1.1.vsix ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/bin
 
 # ddt-gdb Share
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share
@@ -666,6 +667,7 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/commnode
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/bin/gdb4hpc
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/bin/gdb4hpc-1.1.1.vsix
 #gdb share
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/boost/__init__.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/boost/printers.py

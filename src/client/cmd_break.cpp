@@ -89,13 +89,28 @@ static rep_set_t send_break_command(rec_set_t *rec_set, const BreakArgs& args) {
 static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args);
 
 static Interpreter::Completions cmd_break_completion(
-    std::string_view partial_word, std::string_view, const Interpreter&, const dbgprocset_t* procset, const ArgvStream&)
+    std::string_view /*partial_word*/, std::string_view /*buffer*/, const Interpreter&, const dbgprocset_t* procset, const ArgvStream& argv)
 {
+    if (!procset) return {};
+
+    // readline will chop up the input based on spaces, but templated cpp locations
+    // might validly have spaces e.g. "break TemplatedClass<int, char>::foo".
+    // in that case, `partial_word` would be "TemplatedClass<int,", so just use the whole buffer.
+    //
+    // FIXME: PE-52215: the suggestion with spaces needs to be manually surrounded with
+    // quotes by the user, they should be able to simply press enter.
+    std::string location = "";
+    if (argv.argc() > 1) {
+        location = argv.asString(1);
+    }
+
     auto comps = Interpreter::Completions{};
-    if (procset) {
-        for (const auto& dih : getDbgInvokes(*procset)) {
-            if (!dih.lock()) continue; // expired procset, skip silently
-            comps.add_function_symbol_names(*dih.lock(), partial_word);
+    for (const auto& dih : getDbgInvokes(*procset)) {
+        // if dih.lock() returns nullptr, we are working with an expired
+        // procset, which can be silently skipped.
+        if (auto* di = dih.lock()) {
+            comps.add_function_symbol_names(*di, location);
+            comps.add_source_file_names(*di, location);
         }
     }
     return comps;

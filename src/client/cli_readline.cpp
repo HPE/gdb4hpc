@@ -147,6 +147,12 @@ static int cli_readline_init(cli_stream_t **stream) {
     // set tab completion hook
     rl_attempted_completion_function = generate_completions;
 
+    // when completions are generated, readline splits the input lines into words. it splits them
+    // according to a default character set based on bash: " \t\n\"\\'`@$><=;|&{(".
+    // this is not a good fit for a debugger working with code, especially "><" which
+    // are common in c++ templates. so we just split on whitespace.
+    rl_basic_word_break_characters = " \t\n";
+
     return 0;
 }
 
@@ -371,7 +377,7 @@ static void rl_handle_line(char *line) {
 // completions unless `rl_attempted_competion_over` is true. despite this behavior, we implement
 // our own filesystem completions to have better control of the timing of the operation
 // and don't actually use readline's.
-static char** generate_completions(const char* /*partial_word*/, int start, int end) {
+static char** generate_completions(const char* /*partial_word_start*/, int start, int end) {
     // the DbgComplete API expects that the passed partial word is part of the passed buffer.
     // the `partial_word` passed by readline here is actually the result of ::strdup and
     // doesn't satisfy this, so we create a string view ourselves.
@@ -384,9 +390,44 @@ static char** generate_completions(const char* /*partial_word*/, int start, int 
     rl_attempted_completion_over = true;
     if (completions.possibilities.empty()) return nullptr;
 
+    auto replacement = completions.calc_common_prefix();
+
+    if (completions.possibilities.size() > 1) {
+        // readline has a bug with displaying completion items wider than the terminal, see PE-52203.
+        // until that's fixed, the best we can do is chop long completion items. if there
+        // is only one possibility, the bug doesn't manifest.
+        //
+        // we try to be smart about where we chop. simply chopping from [0, `width`] wouldn't be
+        // helpful because the information the user is trying to get by completing
+        // ("what key should I press next?") would be lost with a long enough input string.
+        // so we show [`next`, `next` + width] where `next` is the part of the string starting after partial_word.
+        //
+        // note that we calculate the common prefix before we do all this so it won't get
+        // messed up by the "..."s we add below
+
+        auto partial_word = std::string_view{rl_line_buffer + start, rl_line_buffer + end};
+
+        struct winsize ws;
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+        auto t_width = ws.ws_col;
+
+        // t_width will be 0 in non-interactive situations like running batch files.
+        // the magic number 4 is derived from the chop/prefix logic below
+        if (t_width >= 4) {
+            for (auto& word : completions.possibilities) {
+                if (word.size() > t_width && partial_word.size() < word.size()) {
+                    // t_width - 1 because otherwise readline would print a terminal-width
+                    // string which would naturally line break, and then readline would print another line break
+                    //
+                    // -3 for the "..." prefix
+                    word = std::string{"..."} + word.substr(partial_word.size(), t_width - 1 - 3);
+                }
+            }
+        }
+    }
+
     // now convert possibilities to the format that readline wants
     const auto& possibilities = completions.possibilities;
-    auto replacement = completions.calc_common_prefix();
 
     // the replacement + all other possibilities + nullptr
     const auto result_size = possibilities.size() + 2;

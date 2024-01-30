@@ -32,9 +32,9 @@ public:
     dbgevent_t *getSourcePath();
     dbgevent_t *getScope(const char *);
 
-    // runs -symbol-info-functions --include-nondebug.
+    // runs -symbol-info-functions --include-nondebug --name "^`name`" --max-results 200.
     // returned event is DBGEV_SYMBOLS, or nullptr/DBGEV_ERROR on error.
-    dbgevent_t *getFunctionSymbolNames();
+    dbgevent_t *getFunctionSymbolNames(std::string_view name);
 
     //--------------------------------------------------
     // for managing a set of pending locations to list

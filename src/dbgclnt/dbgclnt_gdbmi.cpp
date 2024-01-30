@@ -19,6 +19,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ranges>
 
 #include "MI.h"
 #include "dbgclnt_debugfe.h"
@@ -564,12 +565,16 @@ dbgevent_t *DbgFE::getScope(const char *location) {
     return e;
 }
 
-dbgevent_t* DbgFE::getFunctionSymbolNames() {
+dbgevent_t* DbgFE::getFunctionSymbolNames(std::string_view name) {
+    auto patched_name = std::string{"^"};
+    patched_name.append(name);
+
+    // FIXME: make max results configurable
     auto cmd = MISymbolInfoFunctions(
         /* include nondebug */ true,
-        /* type filter */ nullptr,
-        /* name filter */ nullptr, 
-        /* max results */ -1
+        /* type regex */ nullptr,
+        /* name regex */ patched_name.size() == 1 ? nullptr : patched_name.c_str(),
+        /* max results */ 200
     );
     auto cmd_cleanup = OnScopeExit([&](){ MICommandFree(cmd); });
     dbgevent_t* result = nullptr;

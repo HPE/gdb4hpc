@@ -157,10 +157,12 @@ public:
     // // given a `partial_word` variable name that lives in `buffer`, add matching
     // // variable symbol names (global, local, and member) associated with `di` to `possibilities`.
     // void add_variable_symbol_names(const DbgInvoke& di, std::string_view partial_word, std::string_view buffer);
-    //
-    // // given a `partial_word` source file name that lives in `buffer`, add matching
-    // // source file names associated with `di` to `possibilities`.
-    // void add_source_file_names(const DbgInvoke& di, std::string_view partial_word, std::string_view buffer);
+
+    // given a `partial_path` source file name, add matching source file names
+    // associated with `di` to `possibilities`. the `partial_path` will be
+    // matched as both a path (containing slashes) and a filename (containing no slashes).
+    void add_source_file_names(const DbgInvoke& di, std::filesystem::path partial_path);
+    bool has_source_file_names() const;
 
     // `calc_common_prefix` calculates and returns the longest string of
     // characters common among all `possibilities`.
@@ -172,4 +174,5 @@ private:
 
     bool m_has_filesystem_names = false;
     bool m_has_function_symbol_names = false;
+    bool m_has_source_file_names = false;
 };

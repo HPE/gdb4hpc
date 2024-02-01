@@ -53,6 +53,7 @@ export class GDB4HPC extends EventEmitter {
   }
 
   private createPty(): void {
+    
     this.gdb4hpcPty = pty.spawn(this.dbgversion, ["--interpreter=mi"], {
       name: 'xterm-color',
       cols: 80,
@@ -60,7 +61,7 @@ export class GDB4HPC extends EventEmitter {
       cwd: this.cwd,
       env: Object.assign(this.environmentVariables, process.env),
     });
-
+    
     this.gdb4hpcPty.onData(data => {
       data = data.replace("dbg all> ","");
       //remove color codes
@@ -68,6 +69,7 @@ export class GDB4HPC extends EventEmitter {
       data = data.replaceAll("\x1b[30;1m","");
       this.handleOutput(data);
     });
+
     this.gdb4hpcReady = true;
   }
 
@@ -117,67 +119,71 @@ export class GDB4HPC extends EventEmitter {
             handler(record);
             delete this.handlers[record.getToken()];
           } 
+        }else{
+          if(record.getReason()=="error"){
+            vscode.window.showErrorMessage(record.getInfo('msg'))
+          }
         }
         break;
     }
   }
 
   private handleAsyncRecord(record: Record) {
-      switch (record.getReason()) {
-        case 'stopped':
-          {
-            this.inferiorRunning = false;
-            let stoppedReason = record.getInfo('reason');
+    switch (record.getReason()) {
+      case 'stopped':
+        {
+          this.inferiorRunning = false;
+          let stoppedReason = record.getInfo('reason');
 
-            switch (stoppedReason) {
-              case 'breakpoint-hit':
-              case 'end-stepping-range':
-                
-                const fileName=record.getInfo('frame')["fullname"];
-                const line = parseInt(record.getInfo('frame')["line"]);
-                
-                if (stoppedReason === 'breakpoint-hit') {
-                  const bkptnum = parseInt(record.getInfo('bkptno'));
-                  const breakpointIDs: number[] = [];
-                  breakpointIDs.push(bkptnum);
+          switch (stoppedReason) {
+            case 'breakpoint-hit':
+            case 'end-stepping-range':
+              
+              const fileName=record.getInfo('frame')["fullname"];
+              const line = parseInt(record.getInfo('frame')["line"]);
+              
+              if (stoppedReason === 'breakpoint-hit') {
+                const bkptnum = parseInt(record.getInfo('bkptno'));
+                const breakpointIDs: number[] = [];
+                breakpointIDs.push(bkptnum);
 
-                  if (bkptnum===0){
-                    this.breakpoints.set(fileName, breakpointIDs);
-                    stoppedReason='entry'
-                  }              
-                }
-                var openPath = vscode.Uri.file(fileName);
-                
-                vscode.workspace.openTextDocument(openPath).then(doc => 
-                {
-                    vscode.window.showTextDocument(doc).then(editor => 
-                    {
-                      let range = editor.document.lineAt(line-1).range;
-                      editor.selection =  new vscode.Selection(range.start, range.end);
-                      editor.revealRange(range);
-                    });
-                });
-                
-                this.gdb4hpcReady=true;
-                //FIX: hard coded 1 thread- will add task to fix
-                this.emit(stoppedReason, 1);
-                break;
+                if (bkptnum===0){
+                  this.breakpoints.set(fileName, breakpointIDs);
+                  stoppedReason='entry'
+                }              
+              }
+              var openPath = vscode.Uri.file(fileName);
+              
+              vscode.workspace.openTextDocument(openPath).then(doc => 
+              {
+                  vscode.window.showTextDocument(doc).then(editor => 
+                  {
+                    let range = editor.document.lineAt(line-1).range;
+                    editor.selection =  new vscode.Selection(range.start, range.end);
+                    editor.revealRange(range);
+                  });
+              });
+              
+              this.gdb4hpcReady=true;
+              //FIX: hard coded 1 thread- will add task to fix
+              this.emit(stoppedReason, 1);
+              break;
 
-              case 'exited-normally':
-                this.sendCommand('-quit');
-                this.emit('exited-normally');
-                break;
+            case 'exited-normally':
+              this.sendCommand('-quit');
+              this.emit('exited-normally');
+              break;
 
-              default:
-                console.error('Unknown stop reason');
-            }
+            default:
+              console.error('Unknown stop reason');
           }
-          break;
+        }
+        break;
 
-        case 'running':
-          this.inferiorRunning = true;
-          break;
-      }
+      case 'running':
+        this.inferiorRunning = true;
+        break;
+    }
   }
 
   public clearBreakpoints(fileName: string): Promise<boolean> {
@@ -189,7 +195,7 @@ export class GDB4HPC extends EventEmitter {
         });
         this.breakpoints.delete(fileName);
       }
-      resolve(true);
+      resolve(true); 
     });
   }
 
@@ -439,7 +445,7 @@ export class GDB4HPC extends EventEmitter {
       this.apps.forEach(app=>{
         this.sendCommand(`launch $`+ app.procset + ` ` + app.program + ` ` + app.args);
       });
-      resolve(true);  
+      resolve(true); 
     });
   }
 
@@ -503,10 +509,14 @@ export class GDB4HPC extends EventEmitter {
   private runComparison(comparison: any): Promise<boolean> {
     return new Promise(resolve => {
       this.sendCommand(`-compare ${comparison.text}`).then((record: Record) => {
-        comparison.result = record.getInfo("compare")["result"];
-        comparison.result=comparison.result.replace(/\\n/g, "\n");
-        resolve(true);
+        if(record.getReason()=="error"){
+          vscode.window.showErrorMessage(record.getInfo('msg'));
+        }else{
+          comparison.result = record.getInfo("compare")["result"];
+          comparison.result=comparison.result.replace(/\\n/g, "\n");
+        }
       })
+      resolve(true)
     });
   }
 
@@ -528,15 +538,20 @@ export class GDB4HPC extends EventEmitter {
 
   public buildAssertionScript(new_script: any): Promise<boolean> {
     return new Promise(resolve => {
-      this.sendCommand(`build $${new_script.name}`);
-      this.sendCommand(`set stop ${new_script.stopOnError}`);
+      let cmds:string[] =[];
+      cmds.push(`build $${new_script.name}`);
+      cmds.push(`set stop ${new_script.stopOnError}`);
       //verbose breakpoints will cause gdb4hpc to emit breakpoint events as they happen, updating display
-      this.sendCommand(`set verbose-breakpoints on`);
+      cmds.push(`set verbose-breakpoints on`);
+
       new_script.asserts.forEach(assert =>{
-        this.sendCommand(`assert ${assert.str}`);
+        cmds.push(`assert ${assert.str}`);
       })
-      this.sendCommand(`end`);
-      resolve(true);
+      cmds.push(`end`);
+      this.sendCommand(cmds.join("\n")).then((record: Record) => {
+        resolve(true);
+      });
+      
     });
   }
 

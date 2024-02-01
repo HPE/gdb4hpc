@@ -86,11 +86,12 @@ export class AssertionProvider implements vscode.WebviewViewProvider {
 				//add asserts
 				add_new_assert().then(()=>{
 					let new_script={name:name, stopOnError: stopOnError, asserts:asserts, checked: false}
-					script_list.push(new_script)
-
+					
 					//build assert script
-					this.session._debugger.buildAssertionScript(new_script)
-					this._view?.webview.postMessage({type:'scriptsUpdated', value: script_list});
+					this.session._debugger.buildAssertionScript(new_script).then(()=>{
+						script_list.push(new_script)
+						this._view?.webview.postMessage({type:'scriptsUpdated', value: script_list});
+					},null);
 				})
 			});
 		}); 

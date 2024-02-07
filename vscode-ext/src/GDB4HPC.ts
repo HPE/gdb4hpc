@@ -11,11 +11,6 @@ import { compare_list } from './CompareProvider';
 
 export var pe_list: Procset[] = [];
 
-export abstract class DebuggerException {
-  public name: string;
-  public description: string;
-}
-
 export class DebuggerVariable {
   public name: string;  //name of variable
   public debuggerName: string;  //name assigned by MI
@@ -32,7 +27,9 @@ export class GDB4HPC extends EventEmitter {
   protected program: string;
   protected dbgversion: string;
   protected gdb4hpcPty: any;
-  private mi_log = vscode.window.createOutputChannel("MI Log");
+  private output_panel: vscode.OutputChannel;
+  private mi_log: vscode.OutputChannel;
+  private error_log: vscode.OutputChannel;
   protected gdb4hpcReady = false;
   protected inferiorRunning = false;
   protected type = 'launch';
@@ -49,11 +46,14 @@ export class GDB4HPC extends EventEmitter {
     this.apps = args.apps;
     this.dbgversion = args.dbgversion;
     this.type = args.request;
+    this.output_panel = vscode.window.createOutputChannel("Program Output")
+    this.mi_log = vscode.window.createOutputChannel("MI Log");
+    this.error_log = vscode.window.createOutputChannel("Error Log");
     this.createPty();
+    this.output_panel.show();
   }
 
   private createPty(): void {
-    
     this.gdb4hpcPty = pty.spawn(this.dbgversion, ["--interpreter=mi"], {
       name: 'xterm-color',
       cols: 80,
@@ -70,13 +70,18 @@ export class GDB4HPC extends EventEmitter {
       this.handleOutput(data);
     });
 
+    this.gdb4hpcPty.onExit((e) => {
+      console.log(e); 
+      this.output_panel.dispose();
+      this.mi_log.dispose();
+    });
+
     this.gdb4hpcReady = true;
   }
 
-
   protected handleOutput(data: any): void {
     let record: Record | null;
-    this.buffer+=data.replace("dbg all>","");
+    this.buffer+=data;
     
     if (!this.buffer){
       return;
@@ -85,23 +90,17 @@ export class GDB4HPC extends EventEmitter {
     const nPos = this.buffer.lastIndexOf('\n');
     if (nPos !== -1) {
       const lines = this.buffer.substring(0, nPos).split('\n') as string[];
-
       this.buffer = this.buffer.substring(nPos + 1);
 
       lines.forEach(line => {
-        if (line.includes("mi: ")){
-          this.mi_log.appendLine(line);
-        }else{
-          line = line.trim();
-          if (record = this.parser.parse(line)) {
-            this.handleParsedResult(record);
-          }
-        }
+        line = line.trim();
+        record = this.parser.parseRecord(line)
+        record?this.handleParsedRecord(record):null;
       });
     }
   }
 
-  private handleParsedResult(record: Record) {
+  private handleParsedRecord(record: Record) {
     switch (record.getType()) {
       case '*':
         this.handleAsyncRecord(record);
@@ -109,6 +108,15 @@ export class GDB4HPC extends EventEmitter {
 
       case '~':
         this.emit('output', record.printRecord(), 'console');
+        break;
+
+      case 'mi':
+          this.mi_log.appendLine(record.printRecord());
+          break;
+      
+      case '@':
+        this.output_panel.appendLine(record.printRecord());
+        this.output_panel.show(); //always display output panel if output was added
         break;
       
       case '^':
@@ -122,6 +130,7 @@ export class GDB4HPC extends EventEmitter {
         }else{
           if(record.getReason()=="error"){
             vscode.window.showErrorMessage(record.getInfo('msg'))
+            this.error_log.appendLine(record.getInfo('msg'));
           }
         }
         break;

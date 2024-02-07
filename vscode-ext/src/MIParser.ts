@@ -1,8 +1,8 @@
 export class Record {
   private str: string = '';
-  protected readonly token: number;
-  protected type?: string = '';
-  protected info: Map<string, any>;
+  private readonly token: number;
+  private type?: string = '';
+  private info: Map<string, any>;
   private reason?: string;
 
   public constructor(token: number) {
@@ -49,30 +49,16 @@ export class Record {
 export class MIParser {
   private buffer: string = '';
 
-  public parse(str: string): Record | null {
-    let record: Record | null;
-    this.buffer = str;
-
-    try {
-      record = this.parseRecord()
-    } catch (error: any) {
-      console.error(`Parser error: ${error.message}`);
-      throw error;
-    }
-
-    return record;
-  }
-
-  private parseRecord(): Record | null {
+  public parseRecord(str:string): Record | null {
     let match: any[] | null;
+    this.buffer = str;
     // captures token, type of message, and message reason or full stream message
-    let regex = /(\d*)?(\*|~|\^)((?:(?<=\*)[_a-zA-Z0-9\-]*)|(?:(?<=\^)done|running|connected|error|exit?)|(?:(?<=\~)\".*?\s*\"$))/;
-
+    let regex = /(\d*)?(\*|~|\^|@)((?:(?<=\*)[_a-zA-Z0-9\-]*)|(?:(?<=\^)done|running|connected|error|exit?)|(?:(?<=\~|@)\".*?\s*\"$))/;
     if ((match = regex.exec(this.buffer))) {
       const record = new Record(match[1]!=''?parseInt(match[1]):NaN);
       record.setType(match[2]);
       record.setRecord(this.buffer);
-      if (match[2]=='~'){
+      if (match[2]=='~'||match[2]=='@'){
         //Stream message - remove the opening and closing quotes and any newlines
         let str = match[3].substring(1,match[3].length-1);
         str = str.replace(/^\\n+|\\n+$/g, '').trim();
@@ -81,19 +67,20 @@ export class MIParser {
       }else if (match[2]=='^'||match[2]=='*'){
         record.setReason(match[3]);
         this.buffer = this.buffer.split(match[0])[1];
-
         while (this.buffer[0] === ',') {
           this.buffer = this.buffer.substring(1);
           const result = this.parseVariable();
           result?record.addInfo(result):null;
         }
         return record;
-
-      }else{
-        return null;
       }
-
-    } else return null;
+    }else if(this.buffer.startsWith("mi: ")){
+      const record = new Record(NaN);
+      record.setType('mi');
+      record.setRecord(this.buffer.split("mi: ")[1]);
+      return record;
+    }
+    return null;
   }
 
   private parseVariable(): any[] | null {
@@ -104,9 +91,8 @@ export class MIParser {
       //get variable value
       let val = this.parseValue();
       return [match[1], val];
-    } else {
-      return null;
-    }
+    } 
+    return null;
   }
 
   private parseValue(): any {
@@ -170,5 +156,3 @@ export class MIParser {
     }
   }
 }
-
-

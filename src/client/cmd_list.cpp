@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2024 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -33,18 +33,21 @@ static int cmd_list_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) 
     ProcessErrorInRepSet(rep_set);
 
     for (auto&& reply : rep_set) {
-        // point at the list data
-        lp = EVENT_LIST(reply->rep_event);
+        // XXX: PE-52386: DbgList can sometimes return non-error, non-list events
+        if (reply->rep_event->ev_event == DBGEV_LIST) {
+            // point at the list data
+            lp = EVENT_LIST(reply->rep_event);
 
-        for (l = lp; l != (dbglist_t *)nullptr; l = l->list_next) {
-            auto line = std::string{l->list_line};
-            formatSourceLine(line);
-            // We use 5 characters of space for the line number, plus a tab.
-            // We add a tab on the end to ensure that source code lines start
-            // printing on a tab boundary, in case the source code contains tabs itself.
-            PrintMsgWithSetAndThreadInfo(reply->rep_di.c_str(), reply->rep_group.get(),
-                                         l->list_threads,
-                                         "%-5d\t%s\n", l->list_lno, line.c_str());
+            for (l = lp; l != (dbglist_t *)nullptr; l = l->list_next) {
+                auto line = std::string{l->list_line};
+                formatSourceLine(line);
+                // We use 5 characters of space for the line number, plus a tab.
+                // We add a tab on the end to ensure that source code lines start
+                // printing on a tab boundary, in case the source code contains tabs itself.
+                PrintMsgWithSetAndThreadInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                             l->list_threads,
+                                             "%-5d\t%s\n", l->list_lno, line.c_str());
+            }
         }
     }
 

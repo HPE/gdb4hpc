@@ -83,24 +83,26 @@ bool Completions::has_filesystem_names() const {
 }
 
 void Completions::add_function_symbol_names(const DbgInvoke& di, std::string_view partial_fn_name) {
-    auto fns = di.frontendGdb()->getFunctionSymbolNames(partial_fn_name);
-    auto cleanup = OnScopeExit([&](){ FreeEvent(fns); });
+    if (auto* gdbmi = di.frontendGdb()) {
+        auto fns = gdbmi->getFunctionSymbolNames(partial_fn_name);
+        auto cleanup = OnScopeExit([&](){ FreeEvent(fns); });
 
-    if (!fns || fns->ev_event != DBGEV_SYMBOLS) {
-        // silently fail
-        return;
-    }
-
-    for (auto& sym : fns->ev_u.ev_u_symbols->debug) {
-        if (sym.name.starts_with(partial_fn_name)) {
-            this->possibilities.emplace_back(std::move(sym.name));
-            m_has_function_symbol_names = true;
+        if (!fns || fns->ev_event != DBGEV_SYMBOLS) {
+            // silently fail
+            return;
         }
-    }
-    for (auto& sym : fns->ev_u.ev_u_symbols->nondebug) {
-        if (sym.name.starts_with(partial_fn_name)) {
-            this->possibilities.emplace_back(std::move(sym.name));
-            m_has_function_symbol_names = true;
+
+        for (auto& sym : fns->ev_u.ev_u_symbols->debug) {
+            if (sym.name.starts_with(partial_fn_name)) {
+                this->possibilities.emplace_back(std::move(sym.name));
+                m_has_function_symbol_names = true;
+            }
+        }
+        for (auto& sym : fns->ev_u.ev_u_symbols->nondebug) {
+            if (sym.name.starts_with(partial_fn_name)) {
+                this->possibilities.emplace_back(std::move(sym.name));
+                m_has_function_symbol_names = true;
+            }
         }
     }
 }
@@ -119,29 +121,31 @@ void Completions::add_source_file_names(const DbgInvoke& di, std::filesystem::pa
     // DbgInvokes do have a source path caching machanism, but that is only used in mi
     // mode and would be empty for most situations this function is called. So we look
     // them up ourselves.
-    auto sources = di.frontendGdb()->getSources();
-    auto sources_cleanup = OnScopeExit([&](){ FreeEvent(sources); });
+    if (auto* gdbmi = di.frontendGdb()) {
+        auto sources = gdbmi->getSources();
+        auto sources_cleanup = OnScopeExit([&](){ FreeEvent(sources); });
 
-    if (!sources || sources->ev_event != DBGEV_SOURCES) {
-        // silently fail
-        return;
-    }
-
-    for (auto* p = sources->ev_u.ev_u_sources; p != nullptr; p = p->sources_next) {
-        if (!p->sources_file) continue;
-        auto source_path = std::filesystem::path{p->sources_file};
-
-        if (source_path.native().starts_with(partial_path.native())) {
-            this->possibilities.emplace_back(source_path);
-            m_has_source_file_names = true;
+        if (!sources || sources->ev_event != DBGEV_SOURCES) {
+            // silently fail
+            return;
         }
 
-        // also check the filename (instead of the path) to support completing things like
-        // "break foo<>" when the full path given by mi is "/home/josh/code/src/foobar.c"
-        const auto filename = source_path.filename();
-        if (!filename.empty() && filename.native().starts_with(partial_path.native())) {
-            this->possibilities.emplace_back(source_path.filename());
-            m_has_source_file_names = true;
+        for (auto* p = sources->ev_u.ev_u_sources; p != nullptr; p = p->sources_next) {
+            if (!p->sources_file) continue;
+            auto source_path = std::filesystem::path{p->sources_file};
+
+            if (source_path.native().starts_with(partial_path.native())) {
+                this->possibilities.emplace_back(source_path);
+                m_has_source_file_names = true;
+            }
+
+            // also check the filename (instead of the path) to support completing things like
+            // "break foo<>" when the full path given by mi is "/home/josh/code/src/foobar.c"
+            const auto filename = source_path.filename();
+            if (!filename.empty() && filename.native().starts_with(partial_path.native())) {
+                this->possibilities.emplace_back(source_path.filename());
+                m_has_source_file_names = true;
+            }
         }
     }
 }

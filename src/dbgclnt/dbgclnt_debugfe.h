@@ -35,6 +35,9 @@ public:
     // runs -symbol-info-functions --include-nondebug --name "^`name`" --max-results 200.
     // returned event is DBGEV_SYMBOLS, or nullptr/DBGEV_ERROR on error.
     dbgevent_t *getFunctionSymbolNames(std::string_view name);
+    // runs -symbol-info-variables --include-nondebug --name "^`name`" --max-results 200.
+    // returned event is DBGEV_SYMBOLS, or nullptr/DBGEV_ERROR on error.
+    dbgevent_t *getVariableSymbolNames(std::string_view name);
 
     //--------------------------------------------------
     // for managing a set of pending locations to list
@@ -56,6 +59,7 @@ public:
  private:
     dbgevent_t* setup_gdbmi_environment();
     void sendCmd(struct MICommand* cmd);
+    dbgevent_t* fetch_symbols(MICommand& cmd);
 
     struct MISession* m_session;
     bool m_listIsPending = false;

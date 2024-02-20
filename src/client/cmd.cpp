@@ -106,7 +106,7 @@ Interpreter::Completions CommandNode::completeText(
         auto comps = Interpreter::Completions{};
         for (const auto& subcmd : m_subCmds) {
             if (subcmd->getShortName().starts_with(partialWord)) {
-                comps.possibilities.emplace_back(subcmd->getShortName());
+                comps.possibilities.emplace(subcmd->getShortName());
             }
         }
         return comps;

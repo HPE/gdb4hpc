@@ -271,6 +271,19 @@ static int cmd_frame_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const c
     return Command::Success;
 }
 
+static int cmd_maint_cached_frames(rec_set_t* rec_set) {
+    // show all the frames currently held in the frame caches of `rec_set`
+    for (const auto* recv : rec_set) {
+        if (auto* cached_frames = recv->rec_di.getCachedFrames()) {
+            for (const auto& loc : *cached_frames) {
+                PrintOutMsg("%s:%d %s @ %s\n", loc.loc_file, loc.loc_line, loc.loc_func, loc.loc_addr);
+            }
+        }
+    }
+
+    return Command::Success;
+}
+
 void ConsoleCommandsFactory::insert_frame_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "frame", .ptype = proc_required,
@@ -288,6 +301,10 @@ void ConsoleCommandsFactory::insert_frame_commands(CommandNode& root) {
         .name = "down", .ptype = proc_required,
         .fn = movecmd, .help = cmd_down_help,
         .desc = "Move down one or more stack frames."});
+    root.addSubCmd({
+        .name = "maint list-cached-frames", .ptype = proc_required,
+        .fn = cmd_maint_cached_frames, .help = nullptr,
+        .desc = "Show cached frame data."});
 
     // select-frame is undocumented
     root.addSubCmd({

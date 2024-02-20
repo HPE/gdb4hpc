@@ -1011,6 +1011,10 @@ class FunctionTests(Gdb4hpcTest):
         open(getTmpDir() + "/completions_fs/c_inc.o", "a").close()
         runTest(self)
 
+    def test_completions_launch(self):
+        self.base_name = "completions_launch"
+        runTest(self)
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

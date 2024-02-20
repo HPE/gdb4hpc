@@ -117,8 +117,10 @@ public:
 
 public:
     DbgInvoke(ProcessType type, int nproc, DebugClientProtocol& proto);
-    DbgInvoke(DbgInvoke&& other);
 
+    // DbgInvokes should only live in the internal DbgInvoke list. Use
+    // DbgInvoke::Handles to store them elsewhere.
+    DbgInvoke(DbgInvoke&& other) = delete;
     DbgInvoke(const DbgInvoke& other) = delete;
     DbgInvoke& operator=(const DbgInvoke& other) = delete;
 
@@ -235,6 +237,18 @@ public:
     // clear pending list ops on the front end
     void clearFrontendGdb();
 
+    // Initialize the internal recent frame cache. Requires `setFullBitset` to have been
+    // called first, otherwise fails silently.
+    void initCachedFrames();
+
+    // Get the internal recent frame cache. If it hasn't been initialized yet, returns
+    // nullptr.
+    const BitsetMRUCache<dbgloc_t>* getCachedFrames() const;
+
+    // Insert a frame into the recent frame cache. If the internal frame cache hasn't been
+    // initialized yet, fails silently.
+    void cacheFrame(std::unique_ptr<Bitset>&& ranks, dbgloc_t&& frame);
+
     // Get/set a funcion as the function to be called with callAsyncEventCallback. This is
     // typically in the main loop to tell a DbgInvoke that an async event (like a
     // breakpoint being hit) has happened.
@@ -321,6 +335,8 @@ private:
     BreakpointManager m_breakpoints; // logical breakpoints for this di
     CheckpointManager m_checkpoints; // logical checkpoints for this di
     std::list<EventSet> m_eventset_list; // partial async event responses
+
+    std::unique_ptr<BitsetMRUCache<dbgloc_t>> m_recent_frames;
 
     // activate() will set up the di's internal m_handle
     Handle m_handle = nullptr;

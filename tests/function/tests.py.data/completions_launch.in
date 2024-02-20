@@ -1,0 +1,112 @@
+1: maint set sync on
+2: launch $a{10} ./bin/CRAY/C++/cpp_ds_test1.x -g "-N1"
+Starting application, please wait...
+Launched application...
+10/10 ranks connected
+Creating network... (timeout in 300 seconds)
+Created network...
+Connected to application...
+Launch complete.
+a{0..9}: Initial breakpoint, main at /src/C++/cpp_ds_test1.cpp:85
+3: # step past MPI_Init
+3: # adding ? because we don't care if the source lines are emitted in this test
+4: n???
+a{0..9}: 86         MPI_Init(&argc, &argv);
+5: n???
+a{0..9}: 87         if(dup2(2,1) < 0)    return 1;
+6: focus $a{1}
+7: maint complete break variableS<>
+variableSizeDataTest()
+8: break variableSizeDataTest
+a{1}: Breakpoint 1: file /src/C++/cpp_ds_test1.cpp, line 180.
+9: c
+a{1}: Breakpoint 1, variableSizeDataTest() at /src/C++/cpp_ds_test1.cpp:180
+10: focus $a{2}
+11: maint complete break templateC<>
+templateClassTest()
+templateClassTest2()
+12: break templateClassTest
+a{2}: Breakpoint 2: file /src/C++/cpp_ds_test1.cpp, line 235.
+13: c
+a{2}: Breakpoint 2, templateClassTest() at /src/C++/cpp_ds_test1.cpp:235
+14: focus $a{3}
+15: break templateClassTest2
+a{3}: Breakpoint 3: file /src/C++/cpp_ds_test1.cpp, line 281.
+16: c
+a{3}: Breakpoint 3, templateClassTest2() at /src/C++/cpp_ds_test1.cpp:281
+17: focus $a{4}
+18: maint complete break nestedT<>
+nestedTemplateClassTest()
+nestedTypedef()
+19: break nestedTemplateClassTest
+a{4}: Breakpoint 4: file /src/C++/cpp_ds_test1.cpp, line 352.
+20: c
+a{4}: Breakpoint 4, nestedTemplateClassTest() at /src/C++/cpp_ds_test1.cpp:352
+21: focus $a{5}
+22: break nestedTypedef
+a{5}: Breakpoint 5: file /src/C++/cpp_ds_test1.cpp, line 392.
+23: c
+a{5}: Breakpoint 5, nestedTypedef() at /src/C++/cpp_ds_test1.cpp:392
+24: focus $a{6}
+25: maint complete b obsc<>
+obscureDataTypes()
+26: break obscureDataTypes
+a{6}: Breakpoint 6: file /src/C++/cpp_ds_test1.cpp, line 250.
+27: c
+a{6}: Breakpoint 6, obscureDataTypes() at /src/C++/cpp_ds_test1.cpp:250
+28: focus $a{7}
+29: maint complete br virtu<>
+virtualFuncTest()
+30: break virtualFuncTest
+a{7}: Breakpoint 7: file /src/C++/cpp_ds_test1.cpp, line 437.
+31: c
+a{7}: Breakpoint 7, virtualFuncTest() at /src/C++/cpp_ds_test1.cpp:437
+32: focus $a{8}
+33: maint complete break inher<>
+inheritanceTest()
+34: break inheritanceTest
+a{8}: Breakpoint 8: file /src/C++/cpp_ds_test1.cpp, line 330.
+35: c
+a{8}: Breakpoint 8, inheritanceTest() at /src/C++/cpp_ds_test1.cpp:330
+36: focus $a{9}
+37: maint complete break functionP<>
+functionPointers()
+38: break functionPointers
+a{9}: Breakpoint 9: file /src/C++/cpp_ds_test1.cpp, line 622.
+39: c
+a{9}: Breakpoint 9, functionPointers() at /src/C++/cpp_ds_test1.cpp:622
+40: focus $all
+41: # from $a{0} in main
+41: maint complete print area<>
+area1
+area2
+0: # from $a{1} in variableSizeDataTest
+0: maint complete print stri<>
+strings
+0: # from $a{2..3} in templateClassTest[2]
+0: maint complete print vm<>
+vmi
+vmi2
+0: # $a{4..5} only have single letter local variables and matching on those would be too chaotic for a stable test
+0: # from $a{6} in obscureDataTypes
+0: maint complete print ui<>
+ui16
+ui32
+ui64
+ui8
+0: # from $a{7} in virtualFuncTest
+0: maint complete print bs<>
+bsp
+0: # from $a{8} in inheritanceTest
+0: maint complete print PG<>
+PGC
+0: # from $a{9} in functionPointers
+0: maint complete print cp<>
+cp
+cpp
+cpr
+0: # global_string may or may not have a '[abi:cxx11]' attached to the end of it
+0: maint complete print global_<>
+global_string%.*%
+0: q
+Shutting down debugger and killing application for 'a'.

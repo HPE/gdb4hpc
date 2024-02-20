@@ -719,7 +719,7 @@ ConsoleInterpreter::complete_text(std::string_view partial_word, std::string_vie
         // name when constructing argv above, which peels off "set print" for us
         // and argv[0] becomes "elem".
         auto comps = Interpreter::Completions{};
-        comps.possibilities.emplace_back(cmd->getShortName());
+        comps.possibilities.emplace(cmd->getShortName());
         return comps;
     } else {
         // do command-specific completion

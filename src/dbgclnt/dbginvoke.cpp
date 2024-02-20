@@ -599,35 +599,6 @@ DbgInvoke::DbgInvoke(ProcessType type, int nproc, DebugClientProtocol& proto)
     , m_proto{proto}
 {};
 
-DbgInvoke::DbgInvoke(DbgInvoke&& o)
-    : m_appid{o.m_appid}
-    , m_type{o.m_type}
-    , m_started_flag{o.m_started_flag}
-    , m_at_init_breakpoint_flag{o.m_at_init_breakpoint_flag}
-    , m_shutdown_flag{o.m_shutdown_flag}
-    , m_launch_opts{std::move(o.m_launch_opts)}
-    , m_nproc{o.m_nproc}
-    , m_evfds{o.m_evfds}
-    , m_proto_outp{o.m_proto_outp}
-    , m_bitset_full{std::move(o.m_bitset_full)}
-    , m_bitset_launched{std::move(o.m_bitset_launched)}
-    , m_proto{o.m_proto}
-    , m_proto_net{std::move(o.m_proto_net)}
-    , m_frontend_gdb{std::move(o.m_frontend_gdb)}
-    , m_clnt_ev_callback{std::move(o.m_clnt_ev_callback)}
-    , m_source_paths{std::move(o.m_source_paths)}
-    , m_breakpoints{std::move(o.m_breakpoints)}
-    , m_checkpoints{std::move(o.m_checkpoints)}
-    , m_eventset_list{std::move(o.m_eventset_list)}
-    , m_handle{std::move(o.m_handle)}
-{
-    o.m_appid = 0;
-    o.m_started_flag = false;
-    o.m_shutdown_flag = true;
-    o.m_nproc = 0;
-    o.m_proto_outp = nullptr;
-}
-
 DbgInvoke::~DbgInvoke() {
     HoldSignals();
     ReleaseSignals();
@@ -722,6 +693,21 @@ DbgFE* DbgInvoke::frontendGdb() const { return m_frontend_gdb.get(); }
 
 void DbgInvoke::clearFrontendGdb() {
     if (m_frontend_gdb) m_frontend_gdb->clearListState();
+}
+
+void DbgInvoke::initCachedFrames() {
+    if (m_bitset_full) {
+        m_recent_frames = std::make_unique<BitsetMRUCache<dbgloc_t>>(*m_bitset_full);
+    }
+}
+
+const BitsetMRUCache<dbgloc_t>* DbgInvoke::getCachedFrames() const {
+    return m_recent_frames.get();
+}
+
+void DbgInvoke::cacheFrame(std::unique_ptr<Bitset>&& ranks, dbgloc_t&& frame) {
+    if (!m_recent_frames) return;
+    m_recent_frames->push(std::move(ranks), std::move(frame));
 }
 
 DbgInvoke::AsyncEventCallback DbgInvoke::getAsyncEventCallback() const {

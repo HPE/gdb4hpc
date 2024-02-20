@@ -157,9 +157,9 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
         auto loc1b = dbgloc(strdup("dbgevent.cpp"), strdup("FreeBp"), strdup("0xeeee"), 210);
         auto loc2b = dbgloc(strdup("dbgevent.cpp"), strdup("EventToSocProto"), strdup("0xffff"), 90);
 
-        auto frame2b = new dbgframe_t(2, loc2a, nullptr, "thread b", nullptr);
-        auto frame1b = new dbgframe_t(1, loc1a, frame2b, "thread b", nullptr);
-        auto frame0b = new dbgframe_t(0, loc0a, frame1b, "thread b", nullptr);
+        auto frame2b = new dbgframe_t(2, loc2b, nullptr, "thread b", nullptr);
+        auto frame1b = new dbgframe_t(1, loc1b, frame2b, "thread b", nullptr);
+        auto frame0b = new dbgframe_t(0, loc0b, frame1b, "thread b", nullptr);
 
         auto frame2a = new dbgframe_t(2, loc2a, nullptr, "thread a", nullptr);
         auto frame1a = new dbgframe_t(1, loc1a, frame2a, "thread a", nullptr);

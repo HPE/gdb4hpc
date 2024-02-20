@@ -87,6 +87,7 @@ variable
 0: maint complete maint <>
 complete
 echo
+list-cached-frames
 set
 show
 sleep

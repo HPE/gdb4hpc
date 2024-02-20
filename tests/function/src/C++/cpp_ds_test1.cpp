@@ -228,7 +228,7 @@ private:
     std::unique_ptr<T> up;
 };
 
-
+std::string global_string = "global_string";
 
 static void templateClassTest() {
 

@@ -140,7 +140,7 @@ public:
 
     // `possibilities` can and should be modified from the outside. the various
     // add_* functions add to it.
-    std::vector<std::string> possibilities;
+    std::set<std::string> possibilities;
 
     // given a `partial_path`, complete the path and add matching filesystem
     // completions to `possibilities`.
@@ -152,11 +152,12 @@ public:
     void add_function_symbol_names(const DbgInvoke& di, std::string_view partial_fn_name);
     bool has_function_symbol_names() const;
 
-    // TODO
-    //
-    // // given a `partial_word` variable name that lives in `buffer`, add matching
-    // // variable symbol names (global, local, and member) associated with `di` to `possibilities`.
-    // void add_variable_symbol_names(const DbgInvoke& di, std::string_view partial_word, std::string_view buffer);
+    // given a `partial_var_name` variable name that lives in `buffer`, add matching
+    // variable symbol names associated with `di` to `possibilities`.
+    // all matching global variables are added and all matching local variables
+    // from `di`'s recently cached frames are added.
+    void add_variable_symbol_names(const DbgInvoke& di, const Bitset& ranks, std::string_view partial_var_name);
+    bool has_variable_symbol_names() const;
 
     // given a `partial_path` source file name, add matching source file names
     // associated with `di` to `possibilities`. the `partial_path` will be
@@ -174,5 +175,6 @@ private:
 
     bool m_has_filesystem_names = false;
     bool m_has_function_symbol_names = false;
+    bool m_has_variable_symbol_names = false;
     bool m_has_source_file_names = false;
 };

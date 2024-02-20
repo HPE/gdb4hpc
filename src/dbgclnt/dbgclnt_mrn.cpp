@@ -612,6 +612,7 @@ OMPD support will not be available.\n");
 
     di->setFullBitset(std::make_unique<DenseBitset>(num_be, DenseBitset::InitialState::Full));
     di->setLaunchedBitset(std::make_unique<DenseBitset>(num_be));
+    di->initCachedFrames();
 
     DPRINT("DbgMRNAttach: MRNet initialization succeded! network:[%p]\n",
            network.get());
@@ -1190,6 +1191,7 @@ OMPD support will not be available.\n");
 
     di->setFullBitset(std::make_unique<DenseBitset>(num_be, DenseBitset::InitialState::Full));
     di->setLaunchedBitset(std::make_unique<DenseBitset>(num_be));
+    di->initCachedFrames();
 
     DPRINT("DbgMRNInvoke: MRNet initialization succeded! network:[%p]\n",
            network.get());

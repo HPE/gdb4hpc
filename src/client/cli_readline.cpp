@@ -414,14 +414,21 @@ static char** generate_completions(const char* /*partial_word_start*/, int start
         // t_width will be 0 in non-interactive situations like running batch files.
         // the magic number 4 is derived from the chop/prefix logic below
         if (t_width >= 4) {
-            for (auto& word : completions.possibilities) {
+            auto replacements = std::vector<std::pair<std::string, std::string>>{};
+
+            for (const auto& word : completions.possibilities) {
                 if (word.size() > t_width && partial_word.size() < word.size()) {
                     // t_width - 1 because otherwise readline would print a terminal-width
                     // string which would naturally line break, and then readline would print another line break
                     //
                     // -3 for the "..." prefix
-                    word = std::string{"..."} + word.substr(partial_word.size(), t_width - 1 - 3);
+                    replacements.push_back({word, std::string{"..."} + word.substr(partial_word.size(), t_width - 1 - 3)});
                 }
+            }
+
+            for (auto& [old, neww] : replacements) {
+                completions.possibilities.erase(old);
+                completions.possibilities.emplace(std::move(neww));
             }
         }
     }
@@ -432,11 +439,17 @@ static char** generate_completions(const char* /*partial_word_start*/, int start
     // the replacement + all other possibilities + nullptr
     const auto result_size = possibilities.size() + 2;
 
+    // the replacement
     auto result = static_cast<char**>(::malloc(sizeof(char*) * result_size));
     result[0] = ::strdup(replacement.c_str());
-    for (auto i = size_t{0}; i < possibilities.size(); i++) {
-        result[i + 1] = ::strdup(possibilities[i].c_str());
+
+    // all other possibilities
+    auto i = size_t{1};
+    for (const auto& choice : possibilities) {
+        result[i++] = ::strdup(choice.c_str());
     }
+
+    // nullptr
     result[result_size - 1] = nullptr;
 
     // normally readline will complete the partial word with `replacement` and then add

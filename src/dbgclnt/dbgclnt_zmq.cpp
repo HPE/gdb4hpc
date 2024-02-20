@@ -319,6 +319,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     auto num_be = di->numRanks();
     di->setFullBitset(std::make_unique<DenseBitset>(num_be, DenseBitset::InitialState::Full));
     di->setLaunchedBitset(std::make_unique<DenseBitset>(num_be));
+    di->initCachedFrames();
 
     auto zmqnet = makeZmqnetFrontend(num_be, di->appId(), session_id, manifest_id, dbgsrvArgs.c_strs().data());
 

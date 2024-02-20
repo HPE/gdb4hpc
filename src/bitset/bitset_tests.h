@@ -3,6 +3,7 @@
  ******************************************************************************/
 
 #include "bitset.h"
+#include "dense_bitset.h"
 
 #include <unordered_set>
 
@@ -406,5 +407,265 @@ TEST_CASE_TEMPLATE_DEFINE("libbitset", BitsetT, libbitset) {
         }
 
         CHECK(count == 1u);
+    }
+}
+
+static std::unique_ptr<Bitset> get_small_bitset(unsigned short bits) {
+    auto result = std::make_unique<DenseBitset>(4);
+    for (size_t b = 0; bits != 0; b++, bits >>= 1) {
+        if ((bits & 1) == 1) result->set(b);
+    }
+    return result;
+}
+
+TEST_CASE("BitsetMRUCache") {
+    SUBCASE("Empty history iteration") {
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+        auto mask = get_small_bitset(0b0000);
+        bool did_stuff_inside = false;
+        for ([[maybe_unused]] const auto& item : h) { did_stuff_inside = true; };
+        for ([[maybe_unused]] const auto& item : h.masked(*mask)) { did_stuff_inside = true; };
+        CHECK(did_stuff_inside == false);
+    }
+
+    SUBCASE("basics") {
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+        // push items, then iterate over them with most recent item first
+        auto entries = std::vector<std::pair<std::unique_ptr<Bitset>, size_t>>{};
+        entries.push_back({get_small_bitset(0b0001), 0});
+        entries.push_back({get_small_bitset(0b0010), 1});
+        entries.push_back({get_small_bitset(0b0100), 2});
+
+        h.push(entries[0].first->clone(), size_t{entries[0].second});
+        h.push(entries[1].first->clone(), size_t{entries[1].second});
+        h.push(entries[2].first->clone(), size_t{entries[2].second});
+
+        auto i = (int)entries.size() - 1;
+        for (const auto& item : h) {
+            CHECK(entries[i--].second == item);
+        }
+        CHECK(i == -1);
+    }
+
+    SUBCASE("exactly full list") {
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+        // push items to completely fill the internal list without wrapping
+        auto entries = std::vector<std::pair<std::unique_ptr<Bitset>, size_t>>{};
+        entries.push_back({get_small_bitset(0b0001), 0});
+        entries.push_back({get_small_bitset(0b0010), 1});
+        entries.push_back({get_small_bitset(0b0100), 2});
+        entries.push_back({get_small_bitset(0b1000), 3});
+
+        h.push(entries[0].first->clone(), size_t{entries[0].second});
+        h.push(entries[1].first->clone(), size_t{entries[1].second});
+        h.push(entries[2].first->clone(), size_t{entries[2].second});
+        h.push(entries[3].first->clone(), size_t{entries[3].second});
+
+        auto i = (int)entries.size() - 1;
+        for (const auto& item : h) {
+            CHECK(entries[i--].second == item);
+        }
+        CHECK(i == -1);
+    }
+
+    SUBCASE("new items can overwrite old items even if their bitsets don't overlap") {
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+
+        auto entries = std::vector<std::pair<std::unique_ptr<Bitset>, size_t>>{};
+        entries.push_back({get_small_bitset(0b0001), 0});
+        entries.push_back({get_small_bitset(0b0010), 1});
+        entries.push_back({get_small_bitset(0b0100), 2});
+        entries.push_back({get_small_bitset(0b1000), 3});
+
+        // first entry
+        h.push(entries[0].first->clone(), size_t{entries[0].second});
+
+        for (int i = 0; i < 10000; i++) {
+            // note that these entries' bitsets don't overlap the first entry...
+            h.push(entries[1].first->clone(), size_t{entries[1].second});
+            h.push(entries[2].first->clone(), size_t{entries[2].second});
+            h.push(entries[3].first->clone(), size_t{entries[3].second});
+        }
+
+        // ...but the first entry has been lost due to the number of new entries pushed.
+        // the cache makes no attempt to keep old data around, even if it doesn't overlap
+        // new data.
+        auto i = (int)entries.size() - 1;
+        for (const auto& item : h) {
+            CHECK(entries[i--].second == item);
+        }
+        CHECK(i == 0); // only 3 items present
+    }
+
+    SUBCASE("Only the most recent item of a given bitset is shown") {
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+        // push two elements with the same bitset - the new one overwrites the old one
+        // when iterating
+        auto entries = std::vector<std::pair<std::unique_ptr<Bitset>, size_t>>{};
+        entries.push_back({get_small_bitset(0b0001), 0});
+        entries.push_back({get_small_bitset(0b0001), 1});
+
+        h.push(entries[0].first->clone(), size_t{entries[0].second});
+        h.push(entries[1].first->clone(), size_t{entries[1].second});
+
+        auto i = (int)entries.size() - 1;
+        for (const auto& item : h) {
+            CHECK(entries[i--].second == item);
+        }
+        CHECK(i == 0); // only one item present
+    }
+
+    SUBCASE("Items with only one bit will still appear") {
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+        // push two elements with the same bitset - the new one only partially overwrites the old one
+        // when iterating and both will appear
+        auto entries = std::vector<std::pair<std::unique_ptr<Bitset>, size_t>>{};
+        entries.push_back({get_small_bitset(0b0111), -1});
+        entries.push_back({get_small_bitset(0b0011), 0});
+        entries.push_back({get_small_bitset(0b0110), 1});
+
+        h.push(entries[0].first->clone(), size_t{entries[0].second});
+        h.push(entries[1].first->clone(), size_t{entries[1].second});
+        h.push(entries[2].first->clone(), size_t{entries[2].second});
+
+        auto i = (int)entries.size() - 1;
+        for (const auto& item : h) {
+            CHECK(entries[i--].second == item);
+        }
+        CHECK(i == 0); // only two items present
+    }
+
+    SUBCASE("Large bitsets will be split by newer, smaller bitsets") {
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+        auto entries = std::vector<std::pair<std::unique_ptr<Bitset>, size_t>>{};
+        entries.push_back({get_small_bitset(0b1111), 0});
+        entries.push_back({get_small_bitset(0b0001), 1});
+        entries.push_back({get_small_bitset(0b0010), 2});
+        entries.push_back({get_small_bitset(0b0100), 3});
+
+        h.push(entries[0].first->clone(), size_t{entries[0].second});
+        h.push(entries[1].first->clone(), size_t{entries[1].second});
+        h.push(entries[2].first->clone(), size_t{entries[2].second});
+        h.push(entries[3].first->clone(), size_t{entries[3].second});
+
+        auto i = (int)entries.size() - 1;
+        for (const auto& item : h) {
+            CHECK(entries[i--].second == item);
+        }
+        CHECK(i == -1);
+    }
+
+    SUBCASE("Masked iteration") {
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+        auto entries = std::vector<std::pair<std::unique_ptr<Bitset>, size_t>>{};
+        entries.push_back({get_small_bitset(0b1000), 0});
+        entries.push_back({get_small_bitset(0b0100), 1});
+        entries.push_back({get_small_bitset(0b0010), 2});
+        entries.push_back({get_small_bitset(0b0001), 3});
+
+        h.push(entries[0].first->clone(), size_t{entries[0].second});
+        h.push(entries[1].first->clone(), size_t{entries[1].second});
+        h.push(entries[2].first->clone(), size_t{entries[2].second});
+        h.push(entries[3].first->clone(), size_t{entries[3].second});
+
+        auto mask = get_small_bitset(0b0110);
+
+        auto i = 2; // starting from middle of list since most recent item is masked away
+        for (const auto& item : h.masked(*mask)) {
+            CHECK(entries[i--].second == item);
+        }
+        CHECK(i == 0); // only two items present
+    }
+
+    SUBCASE("Masked iteration that doesn't match anything") {
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+        auto entries = std::vector<std::pair<std::unique_ptr<Bitset>, size_t>>{};
+        entries.push_back({get_small_bitset(0b1000), 0});
+        entries.push_back({get_small_bitset(0b0100), 1});
+        entries.push_back({get_small_bitset(0b0010), 2});
+
+        h.push(entries[0].first->clone(), size_t{entries[0].second});
+        h.push(entries[1].first->clone(), size_t{entries[1].second});
+        h.push(entries[2].first->clone(), size_t{entries[2].second});
+
+        SUBCASE("Empty mask") {
+            auto mask = get_small_bitset(0b0000);
+            bool did_inner_stuff = false;
+            for ([[maybe_unused]] const auto& item : h.masked(*mask)) {
+                did_inner_stuff = true;
+            }
+            CHECK(did_inner_stuff == false);
+        }
+
+        SUBCASE("Non empty mismatching mask") {
+            auto mask = get_small_bitset(0b0001);
+            bool did_inner_stuff = false;
+            for ([[maybe_unused]] const auto& item : h.masked(*mask)) {
+                did_inner_stuff = true;
+            }
+            CHECK(did_inner_stuff == false);
+        }
+    }
+
+    SUBCASE("Pushing the same bitset multiple times replaces the top item") {
+        // as an optimization, pushing the same bitset multiple times to the cache
+        // will simply overwrite the entry at the tip instead of pushing new items.
+        //
+        // this effect isn't actually observable from the API that the cache gives,
+        // so this test only exists to test the internal code path and ensure the
+        // observable effects are still correct.
+
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(4, DenseBitset::InitialState::Full));
+        auto entries = std::vector<std::pair<std::unique_ptr<Bitset>, size_t>>{};
+        entries.push_back({get_small_bitset(0b1000), 0});
+        entries.push_back({get_small_bitset(0b1000), 1});
+        entries.push_back({get_small_bitset(0b1000), 2});
+
+        h.push(entries[0].first->clone(), size_t{entries[0].second});
+        h.push(entries[1].first->clone(), size_t{entries[1].second});
+        h.push(entries[2].first->clone(), size_t{entries[2].second});
+
+        auto i = 0;
+        for (const auto& item : h) {
+            i++;
+            CHECK(item == 2); // only expect to CHECK once
+        }
+        CHECK(i == 1); // only one item present
+    }
+
+    SUBCASE("Huge bitsets and cache") {
+        // not really a correctness test - just making sure a big cache containing
+        // big bitsets is indeed reasonably fast.
+        //
+        // "reasonably" currently only defined by a human running the unit tests
+        // manually and gut feeling it. TODO: more strict tests for performance
+
+        constexpr auto bit_width = 100000ul;
+        constexpr auto num_pushes = BitsetMRUCache<size_t>::max_capacity;
+        static_assert(num_pushes < bit_width);
+
+        auto h = BitsetMRUCache<size_t>(*std::make_unique<DenseBitset>(bit_width, DenseBitset::InitialState::Full));
+
+        for (size_t i = 0; i < num_pushes; i++) {
+            auto bitset = std::make_unique<DenseBitset>(bit_width);
+            bitset->set(i);
+            h.push(std::move(bitset), size_t{i});
+        }
+
+        size_t count = 0;
+        for ([[maybe_unused]] auto& item : h) {
+            count++;
+        }
+        CHECK(count == num_pushes);
+
+        count = 0;
+        auto mask = std::make_unique<DenseBitset>(bit_width);
+        for (size_t i = 0; i < num_pushes/2; i++) {
+            mask->set(i);
+        }
+        for ([[maybe_unused]] auto& item: h.masked(*mask)) {
+            count++;
+        }
+        CHECK(count == num_pushes/2);
     }
 }

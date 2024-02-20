@@ -128,6 +128,9 @@ static rep_set_t DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& reque
 static std::pair<std::string,std::unique_ptr<const char*[]>>
 GetTrampolineArgs(const char* prog, const char* const* args);
 
+// if `repset` contains any DBGEV_FRAMEs, copy them into the reply di's frame cache.
+static void cacheFrames(rep_set_t& repset);
+
 /*
 ** Internal Variables
 */
@@ -1101,7 +1104,6 @@ int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
     dbgev last_event = DBGEV_NONE;
     DbgInvoke::EventSet *eventset = nullptr;
     dbgevent_t *event;
-    dbgbp_t *bp;
 
     for (const auto &msg : set) {
         // convert this protocol msg string to an event
@@ -1123,10 +1125,16 @@ int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
                 break;
 
             // These events coorespond to possible status changes
-            case DBGEV_BPHIT:
-            case DBGEV_BPDEL:
+            case DBGEV_BPHIT: {
+                auto* bp = EVENT_BP(event);
+                if (bp && msg.getBitset() != nullptr) {
+                    di->cacheFrame(msg.getBitset()->clone(), dbgloc(bp->bp_loc));
+                }
+                [[fallthrough]];
+            }
+            case DBGEV_BPDEL: {
                 // Handle special pre-processing for breakpoints
-                bp = EVENT_BP(event);
+                auto* bp = EVENT_BP(event);
                 // Fixup any pending breakpoints
                 di->breakpoints().fixupPendingBreakpoints(*bp, msg.getBitset());
                 if (auto bp_set = di->breakpoints().findByDbgBreakpoint(*bp)) {
@@ -1144,8 +1152,15 @@ int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
                             break;
                     }
                 }
-            // fall through
-            case DBGEV_STEP:
+                break;
+            }
+            case DBGEV_STEP: {
+                const auto& step = event->ev_u.ev_u_step;
+                if (step.step_frame && msg.getBitset() != nullptr) {
+                    di->cacheFrame(msg.getBitset()->clone(), dbgloc(step.step_frame->getLoc()));
+                }
+                break;
+            }
             case DBGEV_SIGNAL:
             case DBGEV_ERROR:
             default:
@@ -1165,8 +1180,7 @@ int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
         switch (EVENT_EV(event)) {
             // Post process breakpoints
             case DBGEV_BPHIT: {
-
-                bp = EVENT_BP(event);
+                auto* bp = EVENT_BP(event);
                 if (auto bp_set = di->breakpoints().findByDbgBreakpoint(*bp)) {
                     // If the breakpoint was set to delete, we need to delete
                     // it. If it was set to dis, we need to disable it.
@@ -1204,7 +1218,7 @@ int DbgDispatchProtoEvents(DbgInvoke *di, const ProtoMessageSet &set) {
             }
 
             case DBGEV_BPDEL: {
-                bp = EVENT_BP(event);
+                auto* bp = EVENT_BP(event);
                 if (auto bp_set = di->breakpoints().findByDbgBreakpoint(*bp)) {
                     // Need to delete the breakpoint.
                     std::vector<std::unique_ptr<Bitset>> removeGroups;
@@ -1971,9 +1985,8 @@ static rep_set_t DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& reque
 */
 rep_set_t DbgStartup(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_STARTUP);
-
     rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
-
+    cacheFrames(result);
     return result;
 }
 
@@ -3446,6 +3459,7 @@ rep_set_t DbgShowFrame(rec_set_t *set, int count) {
 rep_set_t DbgGetFrame(rec_set_t *set, bool verbose) {
     auto request = CommandToSocProto(DBGCMD_GETFRAME, int(verbose), set->getThreads());
     rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_FRAME);
+    cacheFrames(result);
     return result;
 }
 
@@ -3808,4 +3822,14 @@ void InputList::unmask_all_inputs() {
 
 int DbgGetBPNum() {
     return g_bpnum;
+}
+
+void cacheFrames(rep_set_t& repset) {
+    for (const auto& rep : repset) {
+        if (!rep || !rep->rep_group || !rep->rep_event || rep->rep_event->ev_event != DBGEV_FRAME || !rep->rep_event->ev_u.ev_u_frame) continue;
+
+        if (auto* di = rep->rep_di.lock()) {
+            di->cacheFrame(rep->rep_group->clone(), dbgloc(rep->rep_event->ev_u.ev_u_frame->getLoc()));
+        }
+    }
 }

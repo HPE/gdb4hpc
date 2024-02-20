@@ -187,7 +187,7 @@ public:
     static dbgframe_t* copy(const dbgframe_t* rhs) { return rhs ? rhs->clone() : nullptr; }
     ~dbgframe_t();
 
-    dbgframe_t(const dbgframe_t&) = delete;
+    explicit dbgframe_t(const dbgframe_t&);
     dbgframe_t& operator=(const dbgframe_t&) = delete;
 };
 

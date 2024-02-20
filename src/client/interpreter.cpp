@@ -58,19 +58,22 @@ void Completions::add_filesystem_names(std::filesystem::path partial_filename) {
             return p;
         }();
 
-        auto num_added = size_t{0};
+        auto new_possibilities = std::vector<std::string>{};
 
         for (const auto& dir_entry : std::filesystem::directory_iterator{parent}) {
             if (!dir_entry.path().native().starts_with(partial_filename.native())) continue;
-            this->possibilities.emplace_back(dir_entry.path());
-            num_added++;
+            new_possibilities.emplace_back(dir_entry.path());
         }
 
-        m_has_filesystem_names = num_added > 0;
+        m_has_filesystem_names |= new_possibilities.size() > 0;
 
         // on an exact directory match, add '/'
-        if (num_added == 1 && std::filesystem::is_directory(this->possibilities.back())) {
-            this->possibilities.back() += "/";
+        if (new_possibilities.size() == 1 && std::filesystem::is_directory(new_possibilities.back())) {
+            new_possibilities.back() += "/";
+        }
+
+        for (auto& choice : new_possibilities) {
+            this->possibilities.emplace(std::move(choice));
         }
     } catch (const std::filesystem::filesystem_error& e) {
         // silently fail
@@ -94,13 +97,13 @@ void Completions::add_function_symbol_names(const DbgInvoke& di, std::string_vie
 
         for (auto& sym : fns->ev_u.ev_u_symbols->debug) {
             if (sym.name.starts_with(partial_fn_name)) {
-                this->possibilities.emplace_back(std::move(sym.name));
+                this->possibilities.emplace(std::move(sym.name));
                 m_has_function_symbol_names = true;
             }
         }
         for (auto& sym : fns->ev_u.ev_u_symbols->nondebug) {
             if (sym.name.starts_with(partial_fn_name)) {
-                this->possibilities.emplace_back(std::move(sym.name));
+                this->possibilities.emplace(std::move(sym.name));
                 m_has_function_symbol_names = true;
             }
         }
@@ -111,11 +114,94 @@ bool Completions::has_function_symbol_names() const {
     return m_has_function_symbol_names;
 }
 
-// TODO
-//
-// void Completions::add_variable_symbol_names(const DbgInvoke& /*di*/, std::string_view /*partial_word*/, std::string_view /*buffer*/) {
-//     // TODO
-// }
+void Completions::add_variable_symbol_names(const DbgInvoke& di, const Bitset& ranks, std::string_view partial_var_name) {
+    if (!di.frontendGdb()) return;
+    auto *gdbmi = di.frontendGdb();
+
+    {   // add global variables
+        auto vars = gdbmi->getVariableSymbolNames(partial_var_name);
+        auto cleanup = OnScopeExit([&](){ FreeEvent(vars); });
+
+        if (vars && vars->ev_event == DBGEV_SYMBOLS && vars->ev_u.ev_u_symbols) {
+            for (auto& sym : vars->ev_u.ev_u_symbols->debug) {
+                if (sym.name.starts_with(partial_var_name)) {
+                    this->possibilities.emplace(std::move(sym.name));
+                    m_has_function_symbol_names = true;
+                }
+            }
+            for (auto& sym : vars->ev_u.ev_u_symbols->nondebug) {
+                if (sym.name.starts_with(partial_var_name)) {
+                    this->possibilities.emplace(std::move(sym.name));
+                    m_has_function_symbol_names = true;
+                }
+            }
+        } else {
+            // silently fail
+        }
+    }
+
+    // add local variables
+    if (auto* cached_frames = di.getCachedFrames()) {
+        // querying mi is the bottleneck here, so we go to some length to make as few mi queries as possible.
+        //
+        // we limit the total amount of queries to some arbitrary amount.
+        // some experiments on pea2k show a query for a function with n local variables
+        // takes about (n + 10)ms to finish. lets conservatively account for 20 local variables
+        // per function (probably more than the true average) to get 30 ms per query,
+        // and say the total time shouldn't be more than 300ms. that gives us room for "only" 10 queries,
+        // but note that these will be the 10 *most recently cached* locations, so the chance of
+        // matching the variable that the user is thinking of is decent even with only 10 queries.
+        //
+        // we also track already seen locations and avoid making duplicate queries.
+
+        auto seen_locs = std::set<std::string>{};
+        const auto max_queries = 10;
+        auto query_count = 0;
+
+        for (const auto& loc : cached_frames->masked(ranks)) {
+            const auto locstr = [&]() {
+                // filename:linenum locations are the best because they can capture local variables
+                // that aren't declared until later in the function or inside of brackets. if that's
+                // missing, we just fall back to function names.
+                if (loc.loc_file && loc.loc_line > 0) {
+                    return std::string{loc.loc_file} + ":" + std::to_string(loc.loc_line);
+                } else if (loc.loc_func) {
+                    return std::string{loc.loc_func};
+                } else {
+                    return std::string{""};
+                }
+            }();
+            if (locstr.empty() || seen_locs.contains(locstr)) continue;
+            seen_locs.insert(locstr);
+
+            if (query_count >= max_queries) break;
+            query_count++;
+
+            auto* vars = gdbmi->getScope(locstr.c_str());
+            auto vars_cleanup = OnScopeExit([&](){ FreeEvent(vars); });
+
+            if (!vars || vars->ev_event != DBGEV_VARS) continue;
+
+            for (auto* p = vars->ev_u.ev_u_vars; p != nullptr; p = p->var_next) {
+                if (!p->var_name) continue;
+
+                // we only care about the first partial_var_name.size() characters of p->var_name.
+                // calling string_view(p->var_name, partial_var_name.size()) could construct
+                // a string_view that extends past the end of var_name, so we call ::strnlen
+                // on the outside to get the minimum length we need.
+                auto view = std::string_view(p->var_name, ::strnlen(p->var_name, partial_var_name.size()));
+                if (view == partial_var_name) {
+                    this->possibilities.emplace(p->var_name);
+                    m_has_variable_symbol_names = true;
+                }
+            }
+        }
+    }
+}
+
+bool Completions::has_variable_symbol_names() const {
+    return m_has_variable_symbol_names;
+}
 
 void Completions::add_source_file_names(const DbgInvoke& di, std::filesystem::path partial_path) {
     // DbgInvokes do have a source path caching machanism, but that is only used in mi
@@ -135,7 +221,7 @@ void Completions::add_source_file_names(const DbgInvoke& di, std::filesystem::pa
             auto source_path = std::filesystem::path{p->sources_file};
 
             if (source_path.native().starts_with(partial_path.native())) {
-                this->possibilities.emplace_back(source_path);
+                this->possibilities.emplace(source_path);
                 m_has_source_file_names = true;
             }
 
@@ -143,7 +229,7 @@ void Completions::add_source_file_names(const DbgInvoke& di, std::filesystem::pa
             // "break foo<>" when the full path given by mi is "/home/josh/code/src/foobar.c"
             const auto filename = source_path.filename();
             if (!filename.empty() && filename.native().starts_with(partial_path.native())) {
-                this->possibilities.emplace_back(source_path.filename());
+                this->possibilities.emplace(source_path.filename());
                 m_has_source_file_names = true;
             }
         }
@@ -153,7 +239,7 @@ void Completions::add_source_file_names(const DbgInvoke& di, std::filesystem::pa
 std::string Completions::calc_common_prefix() const {
     if (this->possibilities.size() == 0) return "";
 
-    auto prefix = std::string_view{this->possibilities[0]};
+    auto prefix = std::string_view{*this->possibilities.begin()};
 
     // skipping 1st since we don't have to compare the first word with itself
     for (std::string_view poss : this->possibilities | std::views::drop(1)) {

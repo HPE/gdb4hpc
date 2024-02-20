@@ -108,6 +108,61 @@ TEST_CASE("DbgErrTab is fully filled out") {
     }
 }
 
+TEST_CASE("dbgframe_t::clone") {
+    // thread a
+    auto loc0a = dbgloc(strdup("dbgformat.cpp"), strdup("FreeEvent"), strdup("0xaaaa"), 180);
+    auto loc1a = dbgloc(strdup("dbgformat.cpp"), strdup("FreeBp"), strdup("0xbbbb") ,200);
+    auto loc2a = dbgloc(strdup("dbgformat.cpp"), strdup("EventToSocProto"), strdup("0xcccc"), 60);
+    // thread b
+    auto loc0b = dbgloc(strdup("dbgevent.cpp"), strdup("FreeEvent"), strdup("0xdddd"), 20);
+    auto loc1b = dbgloc(strdup("dbgevent.cpp"), strdup("FreeBp"), strdup("0xeeee"), 210);
+    auto loc2b = dbgloc(strdup("dbgevent.cpp"), strdup("EventToSocProto"), strdup("0xffff"), 90);
+
+    auto frame2b = new dbgframe_t(2, loc2b, nullptr, "thread b", nullptr);
+    auto frame1b = new dbgframe_t(1, loc1b, frame2b, "thread b", nullptr);
+    auto frame0b = new dbgframe_t(0, loc0b, frame1b, "thread b", nullptr);
+
+    auto frame2a = new dbgframe_t(2, loc2a, nullptr, "thread a", nullptr);
+    auto frame1a = new dbgframe_t(1, loc1a, frame2a, "thread a", nullptr);
+    auto frame0a = new dbgframe_t(0, loc0a, frame1a, "thread a", frame0b);
+
+    auto sameFrame = [](const dbgframe_t& l, const dbgframe_t& r) {
+        auto str = [](const char* s) { return s ? std::string(s) : ""; };
+        auto* lthf = &l;
+        auto* rthf = &r;
+        for (; lthf && rthf; lthf=lthf->getNextThreadFrame(), rthf=rthf->getNextThreadFrame()) {
+            auto* lf = lthf;
+            auto* rf = rthf;
+            for (; lf && rf; lf = lf->getNext(), rf = rf->getNext()) {
+                const auto &lloc = lf->getLoc();
+                const auto lfile = str(lloc.loc_file);
+                const auto lfunc = str(lloc.loc_func);
+                const auto laddr = str(lloc.loc_addr);
+                const auto lthreads = str(lf->getThreads());
+
+                const auto &rloc = rf->getLoc();
+                const auto rfile = str(rloc.loc_file);
+                const auto rfunc = str(rloc.loc_func);
+                const auto raddr = str(rloc.loc_addr);
+                const auto rthreads = str(rf->getThreads());
+
+                CHECK(lfile == rfile);
+                CHECK(lfunc == rfunc);
+                CHECK(laddr == raddr);
+                CHECK(lthreads == rthreads);
+            }
+            CHECK_MESSAGE(lf == nullptr, "Check that backtraces have same number of frames");
+            CHECK_MESSAGE(rf == nullptr, "Check that backtraces have same number of frames");
+        }
+        CHECK_MESSAGE(lthf == nullptr, "Check that frames have same number of threads");
+        CHECK_MESSAGE(rthf == nullptr, "Check that frames have same number of threads");
+    };
+
+    auto* clone = frame0a->clone();
+    sameFrame(*frame0a, *clone);
+    delete clone;
+}
+
 dbgevent_t *NewEvent(dbgev stat) {
     dbgevent_t *e;
 
@@ -515,11 +570,15 @@ void EventErrStr(dbgevent_t *e, const char *fmt, ...) {
     va_end(ap);
 }
 
+dbgframe_t::dbgframe_t(const dbgframe_t& other)
+    : dbgframe_t(other.m_level, other.m_loc,
+                 other.m_next ? other.m_next->clone() : nullptr,
+                 other.m_threads,
+                 other.m_nextThreadFrame ? other.m_nextThreadFrame->clone() : nullptr)
+{}
+
 dbgframe_t *dbgframe_t::clone() const {
-    return new dbgframe_t(m_level, m_loc,
-                          m_next ? m_next->clone() : nullptr,
-                          m_threads,
-                          m_nextThreadFrame ? m_nextThreadFrame->clone() : nullptr);
+    return new dbgframe_t(*this);
 }
 
 dbgframe_t::dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
@@ -532,6 +591,20 @@ dbgframe_t::dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
     m_loc.loc_addr = StrdupOpt(loc.loc_addr);
     m_loc.loc_func = StrdupOpt(loc.loc_func);
     m_loc.loc_line = loc.loc_line;
+}
+
+dbgframe_t::dbgframe_t(dbgframe_t &&other) {
+    m_level = other.m_level;
+    m_loc = std::move(other.m_loc);
+
+    m_next = nullptr;
+    std::swap(other.m_next, m_next);
+
+    m_threads = nullptr;
+    std::swap(other.m_threads, m_threads);
+
+    m_nextThreadFrame = nullptr;
+    std::swap(other.m_nextThreadFrame, m_nextThreadFrame);
 }
 
 dbgframe_t::~dbgframe_t() {

@@ -171,6 +171,31 @@ static int cmd_print_cmd(rec_set_t *rec_set, int argc, const char* const argv[])
     return 1;
 }
 
+static Interpreter::Completions cmd_print_completion(
+    std::string_view partial_word, std::string_view /*buffer*/, const Interpreter&, const dbgprocset_t* procset, const ArgvStream& /*argv*/)
+{
+    if (!procset) return {};
+
+    // create a recset from the procset so that we have a mapping of di -> bitsets.
+    // this takes care of any merging logic if `procset` has multiple sets from the same di.
+    // we intentionally avoid CreateRecSetForProcset because it prints messages when dealing with expired procsets.
+    auto rec_set = rec_set_t{};
+
+    for (auto over_set : procset->s_over_sets) {
+        if (!over_set || !over_set->s_di.lock()) continue;
+        rec_set.addReceiver(NewGroupReceiver(*over_set->s_di.lock(), over_set->s_di_bs.get()));
+    }
+
+    auto comps = Interpreter::Completions{};
+    for (const auto* recv : &rec_set) {
+        // emulating gdb with the symbol choices here
+        comps.add_function_symbol_names(recv->rec_di, partial_word);
+        // globals and locals are included here
+        comps.add_variable_symbol_names(recv->rec_di, *recv->rec_group, partial_word);
+    }
+    return comps;
+}
+
 static int cmd_set_print_elements_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -361,8 +386,10 @@ void ConsoleCommandsFactory::insert_print_commands(CommandNode& root) {
                     class_set_help, "Set information about the debugger environment.");
 
     insert_setshow_commands(root, "set", "show");
-    root.addSubCmd("print", "p", proc_optional, cmd_print_cmd, cmd_print_help,
-               "Print the value of an expression.");
+    root.addSubCmd({
+         .name = "print", .alias = "p", .ptype = proc_optional,
+         .fn = cmd_print_cmd, .completion = cmd_print_completion,
+         .help = cmd_print_help, .desc = "Print the value of an expression."});
 }
 
 void MiCommandsFactory::insert_print_commands(CommandNode& root) {

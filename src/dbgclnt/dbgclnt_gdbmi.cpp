@@ -577,17 +577,48 @@ dbgevent_t* DbgFE::getFunctionSymbolNames(std::string_view name) {
         /* max results */ 200
     );
     auto cmd_cleanup = OnScopeExit([&](){ MICommandFree(cmd); });
+    if (!cmd) {
+        dbgevent_t* err_ev = nullptr;
+        EVENT_ERROR(err_ev, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        return err_ev;
+    }
+
+    return fetch_symbols(*cmd);
+}
+
+dbgevent_t* DbgFE::getVariableSymbolNames(std::string_view name) {
+    auto patched_name = std::string{"^"};
+    patched_name.append(name);
+
+    // FIXME: make max results configurable
+    auto cmd = MISymbolInfoVariables(
+        /* include nondebug */ true,
+        /* type regex */ nullptr,
+        /* name regex */ patched_name.size() == 1 ? nullptr : patched_name.c_str(),
+        /* max results */ 200
+    );
+    auto cmd_cleanup = OnScopeExit([&](){ MICommandFree(cmd); });
+    if (!cmd) {
+        dbgevent_t* err_ev = nullptr;
+        EVENT_ERROR(err_ev, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        return err_ev;
+    }
+
+    return fetch_symbols(*cmd);
+}
+
+dbgevent_t* DbgFE::fetch_symbols(MICommand& cmd) {
     dbgevent_t* result = nullptr;
 
-    sendCmd(cmd);
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(result, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+    sendCmd(&cmd);
+    if (!MICommandResultOK(&cmd)) {
+        EVENT_ERROR(result, DBGERR_DEBUGGER, MICommandResultErrorMessage(&cmd));
         return result;
     }
 
     result = NewEvent(DBGEV_SYMBOLS);
 
-    auto* mi_symbols = MIGetSymbolInfo(cmd);
+    auto* mi_symbols = MIGetSymbolInfo(&cmd);
     auto mi_symbols_cleanup = OnScopeExit([&](){ MISymbolInfoFree(mi_symbols); });
     if (!mi_symbols) {
         FreeEvent(result);

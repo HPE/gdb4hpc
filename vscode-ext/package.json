@@ -6,8 +6,8 @@
     "type": "git",
     "url": "https://github.hpe.com/hpcde/cdst-gdb4hpc.git"
   },
-  "license": "SEE LICENSE IN",
-  "description": "C/C++ Debugging Support for Visual Studio Code",
+  "license": "MIT",
+  "description": "GDB4HPC Debugger",
   "keywords": [
     "C++",
     "C",
@@ -15,48 +15,36 @@
   ],
   "icon": "",
   "engines": {
-    "vscode": "^1.59.0"
+    "vscode": "^1.86.0"
   },
   "categories": [
     "Debuggers"
   ],
+  "type": "commonjs",
   "scripts": {
-    "dev": "npm install",
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./src",
-    "watch": "tsc -watch -p ./src",
-    "build": "tsc -p ./src",
-    "package": "vsce package --no-yarn"
+    "compile": "tsc -p ./",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --external:node-pty --loader:.node=file --format=cjs --platform=node --outfile=dist/extension.js",
+    "watch": "npm run -S esbuild-base -- --sourcemap --sources-content=false --watch",
+    "build": "npm run -S esbuild-base -- --sourcemap --sources-content=false",
+    "package": "vsce package --no-yarn",
+    "publish": "vsce publish",
+    "publish-pre-release": "vsce publish --pre-release",
+    "vscode:prepublish": "rimraf dist && npm run -S esbuild-base -- --minify"
   },
   "dependencies": {
+    "@types/vscode": "1.86.0",
     "@vscode/debugadapter": "^1.49.0",
     "@vscode/debugprotocol": "^1.51.0",
-    "gdb": "^0.1.0-pre",
-    "latest": "^0.2.0",
-    "node": "^18.18.0",
-    "node-pty": "^1.0.0",
-    "tail-stream": "^0.3.4",
-    "await-notify": "^1.0.1"
+    "await-notify": "^1.0.1",
+    "node-pty": "^1.0.0"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.2.13",
-    "@types/glob": "^7.1.4",
-    "@types/mocha": "^9.0.0",
     "@types/node": "^14.14.37",
-    "@types/vscode": "^1.59.0",
-    "@typescript-eslint/eslint-plugin": "^4.29.3",
-    "@typescript-eslint/parser": "^4.29.3",
-    "@vscode/debugadapter-testsupport": "^1.49.0",
     "@vscode/vsce": "^2.0.0",
-    "eslint": "^7.32.0",
-    "glob": "^7.1.7",
-    "gts": "^3.1.0",
-    "mocha": "^9.1.0",
-    "react-dom": "^18.2.0",
-    "ts-loader": "^8.1.0",
+    "esbuild": "^0.20.1",
     "typescript": "^4.3.5"
   },
-  "main": "./out/extension",
+  "main": "./dist/extension.js",
   "activationEvents": [
     "onStartupFinished",
     "onDebug"
@@ -74,28 +62,24 @@
         {
           "id": "focus",
           "name": "Focus",
-          "icon": "${eye}",
           "contextualTitle": "Focus"
         },
         {
           "type": "webview",
           "id": "decompView",
           "name": "Decompositions",
-          "icon": "${eye}",
           "contextualTitle": "Decompositions"
         },
         {
           "type": "webview",
           "id": "compareView",
           "name": "Comparisons",
-          "icon": "${eye}",
           "contextualTitle": "Comparisons"
         },
         {
           "type": "webview",
           "id": "assertView",
           "name": "Assertion Scripts",
-          "icon": "${eye}",
           "contextualTitle": "Assertions"
         }
       ]
@@ -111,8 +95,8 @@
     "debuggers": [
       {
         "type": "gdb4hpc",
-        "label": "C/C++ Debug (GDB4HPC)",
-        "program": "./out/debugAdapter.js",
+        "label": "GDB4HPC",
+        "program": "./dist/extension.js",
         "runtime": "node",
         "languages": [
           "c",
@@ -121,6 +105,16 @@
         "configurationAttributes": {
           "launch": {
             "properties": {
+              "apps": {
+                "type": "array",
+                "description": "Application to debug",
+                "default": []
+              },
+              "procset": {
+                "type": "string",
+                "description": "Name and Rank information",
+                "default": "App0{1}"
+              },
               "program": {
                 "type": "string",
                 "description": "Absolute path of program to debug",
@@ -154,13 +148,16 @@
             "type": "gdb4hpc",
             "request": "launch",
             "name": "GDB4HPC",
-            "dbgversion": "gdb4hpc",
-            "program": "",
-            "args": "",
-            "cwd": "",
-            "env": {
-              "GDB4HPC_DEBUG_INTERPRETER": "1"
-            }
+            "dbgversion": "",
+            "apps": [
+              {
+                "procset": "App0{1}",
+                "program": "",
+                "args": ""
+              }
+            ],
+            "cwd": ".",
+            "env": {}
           }
         ]
       }

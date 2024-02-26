@@ -1,0 +1,12 @@
+node_modules
+!node_modules/node-pty
+!node_modules/@types
+src
+!src/assertionScript.js
+!src/compareScript.js
+!src/decompositionScript.js
+out
+.vscode
+SampleWorkspace
+tsconfig.json
+package.lock.json

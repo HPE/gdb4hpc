@@ -38,3 +38,7 @@
 	path = external/doctest
 	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-doctest.git
 	branch = hpe
+[submodule "external/changelog"]
+	path = external/changelog
+	url = git@github.hpe.com:hpcde/devops-changelog.git
+	branch = master

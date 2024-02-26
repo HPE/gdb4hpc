@@ -1,0 +1,71 @@
+{{ data['name'] }} {{ data['version'] }}
+================================================================================
+
+*Released: {{ data['release_date'] }}*
+
+{%- if data['product_description'] %}
+
+Product Description
+---------------------------
+{{ data['product_description'] }}
+{%- endif %}
+
+{%- if data['known_issues'] %}
+Known Issues
+---------------------------
+{{ data['known_issues'] }}
+{%- endif %}
+
+{%- if data['notes'] %}
+Notes
+---------------------------
+{{data['notes'] }}
+{%- endif %}
+Changelog
+---------------------------
+[ AUTO_RELEASE_HISTORY ]
+
+{%- if data['static_release_history'] %}
+
+{{data['static_release_history'] }}
+{%- endif %}
+
+{% if data['os_dependencies'] %}
+OS Dependencies
+---------------------------
+{%- for dependency in data['os_dependencies'] %}
+- {{ dependency }}
+{%- endfor %}
+{% endif %}
+
+{%- if data['product_dependencies'] %}
+Product Dependencies
+---------------------------
+{%- for product_dependency in data['product_dependencies'] %}
+- {{ product_dependency }}
+{%- endfor %}
+{% endif %}
+
+{%- if data['documentation'] %}
+Documentation
+---------------------------
+{{ data['documentation'] }}
+{%- endif %}
+
+{%- if data['installation_instructions'] %}
+Installation Instructions
+---------------------------
+{{ data['installation_instructions'] }}
+{%- endif %}
+Legal Notices
+---------------------------
+{{ data['copyright'] }} 
+{% if data['attributions_file'] %}
+Attribution notices for open source licensed software for this package are detailed in the file:
+  {{ data['attributions_file'] }}
+{% endif %}
+
+{%- if data['other_legal'] -%}
+{{ data['other_legal'] }}
+{% endif %}
+

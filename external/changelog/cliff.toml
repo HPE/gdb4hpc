@@ -1,0 +1,53 @@
+# configuration file for git-cliff (0.1.0)
+
+[changelog]
+# template for the changelog body
+# https://tera.netlify.app/docs/#introduction
+
+body = """
+{% if version %}\
+=======================================================================
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+=======================================================================
+{% else %}\
+=======================================================================
+    ## [unreleased]
+=======================================================================
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        * {{ commit.message | upper_first }}  [{{ commit.id | truncate(length=7, end="") }}]\
+    {% endfor %}
+{% endfor %}\n
+"""
+[git]
+# parse the commits based on https://www.conventionalcommits.org
+# setting to false disregards settings for conventional_commits & filter_commits
+conventional_commits = true
+# filter out the commits that are not conventional
+filter_unconventional = true
+# regex for parsing and grouping commits
+commit_parsers = [
+    { message = "^feat: ", group = "Features"},
+    { message = "^Feat: ", group = "Features"},
+    { message = "^feature: ", group = "Features"},
+    { message = "^Feature: ", group = "Features"},
+    { message = "^fix: initial ", group = "Bug Fixes", skip = true},
+    { message = "^fix: ", group = "Bug Fixes"},
+    { message = "^Fix: ", group = "Bug Fixes"},
+    { message = "^bugfix: ", group = "Bug Fixes"},
+    { message = "^Bugfix: ", group = "Bug Fixes"},
+]
+# filter out the commits that are not matched by commit parsers
+filter_commits = true
+# glob pattern for matching git tags
+tag_pattern = "v[0-9]*"
+# regex for skipping tags
+# skip_tags = ""
+# regex for ignoring tags
+ignore_tags = ""
+# sort the tags chronologically
+date_order = false
+# sort the commits inside sections by oldest/newest order
+sort_commits = "newest"

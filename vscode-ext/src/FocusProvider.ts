@@ -1,3 +1,5 @@
+// Copyright 2024 Hewlett Packard Enterprise Development LP.
+
 import * as vscode from 'vscode';
 import { pe_list } from './GDB4HPC';
 

@@ -1,3 +1,5 @@
+// Copyright 2024 Hewlett Packard Enterprise Development LP.
+
 import {EventEmitter} from 'events';
 import {ILaunchRequestArguments} from './DebugSession';
 import {Breakpoint, Source, StackFrame, Thread} from '@vscode/debugadapter';

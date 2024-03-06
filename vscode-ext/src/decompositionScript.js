@@ -1,3 +1,5 @@
+// Copyright 2024 Hewlett Packard Enterprise Development LP.
+
 //script for Decomposition webview panel
 (function () {
   window.addEventListener('message', event => {

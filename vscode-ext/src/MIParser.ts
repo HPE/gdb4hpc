@@ -1,3 +1,5 @@
+// Copyright 2024 Hewlett Packard Enterprise Development LP.
+
 export class Record {
   private str: string = '';
   private readonly token: number;

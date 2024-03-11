@@ -52,10 +52,6 @@ Assertion script $arrays compiled.
 27: maint set sync on
 28: start $arrays
 Sending continue to application...
-<$b>: [node003:mpi_rank_0][MPIDI_CH3_Init] MVAPICH2 has been built with support for CUDA. But, MV2_USE_CUDA not set to 1. This can lead to errors in using GPU buffers. If you are running applications that use GPU buffers, please set MV2_USE_CUDA=1 and try again.
-<$b>: [node003:mpi_rank_0][MPIDI_CH3_Init] To suppress this warning, please set MV2_SUPPRESS_CUDA_USAGE_WARNING to 1
-<$a>: [node016:mpi_rank_0][MPIDI_CH3_Init] MVAPICH2 has been built with support for CUDA. But, MV2_USE_CUDA not set to 1. This can lead to errors in using GPU buffers. If you are running applications that use GPU buffers, please set MV2_USE_CUDA=1 and try again.
-<$a>: [node016:mpi_rank_0][MPIDI_CH3_Init] To suppress this warning, please set MV2_SUPPRESS_CUDA_USAGE_WARNING to 1
 Evaluating assertion 1: $a{0}::one_d_i_init[0..4]@"c_type_test.c":166 == $b{0}::"one_d_i_init[0]@5"@"c_cmp_diff.c":161
 {0}: Comparison is true.
 Evaluating assertion 2: $a{1}::one_d_i_init[5]@5@"c_type_test.c":167 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
@@ -80,9 +76,9 @@ The difference delta is:
 {0}: [2]:70
 {0}: [3]:80
 {0}: [4]:90
-Assertion script $arrays finished.
-Use "info script $arrays results" to view results.
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
 Assertion script $arrays stopped.
+Use "info script $arrays results" to view results.
 29: info script
 Saved assertion scripts:
 $arrays
@@ -103,27 +99,27 @@ Total assertion evaluations this run: 6
 Passed: 4, Passed with warning: 0, Failed: 2, Indeterminate: 0
 Assertion results:
 
-Assertion 1, configured with verbose-asserts:
+Assertion 1, configured with !stop, verbose-asserts:
 $a{0}::one_d_i_init[0..4]@"c_type_test.c":166 == $b{0}::"one_d_i_init[0]@5"@"c_cmp_diff.c":161
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 2, configured with verbose-asserts:
+Assertion 2, configured with !stop, verbose-asserts:
 $a{1}::one_d_i_init[5]@5@"c_type_test.c":167 < $b{0}::one_d_i_init[5..9]@"c_cmp_diff.c":162
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 3, configured with verbose-asserts:
+Assertion 3, configured with !stop, verbose-asserts:
 $a::one_d_i_init@"c_type_test.c":168 <= $b::one_d_i_init@"c_cmp_diff.c":163
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 4, configured with verbose-asserts:
+Assertion 4, configured with !stop, verbose-asserts:
 $a{0}::one_d_i_init@"c_type_test.c":169 != $b{1}::one_d_i_init@"c_cmp_diff.c":164
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 5, configured with verbose-asserts:
+Assertion 5, configured with !stop, verbose-asserts:
 $a::one_d_i_init@"c_type_test.c":170 == $b::one_d_i_init@"c_cmp_diff.c":165
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
-Assertion 6, configured with verbose-asserts:
+Assertion 6, configured with !stop, verbose-asserts:
 $a{0}::one_d_i_init[5..9]@"c_type_test.c":171 == $b{1}::one_d_i_init[5..9]@"c_cmp_diff.c":166
 Passes: 0, Passes with warnings: 0, Failures: 1.
 

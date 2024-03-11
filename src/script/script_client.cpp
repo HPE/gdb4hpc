@@ -178,6 +178,20 @@ bool ScriptRunner::uninstall() {
     }
 
     PrintOutMsg("Assertion script $%s stopped.\n", name().c_str());
+
+    bool has_results = false;
+    for (const auto& [id, rpack] : m_results) {
+        has_results |= (rpack.passes > 0);
+        has_results |= (rpack.warnings > 0);
+        has_results |= (rpack.failures > 0);
+        if (has_results) break;
+    }
+    if (has_results) {
+        PrintOutMsg("Use \"info script $%s results\" to view results.\n", name().c_str());
+    } else {
+        PrintOutMsg("No assertions were evaluated.\n");
+    }
+
     return success;
 }
 
@@ -312,9 +326,7 @@ bool ScriptRunner::shouldStop() const {
     // (breakpoints, print elements) commands
     if (!m_ranks->allRanksBlocked()) return false;
 
-    if (m_manualFinishFlag) return true;
-
-    return hasRunToCompletion();
+    return m_manualFinishFlag;
 }
 
 bool ScriptRunner::hasRunToCompletion() const {

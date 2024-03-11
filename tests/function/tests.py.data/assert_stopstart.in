@@ -19,9 +19,8 @@ Assertion script $stopstart compiled.
 14: start $stopstart
 Sending continue to application...
 Assertion 2: $a::uc@"c_type_test.c":233 >= $b::uc@"c_cmp_diff.c":228 failed. Stopping script.
-Assertion script $stopstart stopped before completion. Use "start $stopstart" to resume.
-Use "info script $stopstart results" to view results.
 Assertion script $stopstart stopped.
+Use "info script $stopstart results" to view results.
 15: frame
 a{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:233
 b{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:228
@@ -33,28 +32,27 @@ Total assertion evaluations this run: 2
 Passed: 1, Passed with warning: 0, Failed: 1, Indeterminate: 0
 Assertion results:
 
-Assertion 1, configured with stop:
+Assertion 1:
 $a::assertTest@"c_type_test.c":232 != $b::assertTest@"c_cmp_diff.c":227
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 2, configured with stop:
+Assertion 2:
 $a::uc@"c_type_test.c":233 >= $b::uc@"c_cmp_diff.c":228
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
-Assertion 3, configured with stop:
+Assertion 3:
 $a::ush@"c_type_test.c":234 > $b::ush@"c_cmp_diff.c":229
 Passes: 0, Passes with warnings: 0, Failures: 0.
 
-Assertion 4, configured with stop:
+Assertion 4:
 $a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230
 Passes: 0, Passes with warnings: 0, Failures: 0.
 
 17: start $stopstart
 Sending continue to application...
 Assertion 3: $a::ush@"c_type_test.c":234 > $b::ush@"c_cmp_diff.c":229 failed. Stopping script.
-Assertion script $stopstart stopped before completion. Use "start $stopstart" to resume.
-Use "info script $stopstart results" to view results.
 Assertion script $stopstart stopped.
+Use "info script $stopstart results" to view results.
 17: frame
 a{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:234
 b{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:229
@@ -66,28 +64,27 @@ Total assertion evaluations this run: 3
 Passed: 1, Passed with warning: 0, Failed: 2, Indeterminate: 0
 Assertion results:
 
-Assertion 1, configured with stop:
+Assertion 1:
 $a::assertTest@"c_type_test.c":232 != $b::assertTest@"c_cmp_diff.c":227
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 2, configured with stop:
+Assertion 2:
 $a::uc@"c_type_test.c":233 >= $b::uc@"c_cmp_diff.c":228
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
-Assertion 3, configured with stop:
+Assertion 3:
 $a::ush@"c_type_test.c":234 > $b::ush@"c_cmp_diff.c":229
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
-Assertion 4, configured with stop:
+Assertion 4:
 $a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230
 Passes: 0, Passes with warnings: 0, Failures: 0.
 
 18: start $stopstart
 Sending continue to application...
 Assertion 4: $a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230 failed. Stopping script.
-Assertion script $stopstart finished.
-Use "info script $stopstart results" to view results.
 Assertion script $stopstart stopped.
+Use "info script $stopstart results" to view results.
 19: info script $stopstart results
 Results summary for script $stopstart:
 
@@ -96,19 +93,19 @@ Total assertion evaluations this run: 4
 Passed: 1, Passed with warning: 0, Failed: 3, Indeterminate: 0
 Assertion results:
 
-Assertion 1, configured with stop:
+Assertion 1:
 $a::assertTest@"c_type_test.c":232 != $b::assertTest@"c_cmp_diff.c":227
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 2, configured with stop:
+Assertion 2:
 $a::uc@"c_type_test.c":233 >= $b::uc@"c_cmp_diff.c":228
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
-Assertion 3, configured with stop:
+Assertion 3:
 $a::ush@"c_type_test.c":234 > $b::ush@"c_cmp_diff.c":229
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
-Assertion 4, configured with stop:
+Assertion 4:
 $a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230
 Passes: 0, Passes with warnings: 0, Failures: 1.
 

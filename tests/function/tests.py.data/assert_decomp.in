@@ -49,6 +49,7 @@ rhs{0..3}: Initial breakpoint, main at /src/C++/cpp_decomp.cpp:18
 29: end
 30: maint set sync on
 31: build $decomp
+32:     set stop off
 32:     # these should all pass
 33:     assert $b{$lhs::block}@"cpp_decomp.cpp":79 == $b{$rhs::block}@"cpp_decomp.cpp":79
 34:     assert $c{$lhs::cyclic}@"cpp_decomp.cpp":79 == $c{$rhs::cyclic}@"cpp_decomp.cpp":79
@@ -63,9 +64,11 @@ rhs{0..3}: Initial breakpoint, main at /src/C++/cpp_decomp.cpp:18
 Assertion script $decomp compiled.
 43: start $decomp
 Sending continue to application...
-Assertion script $decomp finished.
-Use "info script $decomp results" to view results.
+lhs{0..3}: The application has reached an exit breakpoint.
+rhs{0..3}: The application has reached an exit breakpoint.
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
 Assertion script $decomp stopped.
+Use "info script $decomp results" to view results.
 44: info script
 Saved assertion scripts:
 $decomp
@@ -88,35 +91,35 @@ Total assertion evaluations this run: 8
 Passed: 4, Passed with warning: 0, Failed: 4, Indeterminate: 0
 Assertion results:
 
-Assertion 1:
+Assertion 1, configured with !stop:
 $b{$lhs::block}@"cpp_decomp.cpp":79 == $b{$rhs::block}@"cpp_decomp.cpp":79
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 2:
+Assertion 2, configured with !stop:
 $c{$lhs::cyclic}@"cpp_decomp.cpp":79 == $c{$rhs::cyclic}@"cpp_decomp.cpp":79
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 3:
+Assertion 3, configured with !stop:
 $bc{$lhs::blockCyclic}@"cpp_decomp.cpp":79 == $bc{$rhs::blockCyclic}@"cpp_decomp.cpp":79
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 4:
+Assertion 4, configured with !stop:
 $2db{$lhs::block}@"cpp_decomp.cpp":79 == $T{$rhs::cyclic}@"cpp_decomp.cpp":79
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 5:
+Assertion 5, configured with !stop:
 $b{$lhs::block}@"cpp_decomp.cpp":92 == $b{$rhs::block}@"cpp_decomp.cpp":92
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
-Assertion 6:
+Assertion 6, configured with !stop:
 $c{$lhs::cyclic}@"cpp_decomp.cpp":92 == $c{$rhs::cyclic}@"cpp_decomp.cpp":92
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
-Assertion 7:
+Assertion 7, configured with !stop:
 $bc{$lhs::blockCyclic}@"cpp_decomp.cpp":92 == $bc{$rhs::blockCyclic}@"cpp_decomp.cpp":92
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
-Assertion 8:
+Assertion 8, configured with !stop:
 $2db{$lhs::block}@"cpp_decomp.cpp":92 == $T{$rhs::cyclic}@"cpp_decomp.cpp":92
 Passes: 0, Passes with warnings: 0, Failures: 1.
 

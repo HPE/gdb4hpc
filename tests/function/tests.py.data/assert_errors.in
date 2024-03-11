@@ -15,7 +15,7 @@ a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/
 5:     set
 Current settings:
 Name                Scope      Currently  Description
-stop                per assert false      Assertion script will stop upon assertion failure.
+stop                per assert true       Assertion script will stop upon assertion failure.
 halt                per script false      Assertion script will halt all involved ranks upon script end.
 verbose-asserts     per assert false      Assertion results will be printed as they are evaluated.
 verbose-breakpoints per script false      Breakpoints will be printed as they are hit.
@@ -23,7 +23,7 @@ error               per assert 0, 0       Assertion warn/error tolerances.
 6:     show
 Current settings:
 Name                Scope      Currently  Description
-stop                per assert false      Assertion script will stop upon assertion failure.
+stop                per assert true       Assertion script will stop upon assertion failure.
 halt                per script false      Assertion script will halt all involved ranks upon script end.
 verbose-asserts     per assert false      Assertion results will be printed as they are evaluated.
 verbose-breakpoints per script false      Breakpoints will be printed as they are hit.
@@ -61,9 +61,10 @@ Command resulted in an error: 18: build $badscript
 19: maint set sync on
 20: start $badscript
 Sending continue to application...
-Assertion script $badscript finished.
-Use "info script $badscript results" to view results.
+a{0..2}: The application has reached an exit breakpoint.
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
 Assertion script $badscript stopped.
+Use "info script $badscript results" to view results.
 21: info script $nonexistent
 Assertion script "$nonexistent" doesn't exist.
 Expected "info script $name"

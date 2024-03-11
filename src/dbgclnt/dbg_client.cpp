@@ -1077,13 +1077,6 @@ void DbgDispatchEvents(void) {
             if (!script->evaluateReadyAsserts()) {
                 // error, printed below
             } else if (script->shouldStop()) {
-                if (script->hasRunToCompletion())
-                    PrintOutMsg("Assertion script $%s finished.\n", script->name().c_str());
-                else
-                    PrintOutMsg("Assertion script $%s stopped before completion. Use "
-                                "\"start $%s\" to resume.\n",
-                                script->name().c_str(), script->name().c_str());
-                PrintOutMsg("Use \"info script $%s results\" to view results.\n", script->name().c_str());
                 script->uninstall();
             } else if (!script->releaseReadyAsserts()) {
                 // error, printed below

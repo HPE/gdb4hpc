@@ -23,6 +23,7 @@ a{0}: Breakpoint 1, main at /src/c/c_inc.c:14
 a{1}: Breakpoint 4, main at /src/c/c_inc.c:14
 Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
 Assertion script $deadlock stopped.
+No assertions were evaluated.
 9: frame
 a{0..1}: #0  main at /src/c/c_inc.c:14
 10: q

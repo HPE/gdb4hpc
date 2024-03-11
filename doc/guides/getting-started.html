@@ -153,10 +153,10 @@
 <header id="title-block-header">
 <h1 class="title">Getting Started with Gdb4hpc</h1>
 </header>
-<h1 id="the-help-system">The help system</h1>
+<h2 id="the-help-system">The help system</h2>
 <p>In classic unix tradition, starting up gdb4hpc presents a prompt expecting the user to know what to type. In this case, <code>help</code> is a good choice, it will present you with a list of every available command, and <code>help &lt;command&gt;</code> gives you the full details.</p>
 <p>That is a reference manual, this user guide is intended to present what you need to get up and debugging.</p>
-<h1 id="building-and-launching-your-first-application">Building and launching your first application</h1>
+<h2 id="building-and-launching-your-first-application">Building and launching your first application</h2>
 <p>This section will be based on <code>mpi_example</code> in the <code>demos</code> directory of the gdb4hpc package. You should be able to copy that to a writable directory and build the C, C++ and fortran versions.</p>
 <p>For gdb to be able to show you the most information you will want to build your <em>(MPI)</em> test application with the <code>-g -O0</code> flags. <code>-g</code> tells the compiler to adds information to the executable to map the executable state back to the line numbers and variable names in your source files.</p>
 <p>Depending on your level of experience with debugging, the hardest part of getting started it literally <em>getting started</em>.</p>
@@ -189,7 +189,7 @@ dbg all&gt;</code></pre>
 <p>The <code>$a{10}</code> is a <strong>process set</strong>, sometimes called a <strong>procset</strong> in gdb4hpc. Since you’ve done the launch, you can think of your application as an array of 10 processes. In this instance, it’s acting like an array declaration creating an array named <code>a</code> with 10 processes.</p>
 <p>To distinguish gdb and gdb4hpc variables from program variables, they prepended with a dollar sign, and it used the curly braces for the indexing.</p>
 <p>The choice <code>a</code> for the procset name is arbitrary. The reason it has a name is the gdb4hpc can control more than one application run at a time.</p>
-<h1 id="if-youve-never-used-a-debugger">If you’ve never used a debugger</h1>
+<h2 id="if-youve-never-used-a-debugger">If you’ve never used a debugger</h2>
 <p>If you were following along, at this point you are debugging an HPC program. There are 10 application processes being held at entry by ten instances of gdb which are communicating with one gdb4hpc.</p>
 <p>Use the <code>list</code> command to show source around the current location:</p>
 <pre><code>dbg all&gt; list
@@ -267,7 +267,7 @@ dbg all&gt;</code></pre>
 <p><code>bt</code> is short for “backtrace” and shows the call stack for each process.</p>
 <p>Not too surprisingly, rank 0 is waiting for the messages from the other 9 ranks that won’t happen until we continue.</p>
 <p>This was a very bare bones introduction, but it does show off the key features of interactive debugging, both controlling and examining the program state.</p>
-<h1 id="if-youve-never-used-gdb-before">If you’ve never used gdb before</h1>
+<h2 id="if-youve-never-used-gdb-before">If you’ve never used gdb before</h2>
 <p>If you’re more used to a GUI based debugger, gdb and gdb4hpc provide the same functionality but in a shell-like environment where you type in commands and it prints results. The most common commands have one or two character aliases. Here are the most frequently used:</p>
 <ul>
 <li>print (p) print the value of a program variable</li>
@@ -285,15 +285,15 @@ dbg all&gt;</code></pre>
 </ul>
 <p>For the full list of commands type <code>help</code> . <code>help &lt;function&gt;</code> will give the full information on any command.</p>
 <p>There are many gdb cheat-sheets and tutorials on-line and nearly everything there can be applied to gdb4hpc.</p>
-<h1 id="if-you-are-familiar-with-gdb">If you are familiar with gdb</h1>
+<h2 id="if-you-are-familiar-with-gdb">If you are familiar with gdb</h2>
 <p>You should fell at home with all the familiar commands : n,s,c,b etc. There are just a few things you’ll need to know about the “<em>4hpc</em>” part.</p>
-<h2 id="procset-output">Procset output</h2>
+<h3 id="procset-output">Procset output</h3>
 <p>In gdb, when you do <code>print i</code> there is exactly one value to print, but with parallel debugging there is potentially a different value in every rank.</p>
 <p>When gdb4hpc prints the values, it aggregates all ranks with the same values and prints those on a single line with the processes that share that value.</p>
 <pre><code>dbg all&gt; p numProcs
 a{0..9}: 10</code></pre>
 <p>Note the use of <code>..</code> sequences to shorten the output. Examples of non-sequential results are: <code>$a{0,3}</code>, or <code>$a{1,5..7,9}</code>.</p>
-<h2 id="the-focus">The focus</h2>
+<h3 id="the-focus">The focus</h3>
 <p>By default, every command you enter is sent to every rank, but you will often want to work with a single rank or possibly a subset of ranks. The <code>focus</code> command takes the same process set notation.</p>
 <pre><code>dbg all&gt; focus $a{1..9}
 dbg a_temp&gt; focus $a{1..2}
@@ -302,13 +302,13 @@ a{1}: 1
 a{2}: 2
 dbg a_temp&gt; </code></pre>
 <p>Gdb4hpc provides the <code>$all</code> procset to return the focus to every process. Note how the prompt changes when you change focus.</p>
-<h2 id="the-scope-operator">The scope operator</h2>
+<h3 id="the-scope-operator">The scope operator</h3>
 <p>The procset::expression notation lets you print values without need to change the focus.</p>
 <pre><code>dbg a_temp&gt; focus $all
 dbg all&gt; p $a{5}::myRank
 a{5}: 5
 dbg all&gt;</code></pre>
-<h2 id="gdb-mode">Gdb mode</h2>
+<h3 id="gdb-mode">Gdb mode</h3>
 <p>Gdb4hpc tries to cover all the most commonly used gdb commands, but there are hundreds of lesser used functions that gdb supports.</p>
 <p>You can access the raw gdb via the gdbmode command.</p>
 <p>In gdbmode you are interacting directly with gdb. There are just some provisos:</p>
@@ -317,7 +317,7 @@ dbg all&gt;</code></pre>
 <li>Avoid adding or removing breakpoints, and realize that changing the program location via something like <code>continue</code> has some potential to confuse gdb4hpc.</li>
 </ul>
 <p>The <code>end</code> command exits gdb mode.</p>
-<h2 id="pointers">Pointers</h2>
+<h3 id="pointers">Pointers</h3>
 <p>You will notice that gdb4hpc seldom prints out the hex values of pointers. In a multi-process application these aren’t generally useful and they impede aggregation. You can see them by switching to gdb mode, and some commands support a <code>-v</code> (verbose) option.</p>
 <p>Instead, gdb4hpc prints the values based on reference ids:</p>
 <pre><code>dbg all&gt; p ll
@@ -336,13 +336,13 @@ b{0..1}: (LinkedList*) &lt;1&gt;
 <p>Which could use a little explanation.</p>
 <p>So <code>ll</code> is a pointer and gdb4hpc used <code>&lt;1&gt;</code> in place of its pointer value. Then it continues by printing the object it references. So <code>1:</code> is the contents of the object at <code>&lt;1&gt;</code>, which in this case is a list node that contains yet another pointer. And so on, until it links back to first node; i.e. it’s a classic cicularly linked list.</p>
 <p>The reference indices are not global, so &lt;1&gt; in the next print command is not the same pointer as &lt;1&gt; in this one. The number of refences the print command will process is controlled by <code>set print elements</code>.</p>
-<h2 id="debugging-a-job-that-is-already-running">Debugging a job that is already running</h2>
+<h3 id="debugging-a-job-that-is-already-running">Debugging a job that is already running</h3>
 <p>Gdb4hpc has the <code>attach</code> command to connect to a job that is already running. The command itself is straightforward : <code>attach $a &lt;job-id&gt;</code></p>
 <p>The hard part is just that the means to find your ‘<job-id>’ depends on the platform. See <code>help attach</code> for more information.</p>
-<h2 id="debugging-gpu-applications">Debugging gpu applications</h2>
+<h3 id="debugging-gpu-applications">Debugging gpu applications</h3>
 <p>Gdb4hpc does handle gpu based debugging; you just have to add the <code>--gpu</code> option when launching or attaching so the device specific version of gdb can be started.</p>
 <p>For cuda applications, the <code>cuda</code> commands gives access to the cuda-gdb specific commands.</p>
-<h1 id="beyond-getting-started">Beyond <em>Getting Started</em></h1>
+<h2 id="beyond-getting-started">Beyond <em>Getting Started</em></h2>
 <p>This is not the end of the what’s available, but this should have introduced enough to be able to debug real problems.</p>
 <p>To learn more: - Check out gdb tutorials on line; some very good printed texts are also available - Dig down into gdb4hpc’s help system to find what’s available - Checkout out the <strong>Gdb4hpc Tutorial</strong> for more <em>4hpc</em> topics: - The compare function - Assertion scripts - Array decompositions</p>
 </body>

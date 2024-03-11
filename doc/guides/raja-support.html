@@ -217,7 +217,6 @@
 <h1 class="title">RAJA Support in Gdb4hpc</h1>
 </header>
 <p>Gdb4hpc includes support for debugging a parallel program that uses the <code>RAJA</code> Performance Portability Layer (https://raja.readthedocs.io/en/develop/).</p>
-<p>In addition to what is described in this document, more support for <code>RAJA</code> is currently in development.</p>
 <h2 id="printing-rajaviews">Printing <code>RAJA::View</code>s</h2>
 <p>Starting in Gdb4hpc 4.15.0, Gdb4hpc supports printing values wrapped in <code>RAJA::View</code>s.</p>
 <p>Since data contained in views tends to be large, Gdb4hpc will not print the entire contents of a <code>RAJA::View</code> by default. Instead, it will print the bounds of the views and instructions on how to access the view’s data with Gdb4hpc’s array range <code>..</code> syntax.</p>
@@ -292,12 +291,149 @@ a{0}: RAJA::View; Use (-1..1, -5..4) for full contents.
 
 dbg all&gt; p aoview_2Doff(-1..1, -5..4)
 a{0}: {{0,1,2,3,4,5,6,7,8,9},{10,11,12,13,14,15,16,17,18,19},{20,21,22,23,24,25,26,27,28,29}}</code></pre>
+<h2 id="using-rajaviews-in-decompositions">Using <code>RAJA::View</code>s in Decompositions</h2>
+<p>Gdb4hpc has a decomposition feature which allows the user to logically combine and divide data that is in reality distributed across multiple ranks. Gdb4hpc supports using <code>RAJA::View</code>s with decompositions.</p>
+<h3 id="example-3">Example</h3>
+<p>For the following example, suppose you have a 4-rank application. Each rank has a one dimensional <code>RAJA::View</code> 60 elements long. The name of the view is <code>view_1D</code>. Rank 1 stores the numbers <code>{0, 1, 2, ..., 59}</code>, rank 2 stores <code>{0, 10, 20, ..., 590}</code>, rank 3 <code>{0, 100, ...}</code>, etc.</p>
+<p>We can use the Gdb4hpc <code>decomposition</code> command to concatenate each array into a 240 element long logical array:</p>
+<pre><code># in gdb4hpc
+
+# (printout abbreviated)
+dbg all&gt; p view_1D(0..59)
+a{0}: {0,1,2,3,4,5,etc...}
+a{1}: {0,10,20,30,40,50,etc...}
+a{2}: {0,100,200,300,400,500,etc...}
+a{3}: {0,1000,2000,3000,4000,5000,etc...}
+
+# create a decomposition called &quot;concat&quot; that is 240 elements long, split across 4 ranks
+dbg all&gt; decomposition $concat 240/4
+
+# apply the decomposition to view_1D. note that the (0..59) suffix is no longer required
+# (printout abbreviated)
+dbg all&gt; p $concat{view_1D}
+{0,1,2,3,4,5,6, ... ,57,58,59,0,10,20,30,40,50,60, ... ,570,580,590,0,100,200,300,400,500,600, ... ,5700,5800,5900,0,1000,2000,3000,4000,5000,6000, ... ,57000,58000,59000}</code></pre>
+<p>Decompositions can used to handle data in more ways than what was shown here, and <code>RAJA::View</code>s are supported in all of them. See the Tutorial for more details on using decompositions.</p>
+<h2 id="printing-raja-reductions">Printing RAJA Reductions</h2>
+<p>RAJA reductions are used to reduce large vectors into single values. Common operations are min, max, and sum.</p>
+<p>Gdb4hpc supports printing RAJA reductions.</p>
+<h3 id="example-4">Example</h3>
+<div class="sourceCode" id="cb10"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">// in a .cpp file</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>RAJA<span class="op">::</span>ReduceSum<span class="op">&lt;</span>REDUCE_POL1<span class="op">,</span> <span class="dt">int</span><span class="op">&gt;</span> seq_sum<span class="op">(</span><span class="dv">0</span><span class="op">);</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>RAJA<span class="op">::</span>ReduceMin<span class="op">&lt;</span>REDUCE_POL1<span class="op">,</span> <span class="dt">int</span><span class="op">&gt;</span> seq_min<span class="op">(</span><span class="bu">std::</span>numeric_limits<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;::</span>max<span class="op">());</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>RAJA<span class="op">::</span>ReduceMax<span class="op">&lt;</span>REDUCE_POL1<span class="op">,</span> <span class="dt">int</span><span class="op">&gt;</span> seq_max<span class="op">(</span><span class="bu">std::</span>numeric_limits<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;::</span>min<span class="op">());</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>RAJA<span class="op">::</span>ReduceMinLoc<span class="op">&lt;</span>REDUCE_POL1<span class="op">,</span> <span class="dt">int</span><span class="op">&gt;</span> seq_minloc<span class="op">(</span><span class="bu">std::</span>numeric_limits<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;::</span>max<span class="op">(),</span> <span class="op">-</span><span class="dv">1</span><span class="op">);</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>RAJA<span class="op">::</span>ReduceMaxLoc<span class="op">&lt;</span>REDUCE_POL1<span class="op">,</span> <span class="dt">int</span><span class="op">&gt;</span> seq_maxloc<span class="op">(</span><span class="bu">std::</span>numeric_limits<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;::</span>min<span class="op">(),</span> <span class="op">-</span><span class="dv">1</span><span class="op">);</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>RAJA<span class="op">::</span>forall<span class="op">&lt;</span>EXEC_POL1<span class="op">&gt;(</span>arange<span class="op">,</span> <span class="op">[=](</span><span class="dt">int</span> i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  seq_sum <span class="op">+=</span> a<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  seq_min<span class="op">.</span>min<span class="op">(</span>a<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  seq_max<span class="op">.</span>max<span class="op">(</span>a<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  seq_minloc<span class="op">.</span>minloc<span class="op">(</span>a<span class="op">[</span>i<span class="op">],</span> i<span class="op">);</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>  seq_maxloc<span class="op">.</span>maxloc<span class="op">(</span>a<span class="op">[</span>i<span class="op">],</span> i<span class="op">);</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a><span class="op">});</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>cout<span class="op"> &lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\t</span><span class="st">sum = &quot;</span> <span class="op">&lt;&lt;</span> seq_sum<span class="op">.</span>get<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>cout<span class="op"> &lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\t</span><span class="st">min = &quot;</span> <span class="op">&lt;&lt;</span> seq_min<span class="op">.</span>get<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>cout<span class="op"> &lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\t</span><span class="st">max = &quot;</span> <span class="op">&lt;&lt;</span> seq_max<span class="op">.</span>get<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>cout<span class="op"> &lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\t</span><span class="st">min, loc = &quot;</span> <span class="op">&lt;&lt;</span> seq_minloc<span class="op">.</span>get<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="st">&quot; , &quot;</span></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>                             <span class="op">&lt;&lt;</span> seq_minloc<span class="op">.</span>getLoc<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>cout<span class="op"> &lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\t</span><span class="st">max, loc = &quot;</span> <span class="op">&lt;&lt;</span> seq_maxloc<span class="op">.</span>get<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="st">&quot; , &quot;</span></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>                             <span class="op">&lt;&lt;</span> seq_maxloc<span class="op">.</span>getLoc<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span></code></pre></div>
+<pre><code># in gdb4hpc
+
+dbg all&gt; p seq_sum
+a{0}: {RAJA::reduce::detail::BaseReduceSum&lt;int, RAJA::detail::ReduceSeq&gt; = {RAJA::reduce::detail::BaseReduce&lt;int, RAJA::reduce::sum, RAJA::detail::ReduceSeq&gt; = {c = {RAJA::reduce::detail::BaseCombinable&lt;int, RAJA::reduce::sum&lt;int&gt;, RAJA::detail::ReduceSeq&lt;int, RAJA::reduce::sum&lt;int&gt; &gt; &gt; = {parent = (RAJA::reduce::detail::BaseCombinable&lt;int, RAJA::reduce::sum&lt;int&gt;, RAJA::detail::ReduceSeq&lt;int, RAJA::reduce::sum&lt;int&gt; &gt; &gt;*) 0x0, identity = 0, my_data = 1}}}}}
+
+dbg all&gt; p seq_sum.get()
+a{0}: 1
+
+dbg all&gt; p seq_min
+a{0}: {RAJA::reduce::detail::BaseReduceMin&lt;int, RAJA::detail::ReduceSeq&gt; = {RAJA::reduce::detail::BaseReduce&lt;int, RAJA::reduce::min, RAJA::detail::ReduceSeq&gt; = {c = {RAJA::reduce::detail::BaseCombinable&lt;int, RAJA::reduce::min&lt;int&gt;, RAJA::detail::ReduceSeq&lt;int, RAJA::reduce::min&lt;int&gt; &gt; &gt; = {parent = (RAJA::reduce::detail::BaseCombinable&lt;int, RAJA::reduce::min&lt;int&gt;, RAJA::detail::ReduceSeq&lt;int, RAJA::reduce::min&lt;int&gt; &gt; &gt;*) 0x0, identity = 2147483647, my_data = -100}}}}}
+
+dbg all&gt; p seq_min.get()
+a{0}: -100
+
+dbg all&gt; p seq_minloc
+a{0}: {RAJA::reduce::detail::BaseReduceMinLoc&lt;int, long, RAJA::detail::ReduceSeq&gt; = {RAJA::reduce::detail::BaseReduce&lt;RAJA::reduce::detail::ValueLoc&lt;int, long, true&gt;, RAJA::reduce::min, RAJA::detail::ReduceSeq&gt; = {c = {RAJA::reduce::detail::BaseCombinable&lt;RAJA::reduce::detail::ValueLoc&lt;int, long, true&gt;, RAJA::reduce::min&lt;RAJA::reduce::detail::ValueLoc&lt;int, long, true&gt; &gt;, RAJA::detail::ReduceSeq&lt;RAJA::reduce::detail::ValueLoc&lt;int, long, true&gt;, RAJA::reduce::min&lt;RAJA::reduce::detail::ValueLoc&lt;int, long, true&gt; &gt; &gt; &gt; = {parent = (RAJA::reduce::detail::BaseCombinable&lt;RAJA::reduce::detail::ValueLoc&lt;int, long, true&gt;, RAJA::reduce::min&lt;RAJA::reduce::detail::ValueLoc&lt;int, long, true&gt; &gt;, RAJA::detail::ReduceSeq&lt;RAJA::reduce::detail::ValueLoc&lt;int, long, true&gt;, RAJA::reduce::min&lt;RAJA::reduce::detail::ValueLoc&lt;int, long, true&gt; &gt; &gt; &gt;*) 0x0, identity = {val = 2147483647, loc = -1}, my_data = {val = -100, loc = 500000}}}}}}
+
+dbg all&gt; p seq_minloc.get()
+a{0}: {val = -100, loc = 500000}
+
+dbg all&gt; p seq_minloc.getLoc()
+a{0}: 500000
+
+dbg all&gt; p a[seq_minloc.getLoc()]
+a{0}: -100</code></pre>
+<h2 id="printing-rajalocalarrays">Printing <code>RAJA::LocalArray</code>s</h2>
+<p><code>RAJA::LocalArray</code>s are used to to store data in CPU stack-allocated or GPU thread local memory. Most often, they are used for tiling operations.</p>
+<p>Gdb4hpc supports printing <code>RAJA::LocalArray</code> objects.</p>
+<p><code>RAJA::LocalArray</code>s are implemented as <code>RAJA::View</code> objects, so working with them in Gdb4hpc is the same as working with <code>RAJA::View</code>s.</p>
+<h3 id="example-5">Example</h3>
+<p>See the RAJA Tiled Matrix Transpose with Local Array example for more details.</p>
+<p>https://raja.readthedocs.io/en/develop/sphinx/user_guide/tutorial/matrix_transpose_local_array.html</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">// in a .cpp file</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> TILE_MEM <span class="op">=</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  RAJA<span class="op">::</span>LocalArray<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> RAJA<span class="op">::</span>Perm<span class="op">&lt;</span><span class="dv">0</span><span class="op">,</span> <span class="dv">1</span><span class="op">&gt;,</span> RAJA<span class="op">::</span>SizeList<span class="op">&lt;</span>TILE_DIM<span class="op">,</span> TILE_DIM<span class="op">&gt;&gt;;</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>TILE_MEM Tile_Array<span class="op">;</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> SEQ_EXEC_POL_I <span class="op">=</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  RAJA<span class="op">::</span>KernelPolicy<span class="op">&lt;</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    RAJA<span class="op">::</span>statement<span class="op">::</span>Tile<span class="op">&lt;</span><span class="dv">1</span><span class="op">,</span> RAJA<span class="op">::</span>tile_fixed<span class="op">&lt;</span>TILE_DIM<span class="op">&gt;,</span> RAJA<span class="op">::</span>loop_exec<span class="op">,</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>      RAJA<span class="op">::</span>statement<span class="op">::</span>Tile<span class="op">&lt;</span><span class="dv">0</span><span class="op">,</span> RAJA<span class="op">::</span>tile_fixed<span class="op">&lt;</span>TILE_DIM<span class="op">&gt;,</span> RAJA<span class="op">::</span>loop_exec<span class="op">,</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>        RAJA<span class="op">::</span>statement<span class="op">::</span>InitLocalMem<span class="op">&lt;</span>RAJA<span class="op">::</span>cpu_tile_mem<span class="op">,</span> RAJA<span class="op">::</span>ParamList<span class="op">&lt;</span><span class="dv">2</span><span class="op">&gt;,</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>        RAJA<span class="op">::</span>statement<span class="op">::</span>ForICount<span class="op">&lt;</span><span class="dv">1</span><span class="op">,</span> RAJA<span class="op">::</span>statement<span class="op">::</span>Param<span class="op">&lt;</span><span class="dv">0</span><span class="op">&gt;,</span> RAJA<span class="op">::</span>loop_exec<span class="op">,</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>          RAJA<span class="op">::</span>statement<span class="op">::</span>ForICount<span class="op">&lt;</span><span class="dv">0</span><span class="op">,</span> RAJA<span class="op">::</span>statement<span class="op">::</span>Param<span class="op">&lt;</span><span class="dv">1</span><span class="op">&gt;,</span> RAJA<span class="op">::</span>loop_exec<span class="op">,</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>            RAJA<span class="op">::</span>statement<span class="op">::</span>Lambda<span class="op">&lt;</span><span class="dv">0</span><span class="op">&gt;</span></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>          <span class="op">&gt;</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>        <span class="op">&gt;,</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>        RAJA<span class="op">::</span>statement<span class="op">::</span>ForICount<span class="op">&lt;</span><span class="dv">0</span><span class="op">,</span> RAJA<span class="op">::</span>statement<span class="op">::</span>Param<span class="op">&lt;</span><span class="dv">1</span><span class="op">&gt;,</span> RAJA<span class="op">::</span>loop_exec<span class="op">,</span></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>          RAJA<span class="op">::</span>statement<span class="op">::</span>ForICount<span class="op">&lt;</span><span class="dv">1</span><span class="op">,</span> RAJA<span class="op">::</span>statement<span class="op">::</span>Param<span class="op">&lt;</span><span class="dv">0</span><span class="op">&gt;,</span> RAJA<span class="op">::</span>loop_exec<span class="op">,</span></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>            RAJA<span class="op">::</span>statement<span class="op">::</span>Lambda<span class="op">&lt;</span><span class="dv">1</span><span class="op">&gt;</span></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>          <span class="op">&gt;</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>        <span class="op">&gt;</span></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>        <span class="op">&gt;</span></span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>      <span class="op">&gt;</span></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>    <span class="op">&gt;</span></span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>  <span class="op">&gt;;</span></span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>RAJA<span class="op">::</span>kernel_param<span class="op">&lt;</span>SEQ_EXEC_POL_I<span class="op">&gt;(</span></span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>  RAJA<span class="op">::</span>make_tuple<span class="op">(</span>RAJA<span class="op">::</span>TypedRangeSegment<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span><span class="dv">0</span><span class="op">,</span> N_c<span class="op">),</span></span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>                   RAJA<span class="op">::</span>TypedRangeSegment<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span><span class="dv">0</span><span class="op">,</span> N_r<span class="op">)),</span></span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>  RAJA<span class="op">::</span>make_tuple<span class="op">((</span><span class="dt">int</span><span class="op">)</span><span class="dv">0</span><span class="op">,</span> <span class="op">(</span><span class="dt">int</span><span class="op">)</span><span class="dv">0</span><span class="op">,</span> Tile_Array<span class="op">),</span></span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>  <span class="op">[=](</span><span class="dt">int</span> col<span class="op">,</span> <span class="dt">int</span> row<span class="op">,</span> <span class="dt">int</span> tx<span class="op">,</span> <span class="dt">int</span> ty<span class="op">,</span> TILE_MEM <span class="op">&amp;</span>Tile_Array<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>    Tile_Array<span class="op">(</span>ty<span class="op">,</span> tx<span class="op">)</span> <span class="op">=</span> Aview<span class="op">(</span>row<span class="op">,</span> col<span class="op">);</span></span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>  <span class="op">},</span></span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>  <span class="op">[=](</span><span class="dt">int</span> col<span class="op">,</span> <span class="dt">int</span> row<span class="op">,</span> <span class="dt">int</span> tx<span class="op">,</span> <span class="dt">int</span> ty<span class="op">,</span> TILE_MEM <span class="op">&amp;</span>Tile_Array<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>    Atview<span class="op">(</span>col<span class="op">,</span> row<span class="op">)</span> <span class="op">=</span> Tile_Array<span class="op">(</span>ty<span class="op">,</span> tx<span class="op">);</span></span>
+<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div>
+<pre><code># in gdb4hpc
+
+dbg all&gt; p Tile_Array
+a{0}: RAJA::View; Use (0..15, 0..15) for full contents.
+
+dbg all&gt; p Tile_Array(1, 0..15)
+a{0}: {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+
+dbg all&gt; p Tile_Array(0..15, 0..15)
+a{0}: {{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},{2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2},{3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3},{4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4},{5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5},{6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6},{7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7},{8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8},{9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9},{10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10},{11,11,11,11,11,11,11,11,11,11,11,11,11,11,11,11},{12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12},{13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13},{14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14},{15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15}}</code></pre>
 <h2 id="more-tools">More Tools</h2>
-<p>Gdb4hpc treats <code>RAJA</code> views in the same way that it treats arrays. This means that anything described in “Tools for working with array values in gdb4hpc” applies to <code>RAJA::View</code>s too.</p>
+<p>Gdb4hpc treats <code>RAJA</code> views in the same way that it treats arrays. This means that anything described in “Handling Arrays” applies to <code>RAJA::View</code>s too.</p>
 <p>For example, you can dump a large <code>RAJA::View</code> to a file like this:</p>
 <pre><code>dbg all&gt; pipe p big_raja_view | cat &gt; big_raja_view.txt
 dbg all&gt; shell wc -c big_raja_view.txt
 988 myfile.txt</code></pre>
-<p>See “Tools for working with array values in gdb4hpc” for more.</p>
+<p>See “Handling Arrays” for more.</p>
 </body>
 </html>

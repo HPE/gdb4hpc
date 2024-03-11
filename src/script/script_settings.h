@@ -45,7 +45,7 @@ struct Assertion {
     // set by user via "set xyz ..." during assertion script writing
 
     constexpr Assertion()
-        : stopOnFailure{false}
+        : stopOnFailure{true}
         , verboseEval{false}
         , error{0, 0}
     {}

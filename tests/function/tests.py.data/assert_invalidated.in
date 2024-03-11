@@ -9,9 +9,10 @@ Assertion script $invalidated compiled.
 13: maint set sync on
 14: start $invalidated
 Sending continue to application...
-Assertion script $invalidated finished.
-Use "info script $invalidated results" to view results.
+a{0..1}: The application has reached an exit breakpoint.
+Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
 Assertion script $invalidated stopped.
+Use "info script $invalidated results" to view results.
 19: info script $invalidated results
 Results summary for script $invalidated:
 

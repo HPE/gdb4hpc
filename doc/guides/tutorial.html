@@ -236,7 +236,9 @@ b{0..2}: Application halted in main at /home/users/jvogt/rpm_install/gdb4hpc/4.1
 Assertion script $check_distributed stopped.
 
 dbg all&gt;</code></pre>
-<p>In this case, <code>set halt on</code> tells the script to stop the application process as soon as an assertion fails. You can get the assertion result with the <code>info</code> command:</p>
+<p>By default, an assertion script will stop running when an assertion fails. You can use <code>set stop off</code> to disable this behavior. In that case, the script will only stop if the application exits or a breakpoint not involved in the script is hit.</p>
+<p><code>set halt on</code> tells the script to send a halt command to all involved ranks when the script is done running. This is especially useful in non-stop mode.</p>
+<p>You can get the assertion result with the <code>info</code> command:</p>
 <pre><code>dbg all&gt; info script $check_distributed results
 Results summary for script $check_distributed, configured with halt:
 

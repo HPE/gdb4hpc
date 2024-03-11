@@ -19,15 +19,15 @@ Assertion script $expressions compiled.
 14: maint set sync on
 15: start $expressions
 Sending continue to application...
-Assertion script $expressions finished.
-Use "info script $expressions results" to view results.
+Assertion 3: $a{0..1}::ld@"c_type_test.c":228 / 20 >= $b{0..1}::ld@"c_cmp_diff.c":223 failed. Stopping script.
 Assertion script $expressions stopped.
+Use "info script $expressions results" to view results.
 16: info script expressions results
 Results summary for script $expressions:
 
-Total full runs: 1
-Total assertion evaluations this run: 4
-Passed: 3, Passed with warning: 0, Failed: 1, Indeterminate: 0
+Total full runs: 0
+Total assertion evaluations this run: 3
+Passed: 2, Passed with warning: 0, Failed: 1, Indeterminate: 0
 Assertion results:
 
 Assertion 1:
@@ -44,7 +44,7 @@ Passes: 0, Passes with warnings: 0, Failures: 1.
 
 Assertion 4:
 $a{0}::c@"c_type_test.c":232 + $b{0}::c@"c_cmp_diff.c":227 == $a{1}::ush@"c_type_test.c":233 - $b{1}::sh@"c_cmp_diff.c":228
-Passes: 1, Passes with warnings: 0, Failures: 0.
+Passes: 0, Passes with warnings: 0, Failures: 0.
 
 17: info diff
 Stored assertion deltas:

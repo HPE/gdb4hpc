@@ -67,9 +67,8 @@ Assertion script $scalars compiled.
 43: start $scalars
 Sending continue to application...
 Assertion 11: $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234 failed. Stopping script.
-Assertion script $scalars finished.
-Use "info script $scalars results" to view results.
 Assertion script $scalars stopped.
+Use "info script $scalars results" to view results.
 44: frame
 a{0}: #0  main at /src/c/c_type_test.c:239
 b{0}: #0  main at /src/c/c_cmp_diff.c:234
@@ -100,47 +99,47 @@ Total assertion evaluations this run: 65
 Passed: 14, Passed with warning: 10, Failed: 41, Indeterminate: 0
 Assertion results:
 
-Assertion 1:
+Assertion 1, configured with !stop:
 $a{0..1}::assertTest@"c_type_test.c":166 != $b{0..1}::assertTest@"c_cmp_diff.c":161
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 2:
+Assertion 2, configured with !stop:
 $a{0}::uc@"c_type_test.c":173 < $b{0}::uc@"c_cmp_diff.c":168
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 3:
+Assertion 3, configured with !stop:
 $a{0}::ush@"c_type_test.c":173 <= $b{0}::ush@"c_cmp_diff.c":168
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 4:
+Assertion 4, configured with !stop:
 $a::c@"c_type_test.c":166 == $b::one_d_i_init[1]@"c_cmp_diff.c":161
 Passes: 1, Passes with warnings: 0, Failures: 0.
 
-Assertion 5:
+Assertion 5, configured with !stop:
 $a{0}::ld@"c_type_test.c":200 >= $b{0}::ld@"c_cmp_diff.c":195
 Passes: 0, Passes with warnings: 0, Failures: 10.
 
-Assertion 6:
+Assertion 6, configured with !stop:
 $a{0}::lli@"c_type_test.c":200 > $b{0}::lli@"c_cmp_diff.c":195
 Passes: 0, Passes with warnings: 0, Failures: 10.
 
-Assertion 7:
+Assertion 7, configured with !stop:
 $a{0}::i@"c_type_test.c":200 == $b{0}::i@"c_cmp_diff.c":195
 Passes: 0, Passes with warnings: 0, Failures: 10.
 
-Assertion 8, configured with error: 1, 2:
+Assertion 8, configured with !stop, error: 1, 2:
 $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
 Passes: 10, Passes with warnings: 0, Failures: 0.
 
-Assertion 9, configured with error: 0.99, 2:
+Assertion 9, configured with !stop, error: 0.99, 2:
 $a{0}::f@"c_type_test.c":200 == $b{0}::f@"c_cmp_diff.c":195
 Passes: 0, Passes with warnings: 10, Failures: 0.
 
-Assertion 10, configured with error: 0.1, 0.99:
+Assertion 10, configured with !stop, error: 0.1, 0.99:
 $a{0}::d@"c_type_test.c":200 == $b{0}::d@"c_cmp_diff.c":195
 Passes: 0, Passes with warnings: 0, Failures: 10.
 
-Assertion 11, configured with stop, error: 0.1, 0.99:
+Assertion 11, configured with error: 0.1, 0.99:
 $a{0}::i@"c_type_test.c":239 == $b{0}::i@"c_cmp_diff.c":234
 Passes: 0, Passes with warnings: 0, Failures: 1.
 

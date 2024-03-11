@@ -25,6 +25,7 @@ Sending continue to application...
 a{1}: The application has reached an exit breakpoint.
 Assertion script reached a point where every rank is stopped and no assertions can be evaluated.
 Assertion script $earlyexit stopped.
+No assertions were evaluated.
 13: frame
 a{1}: #0  exit
 a{2..3}: #0  main at /src/c/c_half_exit.c:22
@@ -44,6 +45,7 @@ Assertion script $unknbp compiled.
 Sending continue to application...
 Assertion script error: A breakpoint unrelated to the assertion script was hit.
 Assertion script $unknbp stopped.
+No assertions were evaluated.
 22: frame
 a{1}: #0  exit
 a{2}: #0  foo at /src/c/c_half_exit.c:6

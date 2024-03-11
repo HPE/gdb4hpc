@@ -119,7 +119,13 @@ Assertion script $check_distributed stopped.
 dbg all>
 ```
 
-In this case, `set halt on` tells the script to stop the application process as soon as an assertion fails.   You can get the assertion result with the `info` command:
+By default, an assertion script will stop running when an assertion fails. You can use `set stop off`
+to disable this behavior. In that case, the script will only stop if the application exits or a
+breakpoint not involved in the script is hit.
+
+`set halt on` tells the script to send a halt command to all involved ranks when the script is done running. This is especially useful in non-stop mode.
+
+You can get the assertion result with the `info` command:
 
 ```
 dbg all> info script $check_distributed results

@@ -282,9 +282,6 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{external_build_dir}/share/doc/vscode-plugin.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/vscode-plugin.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 
-%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/vscode
-%{__cp} -a %{external_build_dir}/libexec/gdb4hpc-1.1.1.vsix ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/vscode
-
 # modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}
 %{__sed} 's|<PREFIX>|%{external_build_dir}|g;s|<CRAY_NAME>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g;s|<COPYRIGHT>|%{copyright}|g' %{SOURCE0} > ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}/%{pkgversion}
@@ -636,7 +633,6 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ompd
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb
-%dir %{prefix}/%{cray_product}/%{pkgversion}/share/vscode
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo
@@ -674,7 +670,6 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/commnode
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/bin/gdb4hpc
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/vscode/gdb4hpc-1.1.1.vsix
 #gdb share
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/boost/__init__.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/boost/printers.py

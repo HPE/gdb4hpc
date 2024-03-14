@@ -3444,12 +3444,12 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
                 
                 e->ev_step.step_frame_changed = 
                     oldFunc && newFunc && strcmp(oldFunc, newFunc) != 0;
-            }
 
-            // Don't cache our frame during startup or we will think we changed
-            // frames on the very first step because _start or similar will be cached
-            if (Status != DBGSTAT_INITIALISING) {
-                lastKnownFrame.reset(e->ev_step.step_frame->clone());
+                // Don't cache our frame during startup or we will think we changed
+                // frames on the very first step because _start or similar will be cached
+                if (Status != DBGSTAT_INITIALISING) {
+                    lastKnownFrame.reset(e->ev_step.step_frame->clone());
+                }
             }
 
             Status = DBGSTAT_STOPPED;

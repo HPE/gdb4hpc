@@ -205,3 +205,8 @@ tests/function/src/kokkos/*.tmp
 tests/function/src/kokkos/desul
 tests/function/src/kokkos/KokkosCore_config.h
 
+dstlibvenv
+workspaces
+environment_variables.txt
+*.log
+

@@ -2,7 +2,7 @@
 #
 # runBuild.sh - Build steps for gdb4hpc
 #
-# Copyright 2010-2021 Hewlett Packard Enterprise Development LP.
+# Copyright 2010-2024 Hewlett Packard Enterprise Development LP.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.

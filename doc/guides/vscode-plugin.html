@@ -153,14 +153,16 @@
 <header id="title-block-header">
 <h1 class="title">VSCode Plugin</h1>
 </header>
+<h1 id="launching-the-vscode-plugin-using-a-vsix-file">Launching the VSCode Plugin using a vsix file</h1>
 <ol type="1">
-<li><p>Log into the desired machine in vscode.</p></li>
-<li><p>Open the extensions panel on the left.</p></li>
-<li><p>Click on “…” located next to the Extensions header and choose “install from VSIX…”</p></li>
-<li><p>Use the vsix file located in the rpm’s share/vscode directory.</p></li>
-<li><p>The VSCode window might need to be reloaded once the extension is installed.</p></li>
-<li><p>Open the Run and Debug panel. A launch.json file is needed.If you do not have one, create a launch.json file and copy the template below and modify as necessary.</p></li>
+<li>Log into the desired machine in vscode.</li>
+<li>Open the extensions panel on the left.</li>
+<li>Click on “…” located next to the Extensions header and choose “install from VSIX…” providing the extension’s vsix file.</li>
+<li>The VSCode window might need to be reloaded once the extension is installed.</li>
+<li>Open the Run and Debug panel.</li>
 </ol>
+<h1 id="running-gdb4hpc-debugger-in-vscode">Running GDB4HPC debugger in VSCode</h1>
+<p>A launch.json file is needed. If it does not exist, create a launch.json file and copy the template below and modify as necessary.</p>
 <pre><code>{
     &quot;version&quot;: &quot;1.1.1&quot;,
     &quot;configurations&quot;: [
@@ -196,5 +198,55 @@
     &quot;GDB4HPC_DEBUG_INTERPRETER&quot;: &quot;1&quot;,
     &quot;CRAY_DBG_LOG_DIR&quot;: &quot;.&quot;
 }</code></pre>
+<h1 id="display">Display</h1>
+<h2 id="run-and-debug">Run and Debug</h2>
+<p>Configure the launch options in the launch.json file. Choose “GDB4HPC” to launch the debugger using the launch.json file. Once launched, this will be replaced by the pause, step, continue, next, and stop buttons.</p>
+<figure>
+<img src="./img/vscode_launch.gif" alt="Launching Debugger" /><figcaption aria-hidden="true">Launching Debugger</figcaption>
+</figure>
+<h2 id="consoles">Consoles</h2>
+<p>Different terminals are available on the bottom.</p>
+<h3 id="debug-console">Debug Console</h3>
+<p>The Debug Console is the output console for GDB4HPC. Any information and warnings will show up here.</p>
+<h3 id="output">Output</h3>
+<p>There is a drop down on the right to choose the Output Channel to view. <strong>Program Output</strong> will automatically become displayed whenever the application running produces output. <strong>Error Log</strong> will log all errors while the session is running. Errors also get displayed in a popup as they appear.</p>
+<h2 id="source-code-display">Source Code Display</h2>
+<p>The screen displays the source code automatically when launched. The current line in the file will be highlighted. You can interact with the source code to set breakpoints and get current variable values by hovering.</p>
+<h2 id="left-side-panel">Left Side Panel</h2>
+<p>The left side panel provides extra ways to interact with the gui. Each section of this panel is described below.</p>
+<h3 id="variables">Variables</h3>
+<p>Local variables and their values will appear here. If the value is different for different ranks it will show up as a separate field here.</p>
+<h3 id="watch">Watch</h3>
+<p>In this section, add a custom variable or expression to track.</p>
+<h3 id="call-stack">Call Stack</h3>
+<p>Stack information is displayed including the threads and their current status. The current thread is marked with a <strong>selected</strong> label.</p>
+<h3 id="breakpoints">Breakpoints</h3>
+<p>To set a breakpoint, you can click on the line number that you would like to break on in the source code panel and you can delete it by pressing on the line number again.</p>
+<p>After a breakpoint is created, it will be displayed under the <strong>breakpoint</strong> section of on the left side. You can enable, disable, and delete each breakpoint here.</p>
+<figure>
+<img src="./img/vscode_breakpoint.gif" alt="Creating a Breakpoint" /><figcaption aria-hidden="true">Creating a Breakpoint</figcaption>
+</figure>
+<h3 id="focus">Focus</h3>
+<p>This section allows you to see the lists of pe sets. The pe set in focus is marked as with *. Choose a different pe set to focus on by pressing the <strong>select</strong> button. A new tab can be opened for each pe set describing an individual application. This new tab will display the source code location for the specific pe set as well as any other information specific to that pe set.</p>
+<figure>
+<img src="./img/vscode_focus.gif" alt="Creating a new PE Set" /><figcaption aria-hidden="true">Creating a new PE Set</figcaption>
+</figure>
+<h3 id="decompositions">Decompositions</h3>
+<p>To create a decomposition, click the add button in the Decomposition section. This will make a popup appear on the top of the screen. In the pop-up enter a name for the decomposition (i.e. $decomp1) or a full decomposition command (i.e. $decomp1 10/2). If you enter in a command, the decomposition will be added to the decomposition section. If you enter just a name for the decomposition, a new popup will appear to add a decomposition subcommand. This popup will continue to reappear until it is dismissed. When the popup is dissmised, the decomposition will be saved and shown int the decomposition section.</p>
+<figure>
+<img src="./img/vscode_decomposition.gif" alt="Creating a decomposition" /><figcaption aria-hidden="true">Creating a decomposition</figcaption>
+</figure>
+<h3 id="compare">Compare</h3>
+<p>To add a comparison, click on the add button in the comparison section. This will make a popup appear on the top of the screen where a comparison is inputted. Press enter to dismiss the popup and save the comparison.</p>
+<p>When you click the <strong>Compare</strong> button, all of the comparisons in the list that are enabled will be run. Toggle a comparison off if you do not wish to run it.</p>
+<figure>
+<img src="./img/vscode_compare.gif" alt="Running a comparison" /><figcaption aria-hidden="true">Running a comparison</figcaption>
+</figure>
+<h3 id="assertion-scripts">Assertion Scripts</h3>
+<p>To add an assertion, click the add button in the Assertion section. This will make a popup appear on the top of the screen. Follow the instructions on creating the assertion script in the popup. Once a name and stop on error have been set, assertions can continue to be added until the popup is dismissed. Dismissing the popup will save the assertion script.</p>
+<p>Choose an assertion script from the list to run by selecting its radio button. Then click the <strong>Run</strong> button. Once it is done running, click on the <strong>Results</strong> button. This will update the display with the results of the run.</p>
+<figure>
+<img src="./img/vscode_assertion.gif" alt="Running an assertion script" /><figcaption aria-hidden="true">Running an assertion script</figcaption>
+</figure>
 </body>
 </html>

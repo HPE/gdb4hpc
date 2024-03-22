@@ -987,7 +987,7 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
     }
     if (parsed_debug_dir) {
         if (!DbgSetLogDir(*parsed_debug_dir)) {
-            throw std::runtime_error("--debug must be a directory writeable bu the user");
+            throw std::runtime_error("--debug must be a directory writeable by the user");
         }
     }
 

@@ -153,13 +153,12 @@
 <header id="title-block-header">
 <h1 class="title">VSCode Plugin</h1>
 </header>
-<h1 id="launching-the-vscode-plugin-using-a-vsix-file">Launching the VSCode Plugin using a vsix file</h1>
+<h1 id="installing-the-gdb4hpc-vscode-plugin">Installing the GDB4HPC VSCode Plugin</h1>
 <ol type="1">
 <li>Log into the desired machine in vscode.</li>
-<li>Open the extensions panel on the left.</li>
-<li>Click on “…” located next to the Extensions header and choose “install from VSIX…” providing the extension’s vsix file.</li>
+<li>Open the Extensions panel on the left.</li>
+<li>In the search bar, search for “GDB4HPC” and install</li>
 <li>The VSCode window might need to be reloaded once the extension is installed.</li>
-<li>Open the Run and Debug panel.</li>
 </ol>
 <h1 id="running-gdb4hpc-debugger-in-vscode">Running GDB4HPC debugger in VSCode</h1>
 <p>A launch.json file is needed. If it does not exist, create a launch.json file and copy the template below and modify as necessary.</p>
@@ -199,8 +198,9 @@
     &quot;CRAY_DBG_LOG_DIR&quot;: &quot;.&quot;
 }</code></pre>
 <h1 id="display">Display</h1>
+<p>Open the Run and Debug panel on the left. Choose GDB4HPC in the Dropdown on the top of the panel. If GDB4HPC does not show up as an option, the extension is not installed properly or the launch.json file is not configured correctly.</p>
 <h2 id="run-and-debug">Run and Debug</h2>
-<p>Configure the launch options in the launch.json file. Choose “GDB4HPC” to launch the debugger using the launch.json file. Once launched, this will be replaced by the pause, step, continue, next, and stop buttons.</p>
+<p>Configure the launch options in the launch.json file before running the debugger. Press the green play button on the left of “GDB4HPC” to launch the debugger session. Once launched, this will be replaced by the pause, step, continue, next, and stop buttons.</p>
 <figure>
 <img src="./img/vscode_launch.gif" alt="Launching Debugger" /><figcaption aria-hidden="true">Launching Debugger</figcaption>
 </figure>

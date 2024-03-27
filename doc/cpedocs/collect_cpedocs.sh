@@ -26,6 +26,8 @@ cp ./cpedocs_index_chunk.md "$OUTPUT_DIR"
 # Collect man pages
 cp ../man/gdb4hpc.1.md "$OUTPUT_DIR/man"
 
+cp -r ../guides/img "$OUTPUT_DIR/guides"
+
 # Collect guides
 for f in ../guides/*.md; do
   echo "  $f -> $OUTPUT_DIR/guides"

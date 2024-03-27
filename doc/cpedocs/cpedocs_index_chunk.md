@@ -46,6 +46,13 @@ Gdb4hpc has extra support for some popular parallel programming libraries.
 * [Kokkos Support](./guides/kokkos-support.md)
 * [RAJA Support](./guides/raja-support.md)
 
+#### [VSCode Extension Guide](./guides/vscode-plugin.md)
+
+A guide covering Gdb4hpc's vscode extension.
+
+[VSCode Extension Guide](./guides/tutorial.md)
+
+
 ### Gdb4hpc man pages
 
 * [gdb4hpc man page](./man/gdb4hpc.1.md)

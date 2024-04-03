@@ -93,4 +93,8 @@ extern dbgevent_t *DbgOpenSocket(const char *, int);
 extern dbgevent_t *DbgCloseSocket(void);
 extern dbgevent_t *DbgSignal(char const*);
 
+extern dbgevent_t *DbgPythonBacktrace();
+extern dbgevent_t *DbgPythonList();
+extern dbgevent_t *DbgPythonMoveFrame(DbgFrameDir dir);
+
 #endif /* !_DBGFN_H */

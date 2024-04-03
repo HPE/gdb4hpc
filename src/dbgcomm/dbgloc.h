@@ -22,7 +22,6 @@
 #define _DBGLOC_H
 
 #include <stdlib.h>
-#include <string.h>
 
 struct dbgloc {
     dbgloc() : loc_file(nullptr), loc_func(nullptr), loc_addr(nullptr), loc_line(0) {}

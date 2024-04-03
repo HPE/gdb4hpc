@@ -50,6 +50,11 @@
 #include "defs.h"
 #include "useful.h"
 
+static dbgevent_t* checkForPythonError(MICommand& cmd, const std::string& result);
+static std::optional<dbgloc> parsePythonLocation(const std::string& line);
+static dbgframe_t* parsePythonBacktrace(const std::string& text);
+static dbgframe_t* parsePythonMoveFrame(const std::string& text);
+
 static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
 }
@@ -2493,6 +2498,252 @@ dbgevent_t *DbgGdbMI::signal(char const* signame) {
     e->ev_string = ::strdup(resultStr.c_str());
 
     return e;
+}
+
+dbgevent_t* DbgGdbMI::pythonBacktrace() {
+    DVPRINT("pythonBacktrace\n");
+
+    const char* argv[1] = { "py-bt" };
+    auto cmd = std::unique_ptr<MICommand, decltype(&MICommandFree)>(CLIBypassc(1, argv), MICommandFree);
+    SendMICommand(GDBMISession, cmd.get());
+
+    auto result = MallocedCharPtr(MICommandConsoleOOBMessages(cmd.get()));
+
+    if (auto* err = checkForPythonError(*cmd, result.get_string())) {
+        return err;
+    }
+
+    if (auto* frames = parsePythonBacktrace(result.get_string())) {
+        auto* e = NewEvent(DBGEV_FRAME);
+        e->ev_frame = frames;
+        return e;
+    } else {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Failed to parse py-bt result");
+    }
+}
+
+dbgevent_t* DbgGdbMI::pythonList() {
+    DVPRINT("pythonList\n");
+
+    const char* argv[1] = { "py-list" };
+    auto cmd = std::unique_ptr<MICommand, decltype(&MICommandFree)>(CLIBypassc(1, argv), MICommandFree);
+    SendMICommand(GDBMISession, cmd.get());
+
+    auto result = MallocedCharPtr(MICommandConsoleOOBMessages(cmd.get()));
+
+    if (auto* err = checkForPythonError(*cmd, result.get_string())) {
+        return err;
+    }
+
+    auto* e = NewEvent(DBGEV_STRING);
+    e->ev_string = result.release();
+    return e;
+}
+
+dbgevent_t* DbgGdbMI::pythonMoveFrame(DbgFrameDir dir) {
+    DVPRINT("pythonMoveFrame\n");
+
+    auto cmd = [&]() {
+        const char* up_argv[1] = { "py-up" };
+        const char* down_argv[1] = { "py-down" };
+        using CmdPtr = std::unique_ptr<MICommand, decltype(&MICommandFree)>;
+        switch (dir) {
+            case DbgFrameDir::UP: return CmdPtr(CLIBypassc(1, up_argv), MICommandFree);
+            case DbgFrameDir::DOWN: return CmdPtr(CLIBypassc(1, down_argv), MICommandFree);
+            // frontend will ensure ABSOLUTE is never passed
+            case DbgFrameDir::ABSOLUTE: return CmdPtr(nullptr, nullptr);
+        }
+        return CmdPtr(nullptr, nullptr); // unreachable
+    }();
+
+    if (!cmd) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Only py-up and py-down are supported");
+    }
+
+    SendMICommand(GDBMISession, cmd.get());
+
+    auto result = MallocedCharPtr(MICommandConsoleOOBMessages(cmd.get()));
+
+    if (auto* err = checkForPythonError(*cmd, result.get_string())) {
+        return err;
+    }
+
+    if (auto* frame = parsePythonMoveFrame(result.get_string())) {
+        auto* e = NewEvent(DBGEV_FRAME);
+        e->ev_frame = frame;
+        return e;
+    } else {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Failed to parse python frame");
+    }
+}
+
+// given a completed command and its console output, check for python errors.
+// if an error is detected, it will be returned as an error event. otherwise,
+// returns nullptr. an empty `output` is considered an error.
+static dbgevent_t* checkForPythonError(MICommand& cmd, const std::string& output) {
+    if (!MICommandResultOK(&cmd)) {
+        auto err_buf = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
+        auto err = err_buf.get_view();
+
+        // if the python extension hasn't been loaded, expect
+        // 'Undefined command: "py-...".  Try "help".'
+        if (err.find("Undefined command") != std::string_view::npos) {
+            return NewErrorEvent(DBGERR_DEBUGGER, "Python gdb extensions are not loaded");
+        }
+
+        return NewErrorEvent(DBGERR_DEBUGGER, "Unknown python command error");
+    }
+
+    if (output.empty()) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Python command had no result");
+    }
+
+    // If python extensions are loaded, MI still considers some python "failures"
+    // as successful and it will pass the ResultOK check above. We have
+    // to examine the output for error messages. We keep the matching very
+    // specific so that we (hopefully) don't accidentally match a successful
+    // result that happens to have the error text in it.
+    //
+    // in cpp regex, ^/$ match the start/end of the whole string, not lines
+
+    // py-bt/py-up/py-down
+    static const auto frame1 = std::regex(R"((^|\n)Unable to locate python frame($|\n))");
+
+    // py-list
+    static const auto frame2 = std::regex(R"((^|\n)Unable to locate gdb frame for python bytecode interpreter($|\n))");
+
+    // py-up/py-down
+    static const auto older_frame = std::regex(R"((^|\n)Unable to find an older python frame($|\n))");
+    static const auto newer_frame = std::regex(R"((^|\n)Unable to find a newer python frame($|\n))");
+
+    auto match = std::smatch{};
+
+    if (std::regex_search(output, match, frame1) || std::regex_search(output, match, frame2)) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Unable to locate python frame");
+    }
+
+    if (std::regex_search(output, match, older_frame)) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Unable to locate an older python frame");
+    }
+    if (std::regex_search(output, match, newer_frame)) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Unable to locate a newer python frame");
+    }
+
+    return nullptr;
+}
+
+// turn the text output of py-bt into a linked list of dbgframe_t.
+static dbgframe_t* parsePythonBacktrace(const std::string& text) {
+    std::istringstream ss(text);
+    std::string line;
+
+    int current_level = 0;
+    auto* first_frame = static_cast<dbgframe_t*>(nullptr); // "first" meaning "deepest"
+    auto* last_frame = static_cast<dbgframe_t*>(nullptr);  // "last" meaning "shallowest" (e.g. main)
+
+    while (std::getline(ss, line, '\n')) {
+        DVPRINT("parsePythonBacktrace: %s\n", line.c_str());
+
+        if (auto location = parsePythonLocation(line)) {
+            auto* frame = new dbgframe_t(current_level, *location, nullptr, nullptr, nullptr);
+
+            current_level++;
+
+            if (!first_frame) {
+                first_frame = frame;
+                last_frame = frame;
+            } else {
+                last_frame->setNext(frame);
+                last_frame = frame;
+            }
+        }
+    }
+
+    return first_frame;
+}
+
+static dbgframe_t* parsePythonMoveFrame(const std::string& text) {
+    std::istringstream ss(text);
+    std::string line;
+
+    // the result should be on the first line, but scan until we get a match, just in case
+
+    while (std::getline(ss, line, '\n')) {
+        DVPRINT("parsePythonMoveFrame: %s\n", line.c_str());
+
+        if (auto location = parsePythonLocation(line)) {
+            if (line.size() < 2) continue; // can't extract frame
+            // extract the frame level. move frame command results will start with #\d+.
+            auto level = ::atoi(line.c_str() + 1);
+            // we only need one frame, so return
+            return new dbgframe_t(level, *location, nullptr, nullptr, nullptr);
+        }
+    }
+
+    return nullptr;
+}
+
+// parse a dbgloc from a single line of a py-bt/py-up/py-down command
+static std::optional<dbgloc> parsePythonLocation(const std::string& line) {
+    // expecting frame lines in the form of:
+    //
+    // Traceback (most recent call first):
+    //   <built-in method __build_class__ of module object at remote 0x7fffed9266f0>
+    //   File "/lib/python3.12/functools.py", line 347, in <module>
+    //     class partialmethod(object):
+    //   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+    //   File "/py-mpi/./main.py", line 1, in <module>
+    //     from mpi4py import MPI
+    //
+    // if we catch the python interpreter during garbage collecting, we just get a single frame:
+    // Traceback (most recent call first):
+    //   Garbage-collecting
+    //
+    // this function is also used for the results of py-up and py-down, which produce
+    // results like:
+    //
+    // #3 <built-in method sleep of module object at remote 0x7fb51fead1f0>
+    // #6 Frame 0x7fb520f28020, for file /py-mpi/main.py, line 43, in <module> ()
+    // #6 Frame 0x7fb520f28078, for file /py-mpi/main.py, line 34, in main (num=6)
+    // #6 Frame 0x7fb520f28078, for file /py-mpi/main.py, line 34, in main (nums=[[0, 1, 19...(truncated)
+
+    static const std::regex builtin(R"(<built-in method (\S+) of module object at remote (0x[0-9a-f]+)>)");
+    static const std::regex file1(R":(File "(.*)", line (\d+), in (\S+)):");
+    static const std::regex file2(R"(file (\S+), line (\d+), in (\S+))");
+    static const std::regex garbage(R"(Garbage-collecting$)");
+
+    auto match = std::smatch{};
+    auto location = std::optional<dbgloc>{};
+
+    // FIXME: dbgloc_t is a very old type that accepts char*s and owns them.
+    //        so there is way more string copying than necessary below...
+
+    if (std::regex_search(line, match, builtin)) {
+        // since we use regex_search here, we match both
+        // "<built-in method..." and "#6 <built-in method..."
+        location = dbgloc();
+        location->loc_func = ::strdup(match[1].str().c_str());
+        // an address is present in the line, but we leave it out so results aggregate better.
+        // the address isn't useful to the user.
+    } else if (std::regex_search(line, match, file1)) {
+        location = dbgloc();
+        location->loc_file = ::strdup(match[1].str().c_str());
+        location->loc_line = ::atoi(match[2].str().c_str());
+        location->loc_func = ::strdup(match[3].str().c_str());
+    } else if (std::regex_search(line, match, file2)) {
+        location = dbgloc();
+        location->loc_file = ::strdup(match[1].str().c_str());
+        location->loc_line = ::atoi(match[2].str().c_str());
+        location->loc_func = ::strdup(match[3].str().c_str());
+    } else if (std::regex_search(line, match, garbage)) {
+        // python doesn't give us any info other than "Garbage-collecting"
+        location = dbgloc();
+        location->loc_func = ::strdup("Garbage-collecting");
+    } else {
+        DVPRINT("parsePythonLocation: No match\n");
+    }
+
+    return location;
 }
 
 /*

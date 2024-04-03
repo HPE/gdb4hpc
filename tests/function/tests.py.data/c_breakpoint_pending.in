@@ -18,9 +18,9 @@ a{0..2}: Breakpoint 1: Pending at dlopened_function.
 <$a>: /lus/scratch/jvogt/tests/gdb4hpc/bd_dt/c/
 a{0..2}: Breakpoint 1, %(in )?%dlopened_function%( at /lus/scratch/jvogt/tests/gdb4hpc/src/c/libdlopen_test.c:\d+)?%
 25: # backtrace
-26: bt???
-a{0..2}: #1  main
-a{0..2}: #0  dlopened_function
+26: bt
+a{0..2}: #1  main at /src/c/c_dlopen_test.c:44
+a{0..2}: #0  dlopened_function at /src/c/libdlopen_test.c:15
    
 28: #list breakpoints
 29: info breakpoint

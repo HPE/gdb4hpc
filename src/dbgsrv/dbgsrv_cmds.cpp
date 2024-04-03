@@ -436,6 +436,21 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             break;
         }
 
+        case DBGCMD_PYBT: {
+            e = DbgPythonBacktrace();
+            break;
+        }
+
+        case DBGCMD_PYLIST: {
+            e = DbgPythonList();
+            break;
+        }
+
+        case DBGCMD_PYMOVEFRAME: {
+            int dir;
+            is.get(dir);
+            e = DbgPythonMoveFrame(DbgFrameDir(dir));
+        }
     }
 
     // Convert the event to network protocol and send it

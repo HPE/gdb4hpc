@@ -2732,6 +2732,30 @@ rep_set_t DbgSignal(rec_set_t* recSet, const char* signame) {
     return result;
 }
 
+rep_set_t DbgPythonBacktrace(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYBT);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_FRAME);
+    return result;
+}
+
+rep_set_t DbgPythonList(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYLIST);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
+    return result;
+}
+
+rep_set_t DbgPythonMoveFrame(rec_set_t* rec, DbgFrameDir dir) {
+    if (dir == DbgFrameDir::ABSOLUTE) {
+        // this error case could be better, but with the currently
+        // available py- commands, it will never happen
+        return rep_set_t();
+    }
+
+    auto req = CommandToSocProto(DBGCMD_PYMOVEFRAME, int(dir));
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_FRAME);
+    return result;
+}
+
 /*
 ** DBG_DELETEBREAK: Delete a breakpoint.
 */

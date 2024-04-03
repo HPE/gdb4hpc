@@ -418,6 +418,21 @@ dbgevent_t *DbgSignal(char const* signame) {
     return DbgBackendSW->signal(signame);
 }
 
+dbgevent_t *DbgPythonBacktrace() {
+    DBG_READY();
+    return DbgBackendSW->pythonBacktrace();
+}
+
+dbgevent_t *DbgPythonList() {
+    DBG_READY();
+    return DbgBackendSW->pythonList();
+}
+
+dbgevent_t *DbgPythonMoveFrame(DbgFrameDir dir) {
+    DBG_READY();
+    return DbgBackendSW->pythonMoveFrame(dir);
+}
+
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     DBG_READY();
     return DbgBackendSW->directCmd(cmd_argc, cmd_argv);

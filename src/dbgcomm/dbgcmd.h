@@ -74,7 +74,10 @@ enum dbgcmd {
     DBGCMD_SLEEP,
     DBGCMD_SHELL,
     DBGCMD_GETARGS,
-    DBGCMD_SIGNAL
+    DBGCMD_SIGNAL,
+    DBGCMD_PYBT,
+    DBGCMD_PYLIST,
+    DBGCMD_PYMOVEFRAME,
 };
 
 enum class DbgFrameDir { DOWN, UP, ABSOLUTE };

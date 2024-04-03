@@ -107,9 +107,15 @@ struct MallocedCharPtr {
 
     ~MallocedCharPtr() = default;
 
+    // if contianed pointer is nullptr, returns empty string view.
+    std::string_view get_view() const;
+    // if container pointer is nullptr, returns empty string.
+    std::string get_string() const;
+
     // `ptr` must be allocated with malloc!
     void reset(char* ptr = nullptr) { m_ptr.reset(ptr); }
     char* get() { return m_ptr.get(); }
+    char* release();
 
     explicit operator bool() const noexcept { return static_cast<bool>(m_ptr); }
 

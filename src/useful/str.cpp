@@ -245,3 +245,17 @@ MallocedCharPtr::MallocedCharPtr(const char* fmt, va_list args)
         m_ptr.reset(cstr);
     }
 }
+
+char* MallocedCharPtr::release() {
+    return m_ptr.release();
+}
+
+std::string_view MallocedCharPtr::get_view() const {
+    if (m_ptr) return std::string_view(m_ptr.get());
+    return std::string_view{};
+}
+
+std::string MallocedCharPtr::get_string() const {
+    if (m_ptr) return std::string(m_ptr.get());
+    return std::string{};
+}

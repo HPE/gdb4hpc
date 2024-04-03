@@ -35,6 +35,10 @@ ompd             OpenMP debugging functions.
 pipe             Send the output of a gdb command to a shell command.
 print            Print the value of an expression.
 ptype            Print definition of a type.
+py-bt            Print the python backtrace.
+py-down          Move down one frame on the python stack.
+py-list          Print the current python source location.
+py-up            Move up one frame on the python stack.
 python           Enter python interpreter (experimental).
 quit             Exit the debugger.
 release          Release attached/launched application from debugger control.

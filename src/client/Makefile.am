@@ -59,7 +59,8 @@ gdb4hpc_SOURCES	= main.cpp cli_funcs.cpp cmd.cpp command_invoke.cpp command_invo
 		  cmd_comp.cpp cmd_env.cpp cmd_iostat.cpp cmd_frame.cpp cmd_go.cpp cmd_list.cpp cmd_print.cpp cmd_proc.cpp \
 		  cmd_procset.cpp cmd_source.cpp cmd_step.cpp cmd_thread.cpp cmd_whatis.cpp cli_readline.cpp cli_socket.cpp cli_file.cpp \
 		  cmd_passthru.cpp cmd_script.cpp cmd_blockmap.cpp cmd_utils.cpp mi_funcs.cpp $(CMD_PYTHON_SRC) \
-		  cmd_interpreter.cpp interpreter.cpp interpreter_console.cpp interpreter_mi.cpp
+		  cmd_interpreter.cpp interpreter.cpp interpreter_console.cpp interpreter_mi.cpp \
+		  bttree.cpp
 gdb4hpc_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
 				  -Wl,-rpath,\$$ORIGIN \
 				  -Wl,--enable-new-dtags

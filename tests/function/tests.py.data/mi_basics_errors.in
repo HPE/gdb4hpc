@@ -24,7 +24,7 @@
 ^done
 (gdb)
 6: launch $a{1} ./bin/CRAY/c/c_not_mpi.x
-&"launch $a{1} %.*%./bin/CRAY/c/c_not_mpi.x\n"
+&"launch $a{1}%.*% ./bin/CRAY/c/c_not_mpi.x\n"
 &"Debugger error: Missing PMI or MPI entrypoint symbol!\n"
 &"Application is missing required function for startup.\n"
 &"\n"
@@ -34,5 +34,5 @@
 &"may hang during startup.\n"
 ^error,msg="Debugger error: Missing PMI or MPI entrypoint symbol!"
 (gdb)
-&"Command resulted in an error: 6: launch $a{1} %.*% ./bin/CRAY/c/c_not_mpi.x\n"
+&"Command resulted in an error: 6: launch $a{1}%.*% ./bin/CRAY/c/c_not_mpi.x\n"
 7: -gdb-exit

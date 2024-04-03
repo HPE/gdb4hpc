@@ -101,6 +101,11 @@ public:
     dbgevent_t *shell(int argc, char **argv);
     dbgevent_t *signal(char const* signame);
 
+    // these python features require that the backend gdb has loaded python extensions. see python.md
+    dbgevent_t* pythonBacktrace();
+    dbgevent_t* pythonList();
+    dbgevent_t* pythonMoveFrame(DbgFrameDir dir);
+
     MIEvent* waitForAsyncEvent();
     dbgevent_t* waitAndProcessAsyncEvent();
     int flushAsyncEvents();

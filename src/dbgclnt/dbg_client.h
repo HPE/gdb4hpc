@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2014,2020-2023 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2024 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -464,6 +464,13 @@ rep_set_t DbgCloseSocket(rec_set_t *);
 rep_set_t DbgSleep(rec_set_t* rec_set, int seconds);
 rep_set_t DbgShell(rec_set_t *, int argc, const char * const * argv);
 rep_set_t DbgSignal(rec_set_t *, const char* signame);
+
+// these require python extensions on the backend gdb and a python interpreter
+// with debug info. if something is missing, these return rep_sets with
+// errors explaining so. see python.md.
+rep_set_t DbgPythonBacktrace(rec_set_t* rec);
+rep_set_t DbgPythonList(rec_set_t* rec);
+rep_set_t DbgPythonMoveFrame(rec_set_t* rec, DbgFrameDir dir);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern bool DbgSetLogDir(const std::string& logdir);

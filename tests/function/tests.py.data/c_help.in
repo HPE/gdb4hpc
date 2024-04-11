@@ -38,6 +38,8 @@ ptype            Print definition of a type.
 py-bt            Print the python backtrace.
 py-down          Move down one frame on the python stack.
 py-list          Print the current python source location.
+py-locals        Print the values of the current python local variables.
+py-print         Print the value of a python variable.
 py-up            Move up one frame on the python stack.
 python           Enter python interpreter (experimental).
 quit             Exit the debugger.

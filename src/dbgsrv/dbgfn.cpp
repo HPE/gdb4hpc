@@ -433,6 +433,16 @@ dbgevent_t *DbgPythonMoveFrame(DbgFrameDir dir) {
     return DbgBackendSW->pythonMoveFrame(dir);
 }
 
+dbgevent_t *DbgPythonPrint(const std::string& name) {
+    DBG_READY();
+    return DbgBackendSW->pythonPrint(name);
+}
+
+dbgevent_t *DbgPythonLocals() {
+    DBG_READY();
+    return DbgBackendSW->pythonLocals();
+}
+
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     DBG_READY();
     return DbgBackendSW->directCmd(cmd_argc, cmd_argv);

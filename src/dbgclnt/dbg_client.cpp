@@ -2756,6 +2756,18 @@ rep_set_t DbgPythonMoveFrame(rec_set_t* rec, DbgFrameDir dir) {
     return result;
 }
 
+rep_set_t DbgPythonPrint(rec_set_t* rec, std::string_view name) {
+    auto req = CommandToSocProto(DBGCMD_PYPRINT, name);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
+    return result;
+}
+
+rep_set_t DbgPythonLocals(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYLOCALS);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
+    return result;
+}
+
 /*
 ** DBG_DELETEBREAK: Delete a breakpoint.
 */

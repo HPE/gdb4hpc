@@ -82,6 +82,24 @@ TEST_CASE("OSocStream/ISocStream") {
         free(here);
     }
 
+    SUBCASE("String views") {
+        const auto buf = std::string{"I want a burger"};
+        const auto view = std::string_view{buf};
+
+        ostr << view;
+
+        auto wire = ostr.str();
+        auto istr = ISocStream(wire);
+
+        {
+            // items packed via string_view are extracted as std::string
+            std::string str;
+            istr.get(str);
+
+            CHECK(str == buf);
+        }
+    }
+
     SUBCASE("Args") {
         char* three = strdup("3");
         char* apples = strdup("apples");
@@ -140,6 +158,12 @@ OSocStream& OSocStream::operator<<(const std::string& s) {
     m_str << " " << s.size() << " " << s;
     return *this;
 }
+
+OSocStream& OSocStream::operator<<(std::string_view sv) {
+    m_str << " " << sv.size() << " " << sv;
+    return *this;
+}
+
 OSocStream& OSocStream::operator<<(const std::pair<int,const char* const*>& args) {
     int argc = args.first;
     *this << argc;

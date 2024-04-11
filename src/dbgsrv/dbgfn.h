@@ -96,5 +96,7 @@ extern dbgevent_t *DbgSignal(char const*);
 extern dbgevent_t *DbgPythonBacktrace();
 extern dbgevent_t *DbgPythonList();
 extern dbgevent_t *DbgPythonMoveFrame(DbgFrameDir dir);
+extern dbgevent_t *DbgPythonPrint(const std::string& name);
+extern dbgevent_t *DbgPythonLocals();
 
 #endif /* !_DBGFN_H */

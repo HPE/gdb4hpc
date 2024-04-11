@@ -39,6 +39,8 @@ ptype
 py-bt
 py-down
 py-list
+py-locals
+py-print
 py-up
 python
 quit
@@ -141,6 +143,8 @@ ptype
 py-bt
 py-down
 py-list
+py-locals
+py-print
 py-up
 python
 quit

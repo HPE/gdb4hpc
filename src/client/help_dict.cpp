@@ -709,12 +709,63 @@ const char* const cmd_ptype_help[] = {
     "   /mt suppresses both.",
     0};
 
-extern const char* const cmd_python_help[] = {
+const char* const cmd_python_help[] = {
     "Summary: enter the integrated python interpreter.",
     "Usage: python",
-    ""
+    "",
     "This enters a python interpreter, and all lines enterred will be",
     "interpreted as python code.",
+    0};
+
+const char* const cmd_py_bt_help[] = {
+    "Summary: print the current python backtrace.",
+    "Usage: py-bt",
+    "",
+    "This command requires that python extensions be loaded first.",
+    "",
+    0};
+
+const char* const cmd_py_list_help[] = {
+    "Summary: print the current python source location.",
+    "Usage: py-list",
+    "",
+    "This command requires that python extensions be loaded first.",
+    0};
+
+const char* const cmd_py_up_help[] = {
+    "Summary: move up one frame on the python stack.",
+    "Usage: py-up",
+    "",
+    "This command requires that python extensions be loaded first.",
+    0};
+
+const char* const cmd_py_down_help[] = {
+    "Summary: move down one frame on the python stack.",
+    "Usage: py-down",
+    "",
+    "This command requires that python extensions be loaded first.",
+    0};
+
+const char* const cmd_py_print_help[] = {
+    "Summary: prints the value of a python variable.",
+    "Usage: py-print <name>",
+    "",
+    "Prints the value of a python variable. Valid items include",
+    "locals, globals, and builtins.",
+    "",
+    "This command requires that python extensions be loaded first.",
+    0};
+
+const char* const cmd_py_locals_help[] = {
+    "Summary: prints the names and values of local python variables.",
+    "Usage: py-locals",
+    "",
+    "Prints the value of local variables in the current python frame.",
+    "If the C frame of the python interpreter corresponds to multiple",
+    "python frames (e.g. in a recursive python function), prints values",
+    "from all associated frames.",
+    "",
+    "This command requires that python extensions be loaded first.",
     0};
 
 const char* const cmd_quit_help[] = {"Summary: Quit command.",

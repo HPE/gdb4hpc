@@ -2577,6 +2577,44 @@ dbgevent_t* DbgGdbMI::pythonMoveFrame(DbgFrameDir dir) {
     }
 }
 
+dbgevent_t* DbgGdbMI::pythonPrint(const std::string& name) {
+    DVPRINT("pythonPrint %s\n", name.c_str());
+
+    const char* argv[2] = { "py-print", name.c_str() };
+    auto cmd = std::unique_ptr<MICommand, decltype(&MICommandFree)>(CLIBypassc(2, argv), MICommandFree);
+
+    SendMICommand(GDBMISession, cmd.get());
+
+    auto result = MallocedCharPtr(MICommandConsoleOOBMessages(cmd.get()));
+
+    if (auto* err = checkForPythonError(*cmd, result.get_string())) {
+        return err;
+    }
+
+    auto* e = NewEvent(DBGEV_STRING);
+    e->ev_string = result.release();
+    return e;
+}
+
+dbgevent_t* DbgGdbMI::pythonLocals() {
+    DVPRINT("pythonLocals\n");
+
+    const char* argv[1] = { "py-locals" };
+    auto cmd = std::unique_ptr<MICommand, decltype(&MICommandFree)>(CLIBypassc(1, argv), MICommandFree);
+
+    SendMICommand(GDBMISession, cmd.get());
+
+    auto result = MallocedCharPtr(MICommandConsoleOOBMessages(cmd.get()));
+
+    if (auto* err = checkForPythonError(*cmd, result.get_string())) {
+        return err;
+    }
+
+    auto* e = NewEvent(DBGEV_STRING);
+    e->ev_string = result.release();
+    return e;
+}
+
 // given a completed command and its console output, check for python errors.
 // if an error is detected, it will be returned as an error event. otherwise,
 // returns nullptr. an empty `output` is considered an error.
@@ -2671,10 +2709,11 @@ static dbgframe_t* parsePythonMoveFrame(const std::string& text) {
     while (std::getline(ss, line, '\n')) {
         DVPRINT("parsePythonMoveFrame: %s\n", line.c_str());
 
+        // extract the frame level. move frame command results will start with #\d+.
+        if (line.size() < 2) continue; // can't extract frame level
+        auto level = ::atoi(line.c_str() + 1);
+
         if (auto location = parsePythonLocation(line)) {
-            if (line.size() < 2) continue; // can't extract frame
-            // extract the frame level. move frame command results will start with #\d+.
-            auto level = ::atoi(line.c_str() + 1);
             // we only need one frame, so return
             return new dbgframe_t(level, *location, nullptr, nullptr, nullptr);
         }

@@ -33,6 +33,7 @@ public:
     OSocStream& operator<<(size_t i);
     OSocStream& operator<<(const char*s);
     OSocStream& operator<<(const std::string& s);
+    OSocStream& operator<<(std::string_view sv);
     OSocStream& operator<<(const std::pair<int,const char* const*>& args);
 
     // retrieve the result string

@@ -154,13 +154,39 @@ static int cmd_py_down(rec_set_t* rec_set, int argc, const char* const /* argv *
     return py_move(rec_set, DbgFrameDir::DOWN);
 }
 
-// static int cmd_py_print(rec_set_t* rec_set, int argc, const char* const []) {
-//
-// }
-//
-// static int cmd_py_locals(rec_set_t* rec_set, int argc, const char* const []) {
-//
-// }
+static int cmd_py_print(rec_set_t* rec_set, int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("Usage: py-print <name>\n");
+        return Command::Failure;
+    }
+
+    auto name = std::string_view{argv[1]};
+    auto rep_set = DbgPythonPrint(rec_set, name);
+
+    auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
+
+    for (const auto& rep : rep_set) {
+        if (!rep || !rep->rep_event || rep->rep_event->ev_event != DBGEV_STRING) continue;
+        // the returned string will contain a \n on the end
+        PrintMsgWithSetInfo(rep->rep_di.c_str(), rep->rep_group.get(), "%s", rep->rep_event->ev_string);
+    }
+
+    return had_error ? Command::Failure : Command::Success;
+}
+
+static int cmd_py_locals(rec_set_t* rec_set) {
+    auto rep_set = DbgPythonLocals(rec_set);
+
+    auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
+
+    for (const auto& rep : rep_set) {
+        if (!rep || !rep->rep_event || rep->rep_event->ev_event != DBGEV_STRING) continue;
+        // the returned string will contain a \n on the end
+        PrintMsgWithSetInfo(rep->rep_di.c_str(), rep->rep_group.get(), "%s", rep->rep_event->ev_string);
+    }
+
+    return had_error ? Command::Failure : Command::Success;
+}
 
 PythonMode::PythonMode() : CommandNode(proc_optional, executeLine) {}
 
@@ -206,27 +232,27 @@ void ConsoleCommandsFactory::insert_python_commands(CommandNode& root) {
     root.addSubCmd({
         .name = "py-bt", .ptype = proc_required,
         .fn = cmd_py_bt,
-        .help = nullptr /* TODO */, .desc = "Print the python backtrace."});
+        .help = cmd_py_bt_help, .desc = "Print the python backtrace."});
     root.addSubCmd({
         .name = "py-list", .ptype = proc_required,
         .fn = cmd_py_list,
-        .help = nullptr /* TODO */, .desc = "Print the current python source location."});
+        .help = cmd_py_list_help, .desc = "Print the current python source location."});
     root.addSubCmd({
         .name = "py-up", .ptype = proc_required,
         .fn = cmd_py_up,
-        .help = nullptr /* TODO */, .desc = "Move up one frame on the python stack."});
+        .help = cmd_py_up_help, .desc = "Move up one frame on the python stack."});
     root.addSubCmd({
         .name = "py-down", .ptype = proc_required,
         .fn = cmd_py_down,
-        .help = nullptr /* TODO */, .desc = "Move down one frame on the python stack."});
-    // root.addSubCmd({
-    //     .name = "py-print", .ptype = proc_required,
-    //     .fn = cmd_py_print,
-    //     .help = nullptr /* TODO */, .desc = "Print the value of a python variable."});
-    // root.addSubCmd({
-    //     .name = "py-locals", .ptype = proc_required,
-    //     .fn = cmd_py_locals,
-    //     .help = nullptr /* TODO */, .desc = "Print the values of the current python local variables."});
+        .help = cmd_py_down_help, .desc = "Move down one frame on the python stack."});
+    root.addSubCmd({
+        .name = "py-print", .ptype = proc_required,
+        .fn = cmd_py_print,
+        .help = cmd_py_print_help, .desc = "Print the value of a python variable."});
+    root.addSubCmd({
+        .name = "py-locals", .ptype = proc_required,
+        .fn = cmd_py_locals,
+        .help = cmd_py_locals_help, .desc = "Print the values of the current python local variables."});
 }
 
 //===========================================================================

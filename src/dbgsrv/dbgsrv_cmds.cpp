@@ -450,6 +450,19 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             int dir;
             is.get(dir);
             e = DbgPythonMoveFrame(DbgFrameDir(dir));
+            break;
+        }
+
+        case DBGCMD_PYPRINT: {
+            std::string name;
+            is.get(name);
+            e = DbgPythonPrint(name);
+            break;
+        }
+
+        case DBGCMD_PYLOCALS: {
+            e = DbgPythonLocals();
+            break;
         }
     }
 

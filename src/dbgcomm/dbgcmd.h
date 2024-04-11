@@ -78,6 +78,8 @@ enum dbgcmd {
     DBGCMD_PYBT,
     DBGCMD_PYLIST,
     DBGCMD_PYMOVEFRAME,
+    DBGCMD_PYPRINT,
+    DBGCMD_PYLOCALS,
 };
 
 enum class DbgFrameDir { DOWN, UP, ABSOLUTE };

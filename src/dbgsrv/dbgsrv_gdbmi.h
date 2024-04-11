@@ -105,6 +105,8 @@ public:
     dbgevent_t* pythonBacktrace();
     dbgevent_t* pythonList();
     dbgevent_t* pythonMoveFrame(DbgFrameDir dir);
+    dbgevent_t* pythonPrint(const std::string& name);
+    dbgevent_t* pythonLocals();
 
     MIEvent* waitForAsyncEvent();
     dbgevent_t* waitAndProcessAsyncEvent();

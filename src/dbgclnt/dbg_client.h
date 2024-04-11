@@ -471,6 +471,8 @@ rep_set_t DbgSignal(rec_set_t *, const char* signame);
 rep_set_t DbgPythonBacktrace(rec_set_t* rec);
 rep_set_t DbgPythonList(rec_set_t* rec);
 rep_set_t DbgPythonMoveFrame(rec_set_t* rec, DbgFrameDir dir);
+rep_set_t DbgPythonPrint(rec_set_t* rec, std::string_view name);
+rep_set_t DbgPythonLocals(rec_set_t* rec);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern bool DbgSetLogDir(const std::string& logdir);

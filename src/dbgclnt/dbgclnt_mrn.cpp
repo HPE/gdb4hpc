@@ -357,15 +357,14 @@ int MRNClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
             goto attach_error;
     }
 
-    if (!shipCommonFiles(mid, opts.gpu_flag)) {
+    if (!shipCommonFiles(mid)) {
         PrintOutError("Error shipping comming files.\n");
         goto attach_error;
     }
 
-    if (!shipOmpd(mid)) {
-        PrintOutMsg("Failed to add OMPD support files to manifest. \
-OMPD support will not be available.\n");
-    }
+    // if these fail, they print their own warning messages
+    shipOmpd(mid);
+    shipPythonGdb(mid);
 
 #ifdef BE_VALGRIND
 
@@ -945,15 +944,14 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
         }
     }
 
-    if (!shipCommonFiles(mid, opts.gpu_flag)) {
+    if (!shipCommonFiles(mid)) {
         PrintOutError("Error shipping common files.\n");
         goto invoke_error;
     }
 
-    if (!shipOmpd(mid)) {
-        PrintOutMsg("Failed to add OMPD support files to manifest. \
-OMPD support will not be available.\n");
-    }
+    // if these fail, they print their own warning messages
+    shipOmpd(mid);
+    shipPythonGdb(mid);
 
 #ifdef BE_VALGRIND
     // Add valgrind files to the manifest

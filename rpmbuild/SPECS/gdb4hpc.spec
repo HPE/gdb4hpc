@@ -263,6 +263,10 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompdModule.cpython-36m-%{_arch}-linux-gnu.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-%{_arch}-linux-gnu.so
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd.py
 
+# gdb plugin for debugging the cpython interpreter
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/py-gdb
+%{__cp} -a %{external_build_dir}/share/py-gdb/python-gdb.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/py-gdb/python-gdb.py
+
 # manpage
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
 %{__cp} -a %{external_build_dir}/share/man/man1/gdb4hpc.1 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/man/man1
@@ -633,6 +637,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ompd
 %dir %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb
+%dir %{prefix}/%{cray_product}/%{pkgversion}/share/py-gdb
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example
 %dir %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo
@@ -712,6 +717,8 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-%{_arch}-linux-gnu.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd.py
 #end share
+
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/py-gdb/python-gdb.py
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/man/man1/gdb4hpc.1
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/getting-started.md

@@ -423,9 +423,9 @@ dbgevent_t *DbgPythonBacktrace() {
     return DbgBackendSW->pythonBacktrace();
 }
 
-dbgevent_t *DbgPythonList() {
+dbgevent_t *DbgPythonList(const std::string& arg) {
     DBG_READY();
-    return DbgBackendSW->pythonList();
+    return DbgBackendSW->pythonList(arg);
 }
 
 dbgevent_t *DbgPythonMoveFrame(DbgFrameDir dir) {

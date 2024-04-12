@@ -469,7 +469,7 @@ rep_set_t DbgSignal(rec_set_t *, const char* signame);
 // with debug info. if something is missing, these return rep_sets with
 // errors explaining so. see python.md.
 rep_set_t DbgPythonBacktrace(rec_set_t* rec);
-rep_set_t DbgPythonList(rec_set_t* rec);
+rep_set_t DbgPythonList(rec_set_t* rec, std::string_view list_arg);
 rep_set_t DbgPythonMoveFrame(rec_set_t* rec, DbgFrameDir dir);
 rep_set_t DbgPythonPrint(rec_set_t* rec, std::string_view name);
 rep_set_t DbgPythonLocals(rec_set_t* rec);

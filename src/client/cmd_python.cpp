@@ -101,8 +101,18 @@ static int cmd_py_bt(rec_set_t* rec_set) {
     return had_error ? Command::Failure : Command::Success;
 }
 
-static int cmd_py_list(rec_set_t* rec_set) {
-    auto rep_set = DbgPythonList(rec_set);
+static int cmd_py_list(rec_set_t* rec_set, int argc, const char* const argv[]) {
+    auto arg = [&](){
+        std::ostringstream ss;
+        for (int i = 1; i < argc; i++) {
+            ss << argv[i] << " ";
+        }
+        // if this ends up an empy string, the backend py-list will behave the same as
+        // if no argument was passed at all, so an empty string is fine.
+        return ss.str();
+    }();
+
+    auto rep_set = DbgPythonList(rec_set, arg);
 
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
 
@@ -142,6 +152,7 @@ static int py_move(rec_set_t* rec_set, DbgFrameDir dir) {
 
 static int cmd_py_up(rec_set_t* rec_set, int argc, const char* const /* argv */ []) {
     if (argc > 1) {
+        // FIXME: maybe we could call py-up multiple times to support this.
         PrintOutMsg("Warning: py-up does not take any arguments. Moving up one frame.\n");
     }
     return py_move(rec_set, DbgFrameDir::UP);
@@ -149,6 +160,7 @@ static int cmd_py_up(rec_set_t* rec_set, int argc, const char* const /* argv */ 
 
 static int cmd_py_down(rec_set_t* rec_set, int argc, const char* const /* argv */ []) {
     if (argc > 1) {
+        // FIXME: maybe we could call py-down multiple times to support this.
         PrintOutMsg("Warning: py-down does not take any arguments. Moving down one frame.\n");
     }
     return py_move(rec_set, DbgFrameDir::DOWN);
@@ -158,6 +170,12 @@ static int cmd_py_print(rec_set_t* rec_set, int argc, const char* const argv[]) 
     if (argc < 2) {
         PrintOutError("Usage: py-print <name>\n");
         return Command::Failure;
+    }
+
+    if (argc > 2) {
+        // unlike the generic print command, py-print cannot evaluate expressions.
+        // it can only look up names and print their values.
+        PrintOutMsg("Warning: py-print does not support evaluating expressions.\nPrinting \"%s\"\n", argv[1]);
     }
 
     auto name = std::string_view{argv[1]};

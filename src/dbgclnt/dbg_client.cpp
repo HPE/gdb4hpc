@@ -2738,8 +2738,8 @@ rep_set_t DbgPythonBacktrace(rec_set_t* rec) {
     return result;
 }
 
-rep_set_t DbgPythonList(rec_set_t* rec) {
-    auto req = CommandToSocProto(DBGCMD_PYLIST);
+rep_set_t DbgPythonList(rec_set_t* rec, std::string_view list_arg) {
+    auto req = CommandToSocProto(DBGCMD_PYLIST, list_arg);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
     return result;
 }

@@ -269,6 +269,12 @@ check_exit_status
 cp -a $top_level/doc/guides/*.html $install_dir/share/doc/.
 check_exit_status
 
+# deliver extensions
+mkdir -p "$install_dir/share/py-gdb"
+check_exit_status
+cp -a "$top_level/src/extensions/python-gdb.py" "$install_dir/share/py-gdb"
+check_exit_status
+
 echo "############################################"
 echo "#              Done with build             #"
 echo "############################################"

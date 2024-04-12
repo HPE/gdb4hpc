@@ -1363,6 +1363,19 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     // manually set up pretty printing for relocated installs
     setup_pretty_printing();
 
+    {
+        // load py- commands from extension.
+        auto filedir = MallocedCharPtr(cti_be_getFileDir());
+        auto python_gdb = filedir.get_string() + "/python-gdb.py";
+        const char* argv[2] = {"source", python_gdb.c_str() };
+        auto cmd = std::unique_ptr<MICommand, decltype(&MICommandFree)>(CLIBypassc(2, argv), MICommandFree);
+        SendMICommand(m_session, cmd.get());
+        if (!MICommandResultOK(cmd.get())) {
+            // if it fails, just keep going
+            DVPRINT("Loading python-gdb commands failed\n");
+        }
+    }
+
     // set non-stop mode -- disabled for cuda-gdb because non-stop is the default,
     // and cuda-gdb doesn't handle it well
     auto isInNonStopMode = false;

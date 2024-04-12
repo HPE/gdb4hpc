@@ -8,6 +8,19 @@
 
 #include <filesystem>
 
+std::optional<std::filesystem::path> getShareDir() {
+    auto exe = std::filesystem::path{};
+    try {
+        exe = std::filesystem::canonical("/proc/self/exe");
+    } catch (std::exception& err) {
+        return std::nullopt;
+    }
+
+    // expecting to get <install dir>/bin/gdb4hpc and expecting <install dir>/share
+    auto base = exe.parent_path().parent_path();
+    return base / "share";
+}
+
 std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
                                    const std::string& gdb,
                                    const std::string& gdbDataDir) {
@@ -94,24 +107,15 @@ bool shipGpuGdbs(cti_manifest_id_t manifest) {
 
 // Explicitly publish the ompd library files for the back-end.
 bool shipOmpd(cti_manifest_id_t mid) {
-    auto dir = std::string{};
-    try {
-        dir = std::filesystem::canonical("/proc/self/exe");
-    } catch (std::exception& err) {
+    auto maybe_share_dir = getShareDir();
+    if (!maybe_share_dir) {
         PrintOutMsg("Could not get executable path, OMPD support will not be available\n");
         return false;
     }
-
-
-    // we expect gdb4hpc to bin a bin directory and ompd to be in share
-    auto bloc = dir.rfind("/bin");
-
-    if (bloc == std::string::npos) return false;
-    dir.resize(bloc+1); // keep the /
-    dir += "share/ompd/gdb";
+    auto ompd_dir = *maybe_share_dir / "ompd/gdb";
 
     try {
-        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+        for (const auto& entry : std::filesystem::directory_iterator(ompd_dir)) {
             auto f = entry.path();
             if (f.filename() == "__pycache__") continue;
             if (cti_addManifestFile(mid, f.c_str())) {
@@ -120,14 +124,30 @@ bool shipOmpd(cti_manifest_id_t mid) {
             }
         }
     } catch (std::exception& err) {
-        PrintOutMsg("OMPD path %s not found, OMPD will not be available\n", dir.c_str());
+        PrintOutMsg("OMPD path %s not found, OMPD will not be available\n", ompd_dir.c_str());
         return false;
     }
 
     return true;
 }
 
-bool shipCommonFiles(cti_manifest_id_t manifest, bool /*gpu_flag*/) {
+bool shipPythonGdb(cti_manifest_id_t manifest) {
+    auto maybe_share_dir = getShareDir();
+    if (!maybe_share_dir) {
+        PrintOutMsg("Could not get executable path, py- commands will not be available\n");
+        return false;
+    }
+    auto python_gdb = *maybe_share_dir / "py-gdb/python-gdb.py";
+
+    if (cti_addManifestFile(manifest, python_gdb.c_str())) {
+        PrintOutMsg("Warning: %s not found, py- commands will not be available.\n", python_gdb.c_str());
+        return false;
+    }
+
+    return true;
+}
+
+bool shipCommonFiles(cti_manifest_id_t manifest) {
     if (cti_addManifestBinary(manifest, "dbgsrv")) {
         PrintOutError("CTI error: %s\n", cti_error_str());
         PrintOutError("Failed to add dbgsrv to manifest.\n");

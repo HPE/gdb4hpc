@@ -2522,11 +2522,11 @@ dbgevent_t* DbgGdbMI::pythonBacktrace() {
     }
 }
 
-dbgevent_t* DbgGdbMI::pythonList() {
+dbgevent_t* DbgGdbMI::pythonList(const std::string& arg) {
     DVPRINT("pythonList\n");
 
-    const char* argv[1] = { "py-list" };
-    auto cmd = std::unique_ptr<MICommand, decltype(&MICommandFree)>(CLIBypassc(1, argv), MICommandFree);
+    const char* argv[2] = { "py-list", arg.c_str() };
+    auto cmd = std::unique_ptr<MICommand, decltype(&MICommandFree)>(CLIBypassc(2, argv), MICommandFree);
     SendMICommand(GDBMISession, cmd.get());
 
     auto result = MallocedCharPtr(MICommandConsoleOOBMessages(cmd.get()));

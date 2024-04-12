@@ -272,14 +272,14 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     }
 
     // dbgsrv is shipped here
-    if (!shipCommonFiles(manifest_id, opts.gpu_flag)) {
+    if (!shipCommonFiles(manifest_id)) {
         PrintOutError("Error shipping common files.\n");
         return 1;
     }
 
-    if (!shipOmpd(manifest_id)) {
-        PrintOutMsg("Error shipping OMPD files. OMPD support will not be available.\n");
-    }
+    // if these fail, they print their own warning messages
+    shipOmpd(manifest_id);
+    shipPythonGdb(manifest_id);
 
     // TODO support --with-valgrind
 

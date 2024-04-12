@@ -442,7 +442,9 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_PYLIST: {
-            e = DbgPythonList();
+            std::string arg;
+            is.get(arg);
+            e = DbgPythonList(arg);
             break;
         }
 

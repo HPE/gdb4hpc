@@ -19,5 +19,7 @@ std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
 bool shipGpuGdbs(cti_manifest_id_t manifest);
 // ship ompd related files
 bool shipOmpd(cti_manifest_id_t manifest);
+// ship extension for debugging the cpython interpreter
+bool shipPythonGdb(cti_manifest_id_t manifest);
 // ship files common to all protocols
-bool shipCommonFiles(cti_manifest_id_t manifest, bool gpu_flag);
+bool shipCommonFiles(cti_manifest_id_t manifest);

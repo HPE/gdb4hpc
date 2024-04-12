@@ -103,7 +103,7 @@ public:
 
     // these python features require that the backend gdb has loaded python extensions. see python.md
     dbgevent_t* pythonBacktrace();
-    dbgevent_t* pythonList();
+    dbgevent_t* pythonList(const std::string& arg);
     dbgevent_t* pythonMoveFrame(DbgFrameDir dir);
     dbgevent_t* pythonPrint(const std::string& name);
     dbgevent_t* pythonLocals();

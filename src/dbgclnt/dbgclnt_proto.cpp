@@ -372,6 +372,26 @@ uint64_t DebugClientProtocol::parseAndRegisterAppId(const char *appIdent) {
                 return 0;
             }
         }break;
+        case CTI_WLM_FLUX: {
+            // check for invalid input
+            if (appIdent == nullptr) {
+                PrintOutError("Invalid Flux job ID argument.\n");
+                return 0;
+            }
+
+            // Register the pid with the tool interface
+            cti_flux_ops_t *ops = nullptr;
+            cti_wlm_type_t ret = cti_open_ops((void **)&ops);
+            if (ret != CTI_WLM_FLUX) {
+                PrintOutError("cti_open_ops returned invalid wlm!\n");
+                return 0;
+            }
+            if ((appId = ops->registerJob(appIdent)) == 0) {
+                PrintOutError("CTI error: %s\n", cti_error_str());
+                PrintOutError("Failed to register Flux job ID with CTI.\n");
+                return 0;
+            }
+        } break;
 
 #ifdef CTI_WLM_TYPE_LOCALHOST_STR            
         case CTI_WLM_LOCALHOST: {

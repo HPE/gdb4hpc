@@ -10,7 +10,7 @@
 #include "bttree.h"
 
 #define PY_SSIZE_T_CLEAN
-#include "/usr/include/python3.6m/Python.h"
+#include <Python.h>
 
 namespace {
 // commands to handle python as a cli mode
@@ -54,6 +54,7 @@ public:
     ~PyObjectMaker() override;
 
     void beginReply(const std::string& label) override;
+    using ValueVisitor::operator();
     void operator()(long long val) override;
     void operator()(long val) override;
     void operator()(double val) override;

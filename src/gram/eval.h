@@ -331,7 +331,7 @@ protected:
     virtual AIFStream* getAIF() override;
 
 private:
-    rec_set_t& getRecSet();
+    rec_set_t& getRecSetRef();
     rep_set_t getReply();
 
     BlockMap* m_blockMap;

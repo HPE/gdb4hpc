@@ -360,36 +360,51 @@ AIFStream* AIFStream::createStreamFromNextChunk(bool &isFinal) {
 }
 
 // get an integer value from an AIF that is supposed to be an integral value
+namespace {
+    struct ToIntOp {
+        ToIntOp(std::optional<int>& val) : m_val_ref(val) {}
+        void apply(auto v) {
+            if constexpr (std::is_arithmetic<decltype(v)>::value) *m_val_ref = v;
+        }
+        std::optional<int>& m_val_ref;
+    };
+}
+        
 int AIFStream::toInt(int& val) {
     // work off a clone so the stream can be reconsumed
     auto x = std::unique_ptr<AIFStream>(clone());    
 
     try {
-        auto gotVal = bool{false};
-        auto f = ais::FVisitor([&val, &gotVal](auto v) {
-                                   if constexpr (std::is_arithmetic<decltype(v)>::value) {
-                                           val = v;
-                                           gotVal = true;
-                                       }});
-        x->getVStream().apply(f);
-        return gotVal ? 0 : -1;
+        auto oval = std::optional<int>{};
+        auto v = ais::FVisitor(ToIntOp{oval});
+        x->getVStream().apply(v);
+        if (oval) { val = *oval; return 0; } else return -1;
     } catch (std::exception& err) {
         return -1;
     }
 }
+
+namespace {
+    struct IsZeroOp {
+        IsZeroOp(int& isZero) : m_isZero(isZero) {}
+        void apply(auto v) {
+            if constexpr (std::is_arithmetic<decltype(v)>::value) {
+                m_isZero = m_isZero && !v;
+            } else {
+                m_isZero = m_isZero && v.empty();
+            }
+        }
+        int& m_isZero;
+    };
+}
+
 
 int AIFStream::isZero(int& val)
 {
     // I think this one is always cloned directly
     try {
         val = true;
-        auto f = ais::FVisitor(
-            [&val](auto v) {
-                if constexpr (std::is_arithmetic<decltype(v)>::value) {
-                        val = val && !v;
-                } else {
-                    val = val && v.empty();
-                }});
+        auto f = ais::FVisitor(IsZeroOp{val});
         getVStream().apply(f);
         return 0;
     } catch (std::exception& err) {

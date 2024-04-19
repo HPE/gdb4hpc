@@ -1,4 +1,4 @@
-// Copyright 2022-2023 Hewlett Packard Enterprise Development LP.
+// Copyright 2022-2024 Hewlett Packard Enterprise Development LP.
 #pragma once
 
 #include <string>
@@ -326,16 +326,16 @@ template <class F>
 class FVisitor : public Visitor {
 public:
     FVisitor(F af) : f(af) {}
-    void operator()(bool val) override { f(val); }
-    void operator()(char val) override { f(val); }
-    void operator()(int val) override { f(val); }
-    void operator()(long val) override { f(val); }
-    void operator()(long long val) override { f(val); }
-    void operator()(float val) override { f(val); }
-    void operator()(double val) override { f(val); }
-    void operator()(long double val) override { f(val); }
-    void operator()(const std::string& val) override { f(val); }
-    void operator()(const ais::Error& val) override { f(val); }
+    void operator()(bool val) override { f.apply(val); }
+    void operator()(char val) override { f.apply(val); }
+    void operator()(int val) override { f.apply(val); }
+    void operator()(long val) override { f.apply(val); }
+    void operator()(long long val) override { f.apply(val); }
+    void operator()(float val) override { f.apply(val); }
+    void operator()(double val) override { f.apply(val); }
+    void operator()(long double val) override { f.apply(val); }
+    void operator()(const std::string& val) override { f.apply(val); }
+    void operator()(const ais::Error& val) override { f.apply(val); }
 
     F& getF() { return f; }
 private:
@@ -411,7 +411,7 @@ public:
     TrackingVisitor(const TrackingVisitor&) = delete;
     TrackingVisitor& operator=(const TrackingVisitor&) = delete;
 
-    template<class T> void operator()(T x) { if (m_wrapped) (*m_wrapped)(x); }
+    void apply(auto x) { if (m_wrapped) (*m_wrapped)(x); }
     void nest(const Type* t, int refIdx) override;
     void start(const Type* t) override;
     void addMetaInfo(const Type* t, const MetaInfo& info) override;
@@ -1212,7 +1212,7 @@ template<class UNARY_OP>
 class OpVisitorFunc {
  public:
     OpVisitorFunc(UNARY_OP op, Visitor& out) : m_op(op), m_out(out) {}
-    template<class T> void operator()(T x) { m_out(m_op(x)); }
+    void apply(auto x) { m_out(m_op(x)); }
 private:
     UNARY_OP m_op;
     Visitor& m_out;

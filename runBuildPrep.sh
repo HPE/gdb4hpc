@@ -2,7 +2,7 @@
 #
 # runBuildPrep.sh - Preps the build environment
 #
-# Copyright 2019-2023 Hewlett Packard Enterprise Development LP.
+# Copyright 2019-2024 Hewlett Packard Enterprise Development LP.
 #
 # Unpublished Proprietary Information.
 # This unpublished work is protected to trade secret, copyright and other laws.
@@ -26,78 +26,112 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
     fi
     # Install zypper based dependencies
     zypper --non-interactive install \
-            autoconf \
-            automake \
-            binutils-devel \
-            bison \
-            bzip2 \
-            ctags \
-            cmake \
-            flex \
-            jq \
-            libtool \
-            libuuid-devel \
-            m4 \
-            make \
-            makeinfo \
-            mksh \
-            ncurses \
-            ncurses-devel \
-            libbz2-devel \
-            liblzma5 \
-            libtool \
-            python3-devel \
-            rpm-build \
-            tcl \
-            which \
-            xz-devel \
-            python3-pip
+        autoconf \
+        automake \
+        binutils-devel \
+        bison \
+        bzip2 \
+        ctags \
+        cmake \
+        flex \
+        jq \
+        libtool \
+        libuuid-devel \
+        m4 \
+        make \
+        makeinfo \
+        mksh \
+        ncurses \
+        ncurses-devel \
+        libbz2-devel \
+        liblzma5 \
+        libtool \
+        python3-devel \
+        rpm-build \
+        tcl \
+        which \
+        xz-devel \
+        gmp-devel \
+        python3-pip
     check_exit_status
+
 elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
+
     if [[ "$target_os" == "$cdst_os_centos8" ]]; then
       # Note the following will be different on build VMs vs DST. Errors are okay.
       yum config-manager --set-enabled powertools
-    else
+    elif [[ "$target_os" -lt "$cdst_os_centos8" ]]; then
       yum --assumeyes install subscription-manager
-      subscription-manager repos --enable codeready-builder-for-rhel-8-x86_64-rpms
+      subscription-manager repos --enable codeready-builder-for-rhel-8-$target_arch-rpms
+    elif [[ "$target_os" -ge "$cdst_os_rhel93" ]]; then
+      yum --assumeyes install subscription-manager
+      subscription-manager repos --enable codeready-builder-for-rhel-9-$target_arch-rpms
+    fi
+
+    # Building in CI/CD dst library adds some mirrored repos automatically - VM's dont have access
+    # to these repos - add them here
+    if [[ -z $BRANCH_NAME ]]; then
+
+      mirrored_repo_1=''
+      mirrored_repo_2=''
+      arch=$(uname -m)
+
+      if [[ "$target_os" -lt "$cdst_os_centos8" ]]; then
+        mirrored_repo_1="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/mirror-epel/epel/8/Everything/$arch/"
+
+        if [[ "$target_os" -lt "$cdst_os_rhel88" ]]; then
+          mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/redhat/rhel/8.8/latest/CRB/$arch/os/"
+
+        elif [[ "$target_os" -eq "$cdst_os_rhel89" ]]; then
+          mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/8.9/$arch/latest/CRB/os/"
+ 
+        fi
+
+      elif [[ "$target_os" -ge "$cdst_os_rhel93" ]]; then  
+        mirrored_repo_1="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/mirror-epel/epel/9/Everything/$arch/"
+                  
+        mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/9.3/$arch/latest/CRB/os/"
+
+      fi
+      sudo yum-config-manager --add-repo $mirrored_repo_1 "mirrored_repo_1"
+      sudo yum-config-manager --add-repo $mirrored_repo_2 "mirrored_repo_1"
+
     fi
     # Install yum based components
-    yum --assumeyes install \
-            autoconf \
-            automake \
-            binutils-devel \
-            bison \
-            bzip2 \
-            bzip2-devel \
-            ctags \
-            cmake \
-            environment-modules \
-            flex \
-            libarchive \
-            libtool \
-            libuuid-devel \
-            m4 \
-            make \
-            mksh \
-            ncurses \
-            ncurses-devel \
-            python3-devel \
-            python3-pip \
-            jq \
-            rpm-build \
-            tcl \
-            which \
-            xz-devel
+    yum --assumeyes --nogpgcheck install \
+        autoconf \
+        automake \
+        binutils-devel \
+        bison \
+        bzip2 \
+        bzip2-devel \
+        ctags \
+        cmake \
+        environment-modules \
+        flex \
+        libarchive \
+        libtool \
+        libuuid-devel \
+        m4 \
+        make \
+        mksh \
+        ncurses \
+        ncurses-devel \
+        python3-devel \
+        python3-pip \
+        jq \
+        rpm-build \
+        tcl \
+        which \
+        texinfo \
+        gmp-devel \
+        xz-devel
     check_exit_status
 
-    if [[ "$target_arch" == "$cdst_arch_aarch64" && "$target_os" == "$cdst_os_rhel84" ]]; then
-      yum --assumeyes install \
-      https://arti.hpc.amslabs.hpecorp.net/artifactory/hpe-rhel-remote/EL8/Update4/GA/CRB/os/Packages/perl-Unicode-EastAsianWidth-1.33-13.el8.noarch.rpm \
-      https://arti.hpc.amslabs.hpecorp.net/artifactory/mirror-centos8/PowerTools/aarch64/os/Packages/texinfo-6.5-6.el8.aarch64.rpm
-    else
-      yum --assumeyes install texinfo
+    if [[ -z $BRANCH_NAME ]]; then
+      yum-config-manager --disable arti.hpc.amslabs.hpecorp.net*
     fi
-    check_exit_status
+
 else
     # Unknown OS! Exit with error.
     echo "Unsupported Package Manager detected!"
@@ -112,9 +146,10 @@ install_common_pe
 install_mrnet
 check_exit_status
 
-## building openmp relies on bdist_wheel
-
-sudo -H pip3 install wheel
+## building openmp relies on bdist_wheel - install from arti location
+sudo -H pip3 install wheel --trusted-host https://arti.hpc.amslabs.hpecorp.net \
+      --extra-index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/dst-pip-master-local/simple \
+      --index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/pypi-remote/simple
 check_exit_status
 
 capture_jenkins_build

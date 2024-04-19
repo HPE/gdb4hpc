@@ -60,11 +60,24 @@ mkdir -p $install_dir
 check_exit_status
 
 # ensure python3 exists
+python_version=''
+python_cflags=''
+python_ldflags="-L/usr/lib64"
 python_loc=$(command -v python3)
 if [[ ! -x "$python_loc" ]]; then
     echo "python3 not found on system..."
     exit 1
+else
+  python_version=$(/usr/bin/python3 --version | cut -d' ' -f2 | cut -d'.' -f1-2 | xargs)
+  if [[ "$python_version" == "3.6" ]]; then
+    python_cflags="$(pkg-config --cflags python3)"
+    python_ldflags="${python_ldflags} $(pkg-config --libs-only-l python3)"
+  else
+    python_cflags="$(python3-config --includes | cut -d' ' -f1)"
+    python_ldflags="${python_ldflags} -lpython${python_version}"
+  fi
 fi
+
 
 echo "############################################"
 echo "#               Building libmi             #"
@@ -237,6 +250,9 @@ echo "mrnet_ldflags:    $mrnet_ldflags"
 cdst_ldflags=$(pkg-config --libs cray-cdst-support)
 mrnet_ldflags="${cdst_ldflags} ${mrnet_ldflags}"
 
+echo "Python cflags:  $python_cflags"
+echo "Python ldflags: $python_ldflags"
+
 mrnet_base_directory=$(realpath -s $mrnet_include_directory/../../default)
 
 cd $top_level
@@ -245,7 +261,7 @@ check_exit_status
 autoreconf -ifv
 check_exit_status
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall ${mrnet_cflags}" CXXFLAGS="-g -O2 -Wall -Wextra -Werror ${mrnet_cxxflags}" LDFLAGS=${mrnet_ldflags} ./configure --prefix=$install_dir --with-rd --with-mrnet=${mrnet_base_directory} --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-python --with-doctest=${top_level}/external/doctest --enable-doctest
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall ${mrnet_cflags} ${python_cflags}" CXXFLAGS="-g -O2 -Wall -Wextra -Werror ${mrnet_cxxflags} ${python_cflags}" LDFLAGS="${mrnet_ldflags} ${python_ldflags} ${python_libs}" ./configure --prefix=$install_dir --with-rd --with-mrnet=${mrnet_base_directory} --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-python --with-doctest=${top_level}/external/doctest --enable-doctest
 
 check_exit_status
 

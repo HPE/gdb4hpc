@@ -1,11 +1,11 @@
 /*
 ** Expression parser.
 **
-** Copyright 2012-2023 Hewlett Packard Enterprise Development LP.
+** Copyright 2012-2024 Hewlett Packard Enterprise Development LP.
 **
 */
 
-%pure-parser
+%define api.pure
 
 %{
 #ifdef HAVE_CONFIG_H

@@ -15,7 +15,7 @@ BUILT_SOURCES	= expr.tab.cpp expr.tab.h
 CLEANFILES	= $(BUILT_SOURCES) tokens
 
 expr.tab.cpp expr.tab.h: expr.y
-	$(YACC) -b expr -p expr_ -d -v expr.y -o expr.tab.cpp
+	$(YACC) -Wno-yacc -b expr -p expr_ -d -v expr.y -o expr.tab.cpp
 
 noinst_LIBRARIES	= libgram.a
 libgram_a_SOURCES	= gram.cpp val.cpp eval.cpp expr.tab.cpp \

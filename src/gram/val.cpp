@@ -467,7 +467,7 @@ DecompValue::DecompValue(rec_set_t* rec_set, BlockMap*  blockMap,
 {}
 
 std::unique_ptr<Value> DecompValue::pickle() {
-    auto& rec_set = getRecSet();
+    auto& rec_set = getRecSetRef();
     auto rep_set = getReply();
     rep_set.pickle();
 
@@ -488,7 +488,7 @@ void DecompValue::print(std::ostream& os, rec_set_t*,
     os << "\n";
 }
 
-rec_set_t& DecompValue::getRecSet() {
+rec_set_t& DecompValue::getRecSetRef() {
     auto val = dynamic_cast<ReplyValue*>(m_val.get());
     if (!val) {
         throw EvalError("Decomposition must refer to a progam value");
@@ -519,7 +519,7 @@ AIFStream* DecompValue::getAIF() {
     if (m_aif)
         return m_aif;
 
-    auto& rec_set = getRecSet();
+    auto& rec_set = getRecSetRef();
     auto reply = getReply();
 
     auto aif = construct_blockmap_data(m_blockMap, m_idx, rec_set.pickle(), reply);

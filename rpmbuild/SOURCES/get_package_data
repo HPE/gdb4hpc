@@ -15,6 +15,11 @@ else
   branch="release"
 fi
 
+pythonversion=$(/usr/bin/python3 --version | cut -d' ' -f2 | cut -d'.' -f1-2 | tr -d '.' | xargs)
+if [[ "${pythonversion}" == "36" ]]; then
+  pythonversion="${pythonversion}m"
+fi
+
 cdstsupportversionmin=$(echo ${CRAY_CDST_SUPPORT_VERSION} | awk -F . '{ print $1"."$2 }')
 tmpver=$(echo ${CRAY_CDST_SUPPORT_VERSION} | awk -F . '{ print $1 }')
 cdstsupportversionmax=$(($tmpver+1))
@@ -27,7 +32,7 @@ mrnetversionmin=$(echo ${MRNET_VERSION} | awk -F . '{ print $1"."$2 }')
 tmpver=$(echo ${MRNET_VERSION} | awk -F . '{ print $1 }')
 mrnetversionmax=$(($tmpver+1))
 
-arguments=$(getopt -o csmtxdeb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,branch -n ${0} -- "$@")
+arguments=$(getopt -o csmtxdepb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,pythonversion,branch -n ${0} -- "$@")
 
 if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
 
@@ -40,6 +45,7 @@ while true ; do
         -x|--ctiversionmax) echo "${ctiversionmax}" ; shift ;;
         -d|--mrnetversionmin) echo "${mrnetversionmin}" ; shift ;;
         -e|--mrnetversionmax) echo "${mrnetversionmax}" ; shift ;;
+        -p|--pythonversion) echo "${pythonversion}" ; shift ;;
         -b|--branch) echo "${branch}" ; shift ;;
         *) break ;;
     esac

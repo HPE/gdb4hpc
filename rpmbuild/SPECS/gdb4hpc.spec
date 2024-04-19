@@ -1,6 +1,8 @@
 # Packaging definitions
 %global pkgversion           %(%{_sourcedir}/get_package_data --crayversion)
 %global branch               %(%{_sourcedir}/get_package_data --branch)
+# Supported Python Version
+%global python_version       %(%{_sourcedir}/get_package_data --pythonversion)
 %global pkgversion_separator -
 %global copyright_date       %(date +%%Y)
 %global copyright            Certain components, files or programs contained within this package or product are Copyright 2007-%{copyright_date} Hewlett Packard Enterprise Development LP.
@@ -89,6 +91,7 @@
 %global privlibs %{privlibs}|libdbgagg.*
 %global privlibs %{privlibs}|libkj-0.8-dev*
 %global privlibs %{privlibs}|libzmq.*
+%global privlibs %{privlibs}|libzmqnet_libsodium.*
 %global privlibs %{privlibs}|libzmqnet.*
 %global privlibs %{privlibs}|libzmqnetagg.*
 %global privlibs %{privlibs}|libstdc++.*
@@ -108,15 +111,15 @@
 %global OS_WB_TAG sles15
 %endif
 
-%if %{_arch} == aarch64
+%if "%{_arch}" == "aarch64"
 %global SYS_HW_TAG AARCH64
 %global SYS_WB_TAG AARCH64
 %endif
-%if %{_arch} == x86_64
+%if "%{_arch}" == "x86_64"
 %global SYS_HW_TAG HARDWARE
 %global SYS_WB_TAG WHITEBOX
 %endif
-%if 0%{?rhel} == 8
+%if "0%{?rhel}" == "8"
 %global OS_HW_TAG el8
 %global OS_WB_TAG el8
 %endif
@@ -125,7 +128,7 @@ Summary:    Cray gdb4hpc parallel debugger
 Name:       %{cray_name}-%{pkgversion}
 # BUILD_METADATA is set by Jenkins
 Version:    %(echo ${BUILD_METADATA})
-%if %{branch} == "release"
+%if "%{branch}" == "release"
 Release:    %(echo ${BUILD_NUMBER})%{dist}
 %else
 Release:    1%{dist}
@@ -183,8 +186,9 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/lib/libLrleBitset.so.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libzmq.so.5.2.5 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libzmq.so.5 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmqnet.so.0.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmqnet.so.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libzmqnet_libsodium.so* ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libzmqnet.so.1.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libzmqnet.so.1 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libzmqnetagg.so.0.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libzmqnetagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 # Libraries static
@@ -260,7 +264,7 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd_address_space.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_address_space.py
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd_callbacks.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_callbacks.py
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd_handles.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_handles.py
-%{__cp} -a %{external_build_dir}/share/ompd/gdb/ompdModule.cpython-36m-%{_arch}-linux-gnu.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-%{_arch}-linux-gnu.so
+%{__cp} -a %{external_build_dir}/share/ompd/gdb/ompdModule.cpython-%{python_version}-%{_arch}-linux-gnu.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-%{python_version}-%{_arch}-linux-gnu.so
 %{__cp} -a %{external_build_dir}/share/ompd/gdb/ompd.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd.py
 
 # gdb plugin for debugging the cpython interpreter
@@ -311,10 +315,12 @@ touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %global end_rmLine %(sed -n /admin-pe/= %{SOURCE5} | tail -1)
 %global tests_rpm_name %{cray_name}-tests-%{pkgversion}-%{version}-%{release}.%{_arch}
 %global rpm_list %{tests_rpm_name}.rpm
-%if %{branch} == "release"
+%if "0%{?rhel}" == "8"
+%if "%{branch}" == "release"
 %{__sed} 's|<PRODUCT>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g;s|<RPM_LST>|%{rpm_list}|g;s|<TESTS_RPM_NAME>|%{tests_rpm_name}|g;s|<SET_DEFAULT_VALUE>|1|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
 %else
 %{__sed} '%{start_rmLine},%{end_rmLine}d;s|section-5|section-3|g;s|<PRODUCT>|%{cray_name}|g;s|<VERSION>|%{pkgversion}|g;s|<BUILD_METADATA>|%{version}|g;s|<RELEASE>|%{release}|g;s|<ARCH>|%{_arch}|g;s|<REMOVAL_DATE>|%{removal_date}|g;s|<SYS_HW_TAG>|%{SYS_HW_TAG}|g;s|<SYS_WB_TAG>|%{SYS_WB_TAG}|g;s|<OS_HW_TAG>|%{OS_HW_TAG}|g;s|<OS_WB_TAG>|%{OS_WB_TAG}|g;s|<RPM_LST>|%{rpm_list}|g;s|<TESTS_RPM_NAME>|%{tests_rpm_name}|g;s|<SET_DEFAULT_VALUE>|0|g' %{SOURCE5} > %{_rpmdir}/%{_arch}/%{cray_name}-%{pkgversion}-%{version}-%{release}.%{_arch}.rpm.yaml
+%endif
 %endif
 
 # tests
@@ -654,8 +660,10 @@ fi
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libLrleBitset.so.0
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmq.so.5.2.5
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmq.so.5
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet.so.0.0.0
-%{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet.so.0
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet_libsodium.so
+%{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet_libsodium.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet.so.1.0.0
+%{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet.so.1
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnetagg.so.0.0.0
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnetagg.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile
@@ -714,7 +722,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_address_space.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_callbacks.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd_handles.py
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-36m-%{_arch}-linux-gnu.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompdModule.cpython-%{python_version}-%{_arch}-linux-gnu.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/ompd/gdb/ompd.py
 #end share
 

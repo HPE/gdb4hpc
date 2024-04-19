@@ -38,6 +38,7 @@ void log(const char* fmt, ...) {
         if (!log_args.filename.empty()) {
             if (auto* f = ::fopen(log_args.filename.c_str(), "a")) {
                 ::fprintf(f, "%s", message.get());
+                int fd = fileno(f);
                 ::fclose(f);
                 // the above fclose flushes the *user space* buffers, but not
                 // the *kernel space* buffers. we be extra diligent and flush
@@ -48,7 +49,7 @@ void log(const char* fmt, ...) {
                 // ::fsync, it often comes in and kills us before everything
                 // gets onto disk. since it's a SIGKILL, the os isn't even nice
                 // enough to flush buffers for us when we die.
-                ::fsync(::fileno(f));
+                ::fsync(fd);
                 return;
             }
         }

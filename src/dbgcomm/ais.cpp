@@ -1,4 +1,4 @@
-// Copyright 2023 Hewlett Packard Enterprise Development LP.
+// Copyright 2023-2024 Hewlett Packard Enterprise Development LP.
 
 #include "ais.h"
 #include <string>
@@ -157,6 +157,7 @@ namespace {
 std::unique_ptr<ais::Printer> ais::Char::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(char val) override { out << format() << static_cast<int>(val) << " " << CharLiteral{val}; }
     };
     return std::make_unique<TPrinter>(parent);
@@ -178,6 +179,7 @@ std::string ais::Char::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::SignedChar::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(char val) override {
             out << format() << static_cast<int>(static_cast<signed char>(val))
                 << " " << CharLiteral(val); }
@@ -192,6 +194,7 @@ std::string ais::SignedChar::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::UnsignedChar::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(char val) override {
             auto v = static_cast<unsigned int>(static_cast<unsigned char>(val));
             out << format() << v << " " << CharLiteral(val);
@@ -230,6 +233,7 @@ std::unique_ptr<ais::Printer>
 ais::UnsignedShort::makePrinter(ais::Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(int val) override { out << format() << static_cast<unsigned short>(val); }
     };
     return std::make_unique<TPrinter>(parent);
@@ -266,6 +270,7 @@ std::string ais::Int::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::UnsignedInt::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(int val) { out << format() << static_cast<unsigned int>(val); }
     };
     return std::make_unique<TPrinter>(parent);
@@ -303,6 +308,7 @@ std::string ais::Long::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::UnsignedLong::makePrinter(Printer& parent) const {
     struct  TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(long val) override { out << format() << static_cast<unsigned long>(val); }
     };
     return std::make_unique<TPrinter>(parent);
@@ -339,6 +345,7 @@ std::string ais::LongLong::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::UnsignedLongLong::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(long long val) override { out << format() << static_cast<unsigned long long>(val); }
     };
     return std::make_unique<TPrinter>(parent);
@@ -498,6 +505,7 @@ void ais::Logical::parseL(InterpretStream& in, Writer& out) const
 std::unique_ptr<ais::Printer> ais::Logical::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) { }
+        using Printer::operator();
         void operator()(bool val) override { out << (val ? ".TRUE." : ".FALSE."); }
     };
     return std::make_unique<TPrinter>(parent);
@@ -583,6 +591,7 @@ void ais::FtnString::applyL(Reader& reader, Visitor& f) const {
 std::unique_ptr<ais::Printer> ais::FtnString::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         // Literal doesn't quote the result
         void operator()(const std::string& val) override { out << '\'' << val << '\''; }
     };
@@ -610,6 +619,7 @@ std::string ais::Literal::getTypeName() const {
 std::unique_ptr<ais::Printer> ais::Literal::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         // Literal doesn't quote the result
         void operator()(const std::string& val) override { out << val; }
     };
@@ -634,6 +644,7 @@ std::unique_ptr<ais::Printer>
 ais::MultiThreadResult::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer{parent}, m_label{parent.getLabel()} {}
+        using Printer::operator();
         void operator()(const std::string& val) override {
             for (ThreadMsgParser parser{val}; auto res = parser.nextResult();) {
                 auto [thread, val] = *res;
@@ -1276,6 +1287,7 @@ std::string ais::CharArray::readVal(Reader& reader) const {
 std::unique_ptr<ais::Printer> ais::CharArray::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(const std::string& val) override {
             if (val == nullString) {
                 out << "(char*) 0x0";
@@ -2295,6 +2307,7 @@ void ais::Pointer::parseL(InterpretStream& in, Writer& out) const {
 std::unique_ptr<ais::Printer> ais::Pointer::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(const std::string& val) override {
             // apply sends the dereference type first
             out << "(" << val << "*) ";
@@ -2388,6 +2401,7 @@ void ais::SmartPointer::applyL(Reader& reader, Visitor& f) const {
 std::unique_ptr<ais::Printer> ais::SmartPointer::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
         void operator()(int idx) override {
             if (idx > 0)
                 out << "(<" << idx << ">)";
@@ -3091,8 +3105,7 @@ public:
     using Base = FVisitor<BinaryRVal&>;
 
     BinaryRVal(ais::BinaryVal& val) : Base(*this), m_val(val) {}
-    template <class T>
-    void operator()(T v) { m_val.set(v); }
+    void apply(auto v) { m_val.set(v); }
     void eof() override { m_val.set(ais::PrimV{}); }
 private:
     ais::BinaryVal& m_val;
@@ -3105,7 +3118,7 @@ public:
     BinaryLVal(ais::BinaryVal& val, ais::BinaryOperator& op, ais::Visitor& out) :
         Base(*this), m_val(val), m_op(op), m_out(out) {}
 
-    template<class T> void operator()(T lval) {
+    void apply(auto lval) {
         // call the binary operator when the rval is available
         auto rval = m_val.get(false);
         if (!rval.index()) throw ais::Error("Second operand is truncated");
@@ -3167,8 +3180,16 @@ void applyBinary(ais::VStream& val1, ais::VStream& val2, ais::BinaryOperator& op
 }
 
 namespace {
+
+class PrimCompare;
+struct PrimCompareOp {
+    PrimCompareOp(PrimCompare& primCompare) : m_primCompare(primCompare) {}
+    template<class T> void operator()(T a, T b);
+    PrimCompare& m_primCompare;
+};
+    
 // Binary operator to compare two streams of data
-class PrimCompare : public ais::FBinaryOperator<PrimCompare&, PrimCompare&> {
+class PrimCompare : public ais::FBinaryOperator<PrimCompareOp, PrimCompareOp> {
 public:
 
     // Any values that fail are passed along to \a diff to manage
@@ -3180,7 +3201,7 @@ public:
 
     // primary comparison operator
     template<class T>
-    void operator()(T a, T b) {
+    void apply(T a, T b) {
         using namespace ais;
 
         if constexpr (std::is_floating_point<T>::value) {
@@ -3216,6 +3237,10 @@ private:
     ais::Difference& m_diff;
     ais::TrackingVisitor m_tracker;
 };
+
+template<class T> inline void PrimCompareOp::operator()(T a, T b) {
+    m_primCompare.apply(a,b);
+}    
 }
 
 
@@ -3295,7 +3320,7 @@ ais::Formatter& operator<<(std::ostream& s, ais::Formatter& f) {
 }
 
 PrimCompare::PrimCompare(double eqTol, double warnTol, ais::Difference& diff) :
-    ais::FBinaryOperator<PrimCompare&,PrimCompare&>(*this,*this),
+    ais::FBinaryOperator<PrimCompareOp,PrimCompareOp>(*this,*this),
     m_eqTol(eqTol), m_warnTol(warnTol), m_diff(diff), m_tracker(nullptr) {
  }
 

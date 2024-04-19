@@ -26,10 +26,6 @@
 	path = rpmbuild/SOURCES/set_default
 	url = git@github.hpe.com:hpcde/cdeux-set-default.git
 	branch = master
-[submodule "external/zmqnet"]
-	path = external/zmqnet
-	url = git@github.hpe.com:hpcde/cdst-zmqnet.git
-	branch = master
 [submodule "external/openmp"]
 	path = external/openmp
 	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-llvm-mirror-openmp.git
@@ -41,4 +37,8 @@
 [submodule "external/changelog"]
 	path = external/changelog
 	url = git@github.hpe.com:hpcde/devops-changelog.git
+	branch = master
+[submodule "external/zmqnet"]
+	path = external/zmqnet
+	url = git@github.hpe.com:hpcde/cdst-zmqnet.git
 	branch = master

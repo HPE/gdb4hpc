@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc</title>
+  <style>
+    html {
+      line-height: 1.5;
+      font-family: Georgia, serif;
+      font-size: 20px;
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 1em;
+      }
+    }
+    @media print {
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, 'Lucida Console', Consolas, monospace;
+      font-size: 85%;
+      margin: 0;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc</h1>
+</header>
+<h1 id="debugging-python-applications-with-the-gdb-python-debugging-extension-in-gdb4hpc">Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc</h1>
+<h2 id="background">Background</h2>
+<p>gdb is a debugger for compiled binaries, not interpreted languages like Python. This means that when debugging a Python application with gdb, gdb is debugging the Python interpreter internals and not the Python application code. For people developing Python applications, this isn’t very useful.</p>
+<p>In the <a href="https://github.com/python/cpython/blob/main/Tools/gdb/libpython.py">source of the cpython interpreter</a>, there is a gdb extension that can be loaded by gdb to help translate data and state internal to the python interpreter into data and state relevant to the python source code.</p>
+<p>By loading the extension in a gdb session, gdb gains gains Python equivalents to the gdb <code>backtrace</code>, <code>list</code>, <code>up</code>, <code>down</code>, <code>info locals</code>, and <code>print</code> commands and pretty printers for internal Python data type.</p>
+<p>gdb4hpc supports using this extension by loading it into the gdb instances attached to each rank and providing aggregated versions of the commands provided by the extension.</p>
+<p>See <a href="https://docs.python.org/3/howto/gdb_helpers.html">https://docs.python.org/3/howto/gdb_helpers.html</a> for more info about the gdb extension for debugging the Python interpreter.</p>
+<h2 id="requirements">Requirements</h2>
+<p>gdb4hpc will automatically load the Python extension for you, but the following conditions need to be met for the extension to work.</p>
+<h3 id="the-python-interpreter-being-debugged-is-the-cpython-interpreter">The Python interpreter being debugged is the <a href="https://github.com/python/cpython">cpython</a> interpreter</h3>
+<p>This is true in most situations. cpython is used in your Linux distribution’s Python installation, a virtual environment, a Conda environment, and cray-python. This list is not exhaustive, and cpython is used in even more places. If you don’t have evidence suggesting otherwise, you are probably using cpython.</p>
+<h3 id="the-python-interpreter-being-debugged-has-debug-information-available">The Python interpreter being debugged has debug information available</h3>
+<p>Unfortunately, this is not true by default in most situations.</p>
+<h4 id="how-to-check-for-debug-info">How to Check for Debug Info</h4>
+<p>To check if your Python interpreter has debug info, run <code>gdb $(which python3)</code> in a terminal and check the output for messages like “no debugging symbols found”.</p>
+<p>You can also run <code>file $(which python3)</code> and look for “with debug_info”.</p>
+<pre><code>$ file -L $(which python3)
+/usr/bin/python3: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=e84005b12f8e1e707681c3c55d5631f67299312f, for GNU/Linux 3.2.0, with debug_info, not stripped</code></pre>
+<blockquote>
+<p>If the output of the <code>file</code> command contains <code>symbolic link to python</code>, use the <code>-L</code> flag to tell <code>file</code> to follow links before checking for debug info.</p>
+</blockquote>
+<p>Note that using <code>file</code> is not 100% reliable because there are multiple ways to provide debug info for the Python interpreter, and this method only checks one of them. Other methods exist which load the debug info dynamically from a standalone debug info file, and this method doesn’t check that.</p>
+<p>If no debug info is found with the above methods, proceed to <em>How to Get Debug Info</em> below.</p>
+<h4 id="how-to-get-debug-info">How to Get Debug Info</h4>
+<p>If you don’t have debug info available for your Python interpreter, there are a few approaches you can take to get it.</p>
+<h5 id="install-the-python-debug-info-package">Install the Python Debug Info Package</h5>
+<p>If you are using your distribution’s Python interpreter (e.g. <code>/usr/bin/python3</code>), most distributions have a package called <code>python-dbg</code> or <code>python-debuginfo</code> that you can install. You will need admin privileges to install it, or will need to request that a system administrator install it. Once the package is installed, gdb4hpc will automatically detect the debug info and use it.</p>
+<p>Note that installing the package only supplies debug info for the specific Python interpreter at <code>/usr/bin/python3</code> which comes with your Linux distribution. For info about getting debug info for other Python interpreters (cray-python, Python compiled from source, custom interpreters in Conda environments, etc.), see the other sections below.</p>
+<h5 id="use-cray-python">Use cray-python</h5>
+<p>The Cray Programming Environment comes with a cpython interpreter that is pre-built with some HPC libraries (mpi4py, numpy, etc). Some installations of cray-python include debug info.</p>
+<p>To load cray-python and check if it has debug info available, run the following:</p>
+<pre><code>$ module load cray-python
+$ which python3
+/opt/cray/pe/python/3.11.7/bin/python3
+$ gdb $(which python3)
+...
+Reading symbols from /opt/cray/pe/python/3.11.7/bin/python3...</code></pre>
+<p>If you don’t see any messages indicating debug symbols are missing (e.g. “no debugging symbols found”), your cray-python installation has debug info.</p>
+<h5 id="compile-python-from-source-with-debug-info">Compile Python from Source with Debug Info</h5>
+<p>If none of the above options are available, you can build Python from source. Building Python from source is fairly straightforward and outlined here: <a href="https://devguide.python.org/getting-started/setup-building/#unix">https://devguide.python.org/getting-started/setup-building/#unix</a></p>
+<p>The important part is adding <code>--with-pydebug</code> to the <code>./configure</code> call. This has performance implications for the Python interpreter as it adds extra checks and assertions.</p>
+<p>When you build Python, you also build its package manager, <code>pip3</code>. You can use the <code>pip3</code> installed in the same location as your built Python to install libraries to the newly built Python instance.</p>
+<h2 id="connecting-to-a-python-application-in-gdb4hpc">Connecting to a Python Application in gdb4hpc</h2>
+<h3 id="via-launch">Via <code>launch</code></h3>
+<p>Find the path of your current Python interpreter:</p>
+<pre><code>$ which python3
+/opt/cray/pe/python/3.11.7/bin/python3</code></pre>
+<p>Use it in the <code>launch</code> command in gdb4hpc to launch your Python application.</p>
+<p>Pass the name of your Python script to the launched Python interpreter with the <code>-a</code> option. This adds command line arguments to the launched job. The below launch command is the equivalent of <code>srun /opt/cray/pe/python/3.11.7/bin/python3 my-python-app.py</code>.</p>
+<p>Use <code>--non-mpi</code> to tell gdb4hpc that the binary (the Python <em>interpreter</em>) does not contain a call to <code>MPI_Init</code>. You can still debug applications that use MPI in Python code, e.g. mpi4py, the <code>--non-mpi</code> is specifically about the Python <em>interpreter</em> that will be running the mpi4py code.</p>
+<pre><code>dbg all&gt; launch $pyapp{3} /opt/cray/pe/python/3.11.7/bin/python3 -a &quot;my-python-app.py&quot; --non-mpi</code></pre>
+<blockquote>
+<p>Using <code>--non-mpi</code> and debugging Python interpreters are not supported on systems with the ALPS or PALS work load managers. <code>attach</code> is still available on these systems.</p>
+</blockquote>
+<h3 id="via-attach">Via <code>attach</code></h3>
+<p>Launch your Python app as you would normally (e.g. with <code>srun</code> or <code>sbatch</code> etc.):</p>
+<pre><code>$ srun -n4 python3 ./main4.py</code></pre>
+<p>Next, obtain your application’s job ID and attach to your job with gdb4hpc.</p>
+<h4 id="on-a-slurm-system">On a Slurm System</h4>
+<p>Use <code>squeue -s</code> to find the job ID.</p>
+<pre><code>$ squeue -s
+     STEPID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+  9431671.0 allnodes   python3      hpe  R       0:01      1 n023</code></pre>
+<p>The job ID is in the <code>STEPID</code> column. Start gdb4hpc and attach to your application.</p>
+<pre><code>dbg all&gt; attach $pyapp 9431671.0</code></pre>
+<h4 id="on-a-flux-system">On a Flux System</h4>
+<p>Use <code>flux jobs</code> to find the job ID.</p>
+<pre><code>$ flux jobs
+       JOBID USER     NAME       ST NTASKS NNODES     TIME INFO
+ ƒ2BzGNARhpB user     python3    R       2      1   3.021s node1</code></pre>
+<p>Start gdb4hpc and attach to your application.</p>
+<pre><code>dbg all&gt; attach $pyapp ƒ2BzGNARhpB</code></pre>
+<blockquote>
+<p>Depending on the environment, Flux job IDs might display with <code>ƒ</code> (unicode U+0192), not <code>f</code> (ascii). This can cause some problems in old terminal emulators when copying and pasting. Set the environment variable <code>FLUX_F58_FORCE_ASCII</code> to 1 to force <code>flux jobs</code> to use an ascii f.</p>
+</blockquote>
+<h4 id="obtaining-the-job-id-on-other-systems">Obtaining the job ID on Other Systems</h4>
+<p>For other workload managers, check the help text of the <code>attach</code> command in gdb4hpc via the <code>help attach</code> command.</p>
+<h2 id="commands">Commands</h2>
+<p>The Python extension adds pretty printers for Python types and the following commands.</p>
+<h3 id="py-bt"><code>py-bt</code></h3>
+<p><code>py-bt</code> is the Python equivalent of gdb4hpc’s <code>bt</code> / <code>backtrace</code> commands. It shows all ranks’ backtraces merged into a single tree:</p>
+<pre><code>dbg all&gt; py-bt
+a{0..2}: #2  &lt;module&gt; at main4.py:48
+a{0..2}: #1  main at main4.py:39
+|
+|_ a{0,2}: #0  scatter at main4.py:18
+|
+\_ a{1}: #1  scatter at main4.py:17
+   a{1}: #0  sleep</code></pre>
+<p>This backtrace shows that all ranks started at <code>&lt;module&gt;</code> (basically Python’s <code>_start</code> equivalent), then diverged in the <code>scatter</code> function. Rank 1 is currently in <code>sleep</code>.</p>
+<h3 id="py-list"><code>py-list</code></h3>
+<p><code>py-list</code> is the Python equivalent of gdb4hpc’s <code>list</code> command.</p>
+<pre><code>dbg all&gt; py-list
+a{0,2}:
+  15    def scatter(nums):
+  16        if world_rank == 1:
+  17            time.sleep(5)
+ &gt;18        return comm.scatter(nums)
+  19
+  20    def get_avg(a):
+  21        avg = 0.0
+  22        for n in a:
+a{1}:
+  15    def scatter(nums):
+  16        if world_rank == 1:
+ &gt;17            time.sleep(5)
+  18        return comm.scatter(nums)
+  19
+  20    def get_avg(a):
+  21        avg = 0.0
+  22        for n in a:</code></pre>
+<p><code>py-list</code> takes range arguments similar to gdb4hpc’s <code>list</code> command that allow you to list a specific range.</p>
+<pre><code>dbg all&gt; py-list 10,12
+  10        if world_rank == 0:
+  11            return [[j * nums_per_rank + i for i in range(nums_per_rank)] for j in range(world_size)]
+  12        else:</code></pre>
+<h3 id="py-print-and-py-locals"><code>py-print</code> and <code>py-locals</code></h3>
+<p><code>py-print</code> and <code>py-locals</code> are the Python equivalent of gdb4hpc’s <code>print</code> and <code>info locals</code> commands.</p>
+<p><code>py-print</code> can’t evaluate arbitrary expressions like gdb4hpc’s <code>print</code> command can. It can look up the value of local, global, and builtin names.</p>
+<p><code>py-locals</code> shows the local variables in the current Python frame and their values.</p>
+<h3 id="py-up-and-py-down"><code>py-up</code> and <code>py-down</code></h3>
+<p><code>py-up</code> and <code>py-down</code> are the Python equivalent of gdb4hpc’s <code>up</code> and <code>down</code> commands. They navigate the Python call stack and affect the results of <code>py-print</code> and <code>py-locals</code>. For example, if you wanted to print a variable in the top level function of your Python application, you could repeatedly use <code>py-up</code> to climb up the stack to the top level frame, then use <code>py-locals</code>.</p>
+<h2 id="hybrid-applicaitons">Hybrid Applicaitons</h2>
+<p>The <code>py-</code> commands provided by the extension only display information about Python code. If you are debugging a hybrid application, use the non <code>py-</code> versions of the commands to debug the native code as you usually would.</p>
+<p>For example, <code>py-bt</code> can be used to show the Python backtrace, but it won’t include any frames from native code. If native code is being run, the usual <code>backtrace</code> command can be used to see it.</p>
+<p>You will also see the frames of the Python interpreter itself, which can be quite large. You can pass an argument to <code>backtrace</code> to limit the number of frames that are displayed. Native extension frames will be at the bottom of the backtrace stack, so limiting the amount of frames will work nicely to isolate them.</p>
+<pre><code>dbg all&gt; backtrace 5
+app{0}: #4  step_one at src/C++/cpp_bt.cpp:62
+app{0}: #3  step_two at src/C++/cpp_bt.cpp:67
+app{0}: #2  rare_branch at src/C++/cpp_bt.cpp:54
+app{0}: #1  step_three at src/C++/cpp_bt.cpp:73
+app{0}: #0  merge at src/C++/cpp_bt.cpp:58
+
+app{1..4}: #4  loop at src/C++/cpp_bt.cpp:86
+app{1..4}: #3  step_one at src/C++/cpp_bt.cpp:62
+app{1..4}: #2  step_two at src/C++/cpp_bt.cpp:69
+app{1..4}: #1  step_three at src/C++/cpp_bt.cpp:73
+app{1..4}: #0  merge at src/C++/cpp_bt.cpp:58</code></pre>
+<h2 id="loading-your-own-extensions">Loading Your Own Extensions</h2>
+<p>You can use gdb4hpc’s <code>gdbmode</code> feature to directly control gdb4hpc’s many instances of gdb. If you want to load your own extensions, you can use the <code>source</code> command in gdb mode.</p>
+<p>gdb4hpc automatically does this for you and loads its included Python debugging extension. But if you had your own extension or a newer version that you wanted to use, you could load it like this:</p>
+<pre><code>dbg all&gt; gdbmode
+Entering gdb pass-thru mode. Type &quot;end&quot; to exit mode...
+
+gdbmode&gt; source path-to-my-python-extension.py
+gdbmode&gt; end</code></pre>
+<p>Or equivalently:</p>
+<pre><code>dbg all&gt; gdb source path-to-my-python-extension.py</code></pre>
+</body>
+</html>

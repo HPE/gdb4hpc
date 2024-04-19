@@ -52,6 +52,9 @@ A guide covering Gdb4hpc's vscode extension.
 
 [VSCode Extension Guide](./guides/tutorial.md)
 
+### Python Debugging
+
+[Using the gdb Python extension](./guides/python-extension.md)
 
 ### Gdb4hpc man pages
 

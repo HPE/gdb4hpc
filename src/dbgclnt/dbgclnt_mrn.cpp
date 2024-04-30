@@ -1277,7 +1277,7 @@ invoke_error:
     return 1;
 }
 
-int MRNClientProtocol::syncExit(DbgInvoke *di) {
+int MRNClientProtocol::syncExit(DbgInvoke *di, std::function<void(void)>&& cleanupCallback) {
     if (!di) {
         PrintOutError("Tried to exit with null di.\n");
         return -1;
@@ -1288,12 +1288,15 @@ int MRNClientProtocol::syncExit(DbgInvoke *di) {
         di->setNetwork(nullptr);
     }
 
+    // Call application cleanup callback
+    cleanupCallback();
+
     return 0;
 }
 
-int MRNClientProtocol::forceExit(DbgInvoke *di) {
+int MRNClientProtocol::forceExit(DbgInvoke *di, std::function<void(void)>&& cleanupCallback) {
     // mrnet doesn't support forceExit
-    return syncExit(di);
+    return syncExit(di, std::move(cleanupCallback));
 }
 
 #ifdef BE_VALGRIND

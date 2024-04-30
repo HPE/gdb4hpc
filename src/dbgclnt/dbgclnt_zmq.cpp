@@ -349,7 +349,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
         return 0;
     } else {
         PrintOutError("Error: not all ranks received startup message. Attempting to clean up...\n");
-        forceExit(di);
+        forceExit(di, [](){});
         return 1;
     }
 }
@@ -477,7 +477,7 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     return 0;
 }
 
-int ZMQNetClientProtocol::syncExit(DbgInvoke *di) {
+int ZMQNetClientProtocol::syncExit(DbgInvoke *di, std::function<void(void)>&& cleanupCallback) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (!di) {
@@ -485,13 +485,43 @@ int ZMQNetClientProtocol::syncExit(DbgInvoke *di) {
         return -1;
     }
 
-    auto network_exit_result = getNetwork<ZMQNetNetwork>(di).syncExit();
-    di->setNetwork(nullptr);
+    auto syncExitMtx = std::make_shared<std::mutex>();
+    auto syncExitCv = std::make_shared<std::condition_variable>();
+    auto syncExitJoinable = std::make_shared<bool>(false);
 
-    return network_exit_result;
+    auto syncExitThread = std::thread([](std::unique_ptr<DebugClientNetwork>&& net,
+        std::function<void(void)>&& cleanupCallback,
+        std::shared_ptr<std::mutex> mtx, std::shared_ptr<std::condition_variable> cv,
+        std::shared_ptr<bool> joinable) {
+
+        auto zmqnet = dynamic_cast<ZMQNetNetwork*>(net.get());
+        if (zmqnet == nullptr) {
+            PrintOutMsg("error: wrong network type, exit canceled.\nYour job may still be running.\n");
+            return;
+        }
+        auto network_exit_result = zmqnet->syncExit();
+        if (network_exit_result) {
+            PrintOutMsg("warning: network exit failed with code %d\n", network_exit_result);
+        }
+
+        // Network exit completed, can now call CTI application cleanup
+        cleanupCallback();
+
+        auto lck = std::lock_guard<std::mutex>{*mtx};
+        *joinable = true;
+        cv->notify_all();
+
+    }, di->ejectNetwork(), std::move(cleanupCallback), syncExitMtx, syncExitCv, syncExitJoinable);
+
+    auto waitableThread = DbgInvoke::WaitableThread{std::move(syncExitThread),
+        syncExitMtx, syncExitCv, syncExitJoinable};
+
+    di->adoptExitThread(std::move(waitableThread));
+
+    return 0;
 }
 
-int ZMQNetClientProtocol::forceExit(DbgInvoke *di) {
+int ZMQNetClientProtocol::forceExit(DbgInvoke *di, std::function<void(void)>&& cleanupCallback) {
     LOG("%s\n", __PRETTY_FUNCTION__);
 
     if (!di) {
@@ -499,8 +529,35 @@ int ZMQNetClientProtocol::forceExit(DbgInvoke *di) {
         return -1;
     }
 
-    auto network_exit_result = getNetwork<ZMQNetNetwork>(di).forceExit();
-    di->setNetwork(nullptr);
+    auto forceExitMtx = std::make_shared<std::mutex>();
+    auto forceExitCv = std::make_shared<std::condition_variable>();
+    auto forceExitJoinable = std::make_shared<bool>(false);
 
-    return network_exit_result;
+    auto forceExitThread = std::thread([](std::unique_ptr<DebugClientNetwork>&& net,
+        std::function<void(void)>&& cleanupCallback,
+        std::shared_ptr<std::mutex> mtx, std::shared_ptr<std::condition_variable> cv,
+        std::shared_ptr<bool> joinable) {
+
+        auto zmqnet = dynamic_cast<ZMQNetNetwork*>(net.get());
+        if (zmqnet == nullptr) {
+            PrintOutMsg("error: wrong network type, exit canceled.\nYour job may still be running.\n");
+            return;
+        }
+        (void)zmqnet->forceExit();
+
+        // Network exit completed, can now call CTI application cleanup
+        cleanupCallback();
+
+        auto lck = std::lock_guard<std::mutex>{*mtx};
+        *joinable = true;
+        cv->notify_all();
+
+    }, di->ejectNetwork(), std::move(cleanupCallback), forceExitMtx, forceExitCv, forceExitJoinable);
+
+    auto waitableThread = DbgInvoke::WaitableThread{std::move(forceExitThread),
+        forceExitMtx, forceExitCv, forceExitJoinable};
+
+    di->adoptExitThread(std::move(waitableThread));
+
+    return 0;
 }

@@ -69,8 +69,8 @@ public:
 
     virtual int launch(DbgInvoke *di, const LaunchOpts& opts) = 0;
 
-    virtual int syncExit(DbgInvoke *di) = 0;
-    virtual int forceExit(DbgInvoke *di) = 0;
+    virtual int syncExit(DbgInvoke *di, std::function<void(void)>&& cleanupCallback) = 0;
+    virtual int forceExit(DbgInvoke *di, std::function<void(void)>&& cleanupCallback) = 0;
 
     virtual bool sendCommand(DbgInvoke *di, const Bitset *target, const char *request) = 0;
 

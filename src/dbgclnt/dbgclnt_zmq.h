@@ -21,8 +21,8 @@ public:
 
     int launch(DbgInvoke *di, const LaunchOpts& opts) override;
 
-    int syncExit(DbgInvoke *) override;
-    int forceExit(DbgInvoke *) override;
+    int syncExit(DbgInvoke *, std::function<void(void)>&& cleanupCallback) override;
+    int forceExit(DbgInvoke *, std::function<void(void)>&& cleanupCallback) override;
 
     bool sendCommand(DbgInvoke *di, const Bitset *target, const char *request) override;
 

@@ -530,6 +530,10 @@ void rebuildCachedHandles() {
     }
 }
 
+// Automatically join thread in destructor to allow collection of
+// cleanup threads from expiring DbgInvoke objects
+std::vector<DbgInvoke::WaitableThread> g_allThreads;
+
 } // anonymous namespace
 
 DbgInvoke::Handle DbgInvoke::activate(std::string name, std::unique_ptr<DbgInvoke>&& di) {
@@ -602,6 +606,11 @@ DbgInvoke::DbgInvoke(ProcessType type, int nproc, DebugClientProtocol& proto)
 DbgInvoke::~DbgInvoke() {
     HoldSignals();
     ReleaseSignals();
+
+    // Disown exit thread for later collection
+    if (m_exitThread) {
+        g_allThreads.emplace_back(std::move(*m_exitThread));
+    }
 }
 
 bool DbgInvoke::operator==(const DbgInvoke& other) const {
@@ -681,6 +690,14 @@ DebugClientNetwork* DbgInvoke::network() const { return m_proto_net.get(); }
 
 void DbgInvoke::setNetwork(std::unique_ptr<DebugClientNetwork>&& net) {
     m_proto_net = std::move(net);
+}
+
+std::unique_ptr<DebugClientNetwork> DbgInvoke::ejectNetwork() {
+    return std::move(m_proto_net);
+}
+
+void DbgInvoke::adoptExitThread(DbgInvoke::WaitableThread&& wt){
+    m_exitThread = std::move(wt);
 }
 
 DbgFE* DbgInvoke::instantiateFrontendGdb(const char* gdbPath) {
@@ -1168,4 +1185,61 @@ DbgInvoke::EventSet::EventSet(DbgInvoke& di, const Bitset& group, const dbgevent
 
 DbgInvoke::EventSet::~EventSet() {
     if (m_event) FreeEvent(m_event);
+}
+
+DbgInvoke::WaitableThread::WaitableThread(std::thread&& t, std::shared_ptr<std::mutex> mtx,
+    std::shared_ptr<std::condition_variable> cv, std::shared_ptr<bool> joinable)
+    : m_thread{std::move(t)}
+    , m_mtx{std::move(mtx)}
+    , m_cv{std::move(cv)}
+    , m_joinable{std::move(joinable)}
+    , m_threadValid{true}
+{}
+
+DbgInvoke::WaitableThread::WaitableThread(WaitableThread&& expiring)
+    : m_thread{std::move(expiring.m_thread)}
+    , m_mtx{std::move(expiring.m_mtx)}
+    , m_cv{std::move(expiring.m_cv)}
+    , m_joinable{std::move(expiring.m_joinable)}
+    , m_threadValid{expiring.m_threadValid}
+{
+    expiring.m_threadValid = false;
+}
+
+DbgInvoke::WaitableThread& DbgInvoke::WaitableThread::operator= (WaitableThread&& rhs) {
+    m_thread = std::move(rhs.m_thread);
+    m_mtx = std::move(rhs.m_mtx);
+    m_cv = std::move(rhs.m_cv);
+    m_joinable = std::move(rhs.m_joinable);
+    m_threadValid = rhs.m_threadValid;
+
+    rhs.m_threadValid = false;
+
+    return *this;
+}
+
+DbgInvoke::WaitableThread::~WaitableThread()
+{
+    if (!m_threadValid) {
+        return;
+    }
+
+    try {
+        auto lck = std::unique_lock<std::mutex>{*m_mtx};
+
+        // Wait for cleanup thread to complete
+        if (m_cv->wait_for(lck, std::chrono::seconds(10),
+            [this]{ return *m_joinable; })) {
+
+            m_thread.join();
+
+        // Timed out, detach thread
+        } else {
+            PrintOutMsg("warning: cleanup timed out, your job may still be running\n");
+            m_thread.detach();
+        }
+
+    } catch (...) {
+        // Ignore exception
+    }
 }

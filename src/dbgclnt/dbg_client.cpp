@@ -3690,21 +3690,15 @@ rep_set_t DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
         }(di, detach);
 
         // nullptr means sucess and the blocking teardown will probably succeed.
-        if (!quit_result.isEmpty()) {
+        all_quits_received = quit_result.isEmpty();
+        if (!all_quits_received) {
 
             // something went wrong with DBGCMD_QUIT, so sync exit probably won't work.
             PrintOutMsg("Warning: There was an error shutting down the debugger. Attempting to clean up...\n");
-            all_quits_received = false;
         }
 
         // merge the results. this deletes tmp_result
         result.merge(std::move(quit_result));
-    }
-
-    if (job_running && all_quits_received) {
-        di.proto().syncExit(&di);
-    } else {
-        di.proto().forceExit(&di);
     }
 
     // Clean up the job.
@@ -3713,33 +3707,48 @@ rep_set_t DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
     // the job might be gone already. This isn't a critical error and the information
     // would be useless to the user, so only print an error if we originally launched the
     // app (not if we attached).
-    if (job_running) {
-        if (detach) {
-            auto Launched = DbgInvoke::ProcessType::Launched;
-            if (cti_killApp(di.appId(), SIGCONT) && di.processType() == Launched) {
-                PrintOutMsg("Warning: an error occurred during release of $%s.\n",
-                            di.handle().c_str());
-                PrintOutMsg("The job might be stuck waiting for a SIGCONT.\n");
+    auto appCleanup = [](DbgInvoke& di, bool job_running, int detach) {
+
+        auto app_id = di.appId();
+        auto handleStr = di.handle();
+        auto process_type = di.processType();
+
+        return [app_id, handleStr, process_type, job_running, detach]() {
+            if (job_running) {
+                if (detach) {
+                    auto Launched = DbgInvoke::ProcessType::Launched;
+                    if (cti_killApp(app_id, SIGCONT) && process_type == Launched) {
+                        PrintOutMsg("Warning: an error occurred during release of $%s.\n",
+                                    handleStr.c_str());
+                        PrintOutMsg("The job might be stuck waiting for a SIGCONT.\n");
+                    }
+
+                    // Now that the app is running again, release it from cti so it won't be
+                    // killed when cti is killed
+                    if (cti_releaseApp(app_id)) {
+                        PrintOutMsg("Warning: an error occurred during release of $%s.\n",
+                                    handleStr.c_str());
+                        PrintOutMsg("The job might be killed before completing.\n");
+                    }
+
+                } else {
+                    auto Launched = DbgInvoke::ProcessType::Launched;
+                    if (cti_killApp(app_id, SIGKILL) && process_type == Launched) {
+                        PrintOutMsg("Warning: an error occurred during cleanup of $%s.\n", handleStr.c_str());
+                        PrintOutMsg("Your job might still be running.\n");
+                    }
+                }
             }
 
-            // Now that the app is running again, release it from cti so it won't be
-            // killed when cti is killed
-            if (cti_releaseApp(di.appId())) {
-                PrintOutMsg("Warning: an error occurred during release of $%s.\n",
-                            di.handle().c_str());
-                PrintOutMsg("The job might be killed before completing.\n");
-            }
+            cti_deregisterApp(app_id);
+        };
+    }(di, job_running, detach);
 
-        } else {
-            auto Launched = DbgInvoke::ProcessType::Launched;
-            if (cti_killApp(di.appId(), SIGKILL) && di.processType() == Launched) {
-                PrintOutMsg("Warning: an error occurred during cleanup of $%s.\n", di.handle().c_str());
-                PrintOutMsg("Your job might still be running.\n");
-            }
-        }
+    if (job_running && all_quits_received) {
+        di.proto().syncExit(&di, appCleanup);
+    } else {
+        di.proto().forceExit(&di, appCleanup);
     }
-
-    cti_deregisterApp(di.appId());
 
     // cleanup the di object
     di.setAppId(0);

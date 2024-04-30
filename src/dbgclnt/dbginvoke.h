@@ -7,6 +7,8 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include <thread>
+#include <condition_variable>
 #include <stddef.h>
 
 #include "dbgclnt_settings.h"
@@ -115,6 +117,28 @@ public:
         Launched,
     };
 
+    // Thread that automatically joins with a timeout
+    class WaitableThread {
+    private: // members
+        std::thread m_thread;
+        std::shared_ptr<std::mutex> m_mtx;
+        std::shared_ptr<std::condition_variable> m_cv;
+        std::shared_ptr<bool> m_joinable;
+        bool m_threadValid;
+
+    public: // interface
+
+        // Thread object must have a copy of the mutex, condition variable, and joinable.
+        // When the thread is complete, it should set joinable to true and notify all on CV.
+        WaitableThread(std::thread&& t, std::shared_ptr<std::mutex> mtx,
+            std::shared_ptr<std::condition_variable> cv, std::shared_ptr<bool> joinable);
+
+        WaitableThread(std::thread&& t);
+        ~WaitableThread();
+        WaitableThread(WaitableThread&& expiring);
+        WaitableThread& operator= (WaitableThread&& rhs);
+    };
+
 public:
     DbgInvoke(ProcessType type, int nproc, DebugClientProtocol& proto);
 
@@ -215,6 +239,12 @@ public:
 
     // Only used in proto() launch/attach functions.
     void setNetwork(std::unique_ptr<DebugClientNetwork>&& net);
+
+    // Release control of network to allow running network exit in background
+    std::unique_ptr<DebugClientNetwork> ejectNetwork();
+
+    // Exit functions may create an thread that runs past destruction of DbgInvoke
+    void adoptExitThread(DbgInvoke::WaitableThread&& wt);
 
     // Create an interface to a local instance of gdb for future utility usecases like
     // listing source files etc. See dbgclnt_debugfe.* files for availble interfaces.
@@ -340,6 +370,9 @@ private:
 
     // activate() will set up the di's internal m_handle
     Handle m_handle = nullptr;
+
+    // Exit functions may create an thread that runs past destruction of DbgInvoke
+    std::optional<WaitableThread> m_exitThread;
 };
 
 namespace std {

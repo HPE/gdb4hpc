@@ -446,7 +446,7 @@ const char* const cmd_help_help[] = {
 
 const char* const cmd_launch_help[] = {
     "Summary: Launch an application.",
-    "Usage: launch <app_handle> <application>",
+    "Usage: launch <app_handle> <application> [application args]",
     "              [--args=\"<args>\" OR -a \"<args>\"]",
     "              [--launcher=\"<launcher_name>\" OR -l \"<launcher_name>\"]",
     "              [--launcher-args=\"<launcher_args>\" OR -g \"<launcher_args>\"]",
@@ -461,7 +461,7 @@ const char* const cmd_launch_help[] = {
     "              [--non-mpi]",
     "              [--debug[=<path>]]",
     "",
-    "Example command: launch $a{20000} ./helloworld",
+    "Example command: launch $a{20000} ./helloworld ./hello_world_config.txt",
     "",
     "Arguments: app_handle (debugger variable syntax),",
     "           application (name of application), args (application arguments),",

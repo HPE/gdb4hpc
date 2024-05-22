@@ -1,0 +1,16 @@
+0: # test that gdb4hpc accepts positional application arguments.
+0: # despite the name, we don't launch python in this test. but this behavior is most commonly
+0: # used with python apps.
+1: launch $a{1} ./bin/CRAY/c/c_inc.x arg1 arg2 "arg 3"
+Launch complete.
+a{0}: Initial breakpoint, main at /src/c/c_inc.c:9
+2: p argc
+a{0}: 4
+2: p argv[1]
+a{0}: "arg1"
+2: p argv[2]
+a{0}: "arg2"
+2: p argv[3]
+a{0}: "arg 3"
+3: q
+Shutting down debugger and killing application for 'a'.

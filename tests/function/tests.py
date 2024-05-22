@@ -1015,6 +1015,15 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "completions_launch"
         runTest(self)
 
+    def test_python_launch_from_path(self):
+        self.base_name = "python_launch_from_path"
+        os.environ["PATH"] = f"{os.environ['PATH']}:{os.getcwd()}/bin/{self.penv}/c"
+        runTest(self)
+
+    def test_python_positional_args(self):
+        self.base_name = "python_positional_args"
+        runTest(self)
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

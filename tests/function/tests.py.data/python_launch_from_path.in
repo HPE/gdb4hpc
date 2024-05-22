@@ -1,0 +1,10 @@
+0: # test that gdb4hpc looks up launched apps in PATH if the path is not absolute/relative.
+0: # despite the name, we don't launch python in this test. but this behavior is most commonly
+0: # used with python apps.
+0: #
+0: # PATH is modified in tests.py.
+1: launch $a{1} c_inc.x
+Launch complete.
+a{0}: Initial breakpoint, main at /src/c/c_inc.c:9
+2: q
+Shutting down debugger and killing application for 'a'.

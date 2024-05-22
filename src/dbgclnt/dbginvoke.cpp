@@ -5,6 +5,7 @@
 #include "dbgclnt_proto.h"
 #include "dbg_client.h"
 #include "path.h"
+#include "str.h"
 #include "dense_bitset.h"
 
 #include <getopt.h>
@@ -192,58 +193,223 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
     }
 
     SUBCASE("App args") {
-        const char* const argv[] = {
-            "launch", "$a{1}", "./bin/c_inc",
-            "--args=\"input_file output_file 44 \"multi word arg\"\"",
-        };
-        auto csi = MockClientSettings();
-        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        SUBCASE("via --args") {
+            const char* const argv[] = {
+                "launch", "$a{1}", "./bin/c_inc",
+                "--args=\"input_file output_file 44 \"multi word arg\"\"",
+            };
+            auto csi = MockClientSettings();
+            auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
-        REQUIRE(opts.job_opts.size() == 1);
-        REQUIRE(opts.job_opts[0].app_argv.argc() == 5);
-        REQUIRE(opts.job_opts[0].run_argv.argc() == 5);
+            REQUIRE(opts.job_opts.size() == 1);
+            REQUIRE(opts.job_opts[0].app_argv.argc() == 5);
+            REQUIRE(opts.job_opts[0].run_argv.argc() == 5);
 
-        CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
-        CHECK(opts.job_opts[0].app_argv[1] == "input_file");
-        CHECK(opts.job_opts[0].app_argv[2] == "output_file");
-        CHECK(opts.job_opts[0].app_argv[3] == "44");
-        CHECK(opts.job_opts[0].app_argv[4] == "multi word arg"); // should have no quotes
-                                                     //
-        CHECK(opts.job_opts[0].run_argv[0] == "./bin/c_inc");
-        CHECK(opts.job_opts[0].run_argv[1] == "input_file");
-        CHECK(opts.job_opts[0].run_argv[2] == "output_file");
-        CHECK(opts.job_opts[0].run_argv[3] == "44");
-        CHECK(opts.job_opts[0].run_argv[4] == "multi word arg");
+            CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].app_argv[1] == "input_file");
+            CHECK(opts.job_opts[0].app_argv[2] == "output_file");
+            CHECK(opts.job_opts[0].app_argv[3] == "44");
+            CHECK(opts.job_opts[0].app_argv[4] == "multi word arg"); // should have no quotes
+
+            CHECK(opts.job_opts[0].run_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].run_argv[1] == "input_file");
+            CHECK(opts.job_opts[0].run_argv[2] == "output_file");
+            CHECK(opts.job_opts[0].run_argv[3] == "44");
+            CHECK(opts.job_opts[0].run_argv[4] == "multi word arg");
+        }
+
+        SUBCASE("via positional args") {
+            const char* const argv[] = {
+                "launch", "$a{1}", "./bin/c_inc",
+                "input_file", "output_file", "44", "\"multi word arg\"",
+            };
+            auto csi = MockClientSettings();
+            auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+            REQUIRE(opts.job_opts.size() == 1);
+            REQUIRE(opts.job_opts[0].app_argv.argc() == 5);
+            REQUIRE(opts.job_opts[0].run_argv.argc() == 5);
+
+            CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].app_argv[1] == "input_file");
+            CHECK(opts.job_opts[0].app_argv[2] == "output_file");
+            CHECK(opts.job_opts[0].app_argv[3] == "44");
+            CHECK(opts.job_opts[0].app_argv[4] == "multi word arg"); // should have no quotes
+
+            CHECK(opts.job_opts[0].run_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].run_argv[1] == "input_file");
+            CHECK(opts.job_opts[0].run_argv[2] == "output_file");
+            CHECK(opts.job_opts[0].run_argv[3] == "44");
+            CHECK(opts.job_opts[0].run_argv[4] == "multi word arg");
+        }
+
+        SUBCASE("via positional args with --") {
+            const char* const argv[] = {
+                "launch", "$a{1}", "./bin/c_inc",
+                "--", "input_file", "output_file", "44", "\"multi word arg\"",
+            };
+            auto csi = MockClientSettings();
+            auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+            REQUIRE(opts.job_opts.size() == 1);
+            REQUIRE(opts.job_opts[0].app_argv.argc() == 5);
+            REQUIRE(opts.job_opts[0].run_argv.argc() == 5);
+
+            CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].app_argv[1] == "input_file");
+            CHECK(opts.job_opts[0].app_argv[2] == "output_file");
+            CHECK(opts.job_opts[0].app_argv[3] == "44");
+            CHECK(opts.job_opts[0].app_argv[4] == "multi word arg"); // should have no quotes
+
+            CHECK(opts.job_opts[0].run_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].run_argv[1] == "input_file");
+            CHECK(opts.job_opts[0].run_argv[2] == "output_file");
+            CHECK(opts.job_opts[0].run_argv[3] == "44");
+            CHECK(opts.job_opts[0].run_argv[4] == "multi word arg");
+        }
+
+        SUBCASE("Catch when both -a and positional app args are used") {
+            const char* const argv[] = {
+                "launch", "$a{1}", "./bin/c_inc",
+                "--args=\"too many args!\"",
+                "input_file", "output_file", "44", "\"multi word arg\"",
+            };
+            auto csi = MockClientSettings();
+            CHECK_THROWS(LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi));
+        }
     }
 
     SUBCASE("MPMD args") {
-        const char* const argv[] = {
-            "launch", "$a{1}",
-            "--launcher=/tmp/fake_mpiexec",
-            "--launcher-args=\"-n1 -N1\"",  "./bin/c_inc", "--non-mpi", "--args=\"inc_arg1 inc_arg2\"", ":",
-            "--launcher-args=\"-n2 -N2\"",  "./bin/c_dec", "--args=\"dec_arg1 dec_arg2\"",
-        };
-        auto csi = MockClientSettings();
-        auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+        SUBCASE("via --args") {
+            const char* const argv[] = {
+                "launch", "$a{1}",
+                "--launcher=/tmp/fake_mpiexec",
+                "--launcher-args=\"-n1 -N1\"",  "./bin/c_inc", "--non-mpi", "--args=\"inc_arg1 inc_arg2\"", ":",
+                "--launcher-args=\"-n2 -N2\"",  "./bin/c_dec", "--args=\"dec_arg1 dec_arg2\"",
+            };
+            auto csi = MockClientSettings();
+            auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
-        CHECK(opts.launcher_name == "/tmp/fake_mpiexec");
-        REQUIRE(opts.job_opts.size() == 2);
-        CHECK(opts.job_opts[0].non_mpi_flag == true);
-        REQUIRE(opts.job_opts[0].launcher_args.argc() == 2);
-        CHECK(opts.job_opts[0].launcher_args[0] == "-n1");
-        CHECK(opts.job_opts[0].launcher_args[1] == "-N1");
-        REQUIRE(opts.job_opts[0].app_argv.argc() == 3);
-        CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
-        CHECK(opts.job_opts[0].app_argv[1] == "inc_arg1");
-        CHECK(opts.job_opts[0].app_argv[2] == "inc_arg2");
-        CHECK(opts.job_opts[1].non_mpi_flag == false);
-        REQUIRE(opts.job_opts[1].launcher_args.argc() == 2);
-        CHECK(opts.job_opts[1].launcher_args[0] == "-n2");
-        CHECK(opts.job_opts[1].launcher_args[1] == "-N2");
-        REQUIRE(opts.job_opts[1].app_argv.argc() == 3);
-        CHECK(opts.job_opts[1].app_argv[0] == "./bin/c_dec");
-        CHECK(opts.job_opts[1].app_argv[1] == "dec_arg1");
-        CHECK(opts.job_opts[1].app_argv[2] == "dec_arg2");
+            CHECK(opts.launcher_name == "/tmp/fake_mpiexec");
+            REQUIRE(opts.job_opts.size() == 2);
+            CHECK(opts.job_opts[0].non_mpi_flag == true);
+            REQUIRE(opts.job_opts[0].launcher_args.argc() == 2);
+            CHECK(opts.job_opts[0].launcher_args[0] == "-n1");
+            CHECK(opts.job_opts[0].launcher_args[1] == "-N1");
+            REQUIRE(opts.job_opts[0].app_argv.argc() == 3);
+            CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].app_argv[1] == "inc_arg1");
+            CHECK(opts.job_opts[0].app_argv[2] == "inc_arg2");
+            CHECK(opts.job_opts[1].non_mpi_flag == false);
+            REQUIRE(opts.job_opts[1].launcher_args.argc() == 2);
+            CHECK(opts.job_opts[1].launcher_args[0] == "-n2");
+            CHECK(opts.job_opts[1].launcher_args[1] == "-N2");
+            REQUIRE(opts.job_opts[1].app_argv.argc() == 3);
+            CHECK(opts.job_opts[1].app_argv[0] == "./bin/c_dec");
+            CHECK(opts.job_opts[1].app_argv[1] == "dec_arg1");
+            CHECK(opts.job_opts[1].app_argv[2] == "dec_arg2");
+        }
+
+        SUBCASE("via positional args") {
+            const char* const argv[] = {
+                "launch", "$a{1}",
+                "--launcher=/tmp/fake_mpiexec",
+                "--launcher-args=\"-n1 -N1\"",  "./bin/c_inc", "--non-mpi", "inc_arg1", "inc_arg2", ":",
+                "--launcher-args=\"-n2 -N2\"",  "./bin/c_dec", "dec_arg1", "dec_arg2",
+            };
+            auto csi = MockClientSettings();
+            auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+            CHECK(opts.launcher_name == "/tmp/fake_mpiexec");
+            REQUIRE(opts.job_opts.size() == 2);
+            CHECK(opts.job_opts[0].non_mpi_flag == true);
+            REQUIRE(opts.job_opts[0].launcher_args.argc() == 2);
+            CHECK(opts.job_opts[0].launcher_args[0] == "-n1");
+            CHECK(opts.job_opts[0].launcher_args[1] == "-N1");
+            REQUIRE(opts.job_opts[0].app_argv.argc() == 3);
+            CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].app_argv[1] == "inc_arg1");
+            CHECK(opts.job_opts[0].app_argv[2] == "inc_arg2");
+            CHECK(opts.job_opts[1].non_mpi_flag == false);
+            REQUIRE(opts.job_opts[1].launcher_args.argc() == 2);
+            CHECK(opts.job_opts[1].launcher_args[0] == "-n2");
+            CHECK(opts.job_opts[1].launcher_args[1] == "-N2");
+            REQUIRE(opts.job_opts[1].app_argv.argc() == 3);
+            CHECK(opts.job_opts[1].app_argv[0] == "./bin/c_dec");
+            CHECK(opts.job_opts[1].app_argv[1] == "dec_arg1");
+            CHECK(opts.job_opts[1].app_argv[2] == "dec_arg2");
+        }
+
+        SUBCASE("one -a and one positional") {
+            const char* const argv[] = {
+                "launch", "$a{1}",
+                "--launcher=/tmp/fake_mpiexec",
+                "--launcher-args=\"-n1 -N1\"",  "./bin/c_inc", "--non-mpi", "inc_arg1", "inc_arg2", ":",
+                "--launcher-args=\"-n2 -N2\"",  "./bin/c_dec", "--args=\"dec_arg1 dec_arg2\"",
+            };
+            auto csi = MockClientSettings();
+            auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+            CHECK(opts.launcher_name == "/tmp/fake_mpiexec");
+            REQUIRE(opts.job_opts.size() == 2);
+            CHECK(opts.job_opts[0].non_mpi_flag == true);
+            REQUIRE(opts.job_opts[0].launcher_args.argc() == 2);
+            CHECK(opts.job_opts[0].launcher_args[0] == "-n1");
+            CHECK(opts.job_opts[0].launcher_args[1] == "-N1");
+            REQUIRE(opts.job_opts[0].app_argv.argc() == 3);
+            CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].app_argv[1] == "inc_arg1");
+            CHECK(opts.job_opts[0].app_argv[2] == "inc_arg2");
+            CHECK(opts.job_opts[1].non_mpi_flag == false);
+            REQUIRE(opts.job_opts[1].launcher_args.argc() == 2);
+            CHECK(opts.job_opts[1].launcher_args[0] == "-n2");
+            CHECK(opts.job_opts[1].launcher_args[1] == "-N2");
+            REQUIRE(opts.job_opts[1].app_argv.argc() == 3);
+            CHECK(opts.job_opts[1].app_argv[0] == "./bin/c_dec");
+            CHECK(opts.job_opts[1].app_argv[1] == "dec_arg1");
+            CHECK(opts.job_opts[1].app_argv[2] == "dec_arg2");
+        }
+
+        SUBCASE("one -a and one positional (other permutation)") {
+            const char* const argv[] = {
+                "launch", "$a{1}",
+                "--launcher=/tmp/fake_mpiexec",
+                "--launcher-args=\"-n1 -N1\"",  "./bin/c_inc", "--non-mpi", "--args=\"inc_arg1 inc_arg2\"", ":",
+                "--launcher-args=\"-n2 -N2\"",  "./bin/c_dec", "dec_arg1", "dec_arg2",
+            };
+            auto csi = MockClientSettings();
+            auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+            CHECK(opts.launcher_name == "/tmp/fake_mpiexec");
+            REQUIRE(opts.job_opts.size() == 2);
+            CHECK(opts.job_opts[0].non_mpi_flag == true);
+            REQUIRE(opts.job_opts[0].launcher_args.argc() == 2);
+            CHECK(opts.job_opts[0].launcher_args[0] == "-n1");
+            CHECK(opts.job_opts[0].launcher_args[1] == "-N1");
+            REQUIRE(opts.job_opts[0].app_argv.argc() == 3);
+            CHECK(opts.job_opts[0].app_argv[0] == "./bin/c_inc");
+            CHECK(opts.job_opts[0].app_argv[1] == "inc_arg1");
+            CHECK(opts.job_opts[0].app_argv[2] == "inc_arg2");
+            CHECK(opts.job_opts[1].non_mpi_flag == false);
+            REQUIRE(opts.job_opts[1].launcher_args.argc() == 2);
+            CHECK(opts.job_opts[1].launcher_args[0] == "-n2");
+            CHECK(opts.job_opts[1].launcher_args[1] == "-N2");
+            REQUIRE(opts.job_opts[1].app_argv.argc() == 3);
+            CHECK(opts.job_opts[1].app_argv[0] == "./bin/c_dec");
+            CHECK(opts.job_opts[1].app_argv[1] == "dec_arg1");
+            CHECK(opts.job_opts[1].app_argv[2] == "dec_arg2");
+        }
+
+        SUBCASE("Catch when both -a and positional app args are used in one argument set") {
+            const char* const argv[] = {
+                "launch", "$a{1}",
+                "--launcher=/tmp/fake_mpiexec",
+                "--launcher-args=\"-n1 -N1\"",  "./bin/c_inc", "--non-mpi", "inc_arg1", "inc_arg2", ":",
+                "--launcher-args=\"-n2 -N2\"",  "./bin/c_dec", "--args=\"dec_arg1 dec_arg2\"", "this-is-a-bad-argument",
+            };
+            auto csi = MockClientSettings();
+            CHECK_THROWS(LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi));
+        }
     }
 }
 
@@ -946,47 +1112,50 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
         }
     }
 
-    if (opts.procset_name.empty()) {
-        if (argc - optind != 2) {
+    const auto getPositionalArgs = [&](bool needs_procset) {
+        // the binary name + the procset name
+        const auto required = 1 + static_cast<int>(needs_procset);
+        const auto provided = argc - optind;
+
+        if (provided < required) {
             using namespace std::string_literals;
             throw std::runtime_error(
                 "Invalid number of non-option arguments. See \"help launch\" for usage.\n"s
-                + "Expected 2 (process set name and application binary), found " + std::to_string(argc - optind) + "."
+                "Expected at least " + std::to_string(required) + " (" + (required > 1 ? "process set name and " : "") + "application binary)."
             );
         }
 
-        // The first argument should be the name of the process set
-        if (auto procset_name_cstr = argv[optind++]) {
-            opts.procset_name = procset_name_cstr;
-        } else {
-            throw std::runtime_error("No process set specified");
+        // The first argument should be the name of the process set if needed
+        if (needs_procset) {
+            if (auto procset_name_cstr = argv[optind++]) {
+                opts.procset_name = procset_name_cstr;
+            } else {
+                throw std::runtime_error("No process set specified");
+            }
         }
 
-        // The second argument is the name of the a.out
+        // The second argument is the name of the a.out (always needed)
         if (auto binary_path_cstr = argv[optind++]) {
             job_opt.app_argv[0] = binary_path_cstr;
         } else {
             throw std::runtime_error("Invalid binary (No binary passed)");
         }
 
-    // Already got the procset name from a previous parse
-    } else {
-
-        if (argc - optind != 1) {
-            using namespace std::string_literals;
+        // The rest are application arguments as long as --args wasn't already used.
+        if ((provided > required) && (job_opt.app_argv.argc() > 1)) {
             throw std::runtime_error(
-                "Invalid number of non-option arguments. See \"help launch\" for usage.\n"s
-                + "Expected 1 (application binary), found " + std::to_string(argc - optind) + "."
+                "Both --args=\"...\" and positional arguments were used. Use one or the other."
             );
         }
 
-        // The argument is the name of the a.out
-        if (auto binary_path_cstr = argv[optind++]) {
-            job_opt.app_argv[0] = binary_path_cstr;
-        } else {
-            throw std::runtime_error("Invalid binary (No binary passed)");
+        for (; optind < argc; optind++) {
+            job_opt.app_argv << withoutQuotes(argv[optind]);
         }
-    }
+    };
+
+    // in an mpmd launch, we parse multiple sets of launch arguments for a single procset.
+    // we might already have parsed the procset name from a previous set of arguments.
+    getPositionalArgs(opts.procset_name.empty());
 
     if (opts.set_default_cwd) {
         // --workdir provided without argument, so default to chdir to
@@ -1095,6 +1264,15 @@ void LaunchOpts::enforceValid() {
     };
 
     for (auto&& job_opt : job_opts) {
+        // find argv[0] in PATH so it's easy for users to launch python jobs e.g.
+        // launch $a{3} python3 -a "my_app.py"
+        if (auto in_path = MallocedCharPtr(pathFind(job_opt.app_argv[0].c_str(), "PATH"))) {
+            job_opt.app_argv[0] = in_path.get();
+        }
+        if (auto in_path = MallocedCharPtr(pathFind(job_opt.run_argv[0].c_str(), "PATH"))) {
+            job_opt.run_argv[0] = in_path.get();
+        }
+
         canonFile(job_opt.app_argv[0]);
         canonFile(job_opt.run_argv[0]);
     }

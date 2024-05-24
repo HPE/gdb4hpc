@@ -348,6 +348,10 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
     // process error
     if (ProcessErrorInRepSet(rep_set)) {
         PrintOutError("Could not startup application.\n");
+
+        // Print remaining output from application
+        di->proto().dispatchEvents(di, -1);
+
         auto quit_rep = DbgQuit(*di, DbgQuitType::Kill);
         ProcessErrorInRepSet(quit_rep);
         return exitWithFailure();

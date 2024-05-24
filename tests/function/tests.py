@@ -535,6 +535,11 @@ class FunctionTests(Gdb4hpcTest):
         runTest(self)
 
     @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_c_nolib(self):
+        self.base_name = "c_nolib"
+        runTest(self)
+
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
     def test_c_mpmd(self):
         self.base_name = "c_mpmd"
         runTest(self)

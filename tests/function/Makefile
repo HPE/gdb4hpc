@@ -15,6 +15,7 @@ TESTS = \
    ./bin/${PE_ENV}/c/c_inc.x \
    ./bin/${PE_ENV}/c/c_half_exit.x \
    ./bin/${PE_ENV}/c/c_signal.x \
+   ./bin/${PE_ENV}/c/c_nolib.x \
    ./bin/${PE_ENV}/C++/cpp_bd_test.x \
    ./bin/${PE_ENV}/C++/cpp_cmp_diff.x \
    ./bin/${PE_ENV}/C++/cpp_ds_test1.x \
@@ -157,6 +158,14 @@ clean:
 
 ./bin/${PE_ENV}/c/c_signal.x : ./bin/${PE_ENV}/c/c_signal.o
 	$(CC) $(CFLAGS) $^ -o $@
+
+./bin/${PE_ENV}/c/c_libnolib.so : ./src/c/c_libnolib.c
+	$(CC) $(CFLAGS) -shared $^ -o $@
+
+./bin/${PE_ENV}/c/c_nolib.x : ./bin/${PE_ENV}/c/c_nolib.o ./bin/${PE_ENV}/c/c_libnolib.so
+	cp ./bin/${PE_ENV}/c/c_libnolib.so ./bin/${PE_ENV}/c/libnolib.so
+	$(CC) $(CFLAGS) $^ -L./bin/${PE_ENV}/c -lnolib -o $@
+	rm ./bin/${PE_ENV}/c/libnolib.so
 
 ./bin/${PE_ENV}/c/c_ompd.x : ./src/c/c_ompd.c
 	$(CC) -fopenmp $(CFLAGS) $^ -o $@

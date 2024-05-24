@@ -1,0 +1,15 @@
+0: # Test failed launch output
+1: launch $a{2} ./bin/CRAY/c/c_nolib.x
+Starting application, please wait...
+Launched application...
+0/2 ranks connected... (timeout in 299 seconds)
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..1}: Debugger error: Failed to hit entry breakpoint.
+Could not startup application.
+<$a>: /bin/CRAY/c/c_nolib.x: error while loading shared libraries: libnolib.so: cannot open shared object file: No such file or directory
+<$a>: /bin/CRAY/c/c_nolib.x: error while loading shared libraries: libnolib.so: cannot open shared object file: No such file or directory
+Command resulted in an error: 2: launch $a{2} %.*%/bin/CRAY/c/c_nolib.x
+8: q

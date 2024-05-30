@@ -1260,7 +1260,12 @@ void ais::CharArray::parseL(InterpretStream& in, Writer& out) const {
             if (end[0] == '\\' && end[1]) ++end;
         }
         out.writeString(std::string{beg,end});
-        in.setPos(*end ? end+1 : end);
+
+        if (*end) {
+            // values truncated by set print elements will add ... (from gdb13)
+            for (; *++end == '.'; ) {}
+        }
+        in.setPos(end);
         return;
     }  else if (str[0] == '<') {
         // error message

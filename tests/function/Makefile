@@ -288,8 +288,8 @@ raja: $(RAJA_TESTS)
 
 get_raja:
 	if [ ! -e "./raja_installation" ]; then \
-		wget https://arti.hpc.amslabs.hpecorp.net/artifactory/pe-internal-third-party-generic-local/raja/raja_installation.tar.gz && \
-		tar -xf ./raja_installation.tar.gz; \
+		wget "https://arti.hpc.amslabs.hpecorp.net/artifactory/pe-internal-third-party-generic-local/raja/raja_installation_$(shell uname -i).tar.gz" && \
+		tar -xf "./raja_installation_$(shell uname -i).tar.gz"; \
 	fi
 
 kokkosTest:

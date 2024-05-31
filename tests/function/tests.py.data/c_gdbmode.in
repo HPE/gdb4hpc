@@ -12,25 +12,8 @@ Launch complete.
 a{0}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
 21: # Test gdbmode and that things are reset upon entering/exiting gdb
 23: set print elements 5
-25: gdbmode
-Entering gdb pass-thru mode. Type "end" to exit mode...
-
-GNU gdb (GDB) GDB_10_0-None-local
-Copyright (C) 2020 Free Software Foundation, Inc.
-License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
-This is free software: you are free to change and redistribute it.
-There is NO WARRANTY, to the extent permitted by law.
-Type "show copying" and "show warranty" for details.
-This GDB was configured as "%.*%".
-Type "show configuration" for configuration details.
-For bug reporting instructions, please see:
-<https://www.gnu.org/software/gdb/bugs/>.
-Find the GDB manual and other documentation resources online at:
-    <http://www.gnu.org/software/gdb/documentation/>.
-
-For help, type "help".
-Type "apropos word" to search for commands related to "word".
-
+25: # we don't care about matching the copyright text that appears when you enter gdbmode
+25: gdbmode???
 27: show print elements
 Limit on array elements to print is 200.
 
@@ -38,7 +21,7 @@ Limit on array elements to print is 200.
 Threshold for repeated print elements is 10.
 
 29: show source open
-Source opening is on.
+Source opening is "on".
 
 31: end
 
@@ -66,7 +49,7 @@ a{0}: $1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 19: gdb show print elements
 a{0}: Limit on array elements to print is 8.
 20: gdb p one_d_l
-a{0}: $2 = {0, 1, 2, 3, 4, 5, 6, 7}
+a{0}: $2 = {0, 1, 2, 3, 4, 5, 6, 7...}
 21: gdb show print repeats
 a{0}: Threshold for repeated print elements is 10.
 22: gdb set print repeats 4
@@ -88,10 +71,10 @@ a{0}: 1
 31:  p one_d_i
 a{0}: {1,1,1,1,1,1,6,7,8,9}
 32: gdb p one_d_i
-a{0}: $3 = {1 <repeats 6 times>, 6, 7}
+a{0}: $3 = {1 <repeats 6 times>, 6, 7...}
 33: gdb set print repeats 10
 34: gdb p one_d_i
-a{0}: $4 = {1, 1, 1, 1, 1, 1, 6, 7}
+a{0}: $4 = {1, 1, 1, 1, 1, 1, 6, 7...}
 35: #exit lgdb
 36: q
 Shutting down debugger and killing application for 'a'.

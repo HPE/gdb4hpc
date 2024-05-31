@@ -934,6 +934,7 @@ class FunctionTests(Gdb4hpcTest):
         if not os.path.exists(f"./bin/{self.penv}/raja/reductions_solution.x"):
             self.cancel("RAJA reductions_solution.x not built")
         self.base_name = "raja_reductions"
+        runTest(self)
 
     # this binary *is* an mpi app so we can run it on any wlm
     def test_raja_decomp(self):

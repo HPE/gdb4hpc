@@ -3156,11 +3156,11 @@ dbgevent_t *DbgGdbMI::interrupt(bool all) {
 
 dbgevent_t *DbgGdbMI::launch(const char *, int, const char *,
                              const char *prog, const char *args,
-                             char **) {
+                             char **, const char *main_function) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
-    e = m_initializer->initDbg(prog, args);
+    e = m_initializer->initDbg(prog, args, main_function);
 
     Status = DBGSTAT_STOPPED;
 
@@ -3172,11 +3172,11 @@ dbgevent_t *DbgGdbMI::launch(const char *, int, const char *,
 /*
 ** Attach debugger to running process.
 */
-dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *, char **) {
+dbgevent_t *DbgGdbMI::attach(int pid, const char *prog, const char *, char **, const char *main_function) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
 
-    e = m_initializer->initDbgAttach(pid, prog);
+    e = m_initializer->initDbgAttach(pid, prog, main_function);
 
     Status = DBGSTAT_STOPPED;
 

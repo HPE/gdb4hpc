@@ -51,8 +51,6 @@ static GdbVersion gdb_vers = GdbVersion::GDB;
 static std::vector<dbgbp_t*> main_entry_BP;
 static std::vector<dbgbp_t*> parallel_entry_BP;
 
-static const char* ProgMain = nullptr;
-
 static MICommand *_MIGDBSet(const char *var, const char *val) {
     return MIGDBSet(const_cast<char *>(var), const_cast<char *>(val));
 }
@@ -67,7 +65,7 @@ static int dbgsrv_fd;
 #endif
 
 DbgGdbMI::Initializer::Initializer(DbgGdbMI& dbg)
-    : m_dbg(dbg), m_session(nullptr), m_pid(0)
+    : m_dbg(dbg), m_session(nullptr), m_pid(0), m_mainFunction{}
 {}
 
 dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
@@ -795,7 +793,6 @@ static void Finish(int) {
 
 static const std::array<std::string, 21> parallel_entry_pt_strs
 {
-    "main",
     "*(&MPI_Init)",
     "athos_mpi_init",
     "MPI_INIT_THREAD__",
@@ -853,6 +850,19 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
     }
     MICommandFree(cmd);
 
+    // Set up main entry breakpoint
+    if (!m_mainFunction.empty()) {
+        cmd = MIBreakInsert(0, 0, 0, NULL, 0, m_mainFunction.c_str(), 0);
+        SendMICommand(m_session, cmd);
+        if (MICommandResultOK(cmd)) {
+            if (auto bp_res = get_dbgbp(cmd)) {
+                DVPRINT("Set main entry breakpoint on %s\n", m_mainFunction.c_str());
+                main_entry_BP.push_back(bp_res);
+            }
+        }
+    }
+    MICommandFree(cmd);
+
     // set up the parallel entry breakpoints
     for (auto&& str: parallel_entry_pt_strs) {
         cmd = MIBreakInsert(0, 0, 0, NULL, 0, str.c_str(), 0);
@@ -861,8 +871,8 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
         // command succeeded. We expect many of these to fail.
         if (MICommandResultOK(cmd)) {
             if (auto bp_res = get_dbgbp(cmd)) {
-                auto& bps = (str == "main" ? main_entry_BP : parallel_entry_BP);
-                bps.push_back(bp_res);
+                DVPRINT("Set parallel entry breakpoint on %s\n", str.c_str());
+                parallel_entry_BP.push_back(bp_res);
             }
         }
         MICommandFree(cmd);
@@ -880,6 +890,7 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
             if (MICommandResultOK(cmd)) {
                 if (auto bp_res = get_dbgbp(cmd)) {
                     bp_res->bp_type = DBGBP_EXIT_TYPE;
+                    DVPRINT("Set parallel entry breakpoint on %s\n", str.c_str());
                     m_exitBP.push_back(bp_res);
                 }
             }
@@ -906,7 +917,7 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
 ** Initialize debugger, make sure we are using
 ** the correct version, etc.
 */
-dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args) {
+dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args, const char *main_function) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
@@ -929,17 +940,31 @@ dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args) {
         FreeEvent(e);
     }
 
-    /*
-    ** Check for fortran.
-    */
-    cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MAIN__", 0);
-    SendMICommand(m_session, cmd);
-    if (MICommandResultOK(cmd)) {
-        /*
-        ** We are Fortran
-        */
-        ProgMain = "MAIN__";
-    } else {
+    // If main function name was supplied, use that.
+    // Otherwise, fall back to detection defaults.
+    if (main_function != nullptr) {
+        MICommandFree(cmd);
+        cmd = MIBreakInsert(0, 0, 0, NULL, 0, main_function, 0);
+        SendMICommand(m_session, cmd);
+        if (MICommandResultOK(cmd)) {
+            DVPRINT("InitDbg(): Breakpoint set at %s\n", main_function);
+            m_mainFunction = main_function;
+        } else {
+            DVPRINT("InitDbg(): Failed to set breakpoint on %s, falling back to main\n", main_function);
+        }
+    }
+
+    // Check for fortran.
+    if (m_mainFunction.empty()) {
+        cmd = MIBreakInsert(0, 0, 0, NULL, 0, "MAIN__", 0);
+        SendMICommand(m_session, cmd);
+        if (MICommandResultOK(cmd)) {
+            // We are Fortran
+            m_mainFunction = "MAIN__";
+        }
+    }
+
+    if (m_mainFunction.empty()) {
         MICommandFree(cmd);
         cmd = MIBreakInsert(0, 0, 0, NULL, 0, "main", 0);
         SendMICommand(m_session, cmd);
@@ -948,13 +973,11 @@ dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args) {
             EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not set break at main.");
             return e;
         }
-        /*
-        ** We are C
-        */
-        ProgMain = "main";
-
-        DVPRINT("InitDbg(): Breapoint set at main.\n");
+        // We are C
+        m_mainFunction = "main";
     }
+
+    DVPRINT("InitDbg(): Breakpoint set at %s\n", m_mainFunction.c_str());
     bpts = MIBreakpointGetBreakInsertInfo(cmd);
     MICommandFree(cmd);
 
@@ -1018,7 +1041,7 @@ dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args) {
     CLIInfoProcInfoFree(procInfo);
     MICommandFree(cmd);
 
-    DVPRINT("InitDbg(): ProgMain=%s Pid=%d.\n", ProgMain, m_pid);
+    DVPRINT("InitDbg(): ProgMain=%s Pid=%d.\n", m_mainFunction.c_str(), m_pid);
     if (prog) m_executable = prog;
     return NewEvent(DBGEV_OK);
 }
@@ -1028,11 +1051,16 @@ dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args) {
 ** Attach debugger. Added specifically for Cray XT / ALPS, but it works
 ** for other platforms as well.
 */
-dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
+dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog, const char *main_function) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     CLIInfoProcInfo *procInfo;
+
+    // Set global main function name if provided
+    m_mainFunction = (main_function != nullptr)
+        ? main_function
+        : "main";
 
     cmd = MITargetAttach(pid);
 
@@ -1088,7 +1116,7 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog) {
         m_pid = pid;
     }
 
-    DVPRINT("InitDbgAttach(): Obtained pid: %d.\n", m_pid);
+    DVPRINT("InitDbgAttach(): Obtained main function: %s pid: %d.\n", m_mainFunction.c_str(), m_pid);
     if (prog) m_executable = prog;
     return NewEvent(DBGEV_OK);
 }

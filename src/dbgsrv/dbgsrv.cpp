@@ -74,6 +74,7 @@ const struct option long_opts[] = {
     {"gdb", required_argument, 0, 'b'},
     {"program", required_argument, 0, 'f'},
     {"vgdb-command-file", required_argument, 0, 'v'},
+    {"main-function", required_argument, 0, 'm'},
     {0, 0, 0, 0}};
 
 int Shutdown = 0;
@@ -125,6 +126,7 @@ int main(int argc, char *argv[], char *env[]) {
     const char *jobKey = NULL;
     dbgevent_t *e = nullptr;
     char *vgdb_command_file = nullptr;
+    char *main_function = nullptr;
 
     if (argc >= 2 && strcmp(argv[1], "--has-tests") == 0) {
         return hasUnitTests();
@@ -229,6 +231,15 @@ int main(int argc, char *argv[], char *env[]) {
                 }
                 vgdb_command_file = strdup(optarg);
                 DVPRINT("vgdb-command-file: %s\n", optarg);
+                break;
+
+            case 'm':
+                if (optarg == nullptr || *optarg == '\0') {
+                    fprintf(stderr, "--main-function passed without an argument.\n");
+                    return 1;
+                }
+                main_function = strdup(optarg);
+                DVPRINT("main-function: %s\n", optarg);
                 break;
 
             default:
@@ -350,9 +361,10 @@ int main(int argc, char *argv[], char *env[]) {
 
         // attach to application directly
         if (vgdb_command_file == nullptr) {
-            DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s\n", pid, prog);
+            DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s main_function:%s\n", pid, prog,
+                (main_function) ? main_function : "(none detected)");
             DBEPERFLOG(SetTimerStart("DbgAttach"));
-            e = DbgAttach(pid, prog, nullptr, env);
+            e = DbgAttach(pid, prog, nullptr, env, main_function);
             DBEPERFLOG(SetTimerStopAndLog("DbgAttach"));
 
         // attach to remote GDB server

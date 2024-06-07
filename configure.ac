@@ -161,6 +161,15 @@ AC_ARG_WITH([python],
 	    [python_mode=no]
 	    )
 
+dnl Check for --with-elfutils
+AC_ARG_WITH([elfutils],
+	    [AS_HELP_STRING([--with-elfutils],
+			    [Specify path to elfutils library.]
+			    )
+	    ],
+	    [elfutils_path=$withval]
+	    )
+
 
 #########################
 ### Setup env options ###
@@ -238,7 +247,6 @@ if test "x$python_mode" = xyes; then
 	PKG_CHECK_MODULES([PYTHON3], [python3], [], [AC_MSG_ERROR([python3 package not found.])])
 fi
 
-
 ############################
 ### Check for libraries. ###
 ############################
@@ -300,6 +308,14 @@ else
 	fi
 fi
 
+dnl Check for elfutils
+LDFLAGS="$LDFLAGS -L$elfutils_path/lib"
+AC_CHECK_LIB(	[dw],
+				[dwfl_module_nextcu],
+				[AC_SUBST([elfutils_libs], ["-ldw -lelf"])],
+				[AC_MSG_ERROR([You must have elfutils libraries to compile gdb4hpc.])]
+				)
+
 dnl Conditional check for mrnet libs
 if test "x$mrnet_mode" = xyes; then
 	dnl Check for the mrnet libs
@@ -308,7 +324,7 @@ if test "x$mrnet_mode" = xyes; then
 		AC_MSG_RESULT([$mrnet_root/lib/libmrnet.so])
 	else
 		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([libmrnet.so not found in given path.])
+		AC_MSG_ERROR([libmrnet.so not found in $mrnet_root/lib.])
 	fi
 
 	AC_MSG_CHECKING([for libxplat.a])
@@ -397,6 +413,16 @@ else
 		AC_MSG_RESULT([not found])
 		AC_MSG_ERROR([libssh2.h not found. Please provide install location of libssh2 to --with-libssh2])
 	fi
+fi
+
+dnl Check for elfutils headers
+AC_MSG_CHECKING([for dwarf.h])
+if test -f "$elfutils_path/include/dwarf.h"; then
+	CPPFLAGS="$CPPFLAGS -I$elfutils_path/include"
+	AC_MSG_RESULT([$elfutils_path/include/dwarf.h])
+else
+	AC_MSG_RESULT([not found])
+	AC_MSG_ERROR([dwarf.h not found. Please provide install location of elfutils to --with-elfutils])
 fi
 
 dnl Check for mrnet headers

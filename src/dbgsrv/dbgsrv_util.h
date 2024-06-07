@@ -43,5 +43,4 @@ void ParseDBGExpr(const char *, char *, char *, char *);
 // in megabytes.
 unsigned long GetProcSize();
 
-
 #endif /* !_DBGSRV_UTIL_H */

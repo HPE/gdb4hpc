@@ -12,6 +12,7 @@
 
 #include "useful.h"
 #include "signal_util.h"
+#include "dwarfinfo.h"
 
 #include "common_tools_fe.h"
 
@@ -308,6 +309,20 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     if (isNonMpi)         dbgsrvArgs << "--non-mpi";
     if (!opts.gdb.empty() && serverGdb) dbgsrvArgs << "--gdb" << *serverGdb;
     if (!opts.vgdb_file.empty()) dbgsrvArgs << "--vgdb-command-file" << opts.vgdb_file;
+
+    // Find explicit entry function name if available
+    if (prog) {
+        try {
+            LOG("Looking for explicit entry function in %s\n", prog);
+            if (auto main_function = DwarfInfo{prog}.getMainSubprogram(); !main_function.empty()) {
+                dbgsrvArgs << "--main-function" << main_function;
+                LOG("Found %s\n", main_function.c_str());
+            }
+
+        } catch (std::exception const& ex) {
+            LOG("%s\n", ex.what());
+        }
+    }
 
 #if DEBUG
     LOG("zmqnet argv:\n");

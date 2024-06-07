@@ -66,8 +66,8 @@ public:
     dbgevent_t *quit(bool detach);
     dbgevent_t *interrupt(bool all);
     dbgevent_t *launch(const char *host, int cp, const char *proto, const char *prog,
-                               const char *args, char **env);
-    dbgevent_t *attach(int pid, const char *prog, const char *args, char **env);
+                               const char *args, char **env, const char *main_function);
+    dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, const char *main_function);
     dbgevent_t *targetRemote(const char* target_remote);
     void finalize();
     bool isReadyForCmd();
@@ -148,8 +148,8 @@ public:
     Initializer(DbgGdbMI& dbg);
     dbgevent_t* init(int *dfd, int *iofd, char **env);
     dbgevent_t* startup();
-    dbgevent_t* initDbg(const char *prog, const char *args);
-    dbgevent_t* initDbgAttach(int pid, const char *prog);
+    dbgevent_t* initDbg(const char *prog, const char *args, const char *main_function);
+    dbgevent_t* initDbgAttach(int pid, const char *prog, const char *main_function);
     dbgevent_t* initDbgTargetRemote(const char *target_remote);
     dbgevent_t* setArgs(const char* args);
     dbgevent_t* quit(bool detach);
@@ -195,6 +195,7 @@ private:
     int m_pid;
     char* m_runArgs;
     std::string m_executable;
+    std::string m_mainFunction;
     bool m_ignoreSigstop = false;
     bool m_isNonMPI = false;
 };

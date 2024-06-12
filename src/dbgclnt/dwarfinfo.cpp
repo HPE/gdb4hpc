@@ -77,7 +77,8 @@ std::string DwarfInfo::getDieName(int tag, int attr)
 
 DwarfInfo::DwarfInfo(std::string const& binary)
 {
-    Dwfl_Callbacks callbacks = {
+    // dwfl_begin takes the address of a callbacks struct but does not take ownership of or free it.
+    const static Dwfl_Callbacks callbacks = {
         .find_elf = dwfl_linux_proc_find_elf,
         .find_debuginfo = dwfl_standard_find_debuginfo,
         .section_address = {},

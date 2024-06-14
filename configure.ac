@@ -79,9 +79,7 @@ AC_ARG_WITH([zmqnet],
 			    [Enable zmqnet support in gdb4hpc.]
 			    )
 	    ],
-	    [zmqnet_mode=yes
-	     zmqnet_root=$withval
-	    ],
+	    [zmqnet_mode=yes],
 	    [zmqnet_mode=no]
 	    )
 
@@ -236,6 +234,11 @@ fi
 dnl Check for zmqnet
 if test "x$zmqnet_mode" = xyes; then
 	AC_DEFINE([ZMQNET], [1], [Enable zmqnet support in gdb4hpc.])
+
+	# Ensure capnp compiler is available
+	AC_CHECK_FILE([$ZMQNET_DEVEL_SUPPORT_DIR/bin/capnp],
+		[AC_SUBST([ZMQNET_DEVEL_SUPPORT_DIR], ["$ZMQNET_DEVEL_SUPPORT_DIR"])],
+		[AC_MSG_FAILURE([capnp compiler not found in cray-zmqnet-devel])])
 fi
 
 ############################
@@ -250,6 +253,18 @@ fi
 ############################
 ### Check for libraries. ###
 ############################
+
+dnl
+dnl Check for pkg-config
+dnl
+PKG_PROG_PKG_CONFIG
+
+PKG_CHECK_MODULES([CRAY_CTI_FE],        [common_tools_fe],[],[AC_MSG_ERROR([libcommontools_fe.so not found.])])
+PKG_CHECK_MODULES([CRAY_CTI_BE],        [common_tools_be],[],[AC_MSG_ERROR([libcommontools_be.so not found.])])
+PKG_CHECK_MODULES([EDITLINE], 		[libedit],[],[AC_MSG_ERROR([libedit.so not found.])])
+PKG_CHECK_MODULES([ZMQNET], 		[libzmqnet],[],[AC_MSG_ERROR([ZMQNet pkgconfig file not found])])
+PKG_CHECK_MODULES([LRLEBITSET], 	[libLrleBitset],[],[AC_MSG_ERROR([lrlebitset pkgconfig file not found])])
+PKG_CHECK_MODULES([CAPNP], 		[capnp],[],[AC_MSG_ERROR([capnp pkgconfig file not found])])
 
 dnl Check for libmi
 if test "x$GDB" != xno && test "x$mi_mode" != xno; then
@@ -343,34 +358,19 @@ fi
 
 dnl Conditional check for zmqnet libs
 if test "x$zmqnet_mode" = xyes; then
-	AC_MSG_CHECKING([for libzmqnet.so])
-	if test -f "$zmqnet_root/lib/libzmqnet.so"; then
-		AC_MSG_RESULT([$zmqnet_root/lib/zmqnet.so])
-	else
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([libzmqnet.so not found in given path.])
-	fi
-
-	LDFLAGS="$LDFLAGS -L$zmqnet_root/lib"
-
-	dnl add the zmqnet substitution
-	AC_SUBST([zmqnet_root], ["$zmqnet_root"])
+	save_LDFLAGS="$LDFLAGS"
+	LDFLAGS="$LDFLAGS $ZMQNET_LIBS"
+	AX_CXX_CHECK_LIB([zmqnet], [zmqnet::SyncFrontend::runExit()], [
+	  AC_DEFINE([HAVE_ZMQNET], [1], [Define to 1 if you have the zmqnet library (-lzmqnet).])
+	], [
+	  AC_MSG_ERROR([libzmqnet not found.])
+	])
+	LDFLAGS="$save_LDFLAGS"
 fi
 
 if test "x$doctest_mode" = xyes; then
     AC_SUBST([doctest_root], ["$doctest_root"])
 fi
-
-dnl Conditional check for pkg-config libs
-
-dnl
-dnl Check for pkg-config
-dnl
-PKG_PROG_PKG_CONFIG
-
-PKG_CHECK_MODULES([CRAY_CTI_FE],        [common_tools_fe],[],[AC_MSG_ERROR([libcommontools_fe.so not found.])])
-PKG_CHECK_MODULES([CRAY_CTI_BE],        [common_tools_be],[],[AC_MSG_ERROR([libcommontools_be.so not found.])])
-PKG_CHECK_MODULES([EDITLINE], 		[libedit],[],[AC_MSG_ERROR([libedit.so not found.])])
 
 ###############################
 ### Check for header files. ###
@@ -442,17 +442,17 @@ if test "x$mrnet_mode" = xyes; then
         fi
 fi
 
-dnl Check for zmqnet headers
+dnl Check for ZMQNet headers
 if test "x$zmqnet_mode" = xyes; then
-	AC_MSG_CHECKING([for zmqnet.hpp])
-	if test -f "$zmqnet_root/include/zmqnet.hpp"; then
-		AC_MSG_RESULT([$zmqnet_root/include/zmqnet.hpp])
-	else
-		AC_MSG_RESULT([not found])
-		AC_MSG_ERROR([zmqnet.hpp not found. Please provide install location of zmqnet to --with-zmqnet=<zmqnet directory root>])
-	fi
+	save_CXXFLAGS="$CXXFLAGS"
+	CXXFLAGS="$CXXFLAGS $ZMQNET_CFLAGS"
+	AC_CHECK_HEADER([zmqnet.h],
+	      [],
+	      [AC_MSG_FAILURE([zmqnet.h not found.])],
+	      []
+	      )
+	CXXFLAGS="$save_CXXFLAGS"
 fi
-
 
 #####################################################################
 ### Check for typedefs, structures, and compiler characteristics. ###

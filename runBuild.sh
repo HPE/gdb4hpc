@@ -30,6 +30,9 @@ check_exit_status
 module load cray-mrnet
 check_exit_status
 
+module load cray-zmqnet-devel
+check_exit_status
+
 module list
 
 # Create install directory
@@ -159,25 +162,6 @@ cp -a $install_dir/bin/gdb $install_dir/libexec/gdb-guard
 check_exit_status
 
 echo "############################################"
-echo "#             Building zmqnet              #"
-echo "############################################"
-
-cd $top_level/external/zmqnet
-check_exit_status
-
-# hack: make sure that the zmqnet build script properly imports the build 
-#       library for its own use.
-unset CDST_capture_jenkins_build
-unset CDST_cdst_config
-unset CDST_check_exit
-unset CDST_get_branch_info
-unset CDST_get_os_info
-unset CDST_install_common_pe
-
-install_dir=$install_dir ./runBuildModule.sh
-check_exit_status
-
-echo "############################################"
 echo "#             Building ompd plugin         #"
 echo "############################################"
 
@@ -261,7 +245,7 @@ check_exit_status
 autoreconf -ifv
 check_exit_status
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall ${mrnet_cflags} ${python_cflags}" CXXFLAGS="-g -O2 -Wall -Wextra -Werror ${mrnet_cxxflags} ${python_cflags}" LDFLAGS="${mrnet_ldflags} ${python_ldflags} ${python_libs}" ./configure --prefix=$install_dir --with-rd --with-mrnet=${mrnet_base_directory} --with-zmqnet=$install_dir --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-elfutils=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-python --with-doctest=${top_level}/external/doctest --enable-doctest
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall ${mrnet_cflags} ${python_cflags}" CXXFLAGS="-g -O2 -Wall -Wextra -Werror ${mrnet_cxxflags} ${python_cflags}" LDFLAGS="${mrnet_ldflags} ${python_ldflags} ${python_libs}" ./configure --prefix=$install_dir --with-rd --with-mrnet=${mrnet_base_directory} --with-zmqnet=yes --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-elfutils=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-python --with-doctest=${top_level}/external/doctest --enable-doctest
 
 check_exit_status
 

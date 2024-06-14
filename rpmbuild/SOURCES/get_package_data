@@ -32,7 +32,13 @@ mrnetversionmin=$(echo ${MRNET_VERSION} | awk -F . '{ print $1"."$2 }')
 tmpver=$(echo ${MRNET_VERSION} | awk -F . '{ print $1 }')
 mrnetversionmax=$(($tmpver+1))
 
-arguments=$(getopt -o csmtxdepb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,pythonversion,branch -n ${0} -- "$@")
+zmqnetversionmin=$(echo ${ZMQNET_DEVEL_VERSION} | awk -F . '{ print $1"."$2 }')
+tmpver=$(echo ${ZMQNET_DEVEL_VERSION} | awk -F . '{ print $1 }')
+zmqnetversionmax=$(($tmpver+1))
+
+arguments=$(getopt -o csmtxdefgb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,zmqnetversionmin,zmqnetversionmax,branch -n ${0} -- "$@")
+
+arguments=$(getopt -o csmtxdefgpb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,zmqnetversionmin,zmqnetversionmax,pythonversion,branch -n ${0} -- "$@")
 
 if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
 
@@ -45,6 +51,8 @@ while true ; do
         -x|--ctiversionmax) echo "${ctiversionmax}" ; shift ;;
         -d|--mrnetversionmin) echo "${mrnetversionmin}" ; shift ;;
         -e|--mrnetversionmax) echo "${mrnetversionmax}" ; shift ;;
+        -f|--zmqnetversionmin) echo "${zmqnetversionmin}" ; shift ;;
+        -g|--zmqnetversionmax) echo "${zmqnetversionmax}" ; shift ;;
         -p|--pythonversion) echo "${pythonversion}" ; shift ;;
         -b|--branch) echo "${branch}" ; shift ;;
         *) break ;;

@@ -3,7 +3,6 @@ GRAM	= @gdb4hpc_srcdir@/gram
 DBGCOMM	= @gdb4hpc_srcdir@/dbgcomm
 MRNET_ROOT	= @mrn_root@
 BITSET  = @gdb4hpc_srcdir@/bitset
-ZMQNET_ROOT  = @zmqnet_root@
 UNITTEST   = @gdb4hpc_srcdir@/unittest
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(UNITTEST)
@@ -16,14 +15,13 @@ AM_LIBTOOLFLAGS = --silent
 # Check for MRNet
 if MRNET
 AM_CXXFLAGS	+= -I$(MRNET_ROOT) -I$(BITSET)
-MRN_LIBS	= -L$(MRNET_ROOT)/lib -lmrnet $(BITSET)/libbitset.la
+MRN_LIBS	= -L$(MRNET_ROOT)/lib -lmrnet
 MRN_SRV		= dbg_mrn_be.cpp dbgsrv_mrn.cpp mrn_topo.cpp
 endif
 
 # Check for ZMQNet
 if ZMQNET
-AM_CXXFLAGS += -I$(ZMQNET_ROOT)/include -I$(BITSET)
-ZMQNET_LIBS  = -L$(ZMQNET_ROOT)/lib -lkj -lcapnp -lzmqnet $(BITSET)/libbitset.la
+AM_CXXFLAGS += $(ZMQNET_CFLAGS) -I$(BITSET)
 ZMQNET_SRV   = dbgsrv_zmq.cpp
 endif
 
@@ -66,8 +64,9 @@ libexec_PROGRAMS= dbgsrv $(CRAY_PROGS) dbgsrv_trampoline
 dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp \
 				  $(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
 dbgsrv_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
-				  $(USEFUL)/libuseful.a $(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) -lm \
-				  $(CRAYTOOL_LIBS) -lstdc++ -lstdc++fs -lpthread
+				  $(USEFUL)/libuseful.a $(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) \
+				  $(BITSET)/libbitset.la $(CRAYTOOL_LIBS) \
+				  -lm -lstdc++ -lstdc++fs -lpthread
 dbgsrv_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
 				  -Wl,-rpath,\$$ORIGIN -Wl,-rpath,/opt/cray/pe/lib64 \
 				  -Wl,-rpath,/opt/cray/lib64 -Wl,--enable-new-dtags

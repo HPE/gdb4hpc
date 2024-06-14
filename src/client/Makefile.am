@@ -5,7 +5,6 @@ DBGCOMM	= @gdb4hpc_srcdir@/dbgcomm
 MRNET_ROOT	= @mrn_root@
 BITSET	= @gdb4hpc_srcdir@/bitset
 SCRIPT	= @gdb4hpc_srcdir@/script
-ZMQNET_ROOT  = @zmqnet_root@
 UNITTEST     = @gdb4hpc_srcdir@/unittest
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCLNT) -I$(DBGCOMM) \
@@ -33,8 +32,8 @@ endif
 
 # Check for ZMQNet libraries
 if ZMQNET
-AM_CXXFLAGS	+= -I$(ZMQNET_ROOT)/include
-ZMQN_LIBS 	= -L$(ZMQNET_ROOT)/lib -lzmqnet -lkj -lcapnp
+AM_CXXFLAGS	+= $(ZMQNET_CFLAGS)
+ZMQN_LIBS 	= $(ZMQNET_LIBS)
 endif
 
 # Check for python

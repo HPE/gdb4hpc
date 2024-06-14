@@ -5,7 +5,6 @@ DBGCOMM	= @gdb4hpc_srcdir@/dbgcomm
 SCRIPT  = @gdb4hpc_srcdir@/script
 MRNET_ROOT	= @mrn_root@
 BITSET  = @gdb4hpc_srcdir@/bitset
-ZMQNET_ROOT  = @zmqnet_root@
 UNITTEST = @gdb4hpc_srcdir@/unittest
 
 AM_CXXFLAGS = -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(SCRIPT) -I$(UNITTEST)
@@ -22,7 +21,7 @@ MRN_PROTO	= dbgclnt_mrn.cpp dbg_mrn_network.cpp mrn_topgen.cpp
 endif
 
 if ZMQNET
-AM_CXXFLAGS += -I$(ZMQNET_ROOT)/include -I$(BITSET)
+AM_CXXFLAGS += $(ZMQNET_CFLAGS) -I$(BITSET)
 ZMQNET_PROTO = dbgclnt_zmq.cpp dbg_zmq_network.cpp
 endif
 

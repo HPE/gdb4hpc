@@ -142,7 +142,9 @@ fi
 # Install the common PE components
 install_common_pe
 
-# Install CDST support, CTI and mrnet
+# Install CDST support, CTI, zmqnet, and mrnet
+install_zmqnet
+check_exit_status
 install_mrnet
 check_exit_status
 

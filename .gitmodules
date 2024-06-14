@@ -38,7 +38,3 @@
 	path = external/changelog
 	url = git@github.hpe.com:hpcde/devops-changelog.git
 	branch = master
-[submodule "external/zmqnet"]
-	path = external/zmqnet
-	url = git@github.hpe.com:hpcde/cdst-zmqnet.git
-	branch = master

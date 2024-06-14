@@ -14,23 +14,21 @@ UNITTEST=@gdb4hpc_srcdir@/unittest
 
 AM_CXXFLAGS = -I$(GUARD) -I$(UNITTEST)
 
-if MRNET
-MRNET_BITSETS = sparse_bitset.cpp bitset_convert.cpp
-endif
-
-if ZMQNET
-# when zmqnet is built, the lrle_bitset.h header is installed in the gdb4hpc include directory.
-LRLE = @zmqnet_root@
-ZMQNET_BITSETS = lrunle_bitset.cpp
-ZMQNET_LDFLAG = -Wl,-rpath,$(LRLE)/lib
-ZMQNET_LIB = -L$(LRLE)/lib -lLrleBitset
-AM_CXXFLAGS += -I$(LRLE)/include
-endif
-
 lib_LTLIBRARIES = libbitset.la
 
 AM_LIBTOOLFLAGS = --quiet
 
-libbitset_la_SOURCES 	= bitset.cpp dense_bitset.cpp $(MRNET_BITSETS) $(ZMQNET_BITSETS)
-libbitset_la_LDFLAGS	= $(LDFLAGS) $(ZMQNET_LDFLAG) -shared -avoid-version
-libbitset_la_LIBADD     = $(ZMQNET_LIB) $(UNITTEST)/libgdb4_unittest.la
+libbitset_la_SOURCES 	= bitset.cpp dense_bitset.cpp
+libbitset_la_LDFLAGS	= $(LDFLAGS) -shared -avoid-version
+libbitset_la_LIBADD     = $(UNITTEST)/libgdb4_unittest.la
+
+if MRNET
+libbitset_la_SOURCES += sparse_bitset.cpp bitset_convert.cpp
+endif
+
+if ZMQNET
+libbitset_la_SOURCES += lrunle_bitset.cpp
+libbitset_la_CXXFLAGS = $(AM_CXXFLAGS) $(LRLEBITSET_CFLAGS)
+libbitset_la_LIBADD += $(LRLEBITSET_LIBS)
+endif
+

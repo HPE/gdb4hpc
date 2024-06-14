@@ -57,6 +57,10 @@
 %global mrnet_pkgversion_min %(%{_sourcedir}/get_package_data --mrnetversionmin)
 %global mrnet_pkgversion_max %(%{_sourcedir}/get_package_data --mrnetversionmax)
 
+# zmqnet version
+%global zmqnet_pkgversion_min %(%{_sourcedir}/get_package_data --zmqnetversionmin)
+%global zmqnet_pkgversion_max %(%{_sourcedir}/get_package_data --zmqnetversionmax)
+
 # Disable debug package
 %global debug_package %{nil}
 %global _build_id_links none
@@ -138,7 +142,7 @@ License:    HPE Proprietary
 Vendor:     Hewlett Packard Enterprise Development LP.
 Group:      Development/Tools/Debuggers
 Provides:   %{cray_name} = %{pkgversion}
-Requires:   set_default_3, cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}, cray-mrnet >= %{mrnet_pkgversion_min}, cray-mrnet < %{mrnet_pkgversion_max}
+Requires:   set_default_3, cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}, cray-mrnet >= %{mrnet_pkgversion_min}, cray-mrnet < %{mrnet_pkgversion_max}, cray-zmqnet >= %{zmqnet_pkgversion_min}, cray-zmqnet < %{zmqnet_pkgversion_max}
 Source0:    %{module_template_name}
 Source2:    %{release_notes_file}
 Source3:    %{attributions_name}
@@ -161,7 +165,7 @@ Tests for Cray gdb4hpc parallel debugger
 %setup -q -n %{name} -c -T
 %build
 # external build
-%{__sed} 's|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{version}-%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<DIST>|%{dist}.%{_target_cpu}|g;s|<ARCH>|%{_target_cpu}|g;s|<ATTRIBUTIONS_FILE_PATH>|%{cray_prefix}/%{product}/%{pkgversion}/%{attributions_name}|g;s|<cdst_version_range>|>= %{cdst_support_pkgversion_min}, < %{cdst_support_pkgversion_max}|g;s|<cti_version_range>|%{cti_pkgversion_min}, < %{cti_pkgversion_max}|g;s|<mrnet_version_range>|>= %{mrnet_pkgversion_min}, < %{mrnet_pkgversion_max}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_notes_file}
+%{__sed} 's|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{version}-%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<DIST>|%{dist}.%{_target_cpu}|g;s|<ARCH>|%{_target_cpu}|g;s|<ATTRIBUTIONS_FILE_PATH>|%{cray_prefix}/%{product}/%{pkgversion}/%{attributions_name}|g;s|<cdst_version_range>|>= %{cdst_support_pkgversion_min}, < %{cdst_support_pkgversion_max}|g;s|<cti_version_range>|%{cti_pkgversion_min}, < %{cti_pkgversion_max}|g;s|<mrnet_version_range>|>= %{mrnet_pkgversion_min}, < %{mrnet_pkgversion_max}|g;s|<zmqnet_version_range>|>= %{zmqnet_pkgversion_min}, < %{zmqnet_pkgversion_max}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_notes_file}
 %{__sed} 's|<COPYRIGHT>|%{copyright}|g' %{SOURCE3} > ${RPM_BUILD_DIR}/%{attributions_name}
 
 %install
@@ -180,15 +184,6 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/lib/libbitset.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libdbgagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libmi.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libcapnp-0.8-dev.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libkj-0.8-dev.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libLrleBitset.so.0.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libLrleBitset.so.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmq.so.5.2.5 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmq.so.5 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmqnet_libsodium.so* ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmqnet.so.1.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmqnet.so.1 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libzmqnetagg.so.0.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libzmqnetagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 # Libraries static
@@ -202,9 +197,6 @@ Tests for Cray gdb4hpc parallel debugger
 %{__gzip} -c %{external_build_dir}/libexec/dbgsrv_trampoline > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
 touch %{external_build_dir}/libexec/dbgsrv_trampoline
 %{__cp} -a %{external_build_dir}/libexec/gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
-
-%{__cp} -a %{external_build_dir}/libexec/commnode ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
-
 
 # Binaries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/bin
@@ -661,16 +653,6 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libdbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libmi.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libcapnp-0.8-dev.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libkj-0.8-dev.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libLrleBitset.so.0.0.0
-%{prefix}/%{cray_product}/%{pkgversion}/lib/libLrleBitset.so.0
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmq.so.5.2.5
-%{prefix}/%{cray_product}/%{pkgversion}/lib/libzmq.so.5
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet_libsodium.so
-%{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet_libsodium.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet.so.1.0.0
-%{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnet.so.1
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnetagg.so.0.0.0
 %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnetagg.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile
@@ -688,7 +670,6 @@ fi
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline.gz
 %ghost %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_trampoline
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/commnode
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/bin/gdb4hpc
 #gdb share
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/boost/__init__.py

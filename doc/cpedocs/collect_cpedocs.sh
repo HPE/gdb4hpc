@@ -38,7 +38,7 @@ done
 confirm_and_replace() {
 	# Relying on the fact that set -e was called at the top of the script for error checking
 	grep "$1" "$3"
-	sed -i "s/$1/$2/" "$3"
+	sed -i -e "s/$1/$2/" "$3"
 }
 
 confirm_and_replace "# NAME" "# gdb4hpc Man Page" "$OUTPUT_DIR/man/gdb4hpc.1.md"

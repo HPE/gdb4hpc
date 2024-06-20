@@ -43,6 +43,19 @@
 #include "dbgclnt_mrn.h"
 #include "dbgclnt_proto_ctiship.h"
 
+std::optional<std::filesystem::path> getLibDir() {
+    auto exe = std::filesystem::path{};
+    try {
+        exe = std::filesystem::canonical("/proc/self/exe");
+    } catch (std::exception& err) {
+        return std::nullopt;
+    }
+
+    // expecting to get <install dir>/bin/gdb4hpc
+    auto base = exe.parent_path().parent_path();
+    return base / "lib";
+}
+
 // Instantiation of the protocol - accessed via DebugClientProtocol::registry
 MRNClientProtocol DbgClntProtoMRN{};
 
@@ -255,6 +268,7 @@ int MRNClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
     char *env_base_dir = nullptr;
     std::optional<std::string> serverGdb = {};
     auto backend = opts.backend.c_str();
+    auto aggregationFilterPath = std::string{AGGREGATION_FILTER};
     
 #ifdef DEBUG
     dbg = 1;
@@ -586,7 +600,12 @@ int MRNClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
         "MRNet is going to create communication streams for the debugging "
         "network...\n");
 
-    if (network->create_streams_and_load_filter(AGGREGATION_FILTER,
+    // If install dir is available, get direct path to aggregation filter
+    if (auto maybeLibDir = getLibDir()) {
+        aggregationFilterPath = (*maybeLibDir / aggregationFilterPath);
+    }
+
+    if (network->create_streams_and_load_filter(aggregationFilterPath.c_str(),
                                               AGGREGATION_FUNC)) {
         PrintOutError(
             "ERROR: DbgMRNAttach failed to load filter functions and create "
@@ -723,6 +742,7 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     char **args = nullptr;
     char *env_base_dir = nullptr;
     std::optional<std::string> serverGdb = {};
+    auto aggregationFilterPath = std::string{AGGREGATION_FILTER};
 
     auto backend = opts.backend_name;
 
@@ -1165,7 +1185,12 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
         "MRNet is going to create communication streams for the debugging "
         "network...\n");
 
-    if (network->create_streams_and_load_filter(AGGREGATION_FILTER,
+    // If install dir is available, get direct path to aggregation filter
+    if (auto maybeLibDir = getLibDir()) {
+        aggregationFilterPath = (*maybeLibDir / aggregationFilterPath);
+    }
+
+    if (network->create_streams_and_load_filter(aggregationFilterPath.c_str(),
                                               AGGREGATION_FUNC)) {
         PrintOutError(
             "ERROR: DbgMRNInvoke failed to load filter functions and create "

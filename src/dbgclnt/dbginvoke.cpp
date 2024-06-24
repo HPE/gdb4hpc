@@ -411,6 +411,116 @@ TEST_CASE("DbgInvoke: Parse LaunchOpts") {
             CHECK_THROWS(LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi));
         }
     }
+
+    SUBCASE("python") {
+        SUBCASE("automatically detect python3") {
+            SUBCASE ("python3") {
+                const char* const argv[] = {
+                    "launch", "$a{1}", "python3",
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == true);
+            }
+            SUBCASE ("python3.11") {
+                const char* const argv[] = {
+                    "launch", "$a{1}", "python3.11",
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == true);
+            }
+            SUBCASE ("/usr/bin/python3") {
+                const char* const argv[] = {
+                    "launch", "$a{1}", "/usr/bin/python3",
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == true);
+            }
+            SUBCASE ("cray python") {
+                const char* const argv[] = {
+                    "launch", "$a{1}", "/global/opt/cray/pe/python/3.11.7/bin/python3.11",
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == true);
+            }
+        }
+
+        SUBCASE("manual --python flag") {
+            {   // ensure we aren't detecting python3 when it isn't there
+                const char* const argv[] = {
+                    "launch", "$a{1}", "./i-promise-this-is-pyth0n.x"
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == false);
+            }
+            {   // i promise it's there!
+                const char* const argv[] = {
+                    "launch", "$a{1}", "./i-promise-this-is-pyth0n.x", "--python"
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == true);
+            }
+            {   // different order
+                const char* const argv[] = {
+                    "launch", "$a{1}", "--python", "./i-promise-this-is-pyth0n.x",
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == true);
+            }
+            {   // short form
+                const char* const argv[] = {
+                    "launch", "$a{1}", "./i-promise-this-is-pyth0n.x", "-p"
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == true);
+            }
+        }
+
+        SUBCASE("manual --no-python flag") {
+            {
+                const char* const argv[] = {
+                    "launch", "$a{1}", "python3", "--no-python",
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == false);
+            }
+            {   // different order
+                const char* const argv[] = {
+                    "launch", "$a{1}", "--no-python", "python3",
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == false);
+            }
+            {   // short form
+                const char* const argv[] = {
+                    "launch", "$a{1}", "-P", "python3",
+                };
+                auto csi = MockClientSettings();
+                auto opts = LaunchOpts(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == false);
+            }
+        }
+    }
 }
 
 struct MockFs {
@@ -968,6 +1078,7 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
     int parsed_gpu_flag = -1;
     int parsed_debug_flag = -1;
     int parsed_non_mpi_flag = 0;
+    bool manually_specified_python_flag = false;
 
     std::optional<std::string> parsed_debug_dir;
 
@@ -988,6 +1099,8 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
         {"launcher", required_argument, 0, 'l'},
         {"gdb", required_argument, 0, 'b'},
         {"gdb-data-dir", required_argument, 0, 'B'},
+        {"python", no_argument, 0, 'p'},
+        {"no-python", no_argument, 0, 'P'},
         {0, 0, 0, 0}
     };
 
@@ -995,7 +1108,7 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
     /* extern int */ optind = 0;
 
     // This will permute the non-option stuff to the end, so parse that stuff last.
-    while ((opt = getopt_long(argc, argv, "a:g:i:d::b:l:e:q:s:", launch_long_opts, nullptr)) != -1) {
+    while ((opt = getopt_long(argc, argv, "a:g:i:d::b:l:e:q:s:pP", launch_long_opts, nullptr)) != -1) {
         switch (opt) {
             case 0:
                 // if this is a flag, do nothing
@@ -1107,6 +1220,16 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
                 opts.sbatch_file_path = withoutQuotes(optarg);
                 break;
 
+            case 'p':
+                job_opt.python = true;
+                manually_specified_python_flag = true;
+                break;
+
+            case 'P':
+                job_opt.python = false;
+                manually_specified_python_flag = true;
+                break;
+
             default:
                 throw std::runtime_error("Invalid launch argument provided. See \"help launch\" for usage.");
         }
@@ -1175,6 +1298,12 @@ static auto parse_argv_section(LaunchOpts& opts, int argc, char** argv) {
         if (!DbgSetLogDir(*parsed_debug_dir)) {
             throw std::runtime_error("--debug must be a directory writeable by the user");
         }
+    }
+
+    // auto detect python if a manual option wasn't specified
+    // TODO: make this better
+    if (!manually_specified_python_flag && job_opt.app_argv.argc() > 0) {
+        job_opt.python = job_opt.app_argv[0].find("python3") != std::string::npos;
     }
 
     // Update job options

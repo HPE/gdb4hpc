@@ -682,6 +682,10 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
                    nullptr, class_maint_show_help,
                    "Show information about the debugger environment.");
 
+    root.addSubCmd("maint pybe", nullptr, proc_ignore,
+                   nullptr, nullptr,
+                   "Control the python debugger backend.");
+
     root.addSubCmd("unset", nullptr, proc_ignore,
                    nullptr, class_unset_help,
                    "Unset information in the debugger environment.");

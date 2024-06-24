@@ -108,6 +108,18 @@ AC_ARG_ENABLE(doctest, "Controls compilation of unit tests in binary.",
 dnl Put doctest.h into build directory. This simplifies what test writers have to #include
 AC_CONFIG_LINKS([src/unittest/doctest.h:$doctest_root/doctest/doctest.h])
 
+dnl Check for --with-tinystl
+AC_ARG_WITH([tinystl],
+            [AS_HELP_STRING([--with-tinystl],
+			    [Location of tinystl]
+			    )
+	    ],
+        [tinystl_mode=yes
+         tinystl_root=$withval
+	    ],
+        [tinystl_mode=no]
+	    )
+
 dnl Check for --with-gdbmi
 AC_ARG_WITH([gdbmi],
 	    [AS_HELP_STRING([--with-gdbmi],
@@ -242,15 +254,6 @@ if test "x$zmqnet_mode" = xyes; then
 fi
 
 ############################
-### Check for python.    ###
-############################
-
-if test "x$python_mode" = xyes; then
-	AC_DEFINE([USE_PYTHON], [1], [Enable python support in gdb4hpc.])
-	PKG_CHECK_MODULES([PYTHON3], [python3], [], [AC_MSG_ERROR([python3 package not found.])])
-fi
-
-############################
 ### Check for libraries. ###
 ############################
 
@@ -258,6 +261,18 @@ dnl
 dnl Check for pkg-config
 dnl
 PKG_PROG_PKG_CONFIG
+
+if [[ "x$python_mode" == "xyes" ]]; then
+	AM_PATH_PYTHON([3])
+	AC_DEFINE([USE_PYTHON], [1], [Enable python support in gdb4hpc.])
+	# XXX: this is a horrible hack to get builds passing on our current pipelines until PE-54678,
+	#      where this will have to be revisited anyway.
+	if [[ "x$PYTHON_VERSION" == "x3.9" ]]; then
+		PKG_CHECK_MODULES([PYTHON3], [python-3.9-embed], [], [AC_MSG_ERROR([python-3.9-embed package not found.])])
+	else
+		PKG_CHECK_MODULES([PYTHON3], [python3], [], [AC_MSG_ERROR([python3 package not found.])])
+	fi
+fi
 
 PKG_CHECK_MODULES([CRAY_CTI_FE],        [common_tools_fe],[],[AC_MSG_ERROR([libcommontools_fe.so not found.])])
 PKG_CHECK_MODULES([CRAY_CTI_BE],        [common_tools_be],[],[AC_MSG_ERROR([libcommontools_be.so not found.])])
@@ -370,6 +385,18 @@ fi
 
 if test "x$doctest_mode" = xyes; then
     AC_SUBST([doctest_root], ["$doctest_root"])
+fi
+
+if test "x$tinystl_mode" = xyes; then
+    AC_SUBST([tinystl_root], ["$tinystl_root"])
+
+    AC_MSG_CHECKING([for tinystl headers])
+    if test -f "$tinystl_root/include/TINYSTL/string.h"; then
+        AC_MSG_RESULT([$tinystl_root/include/TINYSTL/string.h])
+    else
+        AC_MSG_RESULT([not found])
+        AC_MSG_ERROR([tinystl headers not found. Please provide install location of tinystl to --with-tinystl=<tinystl directory root>])
+    fi
 fi
 
 ###############################

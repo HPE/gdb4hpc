@@ -245,7 +245,19 @@ check_exit_status
 autoreconf -ifv
 check_exit_status
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall ${mrnet_cflags} ${python_cflags}" CXXFLAGS="-g -O2 -Wall -Wextra -Werror ${mrnet_cxxflags} ${python_cflags}" LDFLAGS="${mrnet_ldflags} ${python_ldflags} ${python_libs}" ./configure --prefix=$install_dir --with-rd --with-mrnet=${mrnet_base_directory} --with-zmqnet=yes --with-gdbmi=$install_dir --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-elfutils=${CRAY_CDST_SUPPORT_INSTALL_DIR} --with-cray --with-python --with-doctest=${top_level}/external/doctest --enable-doctest
+PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall -Wextra -Werror ${mrnet_cflags}" CXXFLAGS="-g -O2 -Wall -Wextra -Werror ${mrnet_cxxflags}" LDFLAGS=${mrnet_ldflags} ./configure \
+  --prefix=$install_dir \
+  --with-rd \
+  --with-mrnet=${mrnet_base_directory} \
+  --with-zmqnet=yes \
+  --with-gdbmi=$install_dir \
+  --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} \
+  --with-elfutils=${CRAY_CDST_SUPPORT_INSTALL_DIR} \
+  --with-cray \
+  --with-python \
+  --with-tinystl=${top_level}/external/tinystl \
+  --with-doctest=${top_level}/external/doctest \
+  --enable-doctest
 
 check_exit_status
 

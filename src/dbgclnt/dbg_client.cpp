@@ -1529,8 +1529,10 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
         FreeEvent(e);
     }
 
-    // Check for startup function presence if unsafe is false
-    if (!args.unsafe_flag && !args.job_opts[0].non_mpi_flag) {
+    // Check for startup function presence if unsafe is false.
+    // Slurm doesn't require any special MPI symbols be present
+    // in the binary so we can skip the check on slurm machines.
+    if (!args.unsafe_flag && !args.job_opts[0].non_mpi_flag && cti_current_wlm() != CTI_WLM_SLURM) {
         if (auto fe = di->frontendGdb()) {
             e = fe->checkStartupFunc();
 
@@ -2765,6 +2767,24 @@ rep_set_t DbgPythonPrint(rec_set_t* rec, std::string_view name) {
 rep_set_t DbgPythonLocals(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYLOCALS);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
+    return result;
+}
+
+rep_set_t DbgPythonBEInject(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYBEINJECT);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
+    return result;
+}
+
+rep_set_t DbgPythonBEGetGIL(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYBEGETGIL);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
+    return result;
+}
+
+rep_set_t DbgPythonBEBacktrace(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYBEBACKTRACE);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
     return result;
 }
 

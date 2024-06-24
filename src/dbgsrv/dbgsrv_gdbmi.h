@@ -108,6 +108,10 @@ public:
     dbgevent_t* pythonPrint(const std::string& name);
     dbgevent_t* pythonLocals();
 
+    dbgevent_t* pythonBEInject();
+    dbgevent_t* pythonBEBacktrace();
+    dbgevent_t* pythonBEGetGIL();
+
     MIEvent* waitForAsyncEvent();
     dbgevent_t* waitAndProcessAsyncEvent();
     int flushAsyncEvents();

@@ -466,6 +466,21 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             e = DbgPythonLocals();
             break;
         }
+
+        case DBGCMD_PYBEINJECT: {
+            e = DbgPythonBEInject();
+            break;
+        }
+
+        case DBGCMD_PYBEGETGIL: {
+            e = DbgPythonBEGetGIL();
+            break;
+        }
+
+        case DBGCMD_PYBEBACKTRACE: {
+            e = DbgPythonBEBacktrace();
+            break;
+        }
     }
 
     // Convert the event to network protocol and send it

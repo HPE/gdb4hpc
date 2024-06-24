@@ -75,11 +75,16 @@ enum dbgcmd {
     DBGCMD_SHELL,
     DBGCMD_GETARGS,
     DBGCMD_SIGNAL,
+    // TODO: rename all DBGCMD_PY* to be more clear about which use gdb python extensions
+    //       and which use libgdb4_pybe.so.
     DBGCMD_PYBT,
     DBGCMD_PYLIST,
     DBGCMD_PYMOVEFRAME,
     DBGCMD_PYPRINT,
     DBGCMD_PYLOCALS,
+    DBGCMD_PYBEINJECT,
+    DBGCMD_PYBEGETGIL,
+    DBGCMD_PYBEBACKTRACE,
 };
 
 enum class DbgFrameDir { DOWN, UP, ABSOLUTE };

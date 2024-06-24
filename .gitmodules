@@ -38,3 +38,7 @@
 	path = external/changelog
 	url = git@github.hpe.com:hpcde/devops-changelog.git
 	branch = master
+[submodule "external/tinystl"]
+	path = external/tinystl
+	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-mendsley-tinystl.git
+	branch = hpe

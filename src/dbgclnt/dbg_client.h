@@ -468,11 +468,30 @@ rep_set_t DbgSignal(rec_set_t *, const char* signame);
 // these require python extensions on the backend gdb and a python interpreter
 // with debug info. if something is missing, these return rep_sets with
 // errors explaining so. see python.md.
+//
+// TODO: rename these to be more clear that they are using python gdb extensions
+//       and not libgdb4_pybe.so
+
 rep_set_t DbgPythonBacktrace(rec_set_t* rec);
 rep_set_t DbgPythonList(rec_set_t* rec, std::string_view list_arg);
 rep_set_t DbgPythonMoveFrame(rec_set_t* rec, DbgFrameDir dir);
 rep_set_t DbgPythonPrint(rec_set_t* rec, std::string_view name);
 rep_set_t DbgPythonLocals(rec_set_t* rec);
+
+// TODO: write full doc comments for these functions when the API is more concrete
+
+// `DbgPythonBEInject` injects libgdb4_pybe.so into the user's app via dlopen. This
+// must be done before any of the other `DbgPythonBE...` functions.
+rep_set_t DbgPythonBEInject(rec_set_t* rec);
+
+// `DbgPythonBEGetGIL` spawns a thread in the user's app that obtains the
+// cpython global interpreter lock and then halts all of the app's threads. Once
+// the lock is obtained, gdb is free to use the Python C API to implement the
+// other DbgPythonBE functions.
+rep_set_t DbgPythonBEGetGIL(rec_set_t* rec);
+
+// `DbgPythonBEBacktrace` returns a python backtrace.
+rep_set_t DbgPythonBEBacktrace(rec_set_t* rec);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern bool DbgSetLogDir(const std::string& logdir);

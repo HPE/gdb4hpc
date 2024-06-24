@@ -207,6 +207,24 @@ static int cmd_py_locals(rec_set_t* rec_set) {
     return had_error ? Command::Failure : Command::Success;
 }
 
+static int pybe_inject(rec_set_t* rec_set) {
+    auto rep_set = DbgPythonBEInject(rec_set);
+    auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
+    return had_error ? Command::Failure : Command::Success;
+}
+
+static int pybe_get_GIL(rec_set_t* rec_set) {
+    auto rep_set = DbgPythonBEGetGIL(rec_set);
+    auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
+    return had_error ? Command::Failure : Command::Success;
+}
+
+static int pybe_bt(rec_set_t* rec_set) {
+    auto rep_set = DbgPythonBEBacktrace(rec_set);
+    auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
+    return had_error ? Command::Failure : Command::Success;
+}
+
 PythonMode::PythonMode() : CommandNode(proc_optional, executeLine) {}
 
 std::shared_ptr<CommandNode> PythonMode::make_command_tree() {
@@ -272,6 +290,22 @@ void ConsoleCommandsFactory::insert_python_commands(CommandNode& root) {
         .name = "py-locals", .ptype = proc_required,
         .fn = cmd_py_locals,
         .help = cmd_py_locals_help, .desc = "Print the values of the current python local variables."});
+
+    root.addSubCmd({
+        .name = "maint pybe inject", .ptype = proc_required,
+        .fn = pybe_inject,
+        .help = nullptr, .desc = "Inject the python backend into the user's app."});
+
+    root.addSubCmd({
+        .name = "maint pybe gil", .ptype = proc_required,
+        .fn = pybe_get_GIL,
+        .help = nullptr, .desc = "Obtain the cpython GIL and halt the user's app."});
+
+    root.addSubCmd({
+        .name = "maint pybe backtrace", .alias = "bt", .ptype = proc_required,
+        .fn = pybe_bt,
+        .help = nullptr, .desc = "Get a python backtrace. (Not implemented)"});
+
 }
 
 //===========================================================================

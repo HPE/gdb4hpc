@@ -26,6 +26,7 @@ class LaunchOpts {
                                      // command. argv[0] should never change.
                                      //
     bool non_mpi_flag = false;       // --non-mpi
+    bool python = false;             // --[no-]python (automatically set to true if python3 is detected)
   };
 
  public:

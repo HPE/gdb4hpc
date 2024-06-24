@@ -71,6 +71,13 @@ run_unit_tests $install_dir/libexec/dbgsrv
 check_exit_status
 
 echo "############################################"
+echo "#    Running Python Backend Unit Tests     #"
+echo "############################################"
+
+run_unit_tests $install_dir/libexec/pybe_unittest
+check_exit_status
+
+echo "############################################"
 echo "# Running Functional Text Match Unit Tests #"
 echo "############################################"
 

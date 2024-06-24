@@ -38,6 +38,7 @@ endif
 
 # Check for python
 if PYTHON
+AM_CXXFLAGS += $(PYTHON3_CFLAGS)
 CMD_PYTHON_SRC = cmd_python.cpp
 endif
 

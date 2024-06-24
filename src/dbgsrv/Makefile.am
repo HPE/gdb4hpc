@@ -4,6 +4,7 @@ DBGCOMM	= @gdb4hpc_srcdir@/dbgcomm
 MRNET_ROOT	= @mrn_root@
 BITSET  = @gdb4hpc_srcdir@/bitset
 UNITTEST   = @gdb4hpc_srcdir@/unittest
+TINYSTL_ROOT = @tinystl_root@
 
 AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(UNITTEST)
 AM_LIBTOOLFLAGS = --silent
@@ -60,7 +61,22 @@ endif
 # Build dbgsrv #
 ################
 
-libexec_PROGRAMS= dbgsrv $(CRAY_PROGS) dbgsrv_trampoline
+# TODO write in python.md why this doesn't have libstd++
+lib_LTLIBRARIES = libgdb4_pybe.la
+libgdb4_pybe_la_SOURCES = pybe_entry.cpp pybe_stl.cpp
+libgdb4_pybe_la_CXXFLAGS = -g -Og $(PYTHON3_CFLAGS) -I$(TINYSTL_ROOT)/include \
+                           -fPIC -fvisibility=hidden -fno-rtti -fno-exceptions
+libgdb4_pybe_la_LDFLAGS = -version-info 0:0:0 -nostdlib++ -Wl,--no-undefined \
+	                        $(PYTHON3_LIBS) -pthread
+# The following is necessary to avoid pulling in libstdc++
+libgdb4_pybe_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+              --mode=link $(CCLD) $(libgdb4_pybe_la_CFLAGS) $(CFLAGS) \
+              $(libgdb4_pybe_la_LDFLAGS) $(LTLDFLAGS) -o $@
+
+pybe_unittest_SOURCES = pybe_unittest.cpp
+pybe_unittest_LDADD = $(UNITTEST)/libgdb4_unittest.la
+
+libexec_PROGRAMS= dbgsrv $(CRAY_PROGS) dbgsrv_trampoline pybe_unittest
 dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp \
 				  $(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
 dbgsrv_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \

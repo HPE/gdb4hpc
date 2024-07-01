@@ -25,7 +25,7 @@
 #include <string.h>
 #include <filesystem>
 
-#include "bitset.h"
+#include "gdb4_bitset.h"
 #include "dbg_client.h"
 #include "dbgclnt_proto.h"
 #include "dbgevent.h"

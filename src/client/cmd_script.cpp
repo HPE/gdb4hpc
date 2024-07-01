@@ -25,7 +25,7 @@
 
 #include "script_client.h"
 #include "script_settings.h"
-#include "bitset.h"
+#include "gdb4_bitset.h"
 #include "client.h"
 #include "useful.h"
 

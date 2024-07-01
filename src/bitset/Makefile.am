@@ -18,7 +18,7 @@ lib_LTLIBRARIES = libbitset.la
 
 AM_LIBTOOLFLAGS = --quiet
 
-libbitset_la_SOURCES 	= bitset.cpp dense_bitset.cpp
+libbitset_la_SOURCES 	= gdb4_bitset.cpp dense_bitset.cpp
 libbitset_la_LDFLAGS	= $(LDFLAGS) -shared -avoid-version
 libbitset_la_LIBADD     = $(UNITTEST)/libgdb4_unittest.la
 

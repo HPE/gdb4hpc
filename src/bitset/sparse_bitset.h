@@ -11,7 +11,7 @@
  *********************************************************************************/
 #pragma once
 
-#include "bitset.h"
+#include "gdb4_bitset.h"
 
 #include <vector>
 

@@ -55,5 +55,18 @@ int Thread::detach() {
     return rc;
 }
 
+String to_string(int num) {
+    auto result = String{};
+
+    auto len = ::snprintf(nullptr, 0, "%d", num) + 1;
+    auto buf = new char[len];
+    ::snprintf(buf, len, "%d", num);
+    // XXX: is there a way to do this without the copy?
+    result.append(buf);
+    delete[] buf;
+
+    return result;
+}
+
 } // namespace pybe
 

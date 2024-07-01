@@ -18,7 +18,7 @@
 #include <vector>
 #include <memory>
 
-#include "bitset.h"
+#include "gdb4_bitset.h"
 
 // This is a candidate for a rename.   Originally, it was used to track the info for
 // extracting a portion of an array - and it still is.   But it has morphed into a more 

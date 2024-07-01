@@ -221,7 +221,15 @@ static int pybe_get_GIL(rec_set_t* rec_set) {
 
 static int pybe_bt(rec_set_t* rec_set) {
     auto rep_set = DbgPythonBEBacktrace(rec_set);
+
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
+
+    {
+        auto root = BTTree::fromFrames(rep_set);
+        auto pager = cli_pager{};
+        root.print();
+    }
+
     return had_error ? Command::Failure : Command::Success;
 }
 

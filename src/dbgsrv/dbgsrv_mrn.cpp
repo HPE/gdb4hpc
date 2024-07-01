@@ -32,7 +32,7 @@
 
 #include "dbgsrv_mrn.h"
 
-#include "bitset.h"
+#include "gdb4_bitset.h"
 #include "dbg_mrn_be.h"
 #include "dbgcomm_info.h"
 #include "dbgevent.h"

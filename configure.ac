@@ -171,6 +171,18 @@ AC_ARG_WITH([python],
 	    [python_mode=no]
 	    )
 
+dnl Check for --with-python-compat
+AC_ARG_WITH([python-compat],
+            [AS_HELP_STRING([--with-python-compat],
+			    [Location of python-compat headers]
+			    )
+	    ],
+        [python_compat_mode=yes
+         python_compat_root=$withval
+	    ],
+        [python_compat_mode=no]
+	    )
+
 dnl Check for --with-elfutils
 AC_ARG_WITH([elfutils],
 	    [AS_HELP_STRING([--with-elfutils],
@@ -396,6 +408,18 @@ if test "x$tinystl_mode" = xyes; then
     else
         AC_MSG_RESULT([not found])
         AC_MSG_ERROR([tinystl headers not found. Please provide install location of tinystl to --with-tinystl=<tinystl directory root>])
+    fi
+fi
+
+if test "x$python_compat_mode" = xyes; then
+    AC_SUBST([python_compat_root], ["$python_compat_root"])
+
+    AC_MSG_CHECKING([for python_compat headers])
+    if test -f "$python_compat_root/pythoncapi_compat.h"; then
+        AC_MSG_RESULT([$python_compat_root/pythoncapi_compat.h])
+    else
+        AC_MSG_RESULT([not found])
+        AC_MSG_ERROR([python_compat headers not found. Please provide install location of python_compat to --with-python-compat=<python_compat directory root>])
     fi
 fi
 

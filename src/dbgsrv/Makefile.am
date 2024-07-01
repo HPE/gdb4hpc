@@ -5,8 +5,9 @@ MRNET_ROOT	= @mrn_root@
 BITSET  = @gdb4hpc_srcdir@/bitset
 UNITTEST   = @gdb4hpc_srcdir@/unittest
 TINYSTL_ROOT = @tinystl_root@
+PYTHON_COMPAT_ROOT = @python_compat_root@
 
-AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(UNITTEST)
+AM_CXXFLAGS = -DBINDIR=\"$(bindir)\" -I$(USEFUL) -I$(GRAM) -I$(DBGCOMM) -I$(UNITTEST) -I$(TINYSTL_ROOT)/include -I$(PYTHON_COMPAT_ROOT) $(PYTHON3_CFLAGS)
 AM_LIBTOOLFLAGS = --silent
 
 ######################
@@ -63,21 +64,23 @@ endif
 
 # TODO write in python.md why this doesn't have libstd++
 lib_LTLIBRARIES = libgdb4_pybe.la
-libgdb4_pybe_la_SOURCES = pybe_entry.cpp pybe_stl.cpp
-libgdb4_pybe_la_CXXFLAGS = -g -Og $(PYTHON3_CFLAGS) -I$(TINYSTL_ROOT)/include \
+libgdb4_pybe_la_SOURCES = pybe_entry.cpp pybe_stl.cpp pybe_comms.cpp
+libgdb4_pybe_la_CXXFLAGS = -g -Og $(PYTHON3_CFLAGS) -I$(PYTHON_COMPAT_ROOT) -I$(TINYSTL_ROOT)/include \
                            -fPIC -fvisibility=hidden -fno-rtti -fno-exceptions
-libgdb4_pybe_la_LDFLAGS = -version-info 0:0:0 -nostdlib++ -Wl,--no-undefined \
-	                        $(PYTHON3_LIBS) -pthread
+libgdb4_pybe_la_LDFLAGS = -version-info 0:0:0 -nostdlib++ --exclude-libs ALL -lsupc++ --no-undefined \
+                          $(PYTHON3_LIBS) -pthread
 # The following is necessary to avoid pulling in libstdc++
 libgdb4_pybe_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
               --mode=link $(CCLD) $(libgdb4_pybe_la_CFLAGS) $(CFLAGS) \
               $(libgdb4_pybe_la_LDFLAGS) $(LTLDFLAGS) -o $@
 
-pybe_unittest_SOURCES = pybe_unittest.cpp
-pybe_unittest_LDADD = $(UNITTEST)/libgdb4_unittest.la
+pybe_unittest_SOURCES = pybe_unittest.cpp pybe_entry.cpp pybe_stl.cpp pybe_comms.cpp
+pybe_unittest_CXXFLAGS = -g -O0 -I$(UNITTEST) -I$(TINYSTL_ROOT)/include -I$(PYTHON_COMPAT_ROOT) $(PYTHON3_CFLAGS)
+pybe_unittest_LDFLAGS = -pthread
+pybe_unittest_LDADD = $(UNITTEST)/libgdb4_unittest.la $(PYTHON3_LIBS) $(CRAY_CTI_FE_LIBS) $(CRAY_CTI_BE_LIBS)
 
 libexec_PROGRAMS= dbgsrv $(CRAY_PROGS) dbgsrv_trampoline pybe_unittest
-dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp \
+dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp pybe_comms.cpp pybe_stl.cpp \
 				  $(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
 dbgsrv_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \
 				  $(USEFUL)/libuseful.a $(MI_LIBS) $(MRN_LIBS) $(ZMQNET_LIBS) \

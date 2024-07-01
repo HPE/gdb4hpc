@@ -25,7 +25,7 @@
 #include <iostream>
 
 #include "ais.h"
-#include "bitset.h"
+#include "gdb4_bitset.h"
 #include "client_settings.h"
 #include "defs.h"
 #include "useful.h"

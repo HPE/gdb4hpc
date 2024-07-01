@@ -51,6 +51,7 @@ src/dbgsrv/Makefile
 src/dbgsrv/dbgsrv
 src/dbgsrv/dbgsrv_alps
 src/dbgsrv/dbgsrv_trampoline
+src/dbgsrv/pybe_unittest
 src/dbgsrv/guard_starter
 src/dbgsrv/guard_starter_alps
 src/gram/.deps

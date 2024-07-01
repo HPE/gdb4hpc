@@ -2784,7 +2784,7 @@ rep_set_t DbgPythonBEGetGIL(rec_set_t* rec) {
 
 rep_set_t DbgPythonBEBacktrace(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEBACKTRACE);
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_FRAME);
     return result;
 }
 

@@ -27,7 +27,7 @@
 
 #include "client.h"
 #include "useful.h"
-#include "bitset.h"
+#include "gdb4_bitset.h"
 #include "dbgevent.h"
 #include "mi_funcs.h"
 #include "interpreter_mi.h"

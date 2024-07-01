@@ -1,7 +1,7 @@
 /******************************************************************************\
  * Copyright 2021 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
-#include "bitset.h"
+#include "gdb4_bitset.h"
 #include "defs.h"
 
 #include <sstream>

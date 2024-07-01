@@ -42,3 +42,7 @@
 	path = external/tinystl
 	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-mendsley-tinystl.git
 	branch = hpe
+[submodule "external/pythoncapi-compat"]
+	path = external/pythoncapi-compat
+	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-python-pythoncapi-compat.git
+	branch = hpe

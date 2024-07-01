@@ -27,10 +27,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <string>
 #include <fstream>
+#include <future>
 #include <functional>
 #include <map>
 #include <vector>
@@ -50,6 +52,8 @@
 #include "dbgsrv_util.h"
 #include "defs.h"
 #include "useful.h"
+
+#include "pybe_comms.h"
 
 static dbgevent_t* checkForPythonError(MICommand& cmd, const std::string& result);
 static std::optional<dbgloc> parsePythonLocation(const std::string& line);
@@ -2620,6 +2624,15 @@ dbgevent_t* DbgGdbMI::pythonLocals() {
     return e;
 }
 
+struct PybeConnection {
+    static constexpr auto path = "@pybe"; // TODO: this needs to be unique each time for each process
+    int server_fd = -1;
+    int conn_fd = -1;
+};
+
+// TODO make this not global
+auto g_pybe = PybeConnection{};
+
 dbgevent_t* DbgGdbMI::pythonBEInject() {
     DVPRINT("pythonBEInject\n");
 
@@ -2677,6 +2690,70 @@ dbgevent_t* DbgGdbMI::pythonBEInject() {
             "failure: dlopen call\n"
             "error: %s\n",
             dlerror_result.c_str());
+    }
+
+
+    {
+        g_pybe.server_fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+        if (g_pybe.server_fd == -1) {
+            DVPRINT("socket failed: %s\n", strerror(errno));
+            // TODO better error message
+            return NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
+        }
+
+        // TODO: make a utility class for socket management
+        sockaddr_un addr;
+        addr.sun_family = AF_UNIX;
+        ::memset(addr.sun_path, 0, sizeof(addr.sun_path));
+        ::memcpy(addr.sun_path, PybeConnection::path, ::strlen(PybeConnection::path));
+        addr.sun_path[0] = '\0'; // TODO explain this
+
+        if (::bind(g_pybe.server_fd, (sockaddr*)&addr, sizeof(addr))) {
+            DVPRINT("bind failed: %s\n", strerror(errno));
+            // TODO better error message
+            return NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
+        }
+
+        // the 2nd parameter specifies the length of the connection
+        // queue. attempts from another process to `connect` will be
+        // successful as long as there is room in the queue. once the
+        // queue is full, the other process's `connect` blocks.
+        //
+        // TODO: determine the correct queue size
+        if (::listen(g_pybe.server_fd, 1)) {
+            DVPRINT("listen failed: %s\n", strerror(errno));
+            // TODO better error message
+            return NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
+        }
+
+        // SendMICommand will block until the command completes. the connection
+        // function on the other end will block until it makes a connection to
+        // us. To prevent deadlock, we run the command in another thread.
+        auto cmd_f = std::async(std::launch::async, [](){
+            const auto expr = std::string{"(bool)pybe::connect_to_dbgsrv(\""} + PybeConnection::path + "\")";
+            auto cmd = cmdptr(MIDataEvaluateExpression(expr.c_str()));
+            SendMICommand(GDBMISession, cmd.get());
+
+            if (!MICommandResultOK(cmd.get())) {
+                DVPRINT("Failed to start connection in pybe\n");
+                return false;
+            }
+
+            // TODO check the actual return value of the command. !MICommandResultOK
+            // only indicates that the gdb action of calling the function worked.
+            return true;
+        });
+
+        // TODO: implement timeout so this doesn't block forever on failure
+        g_pybe.conn_fd = ::accept(g_pybe.server_fd, nullptr, nullptr);
+        if (g_pybe.conn_fd == -1) {
+            DVPRINT("accept failed: %s\n", strerror(errno));
+            // TODO: wait for the future with a timeout so we don't wait forever
+            // for the future's dtor here.
+
+            // TODO better error message
+            return NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
+        }
     }
 
     // TODO: maybe we save lib_handle_addr for later here?
@@ -2842,10 +2919,66 @@ dbgevent_t* DbgGdbMI::pythonBEGetGIL() {
     return NewEvent(DBGEV_OK);
 }
 
+// TODO name this better
+static dbgframe_t* pybe_backtrace_to_dbgframe(const pybe::Backtrace& bt) {
+    int current_level = 0;
+    auto* first_frame = static_cast<dbgframe_t*>(nullptr); // "first" meaning "deepest"
+    auto* last_frame = static_cast<dbgframe_t*>(nullptr);  // "last" meaning "shallowest" (e.g. main)
+
+    for (const auto& py_frame : bt.frames) {
+        // dbgloc owns the ptrs given to it
+        auto location = dbgloc(::strdup(py_frame.file_name.c_str()),
+                               ::strdup(py_frame.function_name.c_str()),
+                               ::strdup("") /* address */,
+                               py_frame.line_number);
+        auto frame = new dbgframe_t(current_level, location, nullptr, nullptr, nullptr);
+        current_level++;
+
+        if (!first_frame) {
+            first_frame = frame;
+            last_frame = frame;
+        } else {
+            last_frame->setNext(frame);
+            last_frame = frame;
+        }
+    }
+
+    return first_frame;
+}
+
 dbgevent_t* DbgGdbMI::pythonBEBacktrace() {
     DVPRINT("pythonBEBacktrace\n");
-    // TODO
-    return NewErrorEvent(DBGERR_DEBUGGER, "not implemented");
+
+    // assuming we have the GIL already for now
+
+    {
+        const auto fn = "pybe::get_backtrace()";
+        auto cmd = cmdptr(MIDataEvaluateExpression(fn));
+
+        SendMICommand(GDBMISession, cmd.get());
+
+        if (!MICommandResultOK(cmd.get())) {
+            // TODO ensure that we don't end up in a situation where pybe has
+            // sent something over the socket and we don't extract it.
+            //
+            // TODO better error message
+            return NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
+        }
+    }
+
+    // TODO: make this a LOT nicer
+    char buf[4096];
+    auto len = ::recv(g_pybe.conn_fd, buf, 4096, 0);
+    const auto* cursor = buf;
+
+    if (auto result = pybe::Backtrace::deserialize(cursor, len)) {
+        auto* e = NewEvent(DBGEV_FRAME);
+        e->ev_frame = pybe_backtrace_to_dbgframe(*result);
+        return e;
+    }
+
+    // TODO: be more informative
+    return NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
 }
 
 // given a completed command and its console output, check for python errors.

@@ -17,7 +17,7 @@
 #include "dbgclnt_debugfe.h"
 #include "dbgoutp.h"
 #include "launchopts.h"
-#include "bitset.h"
+#include "gdb4_bitset.h"
 
 class DebugClientProtocol;
 

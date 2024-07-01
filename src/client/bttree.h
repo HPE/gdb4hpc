@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "bitset.h"
+#include "gdb4_bitset.h"
 #include "dbgevent.h"
 #include "dbg_client.h"
 

@@ -42,6 +42,7 @@
 #include "useful.h"
 #include "dbgclnt_mrn.h"
 #include "dbgclnt_proto_ctiship.h"
+#include "dwarfinfo.h"
 
 std::optional<std::filesystem::path> getLibDir() {
     auto exe = std::filesystem::path{};
@@ -750,6 +751,10 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
                             return str != "" ? str.c_str() : nullptr;
                         };
 
+    auto non_mpi = (opts.job_opts.size() == 1)
+        ? opts.job_opts[0].non_mpi_flag
+        : false;
+
 #ifdef DEBUG
     dbg = 1;
 #endif
@@ -882,10 +887,24 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
 
         // launch the application using the tool interface
         // Note that the prog_outp is the WRITE END OF THE PIPE!!!!
-        di->setAppId(cti_launchAppBarrier(app_argv.c_strs().data(), prog_outp, prog_outp,
-                                          optStr(opts.input_file_path),
-                                          optStr(opts.cwd),
-                                          opts.env.c_strs().data()));
+        if (!non_mpi || (cti_current_wlm() != CTI_WLM_PALS)) {
+            di->setAppId(cti_launchAppBarrier(app_argv.c_strs().data(), prog_outp, prog_outp,
+                optStr(opts.input_file_path), optStr(opts.cwd), opts.env.c_strs().data()));
+
+        // Run with PALS-specific non-MPI barrier launch
+        } else {
+
+            // Get PALS operations
+            cti_pals_ops_t *ops = nullptr;
+            if (cti_open_ops((void**)&ops) != CTI_WLM_PALS) {
+                PrintOutError("Tried to open PALS operations, but got not-PALS WLM\n");
+                return 1;
+            }
+
+            // Run non-MPI barrier launch
+            di->setAppId(ops->launchAppBarrierNonMpi(app_argv.c_strs().data(), prog_outp, prog_outp,
+                optStr(opts.input_file_path), optStr(opts.cwd), opts.env.c_strs().data()));
+        }
 
         // Notify the message thread that launch has completed and that it can exit its wait
         { auto guard = std::lock_guard<std::mutex>{waitMtx};
@@ -1115,8 +1134,8 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     if (opts.early_entry_flag) dbgsrv_alps_argv << "--early-entry";
     if (opts.non_stop_flag)        dbgsrv_alps_argv << "--non-stop";
     if (!opts.gdb_path.empty() && serverGdb) dbgsrv_alps_argv << "--gdb" << *serverGdb;
+    if (non_mpi) dbgsrv_alps_argv << "--non-mpi";
     if (opts.job_opts.size() == 1) {
-        if (opts.job_opts[0].non_mpi_flag)     dbgsrv_alps_argv << "--non-mpi";
         dbgsrv_alps_argv << "-f" << opts.job_opts[0].app_argv[0];
     }
 

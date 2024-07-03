@@ -48,9 +48,6 @@ if MRNET
 dbgsrv_alps_SOURCES 	= dbgsrv_alps_mrn.cpp
 endif
 
-dbgsrv_trampoline_SOURCES = dbgsrv_trampoline.c
-dbgsrv_trampoline_LDFLAGS = -O0
-
 dbgsrv_alps_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(CRAYTOOL_LIBS) \
 					  $(DBGCOMM)/libdbg.a $(USEFUL)/libuseful.a 
 dbgsrv_alps_LDFLAGS	= $(LDFLAGS) -Wl,-E -Wl,-z,origin -Wl,-rpath,\$$ORIGIN/../lib \
@@ -79,7 +76,7 @@ pybe_unittest_CXXFLAGS = -g -O0 -I$(UNITTEST) -I$(TINYSTL_ROOT)/include -I$(PYTH
 pybe_unittest_LDFLAGS = -pthread
 pybe_unittest_LDADD = $(UNITTEST)/libgdb4_unittest.la $(PYTHON3_LIBS) $(CRAY_CTI_FE_LIBS) $(CRAY_CTI_BE_LIBS)
 
-libexec_PROGRAMS= dbgsrv $(CRAY_PROGS) dbgsrv_trampoline pybe_unittest
+libexec_PROGRAMS= dbgsrv $(CRAY_PROGS) pybe_unittest
 dbgsrv_SOURCES	= dbgsrv.cpp dbgfn.cpp dbgsrv_proto.cpp dbgsrv_cmds.cpp pybe_comms.cpp pybe_stl.cpp \
 				  $(BACKEND) $(MRN_SRV) $(ZMQNET_SRV)
 dbgsrv_LDADD	= $(UNITTEST)/libgdb4_unittest.la $(GRAM)/libgram.a $(DBGCOMM)/libdbg.a \

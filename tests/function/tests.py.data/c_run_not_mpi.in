@@ -1,0 +1,18 @@
+1: maint set sync on
+2: launch $a{3} --non-mpi ./bin/CRAY/c/c_not_mpi.x
+Starting application, please wait...
+Launched application...
+Created network...
+Connected to application...
+Launch complete.
+a{0..2}: Initial breakpoint, main at /src/c/c_not_mpi.c:11
+3: b print_argc
+a{0..2}: Breakpoint 1: file /src/c/c_not_mpi.c, line 6.
+4: c
+a{0..2}: Breakpoint 1, print_argc at /src/c/c_not_mpi.c:6
+5: p argc
+a{0..2}: 1
+6: c
+a{0..2}: The application has reached an exit breakpoint.
+7: q
+Shutting down debugger and killing application for 'a'.

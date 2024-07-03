@@ -406,6 +406,14 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
         launcherArgs << job_opt.launcher_args.c_strs().data() << job_opt.app_argv.c_strs().data();
     }
 
+    // Get target application and MPI status
+    auto prog = (opts.job_opts.size() == 1)
+        ? opts.job_opts[0].app_argv[0].c_str()
+        : nullptr;
+    auto non_mpi = (opts.job_opts.size() == 1)
+        ? opts.job_opts[0].non_mpi_flag
+        : false;
+
     // Print an informational message that launch is still pending if WLM hasn't
     // launched job within a few seconds.
     { auto waitCv = std::condition_variable{};
@@ -429,8 +437,25 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
         auto cwd = optStr(opts.cwd);
         auto env = opts.env.c_strs();
 
-        di->setAppId(cti_launchAppBarrier(launcherArgs.c_strs().data(), output->p_o_wfd,
-                                          output->p_o_wfd, arch_input, cwd, env.data()));
+        // Run with normal barrier launch
+        if (!non_mpi || (cti_current_wlm() != CTI_WLM_PALS)) {
+            di->setAppId(cti_launchAppBarrier(launcherArgs.c_strs().data(), output->p_o_wfd,
+                output->p_o_wfd, arch_input, cwd, env.data()));
+
+        // Run with PALS-specific non-MPI barrier launch
+        } else {
+
+            // Get PALS operations
+            cti_pals_ops_t *ops = nullptr;
+            if (cti_open_ops((void**)&ops) != CTI_WLM_PALS) {
+                PrintOutError("Tried to open PALS operations, but got not-PALS WLM\n");
+                return 1;
+            }
+
+            // Run non-MPI barrier launch
+            di->setAppId(ops->launchAppBarrierNonMpi(launcherArgs.c_strs().data(), output->p_o_wfd,
+                output->p_o_wfd, arch_input, cwd, env.data()));
+        }
 
         // Notify the message thread that launch has completed and that it can exit its wait
         { auto guard = std::lock_guard<std::mutex>{waitMtx};
@@ -456,15 +481,8 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
                                  .vgdb_file = "",
                                  .gpu_flag = bool(opts.gpu_flag),
                                  .debug_flag = bool(opts.debug_flag) };
-                            
 
     // attach to launched application
-    auto prog = (opts.job_opts.size() == 1)
-        ? opts.job_opts[0].app_argv[0].c_str()
-        : nullptr;
-    auto non_mpi = (opts.job_opts.size() == 1)
-        ? opts.job_opts[0].non_mpi_flag
-        : false;
     if (internalAttach(di, prog, di->appId(), std::move(output), attachOpts,
                        opts.early_entry_flag, opts.non_stop_flag, non_mpi)) {
         PrintOutError("Failed to attach to application. Cleaning up...\n");

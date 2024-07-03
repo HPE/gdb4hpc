@@ -180,7 +180,6 @@ private:
     dbgevent_t* delete_internal_breakpoints(std::vector<dbgbp_t*>& bplist);
     std::pair<bool,dbgevent_t*>  setEntryBPs();
     dbgevent_t* continueToEntryPoint();
-    dbgevent_t* trampolineToEntryPoint();
     void setup_pretty_printing();
     void initGpu();
     void setDataDir(const char* gdbType);

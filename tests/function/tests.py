@@ -869,6 +869,11 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_run"
         runTest(self)
 
+    @avocado.skipIf(detect_wlm() != "PALS", "Not PALS")
+    def test_c_run_not_mpi(self):
+        self.base_name = "c_run_not_mpi"
+        runTest(self)
+
     @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
     def test_sbatch(self):
         self.base_name = "sbatch"

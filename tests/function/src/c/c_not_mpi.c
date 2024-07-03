@@ -2,7 +2,15 @@
 
 #include <stdio.h>
 
-int main() {
+static void print_argc(int argc) {
+    printf("%d arguments\n", argc);
+}
+
+int main(int argc, char** argv) {
+
     printf("I am not an mpi binary! Sorry!\n");
+
+    print_argc(argc);
+
     return 0;
 }

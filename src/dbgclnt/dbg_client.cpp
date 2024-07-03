@@ -125,8 +125,6 @@ static group_reply_t* JoinReplies(const Bitset* group,
 
 static rep_set_t DbgSendCmdAndRecvReply(rec_set_t *set, const std::string& request,
                                          dbgev req_type, dbgev alt_req_type=DBGEV_NONE);
-static std::pair<std::string,std::unique_ptr<const char*[]>>
-GetTrampolineArgs(const char* prog, const char* const* args);
 
 // if `repset` contains any DBGEV_FRAMEs, copy them into the reply di's frame cache.
 static void cacheFrames(rep_set_t& repset);
@@ -1548,11 +1546,8 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
                     "This is usually MPI_Init()/shmem_init()/etc. To bypass "
                     "this check,\n");
                 PrintOutError(
-                    "add the --non-mpi argument to launch, or\n");
-                PrintOutError(
-                    "use the command \"maint set unsafe on\". Note that your "
-                    "application\n");
-                PrintOutError("may hang during startup.\n");
+                    "add the --non-mpi argument to launch. Note that your\n");
+                PrintOutError("application may hang during startup.\n");
 
                 FreeEvent(e);
 
@@ -1560,21 +1555,6 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
             }
 
             FreeEvent(e);
-        }
-    }
-
-    for (auto&& job_opt : args.job_opts) {
-        std::pair<std::string,std::unique_ptr<const char*[]>> trampolineArgs;
-        if (job_opt.non_mpi_flag) {
-            trampolineArgs = GetTrampolineArgs(job_opt.app_argv[0].c_str(), job_opt.app_argv.c_strs(1).data());
-            if (trampolineArgs.first.empty()) {
-                job_opt.non_mpi_flag = false;
-            } else {
-                ArgvStream newArgv;
-                newArgv << trampolineArgs.first << trampolineArgs.second.get();
-                job_opt.app_argv = newArgv;
-                job_opt.run_argv = std::move(newArgv);
-            }
         }
     }
 
@@ -3776,30 +3756,6 @@ rep_set_t DbgQuit(DbgInvoke& di, DbgQuitType quit_type) {
     DbgInvoke::deactivate(di.handle());
 
     return result;
-}
-
-static std::pair<std::string,std::unique_ptr<const char*[]>>
-GetTrampolineArgs(const char* prog, const char* const* args)
-{
-    std::pair<std::string,std::unique_ptr<const char*[]>> retVal;
-
-    auto baseDir = getinstallbase();
-    if (!baseDir) {
-        return retVal;
-    }
-
-    retVal.first = std::string{baseDir} + "/libexec/dbgsrv_trampoline";
-    free(baseDir);
-
-    auto n = size_t{0};
-    for (auto it = args; *it; ++it) ++n;
-
-    auto& targs = retVal.second = std::unique_ptr<const char*[]>{ new const char*[n+2] };
-
-    targs[0] = prog;
-    std::copy(args, args+n+1, &targs[1]);  // +1 for terminator
-
-    return retVal;
 }
 
 inpcb_t::inpcb_t(int fd, cli_stream_t* stream, void (*f)()) :

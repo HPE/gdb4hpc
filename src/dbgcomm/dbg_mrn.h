@@ -19,7 +19,7 @@
 #ifndef _GUARD_MRNET_TYPES_H
 #define _GUARD_MRNET_TYPES_H
 
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "mrn_cfg.h"
 #include "mrnet/Types.h"
 

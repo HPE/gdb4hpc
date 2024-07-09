@@ -1,9 +1,7 @@
 /*******************************************************************************
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#include "config.h"
 
 #define DOCTEST_CONFIG_IMPLEMENTATION_IN_DLL
 #include "doctest.h"

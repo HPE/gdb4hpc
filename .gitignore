@@ -211,3 +211,5 @@ workspaces
 environment_variables.txt
 *.log
 
+build/
+.cache/

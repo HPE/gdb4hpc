@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "proto_message.h"
 #include "dbginvoke.h"
 

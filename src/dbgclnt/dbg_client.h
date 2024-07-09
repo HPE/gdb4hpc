@@ -24,7 +24,7 @@
 ** ensure that the function that is interfacing with the debugger client has the
 ** definitions it needs through including a single header.
 */
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "dbg.h"
 #include "dbgclnt_breakpoints.h"
 #include "dbgclnt_debugfe.h"

@@ -28,8 +28,9 @@
 #define MACHINES_FILE "machines_file.dat"
 #define MRNET_TOPOLOGY "topology.dat"
 #define MRNET_ATTACH_CONNECTIONS "be_attach.dat"
+#define MRNET_ROOT_DIR "/opt/cray/pe/mrnet/default"
 
-#define AGGREGATION_FILTER "libdbgagg.so"
+#define AGGREGATION_FILTER "libgdb4_dbgagg.so"
 #define AGGREGATION_FUNC "DbgMessageAggregation"
 
 #define GUARD_DEFAULT_TIMEOUT 400

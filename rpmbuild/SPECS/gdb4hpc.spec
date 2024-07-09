@@ -73,8 +73,6 @@
 %global privlibs             libboost.*
 %global privlibs %{privlibs}|libmrnet.*
 %global privlibs %{privlibs}|libxplat.*
-%global privlibs %{privlibs}|libbitset
-%global privlibs %{privlibs}|libmi.*
 %global privlibs %{privlibs}|libssh2
 %global privlibs %{privlibs}|libarchive
 %global privlibs %{privlibs}|libsymtabAPI
@@ -90,16 +88,16 @@
 %global privlibs %{privlibs}|libtbbmalloc*
 %global privlibs %{privlibs}|libtbb.*
 %global privlibs %{privlibs}|libLrleBitset.*
-%global privlibs %{privlibs}|libbitset.*
 %global privlibs %{privlibs}|libcapnp-0.8-dev.*
-%global privlibs %{privlibs}|libdbgagg.*
+%global privlibs %{privlibs}|libgdb4_dbgagg.*
 %global privlibs %{privlibs}|libkj-0.8-dev*
 %global privlibs %{privlibs}|libzmq.*
 %global privlibs %{privlibs}|libzmqnet_libsodium.*
 %global privlibs %{privlibs}|libzmqnet.*
-%global privlibs %{privlibs}|libzmqnetagg.*
+%global privlibs %{privlibs}|libgdb4_zmqnetagg.*
 %global privlibs %{privlibs}|libstdc++.*
 %global privlibs %{privlibs}|libgdb4_unittest.*
+%global privlibs %{privlibs}|libgdb4_pybe.*
 %global __requires_exclude ^(%{privlibs})\\.so*
 %global __provides_exclude ^(%{privlibs})\\.so*
 
@@ -181,11 +179,9 @@ Tests for Cray gdb4hpc parallel debugger
 # Libraries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libgdb4_unittest.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libbitset.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libdbgagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libmi.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmqnetagg.so.0.0.0 ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libzmqnetagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_dbgagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_zmqnetagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 # Libraries static
 # pkg-config
 # Headers
@@ -480,7 +476,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_print.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_print.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_release.in            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_release.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_run.in                ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_run.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_run_no_mpi.in                ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_run_no_mpi.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_run_not_mpi.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_run_not_mpi.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_set_unset.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_set_unset.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_show.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_show.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_signal.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_signal.in
@@ -648,11 +644,9 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{release_notes_file}
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{attributions_name}
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_unittest.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libbitset.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libdbgagg.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libmi.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnetagg.so.0.0.0
-%{prefix}/%{cray_product}/%{pkgversion}/lib/libzmqnetagg.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_dbgagg.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_zmqnetagg.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.f90
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.cpp
@@ -896,7 +890,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_print.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_release.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_run.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_run_no_mpi.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_run_not_mpi.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_set_unset.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_show.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_sizeof.in

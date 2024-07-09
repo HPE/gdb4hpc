@@ -149,16 +149,6 @@ ZMQNetClientProtocol::ZMQNetClientProtocol()
 
 int ZMQNetClientProtocol::init() {
     LOG("%s\n", __PRETTY_FUNCTION__);
-
-    // set libzmqnet install prefix so that zmqnet can find the commnode binary
-    auto base = getinstallbase();
-    if (!base) {
-        PrintOutError("Error in %s: Couldn't detect install base.\n", __PRETTY_FUNCTION__);
-        return 0;
-    }
-    setenv("LIBZMQNET_INSTALL_DIR", base, false);
-    free(base);
-
     return 1;
 }
 
@@ -186,10 +176,7 @@ int ZMQNetClientProtocol::checkEvents(DbgInvoke *di) {
     return getNetwork<ZMQNetNetwork>(di).checkEvents();
 }
 
-void ZMQNetClientProtocol::dispatchEvents(DbgInvoke *di, int ev_fd) {
-    // zmqnet doesn't use event file descriptors, so ev_fd will always be -1
-    assert(ev_fd == -1);
-
+void ZMQNetClientProtocol::dispatchEvents(DbgInvoke *di, int /* ev_fd */) {
     auto &net = getNetwork<ZMQNetNetwork>(di);
     
     // dispatch program output
@@ -284,9 +271,9 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
 
     // TODO support --with-valgrind
 
-    if (cti_addManifestLibrary(manifest_id, "libzmqnetagg.so")) {
+    if (cti_addManifestLibrary(manifest_id, "libgdb4_zmqnetagg.so")) {
         PrintOutError("CTI error: %s\n", cti_error_str());
-        PrintOutError("Failed to add %s to manifest.\n", "libzmqnetagg.so");
+        PrintOutError("Failed to add %s to manifest.\n", "libgdb4_zmqnetagg.so");
         return 1;
     }
 

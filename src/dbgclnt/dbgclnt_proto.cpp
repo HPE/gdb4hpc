@@ -13,10 +13,7 @@
  *
  *********************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
-
+#include "config.h"
 
 #include <vector>
 
@@ -25,7 +22,7 @@
 #include <string.h>
 #include <filesystem>
 
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "dbg_client.h"
 #include "dbgclnt_proto.h"
 #include "dbgevent.h"

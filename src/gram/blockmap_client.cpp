@@ -13,9 +13,7 @@
  *
  *********************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include "config.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -25,7 +23,7 @@
 #include <iostream>
 
 #include "ais.h"
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "client_settings.h"
 #include "defs.h"
 #include "useful.h"

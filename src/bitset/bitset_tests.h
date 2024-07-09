@@ -2,7 +2,7 @@
  * Copyright 2022 Hewlett Packard Enterprise Development LP.
  ******************************************************************************/
 
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "dense_bitset.h"
 
 #include <unordered_set>

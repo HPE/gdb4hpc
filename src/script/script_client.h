@@ -8,7 +8,7 @@
 // classes that actually issue continue/breakpoint/etc commands.
 
 #include "script_data.h"
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "dbgclnt_breakpoints.h"
 #include "dbg_client.h"
 #include "dbginvoke.h"

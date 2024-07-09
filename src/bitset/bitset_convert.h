@@ -11,11 +11,9 @@
  *********************************************************************************/
 #pragma once
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include "config.h"
 
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "dense_bitset.h"
 
 #ifdef MRNET

@@ -6,7 +6,6 @@
 #include "lrle_bitset.h" // the reason for the weird file name!
 #include <sstream>
 #include <string.h>
-#include <assert.h>
 #include <cmath>
 
 #include <iostream>
@@ -39,7 +38,8 @@ LRunLEBitset::LRunLEBitset(SerializedPtr bitset) {
     size_t memSize;
     stream >> std::hex >> memSize;
 
-    assert(stream.get() == '/');
+    // consume '/'
+    stream.get();
 
     auto read = stream.tellg() - start;
 
@@ -166,7 +166,8 @@ size_t LRunLEBitset::extractSerializedSize(const Serialized &data) {
     size_t memSize;
     stream >> std::hex >> memSize;
 
-    assert(stream.get() == '/');
+    // consume '/'
+    stream.get();
 
     return (stream.tellg() - start) + memSize;
 }

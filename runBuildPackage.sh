@@ -42,13 +42,15 @@ echo "############################################"
 echo "#          Updating Changelog              #"
 echo "############################################"
 # Generate the release notes from DE template
-pip3 install -r external/changelog/requirements.txt
+python3 -m pip install -r external/changelog/requirements.txt
+check_exit_status
 
 rpmbuilddir=$PWD/rpmbuild
-/usr/bin/python3 ./external/changelog/generate_release_notes.py \
+python3 ./external/changelog/generate_release_notes.py \
    -t $PWD/external/changelog/release-notes-template.md.j2 \
    -y ${rpmbuilddir}/SOURCES/release_notes_data.yaml \
    -d ${rpmbuilddir}/SOURCES
+check_exit_status
 
 # Update the changelog & release notes
 source ./external/changelog/manage_release_notes.sh -c -r

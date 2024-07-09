@@ -62,52 +62,6 @@ fi
 mkdir -p $install_dir
 check_exit_status
 
-# ensure python3 exists
-python_version=''
-python_cflags=''
-python_ldflags="-L/usr/lib64"
-python_loc=$(command -v python3)
-if [[ ! -x "$python_loc" ]]; then
-    echo "python3 not found on system..."
-    exit 1
-else
-  python_version=$(/usr/bin/python3 --version | cut -d' ' -f2 | cut -d'.' -f1-2 | xargs)
-  if [[ "$python_version" == "3.6" ]]; then
-    python_cflags="$(pkg-config --cflags python3)"
-    python_ldflags="${python_ldflags} $(pkg-config --libs-only-l python3)"
-  else
-    python_cflags="$(python3-config --includes | cut -d' ' -f1)"
-    python_ldflags="${python_ldflags} -lpython${python_version}"
-  fi
-fi
-
-
-echo "############################################"
-echo "#               Building libmi             #"
-echo "############################################"
-
-# ensure submodule is checked out
-if [ ! -f $top_level/external/libmi/README ]
-then
-    echo "libmi submodule not checked out..."
-    exit 1
-fi
-
-cd $top_level/external/libmi
-check_exit_status
-
-autoreconf -ifv
-check_exit_status
-
-CFLAGS="-g -O2 -Wall" ./configure --prefix=$install_dir
-check_exit_status
-
-make $cdst_j_flags
-check_exit_status
-
-make $cdst_j_flags install
-check_exit_status
-
 echo "############################################"
 echo "#               Building gdb               #"
 echo "############################################"
@@ -132,7 +86,7 @@ check_exit_status
 
 ./configure --prefix=$install_dir \
             --with-gdb-datadir=$install_dir/share/gdb \
-            --with-python=$python_loc \
+            --with-python=$(command -v python3) \
             --disable-werror \
             --with-mmalloc \
             --without-babeltrace \
@@ -202,70 +156,20 @@ echo "############################################"
 echo "#             Building gdb4hpc             #"
 echo "############################################"
 
-# Get cray-mrnet pkg-config
-mrnet_pkgconfig_L_dir=$(pkg-config --libs-only-L cray-mrnet)
-if [[ $? -ne 0 ]]; then
-  echo "Could not find cray-mrnet in pkgconfig path. cray-mrnet may not be installed. Cannot continue with the build."
-  exit 1
-fi
-
-mrnet_pkgconfig_I_dir=$(pkg-config --cflags-only-I cray-mrnet)
-if [[ $? -ne 0 ]]; then
-  echo "Could not find cray-mrnet in pkgconfig path. cray-mrnet may not be installed. Cannot continue with the build."
-  exit 1
-fi
-
-mrnet_lib_directory=$(echo $mrnet_pkgconfig_L_dir | cut -c 3-)
-mrnet_include_directory=$(echo $mrnet_pkgconfig_I_dir | cut -c 3-)
-
-echo "mrnet_pkgconfig_L_dir:    $mrnet_pkgconfig_L_dir"
-echo "mrnet_pkgconfig_I_dir:    $mrnet_pkgconfig_I_dir"
-echo "mrnet_lib_directory:      $mrnet_lib_directory"
-echo "mrnet_include_directory:  $mrnet_include_directory"
-
-mrnet_cflags=$(pkg-config --cflags cray-mrnet)
-mrnet_cxxflags=${mrnet_cflags}
-mrnet_ldflags="$(pkg-config --libs cray-mrnet) "'-Wl,-rpath,\$$ORIGIN -Wl,--as-needed'
-
-echo "mrnet_cflags:     $mrnet_cflags"
-echo "mrnet_cxxflags:   $mrnet_cxxflags"
-echo "mrnet_ldflags:    $mrnet_ldflags"
-
-cdst_ldflags=$(pkg-config --libs cray-cdst-support)
-mrnet_ldflags="${cdst_ldflags} ${mrnet_ldflags}"
-
-echo "Python cflags:  $python_cflags"
-echo "Python ldflags: $python_ldflags"
-
-mrnet_base_directory=$(realpath -s $mrnet_include_directory/../../default)
-
 cd $top_level
 check_exit_status
 
-autoreconf -ifv
+# we explicitly set CC/CXX here to their full paths so that the full paths are
+# baked into the meson build configuration and meson doesn't use whatever gcc/g++ is
+# in PATH on subsequent builds outside of runBuild.sh
+CC=$(which gcc) CXX=$(which g++) \
+  meson setup -Dprefix=$install_dir -Ddebug=true -Doptimization=2 build
 check_exit_status
 
-PATH="$PATH:$install_dir/libexec" CFLAGS="-g -O2 -Wall -Wextra -Werror ${mrnet_cflags}" CXXFLAGS="-g -O2 -Wall -Wextra -Werror ${mrnet_cxxflags}" LDFLAGS=${mrnet_ldflags} ./configure \
-  --prefix=$install_dir \
-  --with-rd \
-  --with-mrnet=${mrnet_base_directory} \
-  --with-zmqnet=yes \
-  --with-gdbmi=$install_dir \
-  --with-libssh2=${CRAY_CDST_SUPPORT_INSTALL_DIR} \
-  --with-elfutils=${CRAY_CDST_SUPPORT_INSTALL_DIR} \
-  --with-cray \
-  --with-python \
-  --with-python-compat=${top_level}/external/pythoncapi-compat \
-  --with-tinystl=${top_level}/external/tinystl \
-  --with-doctest=${top_level}/external/doctest \
-  --enable-doctest
-
+meson compile --verbose -C build
 check_exit_status
 
-make $cdst_j_flags
-check_exit_status
-
-make $cdst_j_flags install
+meson install -C build
 check_exit_status
 
 # deliver manpage

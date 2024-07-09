@@ -157,7 +157,7 @@ ZMQNetNetwork::StreamTable::CommandStream::CommandStream(zmqnet::AsyncFrontend &
 
     parentNetwork.registerStreamCallback(streamId, command_callback);
     m_stream = std::make_unique<zmqnet::Stream>(
-        parentNetwork.registerStream(communicator, streamId, "libzmqnetagg.so",
+        parentNetwork.registerStream(communicator, streamId, "libgdb4_zmqnetagg.so",
                                      "run", zmqnet::sync::WaitForAll{}));
 
     // Start heartbeat monitor if not disabled
@@ -394,7 +394,7 @@ ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &pare
 
     m_parentNetwork.registerStreamCallback(streamId, event_callback);
     m_stream = std::make_unique<zmqnet::Stream>(m_parentNetwork.registerStream(communicator, streamId,
-        "libzmqnetagg.so", "run", zmqnet::sync::Timeout{m_stream_timeout_ms}));
+        "libgdb4_zmqnetagg.so", "run", zmqnet::sync::Timeout{m_stream_timeout_ms}));
 }
 
 ZMQNetNetwork::StreamTable::EventStream::EventStream(zmqnet::AsyncFrontend &parentNetwork, ZMQNetStream streamId, zmqnet::Communicator communicator, EventQueue &parentQueue) 

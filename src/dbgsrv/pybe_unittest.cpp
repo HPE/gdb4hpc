@@ -2,11 +2,10 @@
 //
 // ... TODO ...
 
-#define DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
+#include <string>
 
-#include "pybe_stl.h"
+#include "unittest_drivers.h"
+
 #include "pybe_comms.h"
 
 namespace doctest {
@@ -24,7 +23,7 @@ pybe::String pybe_convert(const pybe::Frame& frame) {
     result.append(" in ");
     result.append(frame.file_name.c_str());
     result.append(":");
-    result.append(pybe::to_string(frame.line_number).c_str());
+    result.append(std::to_string(frame.line_number).c_str());
     return result.c_str();
 }
 
@@ -216,4 +215,8 @@ TEST_CASE("backtrace serialization") {
 
     CHECK(bt_in == bt_out);
     CHECK(bt_diff != bt_out);
+}
+
+int main(int argc, char* argv[]) {
+    return runUnitTests(argc, argv);
 }

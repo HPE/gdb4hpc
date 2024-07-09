@@ -9,7 +9,7 @@
 #include <memory>
 #include <list>
 
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "dbgbp.h"
 #include "dbgevent.h"
 #include "defs.h"

@@ -17,7 +17,7 @@
 
 #include <stdlib.h>
 
-#include "gdb4_bitset.h"
+#include "bitset.h"
 
 class ProtoMessage {
 private:

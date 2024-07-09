@@ -22,7 +22,7 @@
 #include <memory>
 
 #include "dbginvoke.h"
-#include "gdb4_bitset.h"
+#include "bitset.h"
 
 namespace detail {
 

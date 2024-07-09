@@ -13,9 +13,7 @@
  *
  **********************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include "config.h"
 
 #include <cmath>
 #include <iostream>
@@ -25,7 +23,7 @@
 
 #include "script_client.h"
 #include "script_settings.h"
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "client.h"
 #include "useful.h"
 

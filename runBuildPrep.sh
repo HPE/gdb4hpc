@@ -47,12 +47,12 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
         liblzma5 \
         libtool \
         python3-devel \
+        python311 \
         rpm-build \
         tcl \
         which \
         xz-devel \
-        gmp-devel \
-        python3-pip
+        gmp-devel
     check_exit_status
 
 elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
@@ -84,17 +84,17 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
 
         elif [[ "$target_os" -eq "$cdst_os_rhel89" ]]; then
           mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/8.9/$arch/latest/CRB/os/"
- 
+
         fi
 
       elif [[ "$target_os" -ge "$cdst_os_rhel93" ]]; then  
         mirrored_repo_1="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/mirror-epel/epel/9/Everything/$arch/"
-                  
+
         mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/9.3/$arch/latest/CRB/os/"
 
       fi
       sudo yum-config-manager --add-repo $mirrored_repo_1 "mirrored_repo_1"
-      sudo yum-config-manager --add-repo $mirrored_repo_2 "mirrored_repo_1"
+      sudo yum-config-manager --add-repo $mirrored_repo_2 "mirrored_repo_2"
 
     fi
     # Install yum based components
@@ -118,7 +118,7 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
         ncurses \
         ncurses-devel \
         python3-devel \
-        python3-pip \
+        python3.11 \
         jq \
         rpm-build \
         tcl \
@@ -148,8 +148,24 @@ check_exit_status
 install_mrnet
 check_exit_status
 
-## building openmp relies on bdist_wheel - install from arti location
-sudo -H pip3 install wheel --trusted-host https://arti.hpc.amslabs.hpecorp.net \
+python3 -m ensurepip --upgrade
+check_exit_status
+
+# building openmp relies on bdist_wheel - install from arti location
+python3 -m pip install wheel --trusted-host https://arti.hpc.amslabs.hpecorp.net \
+      --extra-index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/dst-pip-master-local/simple \
+      --index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/pypi-remote/simple
+check_exit_status
+
+echo "############################################"
+echo "#          Ensuring build system           #"
+echo "############################################"
+
+# meson requires python 3.7 or newer
+python3.11 -m ensurepip --upgrade
+check_exit_status
+
+python3.11 -m pip install meson ninja --trusted-host https://arti.hpc.amslabs.hpecorp.net \
       --extra-index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/dst-pip-master-local/simple \
       --index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/pypi-remote/simple
 check_exit_status

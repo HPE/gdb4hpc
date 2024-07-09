@@ -18,9 +18,7 @@
  *
  *********************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include "config.h"
 
 #include <netdb.h>
 #include <stdlib.h>
@@ -32,7 +30,7 @@
 
 #include "dbgsrv_mrn.h"
 
-#include "gdb4_bitset.h"
+#include "bitset.h"
 #include "dbg_mrn_be.h"
 #include "dbgcomm_info.h"
 #include "dbgevent.h"
@@ -89,7 +87,7 @@ int MRNServerProtocol::eventCallback(dbgevent_t *ev) {
     return res;
 }
 
-int MRNServerProtocol::initProto(int &procnum, int &pid, int, const char * const * argv,
+int MRNServerProtocol::initProto(int &procnum, int & /* pid */, int, const char * const * argv,
                               const char *, const char *, int) {
     int res;
 
@@ -104,10 +102,9 @@ int MRNServerProtocol::initProto(int &procnum, int &pid, int, const char * const
     unsigned par_port, par_rank;
     unsigned my_mrnrank;
 
-    // in mrnet's case, procnum and pid are passed as arguments to the layer
+    // in mrnet's case, procnum is passed as arguments to the layer
     // above and don't need to be set here.
     assert(procnum >= 0);
-    assert(pid >= 0);
 
     if ((hostname = cti_be_getNodeHostname()) == nullptr) {
         fprintf(stderr, "DbgSRVMRNInitProto cannot get hostname\n");

@@ -13,9 +13,7 @@
  *
  *********************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include "config.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -105,7 +103,7 @@ int MRNClientProtocol::init() {
     if (auto mrnet_install_dir = ::getenv("MRNET_INSTALL_DIR")) {
         appendPath(std::string{mrnet_install_dir} + "/libexec");
 
-    // Use default installation (MRNET_ROOT_DIR set at configure time)
+    // Use default installation
     } else if (auto e = std::error_code(); std::filesystem::is_directory(MRNET_ROOT_DIR, e)) {
         appendPath(std::string{MRNET_ROOT_DIR} + "/libexec");
 

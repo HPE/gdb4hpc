@@ -3791,15 +3791,23 @@ bool DbgSetLogDir(const std::string& logdir) {
         path = newpath;
     }
 
-    auto tmpName = std::string{"gdb4hpc-"} + std::to_string(getpid()) + ".log";
-    path /= tmpName;
-
-    if (auto f = std::ifstream{path}; !f) {
-        if (auto f = std::ofstream(path); !f) return false;
-        std::filesystem::remove(path);
+    // expand to full path
+    try {
+        // throws if the path doesn't exist
+        path = std::filesystem::canonical(path);
+    } catch (std::runtime_error& e) {
+        return false;
     }
-    
-    setenv(DBG_LOG_ENV_VAR, logdir.c_str(), 1);
+
+    auto tmpName = std::string{"gdb4hpc-"} + std::to_string(getpid()) + ".log";
+    const auto filename = path / tmpName;
+
+    if (auto f = std::ifstream{filename}; !f) {
+        if (auto f = std::ofstream(filename); !f) return false;
+        std::filesystem::remove(filename);
+    }
+
+    setenv(DBG_LOG_ENV_VAR, path.c_str(), 1);
 
     // Turning on CTI debugging is obnoxious because the pulse keeps printing to the terminal
     //setenv("CTI_DEBUG", "1", 1);

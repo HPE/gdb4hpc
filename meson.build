@@ -363,6 +363,7 @@ libgdb4_dbgclnt_a = static_library(
     './src/dbgclnt/mrn_topgen.cpp',
     './src/dbgclnt/dbgclnt_zmq.cpp',
     './src/dbgclnt/dbg_zmq_network.cpp',
+    './src/dbgclnt/launchopts.cpp',
   ],
   include_directories: [
     './src',

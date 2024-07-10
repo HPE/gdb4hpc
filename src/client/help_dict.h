@@ -44,6 +44,7 @@ extern const char* const cmd_ignore_help[];
 extern const char* const cmd_interpreter_exec_help[];
 extern const char* const cmd_condition_help[];
 extern const char* const cmd_launch_help[];
+extern const char* const cmd_srun_help[];
 extern const char* const cmd_run_help[];
 extern const char* const cmd_kill_help[];
 extern const char* const cmd_list_help[];

@@ -53,6 +53,7 @@ set
 shell
 show
 source
+srun
 start
 step
 stop
@@ -94,6 +95,7 @@ variable
 complete
 echo
 list-cached-frames
+pybe
 set
 show
 sleep
@@ -157,6 +159,7 @@ set
 shell
 show
 source
+srun
 start
 step
 stop

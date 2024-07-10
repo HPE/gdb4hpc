@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2024 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -142,13 +142,49 @@ static dbgprocset_t* getNewProcSet(const std::string& procName) {
 static int cmd_launch_cmd(int argc, const char* const argv[]) {
     try {
         // throws if arguments are malformed
-        auto args = LaunchOpts(argc, argv, Client);
+        auto args = LaunchOpts::parse_gdb4hpc(argc, argv, Client);
         args.enforceValid();
         return DoLaunch(std::move(args)) ? 1 : 0;
     } catch (const std::runtime_error& e) {
         PrintOutError("Error: %s\n", e.what());
-        return 0;
+        return Command::Failure;
     }
+}
+
+static int cmd_srun_cmd(int argc, const char* const argv[]) {
+    try {
+        // throws if arguments are malformed
+        auto args = LaunchOpts::parse_srun(argc, argv, Client);
+        args.enforceValid();
+
+        // since srun auto generates the procset name from a filename, there's
+        // a chance that the generated name collides with a previously generated procset.
+
+        const auto ranks_split = args.procset_name.find('{');
+        if (ranks_split == std::string::npos) {
+            // the user should never actually see this. parse_srun should always return a valid name.
+            throw std::runtime_error("Invalid procset name: " + args.procset_name);
+        }
+
+        const auto procset_basename = args.procset_name.substr(0, ranks_split);
+        const auto ranks = args.procset_name.substr(ranks_split);
+
+        if (!IdMap::idIsAvailable(procset_basename, /*printMsg*/ false)) {
+            // find a unique name
+            unsigned int tag = 1;
+            std::string candidate;
+            do {
+                candidate = procset_basename + '_' + std::to_string(++tag);
+            } while (!IdMap::idIsAvailable(candidate, /*printMsg*/ false));
+            args.procset_name = candidate + ranks;
+        }
+
+        return DoLaunch(std::move(args)) ? 1 : 0;
+    } catch (const std::runtime_error& e) {
+        PrintOutError("Error: %s\n", e.what());
+        return Command::Failure;
+    }
+    return Command::Failure;
 }
 
 static Interpreter::Completions cmd_launch_completion(
@@ -166,6 +202,14 @@ static Interpreter::Completions cmd_launch_completion(
 */
 static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
     rec_set_t *rec_set = nullptr;
+
+    if (!args.debug_dir.empty()) {
+        if (!DbgSetLogDir(args.debug_dir)) {
+            PrintOutError("--debug must be a directory writeable by the user\n");
+            return nullptr;
+        }
+    }
+
     auto ps = getNewProcSet(args.procset_name);
 
     const auto exitWithFailure = [&](){
@@ -200,9 +244,9 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                 auto wlm = cti_current_wlm();
                 auto wlm_name = cti_wlm_type_toString(wlm);
                 throw std::runtime_error("PBS batch launch requires PBS / PALS as "
-                    "the current WLM " + (wlm_name != nullptr)
+                    "the current WLM " + ((wlm_name != nullptr)
                         ? "(have " + std::string(wlm_name) + ")"
-                        : "(failed to detect WLM)");
+                        : "(failed to detect WLM)"));
             }
 
             PrintOutMsg("Starting application, please wait...\n");
@@ -226,7 +270,9 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                                          .gdb_data_dir = args.gdb_data_dir,
                                          .vgdb_file = "",
                                          .gpu_flag = args.gpu_flag,
-                                         .debug_flag = args.debug_flag };
+                                         .debug_flag = args.debug_flag,
+                                         .debug_dir = args.debug_dir,
+            };
 
             // Attach to submitted job
             if (newHandle = DbgAttach(ps->s_name.c_str(), attachOpts); !newHandle.lock()) {
@@ -261,9 +307,9 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                 auto wlm = cti_current_wlm();
                 auto wlm_name = cti_wlm_type_toString(wlm);
                 throw std::runtime_error("Slurm batch launch requires Slurm as "
-                    "the current WLM " + (wlm_name != nullptr)
+                    "the current WLM " + ((wlm_name != nullptr)
                         ? "(have " + std::string(wlm_name) + ")"
-                        : "(failed to detect WLM)");
+                        : "(failed to detect WLM)"));
             }
 
             PrintOutMsg("Starting application, please wait...\n");
@@ -293,7 +339,9 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                                          .gdb_data_dir = args.gdb_data_dir,
                                          .vgdb_file = "",
                                          .gpu_flag = args.gpu_flag,
-                                         .debug_flag = args.debug_flag };
+                                         .debug_flag = args.debug_flag,
+                                         .debug_dir = args.debug_dir,
+            };
 
             // Attach to submitted job
             if (newHandle = DbgAttach(ps->s_name.c_str(), attachOpts); !newHandle.lock()) {
@@ -621,9 +669,7 @@ static int cmd_attach_cmd(Interpreter& caller, int argc, const char* const argv[
     // This will permute the non-option stuff to the end, so parse that stuff
     // last.
     
-    int debug_flag = 0;
     int gpu_flag = 0;
-    std::optional<std::string> debug_dir;
 
     const struct option attach_long_opts[] = {
         {"gpu", no_argument, &gpu_flag, 1},
@@ -659,7 +705,8 @@ static int cmd_attach_cmd(Interpreter& caller, int argc, const char* const argv[
                             .gdb_data_dir = "",
                             .vgdb_file = "",
                             .gpu_flag = false,
-                            .debug_flag = false
+                            .debug_flag = false,
+                            .debug_dir = "",
     };
     
     while ((opt = getopt_long(argc, mut_argv.v.data(), "", attach_long_opts, &opt_ind)) !=
@@ -688,8 +735,8 @@ static int cmd_attach_cmd(Interpreter& caller, int argc, const char* const argv[
                 break;
 
             case 'D':
-                debug_flag = 1;
-                if (optarg && *optarg) debug_dir = optarg;
+                opts.debug_flag = true;
+                if (optarg && *optarg) opts.debug_dir = optarg;
                 break;
 
             case 'v':
@@ -705,11 +752,6 @@ static int cmd_attach_cmd(Interpreter& caller, int argc, const char* const argv[
     }
 
     opts.gpu_flag = gpu_flag;
-    opts.debug_flag = debug_flag;
-    if (debug_dir && !DbgSetLogDir(*debug_dir)) {
-        PrintOutError("Argument for --debug must be a user writable directory\n");
-        return Command::Failure;
-    }
 
     // XXX: find a better way
     if (dynamic_cast<MiInterpreter*>(&caller)){
@@ -755,6 +797,13 @@ static int cmd_attach_cmd(Interpreter& caller, int argc, const char* const argv[
 static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     dbgframe_t *fp;
     rec_set_t *rec_set;
+
+    if (!opts.debug_dir.empty()) {
+        if (!DbgSetLogDir(opts.debug_dir)) {
+            PrintOutError("--debug must be a directory writeable by the user\n");
+            return 0;
+        }
+    }
 
     // Note that we are reusing the invoke callback.
     auto newHandle = DbgAttach(ps->s_name.c_str(), opts);
@@ -1245,6 +1294,10 @@ void ConsoleCommandsFactory::insert_proc_commands(CommandNode& root) {
         .name = "launch", .ptype = proc_ignore,
         .fn = cmd_launch_cmd, .completion = cmd_launch_completion,
         .help = cmd_launch_help, .desc = "Launch an application."});
+    root.addSubCmd({
+        .name = "srun", .ptype = proc_ignore,
+        .fn = cmd_srun_cmd, .completion = cmd_launch_completion,
+        .help = cmd_srun_help, .desc = "Launch an application via srun."});
     root.addSubCmd(
         "attach", nullptr, proc_ignore, cmd_attach_cmd,
         cmd_attach_help, "Attach to an application.");

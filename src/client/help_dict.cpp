@@ -567,6 +567,28 @@ const char* const cmd_launch_help[] = {
     "    --launcher-args=\"-n2\" b.out --args=\"b_arg\"",
     0};
 
+const char* const cmd_srun_help[] = {
+    "Summary: Launch an application with srun.",
+    "Usage: srun [OPTIONS(0)... [executable(0) [args(0)...]]] [ : [OPTIONS(N)...]] executable(N) [args(N)...]",
+    "Example command: srun -n3 -N6 -p allnodes ./app",
+    "",
+    "Description:",
+    "Launch an application using the same syntax as the srun command.",
+    "",
+    "gdb4hpc will parse the srun command and internally create a `launch` command with",
+    "equivalent options. Not all srun options are supported. To launch an application",
+    "with an unsupported option, use the `launch` command with `--launcher-args`,",
+    "which forwards all options verbatim to srun without any intermediary parsing",
+    "step.",
+    "",
+    "All srun options with a short (one letter) version are supported, along with their",
+    "corresponding long versions. Additionally, the following long options are supported:",
+    "",
+    "  --ntasks-per-node",
+    "  --exclusive",
+    "  --gres",
+    0};
+
 const char* const cmd_run_help[] = {
     "Summary: Start debugged program.",
     "Usages:",

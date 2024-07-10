@@ -15,6 +15,8 @@ struct ClientSettingsInterface {
     virtual bool isNonStop() = 0;
 };
 
+namespace test {
+
 struct MockClientSettings : public ClientSettingsInterface {
     // Used in unit tests
 
@@ -26,3 +28,4 @@ struct MockClientSettings : public ClientSettingsInterface {
     bool isNonStop() override { return true; }
 };
 
+} // namespace test

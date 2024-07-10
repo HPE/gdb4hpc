@@ -269,8 +269,8 @@ dbgprocset_t *CreateProcSetForInvoke(const std::string& psName) {
     static std::regex psRE(R"((\$\w+)(\{(\d+)\})?)");
     auto match = std::smatch{};
     if (!std::regex_match(psName, match, psRE)) {
-        PrintOutError("Invalid proc handle syntax. Expected $handle{n} where n is "
-                      "the number of application ranks.\n");
+        PrintOutError("Invalid proc handle syntax \"%s\". Expected $handle{n} where n is "
+                      "the number of application ranks.\n", psName.c_str());
         return nullptr;
     }
 

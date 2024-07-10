@@ -506,6 +506,21 @@ directory. By default, if the **\--workdir=** option is specified
 without a path, the current working directory will be changed to the
 location of the application\'s executable file.
 
+## Alternave Launch Commands
+
+For some WLMs, gdb4hpc supports using the same job launch syntax one would use
+on the command line outside of gdb4hpc.
+
+For example, on machines running Slurm, one could launch a job like this:
+
+```
+srun -n10 --exclusive ./hello_mpi_c
+```
+
+The alternative launch commands do not support all command line flags/options
+of the launchers they represent, but they support most commonly used flags/options.
+To see what options are supported, use the `help` command, e.g. `help srun`.
+
 ## Caveat for Launching a Serial Application
 
 Parallel applications contain a communication mechanism that causes a

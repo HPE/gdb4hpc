@@ -1035,6 +1035,17 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "python_positional_args"
         runTest(self)
 
+    def test_srun_simple(self):
+        # this test can be run on any WLM since gdb4hpc will translate basic srun options to any WLM
+        self.base_name = "srun_simple"
+        runTest(self)
+
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_srun_twice(self):
+        # this test uses slurm-specific syntax so it must be run on slurm
+        self.base_name = "srun_twice"
+        runTest(self)
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

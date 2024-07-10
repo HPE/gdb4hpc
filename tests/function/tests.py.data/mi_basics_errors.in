@@ -6,33 +6,21 @@
 2: # multi line error messages are logged, but only the first line is attached to ^error
 ^done
 (gdb)
-3: -exec-arguments $a{1} ./bin/CRAY/c/c_not_mpi.x
+3: -exec-arguments $a{1} ./bin/CRAY/c/this_one_doesnt_exist.x
 ^done
 (gdb)
 4: -file-exec-and-symbols
-&"Debugger error: Missing PMI or MPI entrypoint symbol!\n"
-&"Application is missing required function for startup.\n"
-&"\n"
-&"This is usually MPI_Init()/shmem_init()/etc. To bypass this check,\n"
-&"add the --non-mpi argument to launch, or\n"
-&"use the command \"maint set unsafe on\". Note that your application\n"
-&"may hang during startup.\n"
-^error,msg="Debugger error: Missing PMI or MPI entrypoint symbol!"
+&"Error: filesystem error: cannot make canonical path: No such file or directory [./bin/CRAY/c/this_one_doesnt_exist.x]\n"
+^error,msg="Error: filesystem error: cannot make canonical path: No such file or directory [./bin/CRAY/c/this_one_doesnt_exist.x]"
 (gdb)
 &"Command resulted in an error: 4: -file-exec-and-symbols\n"
 5: # same when using the console fallback
 ^done
 (gdb)
-6: launch $a{1} ./bin/CRAY/c/c_not_mpi.x
-&"launch $a{1}%.*% ./bin/CRAY/c/c_not_mpi.x\n"
-&"Debugger error: Missing PMI or MPI entrypoint symbol!\n"
-&"Application is missing required function for startup.\n"
-&"\n"
-&"This is usually MPI_Init()/shmem_init()/etc. To bypass this check,\n"
-&"add the --non-mpi argument to launch, or\n"
-&"use the command \"maint set unsafe on\". Note that your application\n"
-&"may hang during startup.\n"
-^error,msg="Debugger error: Missing PMI or MPI entrypoint symbol!"
+6: launch $a{1} ./bin/CRAY/c/this_one_doesnt_exist.x
+&"launch $a{1} %.*%bin/CRAY/c/this_one_doesnt_exist.x\n"
+&"Error: filesystem error: cannot make canonical path: No such file or directory [./bin/CRAY/c/this_one_doesnt_exist.x]\n"
+^error,msg="Error: filesystem error: cannot make canonical path: No such file or directory [./bin/CRAY/c/this_one_doesnt_exist.x]"
 (gdb)
-&"Command resulted in an error: 6: launch $a{1}%.*% ./bin/CRAY/c/c_not_mpi.x\n"
+&"Command resulted in an error: 6: launch $a{1} %.*%bin/CRAY/c/this_one_doesnt_exist.x\n"
 7: -gdb-exit

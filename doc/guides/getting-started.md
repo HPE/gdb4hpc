@@ -58,6 +58,31 @@ To distinguish gdb and gdb4hpc variables from program variables, they prepended 
 
 The choice `a` for the procset name is arbitrary.  The reason it has a name is the gdb4hpc can control more than one application run at a time.
 
+### Alternative Launch Commands
+
+For some WLMs, gdb4hpc supports using the same job launch syntax you would use
+on the command line outside of gdb4hpc.
+
+For example, on machines running Slurm, you could launch a job equivalent to
+the example above like this:
+
+```
+dbg all> srun -n10 --exclusive ./hello_mpi_c
+Starting application, please wait...
+Launch application...
+0/10 ranks connected... (timeout in 300 seconds)
+10/10 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+hello_mpi_c{0..9}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.0.0/demos/mpi_example/hello_mpi.c:13
+dbg all>
+```
+
+The alternative launch commands do not support all command line flags/options
+of the launchers they represent, but they support most commonly used flags/options.
+To see what options are supported, use the `help` command, e.g. `help srun`.
+
 ## If you've never used a debugger
 
 If you were following along, at this point you are debugging an HPC program.  There are 10 application processes being held at entry by ten instances of gdb which are communicating with one gdb4hpc.

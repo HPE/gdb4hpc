@@ -1,7 +1,8 @@
-//  Copyright 2023 Hewlett Packard Enterprise Development LP.
+// Copyright 2023-2024 Hewlett Packard Enterprise Development LP.
 #pragma once
 
 #include "args.h"
+#include "dbgclnt_settings.h"
 
 // Bundle up the launch time setting and arguments into a single object 
 class LaunchOpts {
@@ -32,8 +33,16 @@ class LaunchOpts {
  public:
   LaunchOpts() = default;
 
-  // throws std::runtime_error upon parse error
-  LaunchOpts(int argc, const char* const argv[], ClientSettingsInterface& csi);
+  // parse_* constructors throw std::runtime_error upon parse error
+
+  // create a LaunchOpts from a gdb4hpc launch command
+  static LaunchOpts parse_gdb4hpc(int argc, const char* const argv[], ClientSettingsInterface& csi);
+
+  // create a LaunchOpts from an srun command
+  static LaunchOpts parse_srun(int argc, const char* const argv[], ClientSettingsInterface& csi);
+
+  // set flags that depend on the client settings struct
+  void read_client_settings(ClientSettingsInterface& csi);
 
   // throws std::runtime_error if a held argument is invalid. examples of invalid
   // arguments are a path to a nonexistent binary set as the binary name, a gdb set
@@ -55,9 +64,11 @@ class LaunchOpts {
   ArgvStream env;                    // --env "name=value"
   bool gpu_flag = false;             // --gpu
   bool debug_flag = false;           // --debug
+  std::string debug_dir = "";        // --debug=/path/to/dir (this form also sets debug_flag)
   std::string qsub_file_path = "";   // --qsub /path/to/script
   std::string sbatch_file_path = ""; // --sbatch /path/to/script
   std::string procset_name;          // full name of passed procset, including rank count, e.g. $a{3}
+                                     // FIXME: the number of ranks should be a separate field and not encoded here.
                                      //
   bool non_stop_flag = true;         // settings copied from passed ClientSettingsInterface
   bool early_entry_flag = false;     //
@@ -76,6 +87,7 @@ struct AttachOpts {
   std::string vgdb_file;
   bool gpu_flag = false;
   bool debug_flag = false;
+  std::string debug_dir;
 };
 
 

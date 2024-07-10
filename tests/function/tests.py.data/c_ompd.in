@@ -9,6 +9,8 @@ Launch complete.
 a{0..1}: Initial breakpoint, main at /src/c/c_ompd.c:11
 2: maint set sync on
 3: ompd init
+a{0..1}: set language c
+a{0..1}: set language auto
 a{0..1}: Loaded OMPD lib successfully from %.*%/lib/libcrayompd.so
 a{0..1}: Initialized ICV map successfully for checking OMP API values.
 4: ompd threads

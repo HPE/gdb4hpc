@@ -13,6 +13,10 @@
  *
  *********************************************************************************/
 
+#include <getopt.h>
+
+#include <set>
+
 #include "args.h"
 
 #include "unittest_macros.h"
@@ -239,4 +243,45 @@ std::string ArgvStream::asString(size_t start, size_t stop_after, char delim) co
     }
 
     return ss.str();
+}
+
+std::string optstring_from_longopts(const struct option options[], OptstringScanningMode mode, bool differentiate_missing_arg) {
+    auto result = std::ostringstream{};
+
+    auto long_opts = std::set<std::string>{};
+    auto short_opts = std::set<std::string>{};
+
+    if (mode == OptstringScanningMode::PosixlyCorrect) result << "+";
+    else if (mode == OptstringScanningMode::HandleAll) result << "-";
+    // PermuteArgv is the default behavior and requires no character
+
+    if (differentiate_missing_arg) result << ":";
+
+    // as far as i can tell, there is no valid use for an option struct with a nullptr name,
+    // so i am being lazy and assuming that means we found the {0, 0, 0, 0} entry.
+    for (const struct option* opt = options; opt->name; opt++) {
+        if (long_opts.contains(opt->name)) {
+            throw std::runtime_error(std::string{"Duplicate long option: "} + opt->name);
+        }
+        long_opts.insert(opt->name);
+
+        if (opt->val != 1) {
+            // 1 is a special value that is allowed to be duplicated
+            if (short_opts.contains(std::string{(char)opt->val})) {
+                throw std::runtime_error(std::string{"Duplicate short option: "} + char(opt->val));
+            }
+            short_opts.insert(std::string{(char)opt->val});
+        }
+
+        result << (char)opt->val;
+        if (opt->has_arg == required_argument) result << ":";
+        if (opt->has_arg == optional_argument) result << "::";
+
+        // "W:" has a special meaning that the caller probably did not actually want to opt into
+        if (opt->has_arg == required_argument && opt->val == 'W') {
+            throw std::runtime_error("Short option W with a required argument has special meaning and is not allowed.");
+        }
+    }
+
+    return result.str();
 }

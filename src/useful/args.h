@@ -24,6 +24,7 @@
 #include <type_traits>
 #include <climits>
 #include <iomanip>
+#include <optional>
 
 class ArgvStream {
 public:
@@ -124,3 +125,37 @@ std::string ArgsToString(const char * const * argv, int argc);
 
 // simply append with spaces without adding and quote or quote escapes
 std::string ArgsToStringUnquoted(const char * const * argv, int argc);
+
+enum class OptstringScanningMode {
+    PermuteArgv,
+    PosixlyCorrect,
+    HandleAll,
+};
+
+// take an array of getopt_long `options` and return a string to use as the
+// optstring argument of the getopt_long call that uses them.
+// `options` must end with the usual {0, 0, 0, 0} entry.
+//
+// `mode` picks one of the available getopt_long scanning modes:
+//
+// - `PermuteArgv` means getopt will permute argv as it scans options so that
+//   all non-options end up on the end of argv. this is the default behavior of getopt.
+// - `PosixlyCorrect` means getopt will stop on the first non-option argument. the
+//   returned string will begin with "+".
+// - `HandleAll` means getopt will handle each non-option argument as if it was the
+//   argument to an option with the character code 1. the returned string will begin
+//   with "-".
+//
+// `differentiate_missing_args` means that getopt will return ':' when it encounters flag that was
+// valid but missing an argument instead of the usual '?' it uses for all errors.
+// the returned string will begin with ":" (or "+:", "-:" depending on the `mode`.).
+//
+// returns the corresponding optstring on success. throws on failure. the
+// function can fail in certain edge cases that relate to the underlying getopt
+// implementation:
+//
+// - multiple options having the same long or short name as another entry
+// - "W:" in the optstring is a special flag meaning "-W foo" will be treated as "--foo".
+//   this means that a long option with a required argument and character code W is not
+//   allowed and will result in a nullopt result.
+std::string optstring_from_longopts(const struct option options[], OptstringScanningMode mode, bool differentiate_missing_args);

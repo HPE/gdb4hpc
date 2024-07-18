@@ -55,17 +55,13 @@ int Thread::detach() {
     return rc;
 }
 
-String to_string(int num) {
-    auto result = String{};
-
-    auto len = ::snprintf(nullptr, 0, "%d", num) + 1;
-    auto buf = new char[len];
-    ::snprintf(buf, len, "%d", num);
-    // XXX: is there a way to do this without the copy?
-    result.append(buf);
-    delete[] buf;
-
-    return result;
+void log(const char *format, ...) {
+    // XXX: placeholder until proper logging solution is implemented.
+    //      for now this will be seen as user application output.
+    va_list arg_list;
+    va_start(arg_list, format);
+    vfprintf(stderr, format, arg_list);
+    va_end(arg_list);
 }
 
 } // namespace pybe

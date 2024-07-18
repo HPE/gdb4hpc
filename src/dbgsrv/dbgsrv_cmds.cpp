@@ -26,6 +26,19 @@
 #include <string>
 #include <memory>
 
+template <typename Fn, typename... Args>
+static dbgevent_t* run_pybe_cmd(Fn fn, Args&&... args) {
+    try {
+        return fn(std::forward<Args>(args)...);
+    } catch (dbgevent_t* error) {
+        DVPRINT("Caught top level pybe error: %s\n", DbgEventErrorStr(error));
+        return error;
+    } catch (...) {
+        DVPRINT("Caught unknown top level pybe error\n");
+        return NewErrorEvent(DBGERR_INTERNAL, "Internal error");
+    }
+}
+
 std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg, const dbgcomm_info *ci) {
 
     DVPRINT("dbgsrv_dispatch_cmds received: %s\n", msg);
@@ -466,17 +479,17 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         }
 
         case DBGCMD_PYBEINJECT: {
-            e = DbgPythonBEInject();
+            e = run_pybe_cmd(DbgPythonBEInject);
             break;
         }
 
         case DBGCMD_PYBEGETGIL: {
-            e = DbgPythonBEGetGIL();
+            e = run_pybe_cmd(DbgPythonBEGetGIL);
             break;
         }
 
         case DBGCMD_PYBEBACKTRACE: {
-            e = DbgPythonBEBacktrace();
+            e = run_pybe_cmd(DbgPythonBEBacktrace);
             break;
         }
     }

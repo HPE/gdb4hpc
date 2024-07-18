@@ -8,9 +8,9 @@
 #include "dbgsrv_defs.h"
 #include "unittest_macros.h"
 #include "parse.h"
+#include "mi_utils.h"
 #include <regex>
 
-extern void SendMICommand(MISession *, MICommand *);
 extern size_t FindTemplateLength(const std::string& str, size_t pos);
 
 namespace TypeParser {

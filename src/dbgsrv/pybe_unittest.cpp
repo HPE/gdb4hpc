@@ -3,47 +3,70 @@
 // ... TODO ...
 
 #include <string>
+#include <vector>
+#include <future>
 
 #include "unittest_drivers.h"
 
+#include "pybe_stl.h"
+
+// so we can specialize both types in the unittests...
+#define I_HAVE_PERMISSION_TO_INCLUDE_PYBE_COMMS
 #include "pybe_comms.h"
+#undef I_HAVE_PERMISSION_TO_INCLUDE_PYBE_COMMS
+
+// ...TODO actually specialize and test both types!
+template <typename T>
+using DefaultVector = std::vector<T>;
+using DbgsrvLowLevels = pybe::detail::CommsLowLevelTs<std::string, std::string_view, DefaultVector>;
+
+namespace pybe {
+    using Client = detail::Client_T<DbgsrvLowLevels>;
+    using Server = detail::Server_T<DbgsrvLowLevels>;
+    using Channel = detail::Channel_T<DbgsrvLowLevels>;
+
+    using Frame = detail::Frame_T<DbgsrvLowLevels>;
+    using Backtrace = detail::Backtrace_T<DbgsrvLowLevels>;
+};
 
 namespace doctest {
-// these tell doctest how to stringify pybe types and make for nicer test output
 
-template<> struct StringMaker<pybe::String> {
-    static String convert(const pybe::String& str) {
-        return str.c_str();
-    }
-};
+    // these tell doctest how to stringify pybe types and make for nicer test output
 
-pybe::String pybe_convert(const pybe::Frame& frame) {
-    auto result = pybe::String{};
-    result.append(frame.function_name.c_str());
-    result.append(" in ");
-    result.append(frame.file_name.c_str());
-    result.append(":");
-    result.append(std::to_string(frame.line_number).c_str());
-    return result.c_str();
-}
-
-template<> struct StringMaker<pybe::Frame> {
-    static String convert(const pybe::Frame& frame) {
-        return pybe_convert(frame).c_str();
-    }
-};
-
-template<> struct StringMaker<pybe::Backtrace> {
-    static String convert(const pybe::Backtrace& bt) {
-        auto result = pybe::String{};
-        for (const auto& frame : bt.frames) {
-            result.append(pybe_convert(frame).c_str());
-            result.append(" --- ");
+    template<> struct StringMaker<pybe::String> {
+        static String convert(const pybe::String& str) {
+            return str.c_str();
         }
+    };
+
+    pybe::String pybe_convert(const pybe::Frame& frame) {
+        auto result = pybe::String{};
+        result.append(frame.function_name.c_str());
+        result.append(" in ");
+        result.append(frame.file_name.c_str());
+        result.append(":");
+        result.append(std::to_string(frame.line_number).c_str());
         return result.c_str();
     }
-};
-}
+
+    template<> struct StringMaker<pybe::Frame> {
+        static String convert(const pybe::Frame& frame) {
+            return pybe_convert(frame).c_str();
+        }
+    };
+
+    template<> struct StringMaker<pybe::Backtrace> {
+        static String convert(const pybe::Backtrace& bt) {
+            auto result = pybe::String{};
+            for (const auto& frame : bt.frames) {
+                result.append(pybe_convert(frame).c_str());
+                result.append(" --- ");
+            }
+            return result.c_str();
+        }
+    };
+
+} // namespace doctest
 
 TEST_CASE("pybe::Expected: basics") {
     auto slot_machine = [](bool error) -> pybe::Expected<size_t, const char *> {
@@ -116,39 +139,62 @@ TEST_CASE("pybe::Expected: Contained type constructors and methods are run corre
 }
 
 TEST_CASE("pybe::Expected: Destructors") {
-    bool everything_is_ok = true;
+    int explosions = 0;
 
     struct Bomb {
-        Bomb(bool& victim) : m_victim{victim} {};
-        ~Bomb() { m_victim = false; }
-        bool& m_victim;
+        Bomb(int* site) : bomb_site{site} {};
+        Bomb(Bomb&& other) {
+            *this = std::move(other);
+        }
+        Bomb& operator=(Bomb&& other) {
+            other.armed = false;
+            std::swap(bomb_site, other.bomb_site);
+            other.bomb_site = nullptr;
+            return *this;
+        }
+
+        ~Bomb() { if (armed) ++*bomb_site; }
+
+        bool armed = true;
+        int* bomb_site;
     };
 
-    auto get_possible_bomb = [&](bool bomb) -> pybe::Expected<const char *, Bomb> {
+    auto get_possible_bomb = [&](bool bomb) -> pybe::Expected<Bomb, const char*> {
         if (bomb) {
-            return Bomb(everything_is_ok);
+            return Bomb(&explosions);
         } else {
             return ":-)";
         }
     };
 
-    REQUIRE(everything_is_ok);
-
     SUBCASE("the bomb doesn't explode") {
+        REQUIRE(explosions == 0);
         {
             auto not_a_bomb = get_possible_bomb(false);
-            REQUIRE(static_cast<bool>(not_a_bomb));
-            CHECK(*not_a_bomb == ":-)");
+            REQUIRE(!static_cast<bool>(not_a_bomb));
+            CHECK(not_a_bomb.get_error() == ":-)");
         }
-        CHECK(everything_is_ok);
+        CHECK(explosions == 0);
     }
 
     SUBCASE("the bomb explodes!") {
+        REQUIRE(explosions == 0);
         {
-            auto not_a_bomb = get_possible_bomb(true);
-            REQUIRE(!static_cast<bool>(not_a_bomb));
+            auto bomb = get_possible_bomb(true);
+            REQUIRE(static_cast<bool>(bomb));
         }
-        CHECK(!everything_is_ok);
+        CHECK(explosions == 1);
+    }
+
+    SUBCASE("the bomb is moved, then explodes") {
+        REQUIRE(explosions == 0);
+        {
+            auto bomb = get_possible_bomb(true);
+            REQUIRE(static_cast<bool>(bomb));
+            auto carefully_moved_bomb = decltype(bomb){std::move(*bomb)};
+            CHECK(explosions == 0);
+        }
+        CHECK(explosions == 1);
     }
 }
 
@@ -215,6 +261,30 @@ TEST_CASE("backtrace serialization") {
 
     CHECK(bt_in == bt_out);
     CHECK(bt_diff != bt_out);
+}
+
+TEST_CASE("Channel") {
+    const auto endpoint = "@pybe_unittest_" + std::to_string(::getpid());
+    auto server = pybe::Server::make(endpoint);
+    auto client = pybe::Client::make(endpoint);
+
+    auto connection_f = std::async(std::launch::async, [&](){
+        auto maybe_server_ch = server->accept_with_timeout();
+        REQUIRE(maybe_server_ch);
+        return std::move(*maybe_server_ch);
+    });
+
+    auto maybe_client_ch = client->connect_with_timeout();
+    REQUIRE(maybe_client_ch);
+
+    auto client_channel = std::move(*maybe_client_ch);
+    auto server_channel = connection_f.get();
+
+    const auto message_in = "hello world";
+    REQUIRE(client_channel.send_with_timeout(message_in, strlen(message_in), 1) != -1);
+    const auto message_out = server_channel.recv_with_timeout(1);
+
+    CHECK(message_in == message_out);
 }
 
 int main(int argc, char* argv[]) {

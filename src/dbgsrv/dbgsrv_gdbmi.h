@@ -19,6 +19,7 @@
 #include "dbgfn.h"
 #include "dbgcmd.h"
 #include "MI.h"
+#include "dbgsrv_pybe.h"
 
 class DbgGdbMI {
 public:
@@ -145,6 +146,19 @@ private:
     bool m_ompdIsInitialized;
     bool m_ompdIsAvail;
     std::string m_beFileDir;  // location of manifest files
+
+    // ensure that the python backend is ready to use. after successfully calling this function:
+    //
+    // - the pybe shared library will have been injected into the inferior.
+    // - a new thread will have been spawned in the inferior for pybe use.
+    //
+    // this function is idempotent and can safely be called multiple times.
+    //
+    // throws a dbgevent_t* error on failure.
+    Pybe& ensurePybe();
+
+    // prefer ensurePybe instead of accessing this directly
+    std::unique_ptr<Pybe> m_pybe;
 };
 
 class DbgGdbMI::Initializer {

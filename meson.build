@@ -483,7 +483,6 @@ libgdb4_pybe_so = shared_library(
   sources: [
     './src/dbgsrv/pybe_entry.cpp',
     './src/dbgsrv/pybe_stl.cpp',
-    './src/dbgsrv/pybe_comms.cpp',
   ],
   include_directories: [],
   cpp_args: [
@@ -540,6 +539,8 @@ dbgsrv = executable(
     './src/dbgsrv/dbgsrv_mrn.cpp',
     './src/dbgsrv/mrn_topo.cpp',
     './src/dbgsrv/dbgsrv_zmq.cpp',
+    './src/dbgsrv/dbgsrv_pybe.cpp',
+    './src/dbgsrv/mi_utils.cpp',
   ],
   include_directories: [
     './src',

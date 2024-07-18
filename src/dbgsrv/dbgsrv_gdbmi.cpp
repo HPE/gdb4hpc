@@ -50,6 +50,7 @@
 #include "dbgsrv_util.h"
 #include "defs.h"
 #include "useful.h"
+#include "mi_utils.h"
 
 #include "pybe_comms.h"
 
@@ -61,14 +62,6 @@ static dbgframe_t* parsePythonMoveFrame(const std::string& text);
 static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
 }
-
-// make a unique pointer out of `cmd`
-static auto cmdptr(MICommand* cmd) {
-    return std::unique_ptr<MICommand, decltype(&MICommandFree)>(cmd, MICommandFree);
-}
-
-// functions with external visibility
-void SendMICommand(MISession *, MICommand *);
 
 static MISession *GDBMISession;
 static dbgstat Status;
@@ -2555,12 +2548,12 @@ dbgevent_t* DbgGdbMI::pythonMoveFrame(DbgFrameDir dir) {
         const char* up_argv[1] = { "py-up" };
         const char* down_argv[1] = { "py-down" };
         switch (dir) {
-            case DbgFrameDir::UP: return cmdptr(CLIBypassc(1, up_argv));
-            case DbgFrameDir::DOWN: return cmdptr(CLIBypassc(1, down_argv));
+            case DbgFrameDir::UP: return make_MICmd(CLIBypassc(1, up_argv));
+            case DbgFrameDir::DOWN: return make_MICmd(CLIBypassc(1, down_argv));
             // frontend will ensure ABSOLUTE is never passed
-            case DbgFrameDir::ABSOLUTE: return cmdptr(nullptr);
+            case DbgFrameDir::ABSOLUTE: return make_MICmd(nullptr);
         }
-        return cmdptr(nullptr); // unreachable
+        return make_MICmd(nullptr); // unreachable
     }();
 
     if (!cmd) {
@@ -2622,298 +2615,26 @@ dbgevent_t* DbgGdbMI::pythonLocals() {
     return e;
 }
 
-struct PybeConnection {
-    static constexpr auto path = "@pybe"; // TODO: this needs to be unique each time for each process
-    int server_fd = -1;
-    int conn_fd = -1;
-};
+Pybe& DbgGdbMI::ensurePybe() {
+    if (m_pybe) return *m_pybe; // no work to do
 
-// TODO make this not global
-auto g_pybe = PybeConnection{};
+    if (!m_initializer || !m_initializer->getMISession()) {
+        throw NewErrorEvent(DBGERR_INTERNAL, "Failed to connect to python.");
+    }
+    // throws on failure
+    m_pybe = std::make_unique<Pybe>(*m_initializer->getMISession());
+    return *m_pybe;
+}
 
 dbgevent_t* DbgGdbMI::pythonBEInject() {
     DVPRINT("pythonBEInject\n");
-
-    // calling dlopen multiple times on the same library is fine. it will
-    // return the same address that it previously loaded. so there is no
-    // need to check if we have already injected the library before running
-    // this function.
-
-    // TODO: confirm that g4h's /lib directory is in the inferior's LD_LIBRARY_PATH.
-    //       this might not be automatic if the user loaded gdb4hpc after launching
-    //       their app or has their app clear its environment.
-    //
-    // NOTE: not bothering to check that the inferior has loaded libdl because this
-    //       is only used on python inferiors and it always has libdl.
-    //
-    // TODO: make sure this doesn't explode when it's run on a non-cpython binary
-    //       (notably on a binary without libdl)
-
-    // TODO: make a LIBPYBE.SO constant instead of hard coding the library name
-    // TODO: should we really specify the version?
-    // hopefully the RTLD_LAZY constant is the same on the build machine and the target machine...
-    auto open_exp = std::string{"\"(void *)"} + "dlopen(\\\"" + "libgdb4_pybe.so" + ".0" + "\\\", " + std::to_string(RTLD_LAZY) + ")\"";
-
-    auto cmd = cmdptr(MIDataEvaluateExpression(open_exp.c_str()));
-
-    SendMICommand(GDBMISession, cmd.get());
-    if (!MICommandResultOK(cmd.get())) {
-        DVPRINT("pythonBEInject: got error from [%s]\n", open_exp.c_str());
-        return NewErrorEvent(DBGERR_DEBUGGER,
-            "Failed to set up python debugging.\n"
-            "This is a bug. Please report it and include the following info:\n"
-            "failure: dlopen expression: [%s]\n",
-            open_exp.c_str());
-    }
-
-    auto lib_handle_addr = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
-    if (lib_handle_addr.get_view() == "0x0") {
-        DVPRINT("pythonBEInject: dlopen failed\n");
-
-        auto dlerror_result = std::string{"unspecified"};
-        auto dlerror_cmd = cmdptr(MIDataEvaluateExpression("(char*)dlerror()"));
-        SendMICommand(GDBMISession, dlerror_cmd.get());
-
-        if (!MICommandResultOK(dlerror_cmd.get())) {
-            DVPRINT("(%s) couldn't run dlerror to get failure reason\n", open_exp.c_str());
-        } else {
-            auto dlerror_str = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(dlerror_cmd.get()));
-            dlerror_result = dlerror_str.get_string();
-            DVPRINT("(%s) dlerror: %s\n", open_exp.c_str(), dlerror_result.c_str());
-        }
-
-        return NewErrorEvent(DBGERR_DEBUGGER,
-            "Failed to set up python debugging.\n"
-            "This is a bug. Please report it and include the following info:\n"
-            "failure: dlopen call\n"
-            "error: %s\n",
-            dlerror_result.c_str());
-    }
-
-
-    {
-        g_pybe.server_fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
-        if (g_pybe.server_fd == -1) {
-            DVPRINT("socket failed: %s\n", strerror(errno));
-            // TODO better error message
-            return NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
-        }
-
-        // TODO: make a utility class for socket management
-        sockaddr_un addr;
-        addr.sun_family = AF_UNIX;
-        ::memset(addr.sun_path, 0, sizeof(addr.sun_path));
-        ::memcpy(addr.sun_path, PybeConnection::path, ::strlen(PybeConnection::path));
-        addr.sun_path[0] = '\0'; // TODO explain this
-
-        if (::bind(g_pybe.server_fd, (sockaddr*)&addr, sizeof(addr))) {
-            DVPRINT("bind failed: %s\n", strerror(errno));
-            // TODO better error message
-            return NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
-        }
-
-        // the 2nd parameter specifies the length of the connection
-        // queue. attempts from another process to `connect` will be
-        // successful as long as there is room in the queue. once the
-        // queue is full, the other process's `connect` blocks.
-        //
-        // TODO: determine the correct queue size
-        if (::listen(g_pybe.server_fd, 1)) {
-            DVPRINT("listen failed: %s\n", strerror(errno));
-            // TODO better error message
-            return NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
-        }
-
-        // SendMICommand will block until the command completes. the connection
-        // function on the other end will block until it makes a connection to
-        // us. To prevent deadlock, we run the command in another thread.
-        auto cmd_f = std::async(std::launch::async, [](){
-            const auto expr = std::string{"(bool)pybe::connect_to_dbgsrv(\""} + PybeConnection::path + "\")";
-            auto cmd = cmdptr(MIDataEvaluateExpression(expr.c_str()));
-            SendMICommand(GDBMISession, cmd.get());
-
-            if (!MICommandResultOK(cmd.get())) {
-                DVPRINT("Failed to start connection in pybe\n");
-                return false;
-            }
-
-            // TODO check the actual return value of the command. !MICommandResultOK
-            // only indicates that the gdb action of calling the function worked.
-            return true;
-        });
-
-        // TODO: implement timeout so this doesn't block forever on failure
-        g_pybe.conn_fd = ::accept(g_pybe.server_fd, nullptr, nullptr);
-        if (g_pybe.conn_fd == -1) {
-            DVPRINT("accept failed: %s\n", strerror(errno));
-            // TODO: wait for the future with a timeout so we don't wait forever
-            // for the future's dtor here.
-
-            // TODO better error message
-            return NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
-        }
-    }
-
-    // TODO: maybe we save lib_handle_addr for later here?
-
+    ensurePybe(); // throws on failure
     return NewEvent(DBGEV_OK);
 }
 
-// see comment in pythonBEGetGIL
-int pybe_get_gil_thread_id = -1;
-
 dbgevent_t* DbgGdbMI::pythonBEGetGIL() {
     DVPRINT("PythonBEGetGIL\n");
-
-    // TODO: ensure that pybe has been injected first
-
-    // stop everything so we have a sane starting point to reason from...
-    interrupt(/* all */ true);
-
-    // when we `call` the pybe function later, it will raise a SIGTRAP once it has
-    // the GIL. by default, gdb will restore the stack back to the state that it was
-    // before the `call` unless we turn off unwindonsignal.
-    //
-    // FIXME: we need to restore this to its previous setting afterwards
-    {
-        auto cmd = cmdptr(MIGDBSet("unwindonsignal", "off"));
-
-        SendMICommand(GDBMISession, cmd.get());
-
-        if (!MICommandResultOK(cmd.get())) {
-            DVPRINT("PythonBEGetGIL: error disabling unwind on signal\n");
-            return NewErrorEvent(DBGERR_DEBUGGER,
-                "Failed to set up python debugging.\n"
-                "This is a bug. Please report it and include the following info:\n"
-                "failure: failed to disable unwind-on-signal");
-            // TODO include error text from gdb
-        }
-    }
-
-    // XXX: we are about to spawn a thread in the user's app, and we need the new
-    // thread id to be able to switch to it and run pybe functions. to get the
-    // id, we catch the `thread-created` notification that gdbmi will emit when we
-    // call the function to start the thread.
-    //
-    // the only way to get at this information is through the libmi callbacks. the
-    // callbacks don't return anything, so we need to get the information out through
-    // a side channel. unfortunately the callback is stored as a raw function pointer
-    // which means we can't give it a capturing lambda with a properly scoped
-    // side channel variable. we have to resort to a global (pybe_get_gil_thread_id).
-    //
-    // we also need to do the parsing of the thread id directly in the callback. i.e. we
-    // can't just save the MIList* and then get back to it. this is because the MIList*
-    // only lives as long as the callback and is immediately destroyed once the callback returns.
-    //
-    // okay, let's get it over with.
-
-    pybe_get_gil_thread_id = -1;
-
-    {
-        auto old_callback = GDBMISession->notify_callback;
-        auto restore_callback_on_exit = OnScopeExit([&](){
-            MISessionRegisterNotifyCallback(GDBMISession, old_callback);
-        });
-
-        MISessionRegisterNotifyCallback(GDBMISession, [](char *class_name, MIList *notif) {
-            // assuming that there will only be one thread-created variable over
-            // the course of this
-            if (!class_name || std::string_view{class_name} != "thread-created") {
-                // this isn't the notification with the thread id
-                return;
-            }
-
-            MIListSet(notif);
-            for (auto* keyval = (MIResult*)MIListGet(notif); keyval; keyval = (MIResult*)MIListGet(notif)) {
-                if (::strcmp(keyval->variable, "id") == 0 && keyval->value && keyval->value->cstring) {
-                    pybe_get_gil_thread_id = ::atoi(keyval->value->cstring);
-                    return;
-                }
-            }
-
-            // never found it
-            pybe_get_gil_thread_id = -1;
-        });
-
-        // TODO: don't make this function name a magic string
-        const auto fn = "pybe::spawn_GIL_grabbing_thread()";
-        auto cmd = cmdptr(MIDataEvaluateExpression(fn));
-
-        SendMICommand(GDBMISession, cmd.get());
-
-        if (!MICommandResultOK(cmd.get())) {
-            // XXX: can't really check for error here because gdb reports the SIGTRAP that
-            // the new thread receives as a debugger error despite well defined behavior.
-            // but maybe we could do some parsing of the output text.
-
-            // DVPRINT("PythonBEGetGIL: error starting GIL thread\n");
-            // return NewErrorEvent(DBGERR_DEBUGGER,
-            //     "Failed to set up python debugging.\n"
-            //     "This is a bug. Please report it and include the following info:\n"
-            //     "failure: failed to start GIL thread (%s)\n",
-            //     fn);
-            // // TODO include error text from gdb
-        }
-
-        // old notification callback is restored at the exit of this block
-    }
-
-    // this should have been set in the callback we set up
-    if (pybe_get_gil_thread_id == -1) {
-        DVPRINT("PythonBEGetGIL: error getting thread id\n");
-        return NewErrorEvent(DBGERR_DEBUGGER,
-            "Failed to set up python debugging.\n"
-            "This is a bug. Please report it and include the following info:\n"
-            "failure: failed to get thread ID");
-    }
-
-    // our GIL-grabbing thread is now running. now we wrangle async events until our newly
-    // spawned thread has the GIL. we have three possible scenarios:
-    //
-    // 1. the parent thread did not hold the GIL and no other thread does.
-    //    in non-stop mode, the call above immediately starts the thread and
-    //    a SIGTRAP is generated immediately. in all-stop mode, the call above
-    //    somehow makes it to the SIGTRAP and stops, but gdb doesn't report
-    //    it until a continue is issued (?, more investigation needed)
-    //
-    // 2. the parent thread does hold the GIL. the call above immediately starts
-    //    the thread but it's waiting for the lock. both non-stop and stop-all
-    //    need to continue -a since the parent thread won't release the GIL until
-    //    it's running and the grabbing thread needs to be running to grab it.
-    //
-    // 3. the parent thread does not hold the GIL, but another unknown thread
-    //    does. the call above immediately starts the thread but it's waiting
-    //    both non-stop and stop-all need to continue -a for the same reasons as 2.
-    //
-    // XXX: the below code only handles scenario 1.
-
-    [[maybe_unused]]
-    auto* async_e = waitForAsyncEvent();
-    // TODO verify that this is the SIGTRAP
-
-    // switch to our new thread
-    //
-    // TODO: this will probably be its own function that needs to be done before every
-    // pybe command. which means we need to store the thread id long term. maybe its
-    // not so bad that it's a global... ;)
-    {
-        auto cmd = cmdptr(MIThreadSelect(pybe_get_gil_thread_id));
-
-        SendMICommand(GDBMISession, cmd.get());
-        if (!MICommandResultOK(cmd.get())) {
-            DVPRINT("PythonBEGetGIL: error switching to GIL thread\n");
-            return NewErrorEvent(DBGERR_DEBUGGER,
-                "Failed to set up python debugging.\n"
-                "This is a bug. Please report it and include the following info:\n"
-                "failure: failed to switch to GIL thread");
-            // TODO include error text from gdb
-        }
-
-    }
-
-    // so future pybe commands have a sane point to reason from
-    interrupt(/* all */ true);
-
+    auto gil = ensurePybe().coerce_gil(); // throws on error
     return NewEvent(DBGEV_OK);
 }
 
@@ -2947,36 +2668,13 @@ static dbgframe_t* pybe_backtrace_to_dbgframe(const pybe::Backtrace& bt) {
 dbgevent_t* DbgGdbMI::pythonBEBacktrace() {
     DVPRINT("pythonBEBacktrace\n");
 
-    // assuming we have the GIL already for now
+    auto gil = ensurePybe().coerce_gil();
+    auto bt = gil.get_backtrace();
 
-    {
-        const auto fn = "pybe::get_backtrace()";
-        auto cmd = cmdptr(MIDataEvaluateExpression(fn));
+    auto* e = NewEvent(DBGEV_FRAME);
+    e->ev_frame = pybe_backtrace_to_dbgframe(bt);
 
-        SendMICommand(GDBMISession, cmd.get());
-
-        if (!MICommandResultOK(cmd.get())) {
-            // TODO ensure that we don't end up in a situation where pybe has
-            // sent something over the socket and we don't extract it.
-            //
-            // TODO better error message
-            return NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
-        }
-    }
-
-    // TODO: make this a LOT nicer
-    char buf[4096];
-    auto len = ::recv(g_pybe.conn_fd, buf, 4096, 0);
-    const auto* cursor = buf;
-
-    if (auto result = pybe::Backtrace::deserialize(cursor, len)) {
-        auto* e = NewEvent(DBGEV_FRAME);
-        e->ev_frame = pybe_backtrace_to_dbgframe(*result);
-        return e;
-    }
-
-    // TODO: be more informative
-    return NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
+    return e;
 }
 
 // given a completed command and its console output, check for python errors.
@@ -4280,34 +3978,6 @@ static dbgevent_t *CheckBreak(int feId, MICommand *cmd, const dbgcomm_info *comm
     MIListFree(bpts, (void (*)())MIBreakpointFree);
 
     return e;
-}
-
-/*
-** Send the MI command
-*/
-void SendMICommand(MISession *sess, MICommand *cmd) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    char *buf;
-
-    MISessionSendCommand(sess, cmd);
-    do {
-        if (MISessionProgress(sess) == -1) {
-            if ((buf = MICommandResultErrorMessage(cmd)) != NULL) {
-                DVPRINT("SendMICommand: Debugger error: %s\n", buf);
-                free(buf);
-            } else {
-                DVPRINT("SendMICommand: Error from GDB, but no message\n");
-            }
-
-            break;
-        }
-
-        if (sess->out_fd == -1) {
-            DVPRINT("SendMICommand: sess->out_fd = -1\n");
-            break;
-        }
-
-    } while (!MICommandCompleted(cmd));
 }
 
 // Top level call for evaluating a program expression and returning the data

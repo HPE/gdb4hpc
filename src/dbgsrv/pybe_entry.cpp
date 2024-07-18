@@ -9,20 +9,24 @@
 #include "pythoncapi_compat.h"
 
 #include "pybe_stl.h"
-#include "pybe_comms.h"
+#include "pybe_comms_pybe.h"
 
 struct DbgsrvConnection {
-    int fd = -1;
+    pybe::Channel channel;
 };
 
-auto g_connection = DbgsrvConnection{};
+DbgsrvConnection* g_connection = nullptr;
 
 namespace pybe {
 
 // TODO: name these functions better
 
-bool get_backtrace() {
-    if (!PyGILState_Check()) {
+bool get_backtrace(uint32_t seq) {
+    if (!g_connection) [[ unlikely ]] {
+        log("no connection to send result on\n");
+        return false;
+    }
+    if (!PyGILState_Check()) [[ unlikely ]] {
         log("need gil\n");
         return false;
     }
@@ -63,8 +67,8 @@ bool get_backtrace() {
     }
 
     auto wire = result.serialize();
-    // TODO every socket call needs protection from indefinite blocking, signal interrupts, etc.
-    if (::send(g_connection.fd, wire.c_str(), wire.size(), 0) < 1) {
+    if (g_connection->channel.send_with_timeout(wire.c_str(), wire.size(), seq) == -1) [[ unlikely ]] {
+        // failed to send result
         return false;
     }
 
@@ -74,54 +78,52 @@ bool get_backtrace() {
 // endpoint is a const char* instead of say, a string or a string_view, because
 // it is easier to create a const char* on the gdb command line.
 bool connect_to_dbgsrv(const char* endpoint) {
-    g_connection.fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    if (g_connection.fd == -1) {
-        log("failed to create socket: %s\n", strerror(errno));
+    auto maybe_client = pybe::Client::make(endpoint);
+    if (!maybe_client) [[ unlikely ]] {
+        // TODO better error
+        return false;
+    }
+    auto& client = *maybe_client;
+
+    auto maybe_channel = client.connect_with_timeout();
+    if (!maybe_channel) {
+        // TODO better error
         return false;
     }
 
-    sockaddr_un addr;
-    addr.sun_family = AF_UNIX;
-    ::memset(addr.sun_path, 0, sizeof(addr.sun_path));
-    // TODO safer copy
-    ::memcpy(addr.sun_path, endpoint, ::strlen(endpoint));
-
-    if (addr.sun_path[0] == '@') {
-        // setting the first byte to zero indicates that the path is
-        // in an abstract namespace - it doesn't depend on the filesystem
-        // and won't be present there. it still has to be OS-unique, we
-        // assume dbgsrv did that work an gave us a unique path already.
-        addr.sun_path[0] = '\0';
-    }
-
-    // TODO every socket call needs protection from indefinite blocking, signal interrupts, etc.
-    if (::connect(g_connection.fd, (sockaddr*)&addr, sizeof(addr))) {
-        log("failed to connect socket: %s\n", strerror(errno));
-        return false;
-    }
+    g_connection = new DbgsrvConnection{
+        .channel = std::move(*maybe_channel),
+    };
 
     return true;
 }
 
-void* get_GIL_then_breakpoint(void*) {
+void get_GIL_then_breakpoint() {
     auto gil = PyGILState_Ensure();
     ::raise(SIGTRAP);
     // gdb does its thing here...
     // ...
     // then gdb sends a continue
     PyGILState_Release(gil);
+}
+
+// argument and return value are unused, just needed to conform to pthread
+void* wait_for_grab_request(void*) {
+    bool keep_going_forever_until_gdb_says_so = true;
+    // TODO make this a smarter wait than an infinite spin
+    while (keep_going_forever_until_gdb_says_so) {};
     return nullptr;
 }
 
 bool spawn_GIL_grabbing_thread() {
     // TODO block all signals except SIGTRAP?
-    auto maybe_grabber = pybe::Thread::make(&get_GIL_then_breakpoint, nullptr);
+    auto maybe_grabber = pybe::Thread::make(&wait_for_grab_request, nullptr);
     if (!maybe_grabber) {
         // TODO error reporting mechanism
         return false;
     }
-
     auto& grabber = *maybe_grabber;
+
     if (grabber.detach()) {
         // TODO error reporting mechanism
         // ... or is this a fatal error? what are we supposed to do?
@@ -129,7 +131,6 @@ bool spawn_GIL_grabbing_thread() {
     }
 
     // TODO restore signals
-
     return true;
 }
 

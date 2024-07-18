@@ -26,11 +26,9 @@
 #include "parse.h"
 #include "MIOOBRecord.h"
 #include "blockmap.h"
+#include "mi_utils.h"
 
 #include "unittest_macros.h"
-
-// external prototypes
-extern void SendMICommand(MISession *, MICommand *);
 
 // Used to fix infinite loop issue for recursive calls to whatis
 extern int clientPrintElements;

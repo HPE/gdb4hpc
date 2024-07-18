@@ -1,6 +1,21 @@
 # Python Support in gdb4hpc
 
-Josh Chandler - 4/12/2024
+Josh Chandler - 7/15/2024
+
+This document describes the internals of gdb4hpc's python debugging support.
+
+There are two ways that gdb4hpc implements python debugging:
+
+1. The **gdb python extensions**. gdb4hpc can make use of 3rd party gdb
+   extensions designed for debugging python and the python interpreter. Using
+   python extensions requires that a few requirements be met. Most notably, the
+   python interpreter needs to be compiled with debug information, which is
+   uncommon.
+
+2. The **gdb4hpc python backend**, or **pybe** for short. gdb4hpc injects a
+   shared library into the debugged python interpreter. The shared library
+   makes use of the python C API to implement debugger commands and sends results
+   to gdb4hpc's backend (dbgsrv) over a socket.
 
 ## gdb Python Extensions in gdb4hpc
 
@@ -47,7 +62,7 @@ a{0..2}:
   37        rand_nums = scatter(nums)
 ```
 
-## Requirements for using Python Extensions
+### Requirements for using Python Extensions
 
 The `py-` commands only work correctly when:
 1. The application being debugged by gdb is the cpython interpreter (the python
@@ -55,7 +70,7 @@ The `py-` commands only work correctly when:
 2. The python extension has been loaded (`source`d) by gdb
 3. The python interpreter has debug info available
 
-## How gdb4hpc Loads the Extension
+### How gdb4hpc Loads the Extension
 
 gdb4hpc has a copy of the python extension at `/src/extensions/python-gdb.py`.
 This file is distributed with gdb4hpc at `<gdb4hpc install
@@ -73,7 +88,7 @@ a library, so a python HPC app might be built as an ELF binary that does some
 setup and then loads and runs python (e.g.
 [pynamic](https://github.com/LLNL/pynamic/blob/master/pynamic-pyMPI-2.6a1/mpi4py_main.c)).
 
-## Python Interpreter Debug Info
+### Python Interpreter Debug Info
 
 Getting a python interpreter with debug info is currently an unsolved problem
 and is left up to the user.
@@ -117,13 +132,13 @@ debug info is ideal. We provide the python extensions on the side as a
 secondary option to the main python solutions. (the "main python solutions" are
 not implemented yet)
 
-## Quirks of the Python Extension Commands
+### Quirks of the Python Extension Commands
 
 In the Python interpreter, a single C frame can contain multiple Python frames.
 This is common in recursive functions (but is not limited to them). Most of the
 weird behavior of the `py-` commands stem from how they handle this.
 
-### `py-print`
+#### `py-print`
 
 `py-print` cannot evaluate arbitrary expressions like the standard `print`
 command. It can only look up the values of named variables.
@@ -146,7 +161,7 @@ dbg all> py-print nums
 a{0}: local 'nums' = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 1...(truncated)
 ```
 
-### `py-locals`
+#### `py-locals`
 
 If there are multiple Python frames in the current C frame, `py-locals` prints
 the locals from every frame.
@@ -163,7 +178,8 @@ nums = None
 rand_nums = [20000, 20001, 20002, 20003, 20004, 20005, 20006, 20007, 20008, 20009, 20010, 20011, 20012, 20013, 20014, 20015, 20016, 20017, 20018, 20019, 20020, 20021, 20022, 20023, 20024, 20025, 20026, 20027, 20028, 20029, 20030, 20031, 20032, 20033, 20034, 20035, 20036, 20037, 20038, 20039, 20040, 20041, 20042, 20043, 20044, 20045, 20046, 20047, 20048, 20049, 20050, 20051, 20052, 20053, 20054, 20055, 20056, 20057, 20058, 20059, 20060, 20061, 20062, 20063, 20064, 20065, 20066, 20067, 20068, 20069, 20070, 20071, 20072, 20073, 20074, 20075, 20076, 20077, 20078, 20079, 20080, 20081, 20082, 20083, 20084, 20085, 20086, 20087, 20088, 20089, 20090, 20091, 20092, 20093, 20094, 20095, 20096, 20097, 20098, 20099, 20100, 20101, 20102, 20103, 20104, 20105, 20106, 20107, 20108, 20109, 20110, 20111, 20112, 20113, 20114, 20115, 20116, 20117, 20118, 20119, 20120, 20121, 20122, 20123, 20124, 20125, 20126, 20127, 20128, 20129, 20130, 20131, 20132, 20133, 20134, 20135, 20136, 20137, 20138, 20139, 20140, 20141, 20142, 20143, 20144, 20145, 2...(truncated)
 Locals for <module>
 ```
-### `py-up` / `py-down`
+
+#### `py-up` / `py-down`
 
 The `up`/`down` commands are not smart enough to see the multiple Python frames
 within a single C frame and might give error messages in situations where they
@@ -188,3 +204,209 @@ a{0..2}: Debugger error: Unable to locate a newer python frame
 dbg all> gdb py-down
 a{0..2}: Unable to find a newer python frame
 ```
+
+## gdb4hpc's Python Backend (pybe)
+
+gdb4hpc's python backend (pybe) refers to a shared library that is injected
+into the python interpreter and some support code used by gdb4hpc's backend
+(dbgsrv).
+
+### The Python C API
+
+**Problem 1**: The python interpreter state is not visible to gdb by default.
+
+When we attach gdb to the python interpreter, we are not debugging the python
+script that it is interpreting. We are debugging the C code that makes up the
+python interpreter itself. This is useless to a user who is trying to figure
+out where their pytorch application is hanging. In theory, the python state
+could be reconstructed by looking at the right debug info in the interpreter,
+but most users will be debugging a python interpreter built without debug info.
+
+Python exports a [C API](https://docs.python.org/3/c-api/index.html) available
+for interacting with the python interpreter state. pybe uses this API to
+implement python versions of common gdb4hpc commands. For example, implementing
+the backtrace command looks something like this (psuedocode):
+
+```cpp
+auto pybe_get_backtrace() {
+  auto* intr = PyInterpreterState_Head();
+  auto* tstate = PyInterpreterState_ThreadHead(intr);
+  auto result = Backtrace{};
+
+  for (auto frame : PyThreadState_GetFrames(tstate)) {
+    auto code = PyFrame_GetCode(frame.ptr);
+
+    auto funcname = PyUnicode_AsUTF8(code->co_name);
+    auto filename = PyUnicode_AsUTF8(code->co_filename);
+    auto linenum = PyFrame_GetLineNumber(frame.ptr);
+
+    result.frames.emplace_back(
+      Frame{
+        .function_name = funcname.data(), funcname.size(),
+        .file_name = filename.data(), filename.size(),
+        .line_number = linenum
+      }
+    );
+  }
+
+  // ...
+}
+```
+
+### Injecting The pybe Shared Library into Python
+
+**Problem 2**: The python API can only be used within the python interpreter
+itself. gdb4hpc can't call it directly.
+
+The API is designed to be used in a context where it is loaded by the python
+interpreter itself (native modules or embedding python in another app).
+
+One way we could deal with this would be to ship a custom python interpreter
+with gdb4hpc functions built in, but most users prefer to use their own python
+interpreter. Conda and other python environment managers mean users can install
+arbitrary python interpreter versions at arbitrary locations on disk. Our
+solution needs to work with any python interpreter that the user happens to be
+using.
+
+To address this, we create a shared library, `libgdb4_pybe.so`, that we inject
+into the user's python interpreter dynamically. The actual injection is
+trivial. All it takes is a gdb command: `call dlopen("libgdb4_pybe.so", ...)`.
+
+Once the library is injected, we can use gdb's `call` command again to call our
+custom functions, e.g. `call pybe_get_bracktrace()`. At this point, we have
+access to the python API and arbitrary code that we author.
+
+### Getting the Global Interpreter Lock
+
+**Problem 3**: The python API can only be used when the caller holds python's
+global interpreter lock.
+
+The python interpreter is infamously not thread safe. Only one thread can be
+executing python code at once (more or less). There are multiple reasons for
+this, but the one most interesting to us is that the python interpreter handles
+dynamic memory management via reference counting, and the reference counting is
+not thread safe (making it thread safe created too much of a performance
+penalty). If multiple threads use the same reference counted object at once, it
+can lead to memory leaks or use-after-frees. The python C API returns reference
+counted objects. This means that even the low level python C API is not thread
+safe. The only safe way to use the python C API is to do it from a thread that
+holds the Global Interpreter Lock (GIL).
+
+It might be tempting to simply stop the python interpreter while it already has
+the GIL and run pybe functions from that stopped location via the gdb `call`
+command. This would lead to thread bugs. The `call` command is essentially a
+fancy jump instruction. No locks are released and no cleanup happens when you
+`call` something. From the perspective of GIL management, stopping the python
+interpreter in a thread which holds the GIL and then jumping to an arbitrary
+pybe function is identical to a thread preemption and context switch from the
+python thread to an imaginary pybe thread. It behaves as if there were no lock
+at all. This is a fast path to subtle and unreproducible threading bugs. 
+
+To properly get the GIL, we have to spawn a real thread, start competing for
+the GIL, and wait until it is obtained. This guarantees that the main python
+thread is in a state where it already thinks another thread has the GIL and it
+is not in the middle of any thread unsafe internal operation.
+
+To set this up, we spawn a dedicated thread for that we will later use to get
+the GIL. This thread spins forever in (essentially) a `while (true) {}` and is
+started when the shared library is injected. When we want to use the python C
+API, we use gdb to switch to that thread, `call grab_the_GIL()`, then continue
+all threads and wait. Eventually our thread will have the GIL and notify gdb.
+At that point we can call our pybe functions safely. When we are done calling
+functions, we release the lock and drop back down into the infinite loop, ready
+for next time.
+
+Getting the GIL never takes very long. The python interpreter actively monitors
+the GIL for contention after essentially every python opcode and will actively
+give up the GIL if it has been holding it for too long. The user can actually
+[configure the amount of
+time](https://docs.python.org/3/library/sys.html#sys.setswitchinterval) that
+python waits before giving up the GIL.
+
+### Getting Results Back to dbgsrv - The Socket
+
+**Problem 4**: After generating the result data with the python C API, we need
+a way to get it back to dbgsrv.
+
+Since we are running our functions inside of the python interpreter, not
+dbgsrv, we can't simply `return` the generated struct to the caller. The caller
+is the GIL grabbing thread and if we returned it there that backtrace we worked
+so hard to build would disappear into the ether forever.
+
+Since we used gdb's `call` command to initiate the pybe functions and `call`
+does print the return value, it might be tempting to try an approach where we
+`call` (or `print`) a pybe function and then parse the return value from the
+gdbmi output. This seems straightforward at first, but it has mutliple
+pitfalls:
+
+- The printed return value respects the `set print elements` setting and we
+  would have to manage that setting on every call.
+- gdb pretty printers (and/or the things they are pretty printing) change
+  often. Our result parser might break next time we upgrade gdb.
+- We would potentially have to write multiple parsers for the output of other
+  gdb distributions, e.g. rocgdb and cudagdb.
+- A lot of pybe functions allocate memory to store their results. Once the
+  result is returned (to gdb), how do we deallocate it?
+
+For the reasons above, we opt to do the extra work of creating a dedicated
+result socket when we inject the shared library. We send the results over this
+socket and dbgsrv receives them. This bypasses `set print elements`, won't
+change when gdb versions change, and memory management is obvious.
+
+It does introduce some new problems we have to solve. e.g. we are now
+vulnerable to blocking forever if something goes wrong. But the new problems
+are problems that only need to be solved once instead of for every gdb
+release/distribution. The socket is a unix domain socket so there is no worry
+about network trouble. #### Linux Socket vs. zmq Sockets
+
+We use a plain old Linux socket. But we already use zmq in zmqnet, which is a
+lot nicer. Why don't we use zmq in pybe too?
+
+zmq is multithreaded. To do its magic, it spawns a background thread. The
+background thread is what does the actual sending over the network.
+
+This is problematic when your basic strategy for implementing commands is
+
+1. Stop everything
+2. `call` something
+
+If the zmq thread gets stopped in step one, step two will never complete
+because the result will never actually be sent until the background thread is
+started again.
+
+In general, the less threads we have to wrangle, the better. So we stick to a
+single threaded solution. There are caveats with this approach, in particular
+that avoiding blocking forever on a socket operation becomes tricky. But this
+is managed well enough with non blocking sockets and timeouts.
+
+### [De]serializing Results With[out] the C++ Standard Library
+
+**Problem 5**: We need a serialization/deserialization strategy for results
+that is easy to maintain and can be shared by the dbgsrv and pybe shared
+library.
+
+Usually writing a serialization/deserialization library is pretty easy
+(especially if it doesn't happen to be optimal). But in this case, the two
+sides communicating are not using the same standard libraries.
+
+The pybe shared library is written in C++, but without the C++ standard
+library. We do this to reduce the chance that injecting pybe into a user's
+python interpreter would disrupt anything. If we included/used C++ shared
+library symbols in the pybe shared library and a user was using a python
+extension that used a different version of the C++ shared library, symbol
+conflicts could happen. The pybe shared library uses TINYSTL to replace some
+common C++ shared library containers (strings, vectors, etc). This is
+statically linked and won't interfere with user apps.
+
+So with dbgsrv using the C++ standard library and pybe using TINYSTL, how do we
+write the serialization library in such a way that we only have to maintain a
+single codebase instead of two copies, one with each shared library?
+
+The pybe communications library is templatized on the basic C++ standard
+library containers. When dbgsrv is compiled, it plugs in the C++ standard
+library. When pybe is compiled, it plugs in TINYSTL. TINYSTL is (intentionally)
+similar enough to the C++ standard library that strings and vectors can more or
+less be used interchangeably. Since the data is first serialized into raw bytes
+before contacting the other side, each side is free to use whatever string
+(etc.) implementation it wants.
+

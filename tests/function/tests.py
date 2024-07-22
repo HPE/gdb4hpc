@@ -1046,6 +1046,12 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "srun_twice"
         runTest(self)
 
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_halt_backtrace_no_gil(self):
+        self.base_name = "python_halt_backtrace_no_gil"
+        runTest(self)
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

@@ -82,13 +82,16 @@ enum dbgcmd {
     DBGCMD_PYMOVEFRAME,
     DBGCMD_PYPRINT,
     DBGCMD_PYLOCALS,
+    DBGCMD_PYBEGETPYTHON,
+    DBGCMD_PYBESETPYTHON,
     DBGCMD_PYBEINJECT,
     DBGCMD_PYBEGETGIL,
-    DBGCMD_PYBEBACKTRACE,
 };
 
 enum class DbgFrameDir { DOWN, UP, ABSOLUTE };
 
 enum class DbgDirOp { ADD, SET, SUB, SHOW_SUB, UNSET_SUB };
+
+enum class PythonType : int { Auto, On, Off };
 
 #endif /* !_DBGCMD_H */

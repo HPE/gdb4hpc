@@ -480,18 +480,26 @@ rep_set_t DbgPythonLocals(rec_set_t* rec);
 
 // TODO: write full doc comments for these functions when the API is more concrete
 
+// `DbgGetPython` returns the current python mode setting of the backend.
+// it's returned as a DBGEV_STRING.
+rep_set_t DbgGetPython(rec_set_t* rec);
+
+// `DbgSetPython` sets python mode on the backends. `setting` is only meaningful
+// as On or Off, not Auto, as auto is only relevant on the client. However, it's
+// sometimes convenient to pass the `setting` without checking it, so this
+// function "supports" Auto by doing a no-op and returning an empty rep_set_t.
+rep_set_t DbgSetPython(rec_set_t* rec, PythonType setting);
+
 // `DbgPythonBEInject` injects libgdb4_pybe.so into the user's app via dlopen. This
-// must be done before any of the other `DbgPythonBE...` functions.
+// is done automatically by the backend where needed - this function is a legacy debug helper.
 rep_set_t DbgPythonBEInject(rec_set_t* rec);
 
 // `DbgPythonBEGetGIL` spawns a thread in the user's app that obtains the
 // cpython global interpreter lock and then halts all of the app's threads. Once
 // the lock is obtained, gdb is free to use the Python C API to implement the
-// other DbgPythonBE functions.
+// other DbgPythonBE functions. This is done automatically by the backend where
+// needed - this function is a legacy debug helper.
 rep_set_t DbgPythonBEGetGIL(rec_set_t* rec);
-
-// `DbgPythonBEBacktrace` returns a python backtrace.
-rep_set_t DbgPythonBEBacktrace(rec_set_t* rec);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern bool DbgSetLogDir(const std::string& logdir);

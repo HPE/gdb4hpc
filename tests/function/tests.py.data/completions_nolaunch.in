@@ -186,6 +186,7 @@ non-stop
 pager
 pagination
 print
+python
 scheduler-locking
 substitute-path
 variable

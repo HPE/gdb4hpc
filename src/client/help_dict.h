@@ -60,6 +60,7 @@ extern const char* const cmd_py_up_help[];
 extern const char* const cmd_py_down_help[];
 extern const char* const cmd_py_print_help[];
 extern const char* const cmd_py_locals_help[];
+extern const char* const cmd_show_python_help[];
 extern const char* const cmd_quit_help[];
 extern const char* const cmd_release_help[];
 extern const char* const cmd_restart_help[];

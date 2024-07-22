@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2024 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -126,6 +126,9 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
         // be set to GDB
         initGpu();
     }
+
+    m_dbg.setPython(python_flag);
+    DVPRINT("python mode: %d\n", m_dbg.isPython());
 
     if (gdb_vers == GdbVersion::GDB) {
         MISessionSetGDBPath(m_session, "gdb-guard");
@@ -345,7 +348,7 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
     }
 
     // call the showframe function to ask for the innermost frame
-    auto frame =  m_dbg.showFrame(1, nullptr);
+    auto frame =  m_dbg.showElfFrames(1, nullptr);
 
     // Workaround for PE-48149 (cce 16 no fortran line numbers on attach) based
     // on findings from PE-47129 (working around the same issue in ATP)
@@ -376,7 +379,7 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
         }
         MICommandFree(cmd);
 
-        if (auto new_frame = m_dbg.showFrame(1, nullptr); new_frame) {
+        if (auto new_frame = m_dbg.showElfFrames(1, nullptr); new_frame) {
             FreeEvent(frame);
             frame = new_frame;
         }
@@ -1614,7 +1617,7 @@ dbgevent_t *DbgGdbMI::Initializer::interrupt(bool all) {
 
     // If we are already stopped, we will reuse DbgGDBMIShowFrame to get the
     // bottommost frame
-    async_e = m_dbg.showFrame(1, threads);
+    async_e = m_dbg.showElfFrames(1, threads);
 
     e = NewEvent(DBGEV_HALT);
     e->ev_loc = (dbgloc_t *)NULL;

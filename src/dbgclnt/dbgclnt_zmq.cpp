@@ -291,6 +291,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
     if (prog)             dbgsrvArgs << "-f" << prog;
     if (opts.gpu_flag)    dbgsrvArgs << "--gpu";
     if (opts.debug_flag)  dbgsrvArgs << "--debug";
+    if (opts.python)      dbgsrvArgs << "--python";
     if (early_entry_flag) dbgsrvArgs << "--early-entry";
     if (isNonStop)        dbgsrvArgs << "--non-stop";
     if (isNonMpi)         dbgsrvArgs << "--non-mpi";
@@ -460,15 +461,25 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
 
     PrintOutMsg("Launched application...\n");
 
+    // XXX: we have no way to individually change the args of each dbgsrv launched
+    //      for a MPMD job. for now just assume if any job is python, they all are.
+    //      worst case the user can manually unset python mode for the apps that aren't python.
+    const auto any_python = std::ranges::any_of(opts.job_opts, [](const auto& jopts){ return jopts.python; });
+
+    if (any_python) {
+        PrintOutMsg("Enabling python debugging. To disable, use `set python off`\n");
+    }
+
     auto attachOpts = AttachOpts{.proto = "",
                                  .app_ident = "",
                                  .backend = opts.backend_name,
                                  .gdb = opts.gdb_path,
                                  .gdb_data_dir = opts.gdb_data_dir,
                                  .vgdb_file = "",
-                                 .gpu_flag = bool(opts.gpu_flag),
-                                 .debug_flag = bool(opts.debug_flag),
+                                 .gpu_flag = opts.gpu_flag,
+                                 .debug_flag = opts.debug_flag,
                                  .debug_dir = opts.debug_dir,
+                                 .python = any_python,
     };
 
     // attach to launched application

@@ -1526,9 +1526,10 @@ DbgInvoke::Handle DbgLaunch(const char* name, int nproc, LaunchOpts&& args) {
     }
 
     // Check for startup function presence if unsafe is false.
-    // Slurm doesn't require any special MPI symbols be present
-    // in the binary so we can skip the check on slurm machines.
-    if (!args.unsafe_flag && !args.job_opts[0].non_mpi_flag && cti_current_wlm() != CTI_WLM_SLURM) {
+    // Only ALPS/PALS requires any special MPI symbols be present
+    // in the binary so we can skip the check otherwise
+    const auto needs_symbol_check = cti_current_wlm() == CTI_WLM_PALS || cti_current_wlm() == CTI_WLM_ALPS;
+    if (needs_symbol_check && !args.unsafe_flag && !args.job_opts[0].non_mpi_flag) {
         if (auto fe = di->frontendGdb()) {
             e = fe->checkStartupFunc();
 
@@ -2748,6 +2749,20 @@ rep_set_t DbgPythonLocals(rec_set_t* rec) {
     return result;
 }
 
+rep_set_t DbgGetPython(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYBEGETPYTHON);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
+    return result;
+}
+
+rep_set_t DbgSetPython(rec_set_t* rec, PythonType setting) {
+    using enum PythonType;
+    if (setting == Auto) return rep_set_t(); // auto is only meaningful on the client
+    auto req = CommandToSocProto(DBGCMD_PYBESETPYTHON, static_cast<int>(setting));
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
+    return result;
+}
+
 rep_set_t DbgPythonBEInject(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEINJECT);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
@@ -2757,12 +2772,6 @@ rep_set_t DbgPythonBEInject(rec_set_t* rec) {
 rep_set_t DbgPythonBEGetGIL(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEGETGIL);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
-    return result;
-}
-
-rep_set_t DbgPythonBEBacktrace(rec_set_t* rec) {
-    auto req = CommandToSocProto(DBGCMD_PYBEBACKTRACE);
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_FRAME);
     return result;
 }
 

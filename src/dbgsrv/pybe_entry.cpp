@@ -21,7 +21,7 @@ namespace pybe {
 
 // TODO: name these functions better
 
-bool get_backtrace(uint32_t seq) {
+bool get_backtrace(uint32_t seq, unsigned long py_thread_id) {
     if (!g_connection) [[ unlikely ]] {
         log("no connection to send result on\n");
         return false;
@@ -32,15 +32,22 @@ bool get_backtrace(uint32_t seq) {
     }
 
     auto* intr = PyInterpreterState_Head();
-    auto* tstate = PyInterpreterState_ThreadHead(intr);
 
-    // find real thread state
-    // XXX: in my current test program, the thread returned above is not the
-    //      correct thread - it's the thread that pybe spawned. so we need to
-    //      find the current *python* thread. make a more robust way to find that.
-    tstate = PyThreadState_Next(tstate);
+    auto* tstate = [&](){
+        auto* result = PyInterpreterState_ThreadHead(intr);
+        // XXX: in python 3.6 and below, the thread id is signed, but in
+        // python 3.7 and above it's unsigned. since we're just comparing bits we
+        // always case to unsigned
+        while (result && (unsigned long)result->thread_id != py_thread_id) {
+            result = PyThreadState_Next(result);
+        }
+        return result;
+    }();
 
-    // TODO: assert(tstate != nullptr);
+    if (tstate == nullptr) {
+        log("couldn't find thread\n");
+        return false;
+    }
 
     auto result = Backtrace{};
 
@@ -73,6 +80,19 @@ bool get_backtrace(uint32_t seq) {
     }
 
     return true;
+}
+
+bool is_python_thread() {
+    return PyGILState_GetThisThreadState() != nullptr;
+}
+
+unsigned long get_python_thread_id() {
+    // check that this is safe with is_python_thread first!
+    //
+    // XXX: in python 3.6 and below, the thread id is signed, but in
+    // python 3.7 and above it's unsigned. since we're just comparing bits we
+    // always case to unsigned
+    return (unsigned long)PyGILState_GetThisThreadState()->thread_id;
 }
 
 // endpoint is a const char* instead of say, a string or a string_view, because

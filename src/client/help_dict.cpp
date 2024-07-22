@@ -780,6 +780,31 @@ const char* const cmd_py_locals_help[] = {
     "from all associated frames.",
     0};
 
+const char* const cmd_show_python_help[] = {
+    "Summary: set/show if gdb4hpc is in python mode",
+    "Usage: set python <on|off|auto>",
+    "       show python",
+    "",
+    "In python mode, gdb4hpc will use python versions of certain commands. For",
+    "example, normally the backtrace command prints the C/C++/Fortran backtrace,",
+    "but in python mode it prints the backtrace of the interpreted python script",
+    "rather than the backtrace of the cpython interpreter itself.",
+    "",
+    "The following options are available:",
+    "",
+    "on: use python mode for all future launches.",
+    "off: don't use python mode for any future launches.",
+    "auto: automatically turn on python mode when python is detected.",
+    "",
+    "The default setting is auto.",
+    "",
+    "In addition to affecting future launches, setting python mode directly",
+    "affects currently launched procsets. For example, if you really wanted to see",
+    "the C backtrace of the cpython interpreter, you could turn python mode off",
+    "and then use the backtrace command. Setting python mode to auto has no effect",
+    "on running procsets.",
+    0};
+
 const char* const cmd_quit_help[] = {"Summary: Quit command.",
                                      "Usage: quit",
                                      "Example command: quit",

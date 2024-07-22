@@ -753,6 +753,8 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
         ? opts.job_opts[0].non_mpi_flag
         : false;
 
+    auto any_python = false;
+
 #ifdef DEBUG
     dbg = 1;
 #endif
@@ -949,6 +951,15 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     DPERFLOG(SetTimerStopAndLog("application launch"));
     PrintOutMsg("Launched application...\n");
 
+    // XXX: we have no way to individually change the args of each dbgsrv launched
+    //      for a MPMD job. for now just assume if any job is python, they all are.
+    //      worst case the user can manually unset python mode for the apps that aren't python.
+    any_python = std::ranges::any_of(opts.job_opts, [](const auto& jopts){ return jopts.python; });
+
+    if (any_python) {
+        PrintOutMsg("Enabling python debugging. To disable, use `set python off`\n");
+    }
+
     // ship over the binaries to the compute nodes
 
     // Create a new session based on the appid. We need to remember this for
@@ -1129,6 +1140,7 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
                                   di->proto().name(), "-e", backend);
     if (opts.gpu_flag)    dbgsrv_alps_argv << "--gpu";
     if (dbg)              dbgsrv_alps_argv << "--debug";
+    if (any_python)       dbgsrv_alps_argv << "--python";
     if (opts.early_entry_flag) dbgsrv_alps_argv << "--early-entry";
     if (opts.non_stop_flag)        dbgsrv_alps_argv << "--non-stop";
     if (!opts.gdb_path.empty() && serverGdb) dbgsrv_alps_argv << "--gdb" << *serverGdb;

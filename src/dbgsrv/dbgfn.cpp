@@ -441,6 +441,16 @@ dbgevent_t *DbgPythonLocals() {
     return DbgBackendSW->pythonLocals();
 }
 
+dbgevent_t *DbgPythonBEGetPython() {
+    DBG_READY();
+    return DbgBackendSW->pythonBEGetPython();
+}
+
+dbgevent_t *DbgPythonBESetPython(PythonType setting) {
+    DBG_READY();
+    return DbgBackendSW->pythonBESetPython(setting);
+}
+
 dbgevent_t *DbgPythonBEInject() {
     DBG_READY();
     return DbgBackendSW->pythonBEInject();
@@ -449,11 +459,6 @@ dbgevent_t *DbgPythonBEInject() {
 dbgevent_t *DbgPythonBEGetGIL() {
     DBG_READY();
     return DbgBackendSW->pythonBEGetGIL();
-}
-
-dbgevent_t *DbgPythonBEBacktrace() {
-    DBG_READY();
-    return DbgBackendSW->pythonBEBacktrace();
 }
 
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {

@@ -53,7 +53,11 @@ public:
     // If count is not zero then return only that many frames. If count is zero then
     // return an unlimited number of frames. If count is negative return the
     // outermost frames.
+    //
+    // if in python mode, returns a python backtrace. use `showElfFrames` or `pythonBEBacktrace`
+    // to manually specify the type of backtrace to use.
     dbgevent_t *showFrame(int count, const char* threads);
+    dbgevent_t* showElfFrames(int count, const char* threads);
 
     dbgevent_t *getFrame(bool verbose, const char* threads);
     dbgevent_t *setVar(const char *var, const char* val, const char* threads);
@@ -109,9 +113,18 @@ public:
     dbgevent_t* pythonPrint(const std::string& name);
     dbgevent_t* pythonLocals();
 
+    // endpoints of `get/set python` commands
+    dbgevent_t* pythonBEGetPython();
+    dbgevent_t* pythonBESetPython(PythonType setting);
+
+    // these python features use the pybe injected library. see python.md
     dbgevent_t* pythonBEInject();
     dbgevent_t* pythonBEBacktrace();
     dbgevent_t* pythonBEGetGIL();
+
+    // return true if we should prefer the python versions of commands when possible
+    bool isPython() const;
+    void setPython(bool isPython);
 
     MIEvent* waitForAsyncEvent();
     dbgevent_t* waitAndProcessAsyncEvent();
@@ -135,7 +148,7 @@ private:
     std::string parseThreadApplyOp(const std::string& op, bool& isSilent, bool& isQuiet,
                                    bool &isVerbose, size_t& numThreads);
     void sendCmd(MICommand* cmd);
-    
+
     dbgevent_t*  initOmpd();
     bool initOmpdL();
     dbgevent_t* setPrintElementsL(int elems);
@@ -146,6 +159,8 @@ private:
     bool m_ompdIsInitialized;
     bool m_ompdIsAvail;
     std::string m_beFileDir;  // location of manifest files
+
+    bool m_isPython;
 
     // ensure that the python backend is ready to use. after successfully calling this function:
     //

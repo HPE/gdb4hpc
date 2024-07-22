@@ -85,8 +85,8 @@ static int cmd_backtrace_console(rec_set_t *rec_set, int argc, const char* const
     if (argc >= 2) count = atoi(argv[1]);
     auto rep_set = DbgShowFrame(rec_set, count);
 
-    // process error - even with an error, continue and print what we can
-    (void)ProcessErrorInRepSet(rep_set);
+    // process error, but even with an error, continue and print what we can
+    const auto had_error = ProcessErrorInRepSet(rep_set);
 
     {
         auto pager = cli_pager{};
@@ -94,7 +94,7 @@ static int cmd_backtrace_console(rec_set_t *rec_set, int argc, const char* const
         root.print();
     }
 
-    return Command::Success;
+    return had_error ? Command::Failure : Command::Success;
 }
 
 static int cmd_backtrace_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {

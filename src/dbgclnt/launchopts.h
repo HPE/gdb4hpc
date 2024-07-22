@@ -85,9 +85,10 @@ struct AttachOpts {
   std::string gdb;
   std::string gdb_data_dir;
   std::string vgdb_file;
-  bool gpu_flag = false;
-  bool debug_flag = false;
+  bool gpu_flag;
+  bool debug_flag;
   std::string debug_dir;
+  bool python;
 };
 
 

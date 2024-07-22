@@ -205,6 +205,64 @@ static int cmd_py_locals(rec_set_t* rec_set) {
     return had_error ? Command::Failure : Command::Success;
 }
 
+static int set_python(rec_set_t* rec_set, int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("Expected: set python [auto|on|off]\n");
+        return Command::Failure;
+    }
+
+    using enum PythonType;
+    auto setting = Auto;
+    auto arg = std::string_view{argv[1]};
+    if (arg == "auto") setting = Auto;
+    else if (arg == "on") setting = On;
+    else if (arg == "off") setting = Off;
+    else {
+        PrintOutError("Expected: set python [auto|on|off]\n");
+        return Command::Failure;
+    }
+
+    Client.python = setting;
+
+    auto had_error = false;
+    if (rec_set) {
+        auto rep_set = DbgSetPython(rec_set, setting);
+        had_error = ProcessErrorInRepSet(rep_set);
+        for (const auto* rep : rep_set) {
+            const auto message = (setting == On) ? "Set python mode.\n" : "Unset python mode.\n";
+            PrintMsgWithSetInfo(rep->rep_di.c_str(), rep->rep_group.get(), message);
+        }
+    }
+
+    return had_error ? Command::Failure : Command::Success;
+}
+
+static int show_python(rec_set_t* rec_set) {
+    using enum PythonType;
+    const auto ptype_to_str = [](PythonType ptype) {
+        switch (ptype) {
+            case Auto: return "auto";
+            case On: return "on";
+            case Off: return "off";
+        }
+        // unreachable
+        return "";
+    };
+
+    PrintOutMsg("Python mode for future launches is %s.\n", ptype_to_str(Client.python));
+
+    PrintOutMsg("For current procsets:\n");
+    auto had_error = false;
+    auto rep_set = DbgGetPython(rec_set);
+    had_error = ProcessErrorInRepSet(rep_set);
+    for (const auto* rep : rep_set) {
+        const auto message = std::string{"Python mode is "} + rep->rep_event->ev_string + ".";
+        PrintMsgWithSetInfo(rep->rep_di.c_str(), rep->rep_group.get(), "%s\n", message.c_str());
+    }
+
+    return had_error ? Command::Failure : Command::Success;
+}
+
 static int pybe_inject(rec_set_t* rec_set) {
     auto rep_set = DbgPythonBEInject(rec_set);
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
@@ -214,20 +272,6 @@ static int pybe_inject(rec_set_t* rec_set) {
 static int pybe_get_GIL(rec_set_t* rec_set) {
     auto rep_set = DbgPythonBEGetGIL(rec_set);
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
-    return had_error ? Command::Failure : Command::Success;
-}
-
-static int pybe_bt(rec_set_t* rec_set) {
-    auto rep_set = DbgPythonBEBacktrace(rec_set);
-
-    auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
-
-    {
-        auto root = BTTree::fromFrames(rep_set);
-        auto pager = cli_pager{};
-        root.print();
-    }
-
     return had_error ? Command::Failure : Command::Success;
 }
 
@@ -272,6 +316,7 @@ void ConsoleCommandsFactory::insert_python_commands(CommandNode& root) {
         .fn = cmd_python_cmd,
         .help = cmd_python_help, .desc = "Enter python interpreter (experimental)."});
 
+    // commands which rely on python extensions being loaded, see python.md.
     root.addSubCmd({
         .name = "py-bt", .ptype = proc_required,
         .fn = cmd_py_bt,
@@ -298,6 +343,19 @@ void ConsoleCommandsFactory::insert_python_commands(CommandNode& root) {
         .help = cmd_py_locals_help, .desc = "Print the values of the current python local variables."});
 
     root.addSubCmd({
+        .name = "show python", .ptype = proc_optional,
+        .fn = show_python,
+        .help = cmd_show_python_help, .desc = "Show python mode."});
+
+    root.addSubCmd({
+        .name = "set python", .ptype = proc_optional,
+        .fn = set_python,
+        // intentionally reusing show help text
+        .help = cmd_show_python_help, .desc = "Enable or disable python mode."});
+
+    // pybe inject and pybe gil are manual buttons for functionality that is handled automatically by the backend.
+
+    root.addSubCmd({
         .name = "maint pybe inject", .ptype = proc_required,
         .fn = pybe_inject,
         .help = nullptr, .desc = "Inject the python backend into the user's app."});
@@ -306,11 +364,6 @@ void ConsoleCommandsFactory::insert_python_commands(CommandNode& root) {
         .name = "maint pybe gil", .ptype = proc_required,
         .fn = pybe_get_GIL,
         .help = nullptr, .desc = "Obtain the cpython GIL and halt the user's app."});
-
-    root.addSubCmd({
-        .name = "maint pybe backtrace", .alias = "bt", .ptype = proc_required,
-        .fn = pybe_bt,
-        .help = nullptr, .desc = "Get a python backtrace. (Not implemented)"});
 
 }
 

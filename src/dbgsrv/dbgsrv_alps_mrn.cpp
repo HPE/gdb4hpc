@@ -46,6 +46,7 @@
 #define DBGSRV_OPT_EARLY_ENTRY "--early-entry"
 #define DBGSRV_OPT_NON_STOP "--non-stop"
 #define DBGSRV_OPT_GDB "--gdb"
+#define DBGSRV_OPT_PYTHON "--python"
 #define DBGSRV_OPT_VGDB_COMMAND_FILE "--vgdb-command-file"
 
 /* #define UDASRV "udaserver"
@@ -65,6 +66,7 @@ static int gpu_flag = 0;
 static int early_entry_flag = 0;
 static int non_stop_flag = 0;
 static int non_mpi_flag = 0;
+static int python_flag = 0;
 
 const struct option long_opts[] = {
     {"callbackHost", required_argument, 0, 'h'},
@@ -80,6 +82,7 @@ const struct option long_opts[] = {
     {"gdb", required_argument, 0, 'b'},
     {"program", required_argument, 0, 'f'},
     {"vgdb-command-file", required_argument, 0, 'v'},
+    {"python", no_argument, &python_flag, 1},
     {0, 0, 0, 0}};
 
 void DVPRINT(const char *format, ...) {
@@ -379,6 +382,7 @@ int main(int argc, char **argv) {
                    DBGSRV_OPT_DBG, dbgBackend);
 
     if (gpu_flag)         dbgsrv_argv << DBGSRV_OPT_GPU;
+    if (python_flag)      dbgsrv_argv << DBGSRV_OPT_PYTHON;
     if (debug_flag)       dbgsrv_argv << DBGSRV_OPT_DEBUG;
     if (non_mpi_flag)     dbgsrv_argv << DBGSRV_OPT_NON_MPI;
     if (early_entry_flag) dbgsrv_argv << DBGSRV_OPT_EARLY_ENTRY;

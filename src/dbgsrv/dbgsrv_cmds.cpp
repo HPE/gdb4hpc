@@ -33,6 +33,9 @@ static dbgevent_t* run_pybe_cmd(Fn fn, Args&&... args) {
     } catch (dbgevent_t* error) {
         DVPRINT("Caught top level pybe error: %s\n", DbgEventErrorStr(error));
         return error;
+    } catch (const std::runtime_error &e) {
+        DVPRINT("Caught top level pybe error: %s\n", e.what());
+        return NewErrorEvent(DBGERR_INTERNAL, e.what());
     } catch (...) {
         DVPRINT("Caught unknown top level pybe error\n");
         return NewErrorEvent(DBGERR_INTERNAL, "Internal error");
@@ -205,7 +208,8 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         case DBGCMD_SHOWFRAME: {
             int count; soc::OptionalString threads;
             is.get(count, threads);
-            e = DbgShowFrame(count, threads);
+            // if we are in python mode, this will route to a python backtrace which might throw
+            e = run_pybe_cmd(DbgShowFrame, count, threads);
             break;
         }
 
@@ -478,6 +482,18 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
             break;
         }
 
+        case DBGCMD_PYBEGETPYTHON: {
+            e = run_pybe_cmd(DbgPythonBEGetPython);
+            break;
+        }
+
+        case DBGCMD_PYBESETPYTHON: {
+            int onoff;
+            is.get(onoff);
+            e = run_pybe_cmd(DbgPythonBESetPython, static_cast<PythonType>(onoff));
+            break;
+        }
+
         case DBGCMD_PYBEINJECT: {
             e = run_pybe_cmd(DbgPythonBEInject);
             break;
@@ -485,11 +501,6 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
 
         case DBGCMD_PYBEGETGIL: {
             e = run_pybe_cmd(DbgPythonBEGetGIL);
-            break;
-        }
-
-        case DBGCMD_PYBEBACKTRACE: {
-            e = run_pybe_cmd(DbgPythonBEBacktrace);
             break;
         }
     }

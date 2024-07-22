@@ -49,4 +49,6 @@ private:
     MISession& m_parent_session;
     pybe::Channel& m_parent_pybe_channel;
     int m_gil_thread_id = -1;
+    long m_py_thread_id = 0;
+    unsigned long m_old_thread_id = 0;
 };

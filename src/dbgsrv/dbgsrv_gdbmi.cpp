@@ -1199,12 +1199,12 @@ dbgevent_t *DbgGdbMI::moveFrame(int count, DbgFrameDir dir, const char* threads)
 }
 
 /*
-** Show current stack frames.
+** Show current ELF stack frames.
 ** If count is not zero then return only that many frames. If count is zero then
 ** return an unlimited number of frames. If count is negative return the
 ** outermost frames.
 */
-dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
+dbgevent_t* DbgGdbMI::showElfFrames(int count, const char* threads) {
     DVPRINT("*** Dbg %s, %s %d %s\n", __FILE__, __func__, count, threads ? threads : "");
     dbgevent_t *e;
 
@@ -1302,6 +1302,10 @@ dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
     MIListFree(frames, (void (*)())MIFrameFree);
 
     return e;
+}
+
+dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
+    return isPython() ? pythonBEBacktrace() : showElfFrames(count, threads);
 }
 
 /*
@@ -2626,6 +2630,20 @@ Pybe& DbgGdbMI::ensurePybe() {
     return *m_pybe;
 }
 
+dbgevent_t* DbgGdbMI::pythonBEGetPython() {
+    auto e = NewEvent(DBGEV_STRING);
+    e->ev_string = isPython() ? ::strdup("on") : ::strdup("off");
+    return e;
+};
+
+dbgevent_t* DbgGdbMI::pythonBESetPython(PythonType setting) {
+    if (setting != PythonType::On && setting != PythonType::Off) {
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Expected \"on\" or \"off\".");
+    }
+    setPython(setting == PythonType::On);
+    return NewEvent(DBGEV_OK);
+};
+
 dbgevent_t* DbgGdbMI::pythonBEInject() {
     DVPRINT("pythonBEInject\n");
     ensurePybe(); // throws on failure
@@ -2636,6 +2654,14 @@ dbgevent_t* DbgGdbMI::pythonBEGetGIL() {
     DVPRINT("PythonBEGetGIL\n");
     auto gil = ensurePybe().coerce_gil(); // throws on error
     return NewEvent(DBGEV_OK);
+}
+
+bool DbgGdbMI::isPython() const {
+    return m_isPython;
+}
+
+void DbgGdbMI::setPython(bool isPython) {
+    m_isPython = isPython;
 }
 
 // TODO name this better
@@ -3157,8 +3183,7 @@ dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
             case DBGSTAT_STOPPED:
             case DBGSTAT_STOPPED_IN_THREAD:
             case DBGSTAT_EXIT:
-                // Reuse DbgGDBMIShowFrame to get the bottommost frame
-                async_e = showFrame(1, threads);
+                async_e = showElfFrames(1, threads);
 
                 if (async_e->ev_frame != NULL) {
                     const auto &frameLoc = async_e->ev_frame->getLoc();

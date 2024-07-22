@@ -5,6 +5,7 @@
 #include <sys/un.h>
 
 #include <future>
+#include <regex>
 
 #include "dbgevent.h"
 #include "dbgsrv_defs.h"
@@ -231,6 +232,64 @@ Pybe::GILHolder::GILHolder(MISession& mi, int gil_thread_id, pybe::Channel& chan
 
     DVPRINT("getting GIL handle...\n");
 
+    {   // remember old thread
+        const char* argv[] = { "thread" };
+        auto cmd = make_MICmd(CLIBypass(1, const_cast<char**>(argv)));
+
+        SendMICommand(&m_parent_session, cmd.get());
+        if (!MICommandResultOK(cmd.get())) {
+            DVPRINT("PythonBEGetGIL: getting current thread\n");
+            throw NewErrorEvent(DBGERR_DEBUGGER,
+                "Failed to set up python debugging.\n"
+                "This is a bug. Please report it and include the following info:\n"
+                "failure: failed to get current thread");
+            // TODO include error text from gdb
+        }
+
+        // std::regex_match below *requires* a std::string for whatever reason
+        auto result = MallocedCharPtr(MICommandConsoleOOBMessages(cmd.get())).get_string();
+        static std::regex current_thread_re{R"(.*thread is (\d+).*\n)"};
+        std::smatch match;
+        if (std::regex_match(result, match, current_thread_re)) {
+            m_old_thread_id = ::strtoul(match[1].str().c_str(), nullptr, 10);
+        }
+    }
+
+    {   // check that we are in a python thread
+        auto cmd = make_MICmd(MIDataEvaluateExpression("(bool)pybe::is_python_thread()"));
+
+        SendMICommand(&m_parent_session, cmd.get());
+        if (!MICommandResultOK(cmd.get())) {
+            DVPRINT("PythonBEGetGIL: error calling is_python_thread\n");
+            throw NewErrorEvent(DBGERR_DEBUGGER,
+                "Failed to set up python debugging.\n"
+                "This is a bug. Please report it and include the following info:\n"
+                "failure: failed to determine thread category");
+            // TODO include error text from gdb
+        }
+
+        auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+        if (result.get_view() != "true") {
+            throw NewErrorEvent(DBGERR_DEBUGGER, "Current thread has no python state.");
+        }
+    }
+
+    {   // get the python thread id
+        auto cmd = make_MICmd(MIDataEvaluateExpression("(long)pybe::get_python_thread_id()"));
+
+        SendMICommand(&m_parent_session, cmd.get());
+        if (!MICommandResultOK(cmd.get())) {
+            DVPRINT("PythonBEGetGIL: error calling get_python_thread_id\n");
+            throw NewErrorEvent(DBGERR_DEBUGGER,
+                "Failed to set up python debugging.\n"
+                "This is a bug. Please report it and include the following info:\n"
+                "failure: failed to determine thread id");
+        }
+
+        auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+        m_py_thread_id = ::strtol(result.get(), nullptr, 10);
+    }
+
     {   // switch to GIL grabber thread
         auto cmd = make_MICmd(MIThreadSelect(gil_thread_id));
 
@@ -245,11 +304,20 @@ Pybe::GILHolder::GILHolder(MISession& mi, int gil_thread_id, pybe::Channel& chan
         }
     }
 
-    // TODO store old thread to switch after dtor
+    // we are about to start doing stuff that generates async events.
+    // we don't want the user to see any of these, so catch them all while we're here
+    auto old_event_callback = m_parent_session.event_callback;
+    auto restore_event_callback_on_exit = OnScopeExit([&](){
+        MISessionRegisterEventCallback(&m_parent_session, old_event_callback);
+    });
 
+    MISessionRegisterEventCallback(&m_parent_session, [](MIEvent* e) {
+        std::swap(g_gil_sigtrap_event, e);
+        if (e) MIEventFree(e);
+    });
 
     {   // make sure grabber thread is stopped so we can run commands
-        const char* argv[1] = { "interrupt" };
+        const char* argv[] = { "interrupt" };
         auto cmd = make_MICmd(CLIBypass(1, const_cast<char**>(argv)));
 
         SendMICommand(&m_parent_session, cmd.get());
@@ -284,18 +352,13 @@ Pybe::GILHolder::GILHolder(MISession& mi, int gil_thread_id, pybe::Channel& chan
     }
 
     {   // call the grabbing function and catch the SIGTRAP
-        auto old_event_callback = m_parent_session.event_callback;
-        auto restore_event_callback_on_exit = OnScopeExit([&](){
-            MISessionRegisterEventCallback(&m_parent_session, old_event_callback);
-        });
-
-        MISessionRegisterEventCallback(&m_parent_session, [](MIEvent* e) {
-            std::swap(g_gil_sigtrap_event, e);
-            if (e) MIEventFree(e);
-        });
-
         const auto fn = "pybe::get_GIL_then_breakpoint()";
         auto cmd = make_MICmd(MIDataEvaluateExpression(fn));
+
+        if (g_gil_sigtrap_event) {
+            MIEventFree(g_gil_sigtrap_event);
+            g_gil_sigtrap_event = nullptr;
+        }
 
         SendMICommand(&m_parent_session, cmd.get());
         if (!MICommandResultOK(cmd.get())) {
@@ -322,22 +385,56 @@ Pybe::GILHolder::GILHolder(MISession& mi, int gil_thread_id, pybe::Channel& chan
         //
         // XXX: the below code only handles non-stop mode.
 
-        while (!g_gil_sigtrap_event) {
-            // TODO don't let this loop forever - quit after X tries
+        MISessionProgress(&m_parent_session);
+        for (size_t tries_left = 9; tries_left > 0 && !g_gil_sigtrap_event; tries_left--) {
+            ::usleep(250000);
             MISessionProgress(&m_parent_session);
+        }
 
+        if (g_gil_sigtrap_event) {
             MIEvent* evt = nullptr;
             std::swap(g_gil_sigtrap_event, evt);
-            if (evt) MIEventFree(evt);
+            DVPRINT("Caught event type %d\n", evt->type);
+            MIEventFree(evt);
             // TODO verify that this is the SIGTRAP
+        } else {
+            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to set up python debugging.");
         }
     }
 }
 
 Pybe::GILHolder::~GILHolder() {
+    // reset state to what it was before GILHolder.
     // assume we are in the sigtrap func called from wait loop
 
     try {
+        {   // switch to pybe thread
+            auto cmd = make_MICmd(MIThreadSelect(m_gil_thread_id));
+            SendMICommand(&m_parent_session, cmd.get());
+            if (!MICommandResultOK(cmd.get())) {
+                // can't do much
+                DVPRINT("In ~GILHolder, thread command failed!\n");
+            }
+        }
+
+        // escape from inner pybe functions
+        auto old_event_callback = m_parent_session.event_callback;
+        auto restore_event_callback_on_exit = OnScopeExit([&](){
+            MISessionRegisterEventCallback(&m_parent_session, old_event_callback);
+        });
+
+        // the -exec-finish commands below will generate a *stopped event which
+        // we don't want the user to see
+        MISessionRegisterEventCallback(&m_parent_session, [](MIEvent* e) {
+            std::swap(g_gil_sigtrap_event, e);
+            if (e) MIEventFree(e);
+        });
+
+        if (g_gil_sigtrap_event) {
+            MIEventFree(g_gil_sigtrap_event);
+            g_gil_sigtrap_event = nullptr;
+        }
+
         {   // escape std::raise
             auto cmd = make_MICmd(MIExecFinish());
             SendMICommand(&m_parent_session, cmd.get());
@@ -355,19 +452,45 @@ Pybe::GILHolder::~GILHolder() {
                 DVPRINT("In ~GILHolder, finish command failed!\n");
             }
         }
+
+        // eat the generated *stopped
+        MISessionProgress(&m_parent_session);
+        for (size_t tries_left = 9; tries_left > 0 && !g_gil_sigtrap_event; tries_left--) {
+            // I don't think this sleep/loop is actually necessary, but just in case
+            ::usleep(250000);
+            MISessionProgress(&m_parent_session);
+        }
+
+        if (g_gil_sigtrap_event) {
+            MIEvent* evt = nullptr;
+            std::swap(g_gil_sigtrap_event, evt);
+            DVPRINT("Caught event type %d\n", evt->type);
+            MIEventFree(evt);
+            // TODO verify that this is the *stopped from exec-finish
+        } else {
+            // not much we can do about that
+            DVPRINT("Never got the *stopped...\n");
+        }
+
+        {   // switch back to old thread
+            auto cmd = make_MICmd(MIThreadSelect(m_old_thread_id));
+            SendMICommand(&m_parent_session, cmd.get());
+            if (!MICommandResultOK(cmd.get())) {
+                // can't do much
+                DVPRINT("In ~GILHolder, thread command failed!\n");
+            }
+        }
     } catch (const std::exception& e) {
         DVPRINT("In ~GILHolder, caught exception! %s\n", e.what());
     } catch (...) {
         DVPRINT("In ~GILHolder, caught unknown exception!\n");
     }
-
-    // TODO: switch back to old thread?
 }
 
 pybe::Backtrace Pybe::GILHolder::get_backtrace() {
     const auto seq = m_parent_pybe_channel.generate_sequence_number();
     {
-        const auto fn = std::string{"pybe::get_backtrace("} + std::to_string(seq) + ")";
+        const auto fn = std::string{"\"pybe::get_backtrace("} + std::to_string(seq) + ", " + std::to_string(m_py_thread_id) + ")\"";
         auto cmd = make_MICmd(MIDataEvaluateExpression(fn.c_str()));
 
         SendMICommand(&m_parent_session, cmd.get());

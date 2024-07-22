@@ -17,14 +17,11 @@
 #include "cli_funcs.h"
 #include "mi_funcs.h"
 #include "dbgclnt_settings.h"
+#include "dbgcmd.h"
 
 #include <map>
 
-enum class PendingBrkType {
-    Auto,
-    On,
-    Off
-};
+enum class PendingBrkType { Auto, On, Off };
 
 // This is the global settings object definition
 // All settings should go here. If you find any that are missing, add them!
@@ -52,6 +49,7 @@ struct clnt_settings : public ClientSettingsInterface {
     PendingBrkType brk_pending;                    /* pending breakpoint mode */
     std::string pager;                             // External binary to use for paging large content via PrintOutPagedMsg
     int height;                                    // PrintOutPagedMsg will only page messages with more lines than `height`
+    PythonType python;                             // If python mode is enabled
 
     // methods for ClientSettingsInterface base class
     std::string getProto() override { return proto; }

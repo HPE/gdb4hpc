@@ -272,6 +272,7 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                                          .gpu_flag = args.gpu_flag,
                                          .debug_flag = args.debug_flag,
                                          .debug_dir = args.debug_dir,
+                                         .python = false, // XXX: no way to detect python in attach case yet
             };
 
             // Attach to submitted job
@@ -341,6 +342,7 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                                          .gpu_flag = args.gpu_flag,
                                          .debug_flag = args.debug_flag,
                                          .debug_dir = args.debug_dir,
+                                         .python = false, // XXX: no way to detect python in attach case yet
             };
 
             // Attach to submitted job
@@ -707,6 +709,7 @@ static int cmd_attach_cmd(Interpreter& caller, int argc, const char* const argv[
                             .gpu_flag = false,
                             .debug_flag = false,
                             .debug_dir = "",
+                            .python = false, // XXX: no way to detect python in attach case yet
     };
     
     while ((opt = getopt_long(argc, mut_argv.v.data(), "", attach_long_opts, &opt_ind)) !=

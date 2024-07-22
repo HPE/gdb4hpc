@@ -99,8 +99,9 @@ extern dbgevent_t *DbgPythonMoveFrame(DbgFrameDir dir);
 extern dbgevent_t *DbgPythonPrint(const std::string& name);
 extern dbgevent_t *DbgPythonLocals();
 
+extern dbgevent_t *DbgPythonBEGetPython();
+extern dbgevent_t *DbgPythonBESetPython(PythonType setting);
 extern dbgevent_t *DbgPythonBEInject();
 extern dbgevent_t *DbgPythonBEGetGIL();
-extern dbgevent_t *DbgPythonBEBacktrace();
 
 #endif /* !_DBGFN_H */

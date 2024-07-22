@@ -56,12 +56,16 @@ int Thread::detach() {
 }
 
 void log(const char *format, ...) {
-    // XXX: placeholder until proper logging solution is implemented.
-    //      for now this will be seen as user application output.
-    va_list arg_list;
-    va_start(arg_list, format);
-    vfprintf(stderr, format, arg_list);
-    va_end(arg_list);
+    // XXX: should be using an env var macro defined in a header
+    static const auto logging_enabled = [](){ return ::getenv("CRAY_DBG_LOG_DIR") != nullptr; }();
+    if (logging_enabled) {
+        // XXX: placeholder until proper logging solution is implemented.
+        //      for now this will be seen as user application output.
+        va_list arg_list;
+        va_start(arg_list, format);
+        vfprintf(stderr, format, arg_list);
+        va_end(arg_list);
+    }
 }
 
 } // namespace pybe

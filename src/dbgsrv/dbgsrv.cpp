@@ -52,6 +52,7 @@ int gpu_flag = 0;
 int early_entry_flag = 0;
 int non_stop_flag = 0;
 int non_mpi_flag = 0;
+int python_flag = 0;
 
 const char* custom_gdb = nullptr;
 const char* custom_gdb_data = nullptr;
@@ -73,6 +74,7 @@ const struct option long_opts[] = {
     {"program", required_argument, 0, 'f'},
     {"vgdb-command-file", required_argument, 0, 'v'},
     {"main-function", required_argument, 0, 'm'},
+    {"python", no_argument, &python_flag, 1},
     {0, 0, 0, 0}};
 
 int Shutdown = 0;

@@ -103,7 +103,8 @@ def makeRunFile(test, substitutions = ()):
     if (not rcfile):
         test.cancel("could not get rc file")
     penv = "" if test.penv == "CRAY" else ("." + test.penv)
-    runfile = tmpdir + '/' + test.base_name + penv + ".rc"
+    extra = ("." + test.extra_tag) if test.extra_tag else ""
+    runfile = tmpdir + '/' + test.base_name + penv + extra + ".rc"
 
     launch_re = re.compile(r"(launch .+?{(\d+)} *)")
 
@@ -180,6 +181,11 @@ def getOut(test):
         # remove ".out"
         unaltered = out[:-4]
         out = unaltered + f".{test.penv}.out" 
+
+    if test.extra_tag:
+        # remove ".out"
+        unaltered = out[:-4]
+        out = unaltered + f".{test.extra_tag}.out" 
 
     return out
 
@@ -331,6 +337,9 @@ class Gdb4hpcTest(Test):
 
         # Overwrite in test to use alternate protocol
         self.proto = "zmqnet"
+
+        # Overwrite in test to add extra info to output filename
+        self.extra_tag = None
 
         # set startup timeout env var to speed up failures
         if not os.getenv("GDB4HPC_STARTUP_TIMEOUT"):
@@ -1026,13 +1035,13 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "completions_launch"
         runTest(self)
 
-    def test_python_launch_from_path(self):
-        self.base_name = "python_launch_from_path"
+    def test_launch_from_path(self):
+        self.base_name = "launch_from_path"
         os.environ["PATH"] = f"{os.environ['PATH']}:{os.getcwd()}/bin/{self.penv}/c"
         runTest(self)
 
-    def test_python_positional_args(self):
-        self.base_name = "python_positional_args"
+    def test_positional_args(self):
+        self.base_name = "positional_args"
         runTest(self)
 
     def test_srun_simple(self):
@@ -1046,11 +1055,33 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "srun_twice"
         runTest(self)
 
+class PythonTest(Gdb4hpcTest):
+    def setUp(self):
+        super().setUp()
+
+        self.python_version = self.params.get("python_version", default=None)
+
+        if self.python_version != None and self.python_version != "system":
+            which = subprocess.run(f"module load cray-python/{self.python_version} && which python{self.python_version}", stdout=subprocess.PIPE, shell=True)
+            if which.returncode != 0:
+                self.cancel(f"No python{self.python_version} in PATH")
+            self.python_path = which.stdout.decode().strip()
+            self.extra_tag = self.python_version
+        else:
+            # default to system python3
+            which = subprocess.run(["which", "python3"], stdout=subprocess.PIPE)
+            if which.returncode != 0:
+                self.cancel("No python3 in PATH")
+            self.python_path = which.stdout.decode().strip()
+
     # debugging the python interpreter doesn't work without special args on anything but slurm
     @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
     def test_python_halt_backtrace_no_gil(self):
         self.base_name = "python_halt_backtrace_no_gil"
-        runTest(self)
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
 
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):

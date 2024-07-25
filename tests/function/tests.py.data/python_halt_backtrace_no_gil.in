@@ -1,5 +1,5 @@
 0: # halt in a spot where no thread has the gil and get a python backtrace
-0: launch $a{1} python3 ./src/python/sleep.py
+0: launch $a{1} %.*python3.*% ./src/python/sleep.py
 Starting application, please wait...
 Launched application...
 Enabling python debugging. To disable, use `set python off`
@@ -12,7 +12,7 @@ a{0}: Initial breakpoint, in main
 0: c
 0: maint sleep 2
 0: halt
-a{0}: Application halted in select
+a{0}: Application halted in %.*%
 0: # python will have released the gil when it went to sleep
 0: p (int)PyGILState_Check()
 a{0}: 0

@@ -410,3 +410,67 @@ less be used interchangeably. Since the data is first serialized into raw bytes
 before contacting the other side, each side is free to use whatever string
 (etc.) implementation it wants.
 
+### Supporting Multiple Python Versions
+
+**Problem 6**: The Python C API is not ABI compatible across Python minor
+releases.
+
+Code compiled against a particular minor version of the python C API is not
+compatible with a python interpreter of a different minor version. For example,
+code compiled against the python 3.10.x API will (most likely) not work with a
+python 3.11.x interpreter. However, code compiled against python 3.10.x is
+guaranteed to work against all python 3.10.y.
+
+The python C API exposes something called the limited API, which *is*
+guaranteed to work for all future python 3 versions than the one that it was
+compiled against. Unfortunately, the limited API is extremely small and high
+level. It doesn't expose the low level python internals needed for a debugger.
+
+With the limited API unavailable, our only other option is to build multiple
+versions of the code that uses the python API, one against each python version
+we support and pick the correct one at runtime.
+
+We test multiple versions using avocado's parameters/variant feature. The test
+suite will search for all minor versions of cray-python on the system and test
+against them - plus the system python e.g. /usr/bin/python3.
+
+#### Changing The Supported Set Of Python Versions
+
+To add or remove a python version, the following need to be updated:
+
+1. The python-headers repository
+   (https://github.hpe.com/hpcde/hpc-cdst-python-headers) needs to be updated
+   with the new set of python headers for each supported version and the submodule
+   must be updated in gdb4hpc.
+2. The list of python versions in meson.build needs to be updated with the new
+   set of versions.
+
+Confirm 1 and 2 by building gdb4hpc and checking the build directory for the
+expected .so files.
+
+3. The various lists of libgdb4_pybe_3.XX.so files in the .spec file need to
+   be updated with the new set of versions.
+
+The list should match the list of built libgdb4_pybe_3.X.so files. (Ignore
+libgdb4_pybe_insurance.so). Confirm by building the rpm. Make sure you have run
+meson install and be careful that you don't have any old versions of
+libgdb4_pybe in the installation directory that might be accidentally picked
+up.
+
+4. avocado_config_python.yaml needs to be updated with the new set of versions.
+
+Confirm by checking that running the test suite generates tests against every
+supported python version (skipped tests are okay). To check, run:
+
+```
+$ ./test_tool.py -st python -c avocado_config_python.yaml
+```
+
+In theory, that's all you need to do. gdb4hpc automatically detects and loads
+the right version at runtime so no dbgsrv code changes should be needed. But
+adding a new python version will build libgdb4_pybe against the new python C
+API, which might have breaking changes. In general we try to use stable parts
+of the python C API as much as possible, but for some debugging purposes we
+have to read unstable struct members etc, which might cause an issue during the
+update proccess. Give yourself some extra time for this possibility when you
+are scheduling time to do the update.

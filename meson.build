@@ -50,19 +50,13 @@ cdst_support_dep = dependency(
 )
 
 py_module = import('python')
-py_installation = py_module.find_installation('python3')
-system_python_dep = py_installation.dependency(embed: true)
+
+# the system python installation is used for the python interpreter embedded in
+# the client. for pybe, we are more explicit about the versions we use (see libgdb4_pybe below).
+system_python_installation = py_module.find_installation('python3')
+system_python_dep = system_python_installation.dependency(embed: true)
 python_compat_dep = declare_dependency(
   include_directories: ['./external/pythoncapi-compat'],
-)
-
-# wrap up system python and python capi_compat into one dep since they should
-# always be used together
-python_dep = declare_dependency(
-  dependencies: [
-    system_python_dep,
-    python_compat_dep,
-  ],
 )
 
 libedit_dep = dependency('libedit', method: 'pkg-config')
@@ -90,11 +84,6 @@ conf.set_quoted('GUARD_VERSION', meson.project_version())
 conf.set('ZMQNET', 1)
 conf.set('MRNET', 1)
 conf.set('ALPS', 1)
-
-configure_file(
-  output: 'config.h',
-  configuration: conf,
-)
 
 # internal dependencies ----------------------------------------------------------------
 #
@@ -438,7 +427,7 @@ gdb4hpc = executable(
     mrnet_dep,
     cti_fe_dep,
     cdst_support_dep,
-    python_dep,
+    system_python_dep,
     libedit_dep,
     libdw_dep,
     libmi_dep,
@@ -478,49 +467,85 @@ dbgsrv_alps = executable(
 
 test('dbgsrv_alps unit tests', dbgsrv_alps, args: ['--test'])
 
-libgdb4_pybe_so = shared_library(
-  'gdb4_pybe',
-  sources: [
-    './src/dbgsrv/pybe_entry.cpp',
-    './src/dbgsrv/pybe_stl.cpp',
-  ],
-  include_directories: [],
-  cpp_args: [
-    '-fno-rtti',
-    '-fno-exceptions',
-  ],
-  dependencies: [
-    python_dep,
-    pthread_dep,
-    tinystl_dep,
-  ],
-  link_with: [],
-  link_args: [
-    '-lsupc++', # this is enough to tell g++ to exclude libstdc++
-    '-Wl,--exclude-libs,ALL',
-  ],
-  gnu_symbol_visibility: 'hidden',
-  install: true,
-  install_dir: './lib',
-)
+libgdb4_pybe_sources = [
+  './src/dbgsrv/pybe_entry.cpp',
+  './src/dbgsrv/pybe_stl.cpp',
+]
+libgdb4_pybe_cpp_args = [
+  '-fno-rtti',
+  '-fno-exceptions',
+]
+libgdb4_pybe_link_args = [
+  '-lsupc++', # this is enough to tell g++ to exclude libstdc++
+  '-Wl,--exclude-libs,ALL', # don't expose symbols in any .a files we link to build this .so
+]
+libgdb4_pybe_deps = [
+  python_compat_dep,
+  pthread_dep,
+  tinystl_dep,
+]
 
-pybe_unittest = executable(
-  'pybe_unittest',
-  ['./src/dbgsrv/pybe_unittest.cpp'],
-  include_directories: [],
-  dependencies: [
-    python_dep,
-    pthread_dep,
-    unittest_dep,
-    tinystl_dep,
-  ],
-  link_with: [
-    libgdb4_pybe_so,
-  ],
+supported_python_versions = ['3.6', '3.8', '3.9', '3.10', '3.11', '3.12']
+conf.set('SUPPORTED_PYTHON_VERSIONS', '{"' + '", "'.join(supported_python_versions) + '"}', description: 'Initializer list of supported python versions')
+conf.set_quoted('SUPPORTED_PYTHON_VERSIONS_STR', ', '.join(supported_python_versions), description: 'String of supported python versions')
+
+foreach py_vers : supported_python_versions
+  libgdb4_pybe_so = shared_library(
+    'gdb4_pybe_' + py_vers,
+    sources: libgdb4_pybe_sources,
+    include_directories: [
+      './external/python-headers/include/python' + py_vers,
+    ],
+    override_options: [
+      # allow undefined symbols. this gets us a very fast build since we don't
+      # need to rely on getting n different versions of python installed to
+      # link with (which would require building n different versions of python
+      # from source). we can count on the fact that any symbol exposed in
+      # Python.h will be present in libpython at runtime.
+      #
+      # however, this option does create a blind spot for our *own* undefined
+      # symbols, but see libgdb4_pybe_insurance_so below.
+      'b_lundef=false',
+    ],
+    cpp_args: libgdb4_pybe_cpp_args,
+    dependencies: libgdb4_pybe_deps,
+    link_args: libgdb4_pybe_link_args,
+    link_with: [],
+    gnu_symbol_visibility: 'hidden',
+    install: true,
+    install_dir: './lib',
+  )
+
+  pybe_unittest = executable(
+    'pybe_unittest_' + py_vers,
+    ['./src/dbgsrv/pybe_unittest.cpp'],
+    include_directories: [
+      './external/python-headers/include/python' + py_vers,
+    ],
+    dependencies: [
+      unittest_dep,
+      libgdb4_pybe_deps,
+    ],
+    link_with: [],
+    install: false,
+  )
+
+  test('pybe unit tests ' + py_vers, pybe_unittest)
+endforeach
+
+# build *and link* a version of libgdb4_pybe against the system python as
+# insurance against the undefined symbol blind spot in the normal
+# libgdb4_pybe_so build. this library is never seen or used by the user, but
+# will flag build issues early for developers.
+libgdb4_pybe_insurance_so = shared_library(
+  'gdb4_pybe_insurance',
+  sources: libgdb4_pybe_sources,
+  cpp_args: libgdb4_pybe_cpp_args,
+  dependencies: [libgdb4_pybe_deps, system_python_dep],
+  link_with: [],
+  link_args: libgdb4_pybe_link_args,
   install: false,
 )
-
-test('pybe unit tests', pybe_unittest)
 
 dbgsrv = executable(
   'dbgsrv',
@@ -554,7 +579,6 @@ dbgsrv = executable(
     zmqnet_dep,
     cdst_support_dep,
     libmi_dep,
-    python_dep,
     unittest_dep,
     tinystl_dep,
   ],
@@ -562,10 +586,14 @@ dbgsrv = executable(
     libgdb4_dbg_a,
     libgdb4_useful_a,
     libgdb4_bitset_a,
-    libgdb4_pybe_so,
   ],
   install: true,
   install_dir: './libexec',
 )
 
 test('server unit tests', dbgsrv, args: ['--test'])
+
+configure_file(
+  output: 'config.h',
+  configuration: conf,
+)

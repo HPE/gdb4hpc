@@ -46,3 +46,7 @@
 	path = external/pythoncapi-compat
 	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-python-pythoncapi-compat.git
 	branch = hpe
+[submodule "external/python-headers"]
+	path = external/python-headers
+	url = git@github.hpe.com:hpcde/hpc-cdst-python-headers.git
+	branch = master

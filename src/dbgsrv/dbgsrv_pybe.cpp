@@ -4,8 +4,13 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include <algorithm>
 #include <future>
 #include <regex>
+
+#include "config.h"
+
+#include "unittest_macros.h"
 
 #include "dbgevent.h"
 #include "dbgsrv_defs.h"
@@ -16,6 +21,12 @@
 #include "dbgsrv_pybe.h"
 
 namespace {
+
+bool python_version_is_supported(const char* version) {
+    return std::ranges::any_of((const char* [])SUPPORTED_PYTHON_VERSIONS, [&](const char* v) {
+        return ::strcmp(version, v) == 0;
+    });
+}
 
 std::string generate_socket_path() {
     // this needs to start with @ - the communication implementation will replace it
@@ -46,17 +57,53 @@ Pybe::Pybe(MISession& mi)
     //
     // TODO: make a LIBPYBE.SO constant instead of hard coding the library name
 
+    // deduce which library to load
+    const auto python_version = [&](){
+        auto cmd = make_MICmd(MIDataEvaluateExpression("(char*)Py_GetVersion()"));
+        SendMICommand(&mi, cmd.get());
+        if (!MICommandResultOK(cmd.get())) {
+            DVPRINT("python inject: failed to get python version.\n");
+            // expecting caller to disable python
+            throw NewErrorEvent( DBGERR_DEBUGGER,
+                "Failed to detect python version. Disabling python debugging "
+                "for this rank. Re-enable with `set python on`.\n");
+        }
+        // XXX: wasteful get_string seems to be required by std::regex api for some reason
+        auto full_version_buf = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get())).get_string();
+        // examples of what we're expecting:
+        // 0x7fffed2cd760 "3.6.8 (default, Jan  5 2024, 08:58:17) \n[GCC 8.5.0 20210514 (Red Hat 8.5.0-20)]"
+        // 0x7fffed2cd760 "3.0a5+ (py3k:63103M, May 12 2008, 00:53:55) \n[GCC 4.2.3]"
+        static std::regex py_version_re{R"((3\.\d+)[^\d])"};
+        auto match = std::smatch{};
+        if (std::regex_search(full_version_buf, match, py_version_re)) {
+            return std::string{match[1].first, match[1].second};
+        } else {
+            DVPRINT("python inject: failed to parse python version.\n");
+            // expecting caller to disable python
+            throw NewErrorEvent( DBGERR_DEBUGGER,
+                "Failed to detect python version. Disabling python debugging "
+                "for this rank. Re-enable with `set python on`.");
+        }
+    }();
+
     // hopefully the RTLD_NOW constant is the same on the build machine and the target machine...
-    auto open_exp = std::string{"\"(void *)dlopen(\\\"libgdb4_pybe.so\\\", "} + std::to_string(RTLD_NOW) + ")\"";
+    const auto so_name = std::string{"libgdb4_pybe_"} + python_version + ".so";
+    auto open_exp = std::string{"\"(void *)dlopen(\\\""} + so_name + "\\\", " + std::to_string(RTLD_NOW) + ")\"";
     auto cmd = make_MICmd(MIDataEvaluateExpression(open_exp.c_str()));
     SendMICommand(&mi, cmd.get());
     if (!MICommandResultOK(cmd.get())) {
         DVPRINT("pythonBEInject: got error from [%s]\n", open_exp.c_str());
-        throw NewErrorEvent(DBGERR_DEBUGGER,
-            "failed to set up python debugging.\n"
-            "This is a bug. Please report it and include the following info:\n"
-            "failure: dlopen expression: [%s]\n",
-            open_exp.c_str());
+        if (!python_version_is_supported(python_version.c_str())) {
+            throw NewErrorEvent(DBGERR_DEBUGGER,
+                "gdb4hpc does not support python %s.\n"
+                "Supported versions: " SUPPORTED_PYTHON_VERSIONS_STR "\n"
+                "Disabling python debugging for this rank. Re-enable with `set python on`.",
+                python_version.c_str());
+        } else {
+            throw NewErrorEvent(DBGERR_DEBUGGER,
+                "Failed to set up python debugging (loading gdb4hpc python library failed)\n"
+                "Disabling python debugging for this rank. Re-enable with `set python on`.");
+        }
     }
 
     auto lib_handle_addr = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -514,3 +561,12 @@ pybe::Backtrace Pybe::GILHolder::get_backtrace() {
     // TODO: be more informative
     throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
 }
+
+TEST_CASE("supported python versions are indeed supported") {
+    for (const char* version : (const char* [])SUPPORTED_PYTHON_VERSIONS) {
+        CHECK(python_version_is_supported(version));
+    }
+
+    CHECK(!python_version_is_supported("beta prerelease six"));
+}
+

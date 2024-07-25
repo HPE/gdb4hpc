@@ -2625,9 +2625,16 @@ Pybe& DbgGdbMI::ensurePybe() {
     if (!m_initializer || !m_initializer->getMISession()) {
         throw NewErrorEvent(DBGERR_INTERNAL, "Failed to connect to python.");
     }
-    // throws on failure
-    m_pybe = std::make_unique<Pybe>(*m_initializer->getMISession());
-    return *m_pybe;
+
+    try {
+        m_pybe = std::make_unique<Pybe>(*m_initializer->getMISession());
+        return *m_pybe;
+    } catch (...) {
+        // turn python mode off so the user can use normal versions of debugger commands.
+        // it's assumed that the error message we just caught will notify the user of this change.
+        setPython(false);
+        throw;
+    }
 }
 
 dbgevent_t* DbgGdbMI::pythonBEGetPython() {

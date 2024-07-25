@@ -97,7 +97,7 @@
 %global privlibs %{privlibs}|libgdb4_zmqnetagg.*
 %global privlibs %{privlibs}|libstdc++.*
 %global privlibs %{privlibs}|libgdb4_unittest.*
-%global privlibs %{privlibs}|libgdb4_pybe.*
+%global privlibs %{privlibs}|libgdb4_pybe_*.*
 %global __requires_exclude ^(%{privlibs})\\.so*
 %global __provides_exclude ^(%{privlibs})\\.so*
 
@@ -179,7 +179,12 @@ Tests for Cray gdb4hpc parallel debugger
 # Libraries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libgdb4_unittest.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.6.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.8.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.9.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.10.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.11.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.12.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libgdb4_dbgagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libgdb4_zmqnetagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 # Libraries static
@@ -372,6 +377,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/libtests.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/libtests.py
 %{__cp} -a %{tests_source_dir}/function/avocado_config.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config.yaml
 %{__cp} -a %{tests_source_dir}/function/avocado_config_fullsuite.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config_fullsuite.yaml
+%{__cp} -a %{tests_source_dir}/function/avocado_config_python.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config_python.yaml
 %{__cp} -a %{tests_source_dir}/function/test_tool_config.yaml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool_config.yaml
 %{__cp} -a %{tests_source_dir}/function/Makefile ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile
 %{__cp} -a %{tests_source_dir}/function/README.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/README.md
@@ -534,8 +540,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/mi_ccdb_assert.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_assert.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/completions_nolaunch.in     ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/completions_nolaunch.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/completions_launch.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/completions_launch.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_from_path.in  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_from_path.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_positional_args.in  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_positional_args.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/launch_from_path.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/launch_from_path.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/positional_args.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/positional_args.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_halt_backtrace_no_gil.in  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_halt_backtrace_no_gil.in
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
@@ -649,7 +655,12 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{release_notes_file}
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{attributions_name}
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_unittest.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_dbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_zmqnetagg.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile
@@ -794,6 +805,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/libtests.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config.yaml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config_fullsuite.yaml
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/avocado_config_python.yaml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/test_tool_config.yaml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/Makefile
 
@@ -951,8 +963,8 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mi_ccdb_assert.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/completions_nolaunch.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/completions_launch.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_from_path.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_positional_args.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/launch_from_path.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/positional_args.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_halt_backtrace_no_gil.in
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile

@@ -1,0 +1,17 @@
+# ./test_tool.py -c avocado_config_python.yaml
+# also pass -t python to ./test_tool unless you want to parameterize the *entire test suite*!
+python: !mux
+  system:
+    python_version: "system"
+  3.6:
+    python_version: "3.6"
+  3.8:
+    python_version: "3.8"
+  3.9:
+    python_version: "3.9"
+  3.10:
+    python_version: "3.10"
+  3.11:
+    python_version: "3.11"
+  3.12:
+    python_version: "3.12"

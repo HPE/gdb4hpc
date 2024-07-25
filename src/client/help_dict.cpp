@@ -12,6 +12,7 @@
  ******************************************************************************/
 
 #include "help_dict.h"
+#include "config.h"
 
 /**********************************************
  * Regular command help definitions
@@ -803,6 +804,9 @@ const char* const cmd_show_python_help[] = {
     "the C backtrace of the cpython interpreter, you could turn python mode off",
     "and then use the backtrace command. Setting python mode to auto has no effect",
     "on running procsets.",
+    "",
+    "gdb4hpc supports the following python versions:",
+    SUPPORTED_PYTHON_VERSIONS_STR,
     0};
 
 const char* const cmd_quit_help[] = {"Summary: Quit command.",

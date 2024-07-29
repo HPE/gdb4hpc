@@ -14,14 +14,12 @@ set -ex
 
 echo "Creating output directory structure..."
 
-OUTPUT_DIR="cpedocs_gdb4hpc"
+OUTPUT_DIR="gdb4hpc"
 mkdir -p "$OUTPUT_DIR/man"
 mkdir -p "$OUTPUT_DIR/guides"
 
-echo "Collecting files..."
-
-# Collect index echo "  ./cpedocs_index_chunk.md -> $OUTPUT_DIR/"
-cp ./cpedocs_index_chunk.md "$OUTPUT_DIR"
+# Collect index
+cp ./index.md "$OUTPUT_DIR"
 
 # Collect man pages
 cp ../man/gdb4hpc.1.md "$OUTPUT_DIR/man"
@@ -30,7 +28,6 @@ cp -r ../guides/img "$OUTPUT_DIR/guides"
 
 # Collect guides
 for f in ../guides/*.md; do
-  echo "  $f -> $OUTPUT_DIR/guides"
   cp "$f" "$OUTPUT_DIR/guides"
 done
 
@@ -42,6 +39,8 @@ confirm_and_replace() {
 }
 
 confirm_and_replace "# NAME" "# gdb4hpc Man Page" "$OUTPUT_DIR/man/gdb4hpc.1.md"
+
+set +x
 
 echo "Done. Output directory is $OUTPUT_DIR."
 echo "Now copy $OUTPUT_DIR to /CPEDocs/doc/debugging-tools."

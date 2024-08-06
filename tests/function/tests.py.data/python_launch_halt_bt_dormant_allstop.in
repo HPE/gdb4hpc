@@ -1,0 +1,34 @@
+0: set non-stop off
+0: launch $a{1} %.*python3.*% ./src/python/sleep.py 90
+Starting application, please wait...
+Launched application...
+Enabling python debugging. To disable, use `set python off`
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0}: Initial breakpoint, %.*%
+0: # this backtrace will be unpredictable - we just make sure it doesn't crash
+0: bt???
+0: continue
+0: maint sleep 5
+0: halt
+a{0}: Application halted in %.*%
+0: bt
+a{0}: #2  <module> at /src/python/sleep.py:13
+a{0}: #1  main at /src/python/sleep.py:10
+a{0}: #0  sleep at /src/python/sleep.py:7
+
+0: # backtrace again to ensure that pybe hasn't swapped threads out from under us
+0: bt
+a{0}: #2  <module> at /src/python/sleep.py:13
+a{0}: #1  main at /src/python/sleep.py:10
+a{0}: #0  sleep at /src/python/sleep.py:7
+
+0: # continue for a few seconds to make sure pybe didn't segfault python
+0: continue
+0: maint sleep 5
+0: halt???
+0: q
+Shutting down debugger and killing application for 'a'.

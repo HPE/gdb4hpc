@@ -122,6 +122,8 @@ public:
     dbgevent_t* pythonBEBacktrace();
     dbgevent_t* pythonBEGetGIL();
 
+    dbgevent_t* pythonBEAttach();
+
     // return true if we should prefer the python versions of commands when possible
     bool isPython() const;
     void setPython(bool isPython);
@@ -170,6 +172,11 @@ private:
     // this function is idempotent and can safely be called multiple times.
     //
     // throws a dbgevent_t* error on failure.
+    //
+    // XXX: ensurePybe has become a suboptimal name. it was originally designed to assume
+    // that it could be called at any point in the program, but now we assume that it will
+    // be called right after launch/attach - only *then* is it safe to call at any point
+    // afterwards. i'll revisit the name in the future.
     Pybe& ensurePybe();
 
     // prefer ensurePybe instead of accessing this directly

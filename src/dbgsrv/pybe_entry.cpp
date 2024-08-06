@@ -1,10 +1,12 @@
 // Copyright 2024 Hewlett Packard Enterprise Development LP.
 //
-// ... TODO ...
+// pybe bootstrapping and initialization
 
 #include <csignal>
 #include <sys/socket.h>
 #include <sys/un.h>
+
+#include <unistd.h>
 
 #include "pythoncapi_compat.h"
 
@@ -22,6 +24,7 @@ namespace pybe {
 // TODO: name these functions better
 
 bool get_backtrace(uint32_t seq, unsigned long py_thread_id) {
+    log("get_backtrace\n");
     if (!g_connection) [[ unlikely ]] {
         log("no connection to send result on\n");
         return false;
@@ -63,7 +66,7 @@ bool get_backtrace(uint32_t seq, unsigned long py_thread_id) {
         auto filename = StringView(PyUnicode_AsUTF8(code->co_filename));
         auto linenum = PyFrame_GetLineNumber(frame.ptr);
 
-        // log("%s in %s:%d\n", funcname.data(), filename.data(), linenum);
+        log("%s in %s:%d\n", funcname.data(), filename.data(), linenum);
         result.frames.emplace_back(
             Frame{
                 .function_name = String(funcname.data(), funcname.size()),
@@ -74,8 +77,9 @@ bool get_backtrace(uint32_t seq, unsigned long py_thread_id) {
     }
 
     auto wire = result.serialize();
+    log("serialized backtrace: \"%s\"\n", wire.c_str());
     if (g_connection->channel.send_with_timeout(wire.c_str(), wire.size(), seq) == -1) [[ unlikely ]] {
-        // failed to send result
+        log("failed to send backtrace result\n");
         return false;
     }
 
@@ -91,7 +95,7 @@ unsigned long get_python_thread_id() {
     //
     // XXX: in python 3.6 and below, the thread id is signed, but in
     // python 3.7 and above it's unsigned. since we're just comparing bits we
-    // always case to unsigned
+    // always cast to unsigned
     return (unsigned long)PyGILState_GetThisThreadState()->thread_id;
 }
 
@@ -120,7 +124,7 @@ bool connect_to_dbgsrv(const char* endpoint) {
 
 void get_GIL_then_breakpoint() {
     auto gil = PyGILState_Ensure();
-    ::raise(SIGTRAP);
+    ::raise(get_gil_signal_number());
     // gdb does its thing here...
     // ...
     // then gdb sends a continue
@@ -130,14 +134,26 @@ void get_GIL_then_breakpoint() {
 // argument and return value are unused, just needed to conform to pthread
 void* wait_for_grab_request(void*) {
     bool keep_going_forever_until_gdb_says_so = true;
-    // TODO make this a smarter wait than an infinite spin
-    while (keep_going_forever_until_gdb_says_so) {};
+    while (keep_going_forever_until_gdb_says_so) {
+        ::sleep(1);
+    };
     return nullptr;
 }
 
 bool spawn_GIL_grabbing_thread() {
-    // TODO block all signals except SIGTRAP?
+    // block all signals except our designated GIL signal
+    sigset_t all_signals_except_gil;
+    sigfillset(&all_signals_except_gil);
+    sigdelset(&all_signals_except_gil, get_gil_signal_number());
+
+    sigset_t old_signals;
+    pthread_sigmask(SIG_BLOCK, &all_signals_except_gil, &old_signals);
+
     auto maybe_grabber = pybe::Thread::make(&wait_for_grab_request, nullptr);
+
+    // unblock so we don't interfere with the python interpreter
+    pthread_sigmask(SIG_BLOCK, &old_signals, nullptr);
+
     if (!maybe_grabber) {
         // TODO error reporting mechanism
         return false;
@@ -150,8 +166,15 @@ bool spawn_GIL_grabbing_thread() {
         return false;
     }
 
-    // TODO restore signals
     return true;
 }
 
+void init_GIL() {
+    Py_Initialize(); // no-op when called for a 2nd time, so safe to call without any check
+#if PY_VERSION_HEX < 0x03070000
+    // this is required in 3.6 and below. it is a no-op in 3.7 and above.
+    // in 3.6, this MUST be called in python's main thread.
+    PyEval_InitThreads();
+#endif
+}
 } // namespace pybe

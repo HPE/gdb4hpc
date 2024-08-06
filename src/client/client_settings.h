@@ -57,6 +57,7 @@ struct clnt_settings : public ClientSettingsInterface {
     bool isUnsafe() override { return static_cast<bool>(unsafe); }
     bool isEarlyEntry() override { return static_cast<bool>(early_entry); }
     bool isNonStop() override { return static_cast<bool>(non_stop); }
+    PythonType getPython() override { return python; }
 };
 typedef struct clnt_settings clnt_settings_t;
 

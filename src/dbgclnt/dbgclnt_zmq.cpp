@@ -199,6 +199,8 @@ int ZMQNetClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
     // convertable from a nullptr, so we'll just make a dummy one to pass.
     auto dummyOutput = ZMQNetNetwork::OutputPtr(nullptr, DbgFreeGenericProgOutp);
 
+    PrintOutMsg("Attaching to application, please wait...\n");
+
     return internalAttach(di, nullptr, 0, std::move(dummyOutput), opts,
                           0, false, false);
 }

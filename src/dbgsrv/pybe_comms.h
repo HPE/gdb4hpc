@@ -30,6 +30,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -38,6 +39,13 @@
 #include "pybe_expected.h"
 
 namespace pybe {
+
+// return the signal number that will be emitted when pybe gets the GIL.
+inline auto get_gil_signal_number() {
+    // TODO: consider if there is a better signal to use.
+    //       isn't SIGTRAP used by a few other os facilities?
+    return SIGTRAP;
+}
 
 namespace detail {
 
@@ -572,7 +580,6 @@ pybe::Expected<Server_T<Ts>, std::nullptr_t> Server_T<Ts>::make(Ts::StringView p
         return nullptr;
     }
 
-    // TODO: make a utility class for socket management
     sockaddr_un addr;
     addr.sun_family = AF_UNIX;
     ::memset(addr.sun_path, 0, sizeof(addr.sun_path));
@@ -657,7 +664,6 @@ pybe::Expected<Channel_T<Ts>, std::nullptr_t> Server_T<Ts>::accept_with_timeout(
         }
     }
 
-    // TODO: implement timeout so this doesn't block forever on failure
     auto conn_fd = ::accept(m_socket, nullptr, nullptr);
     if (conn_fd == -1) {
         // TODO better error message

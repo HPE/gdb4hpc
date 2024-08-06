@@ -4,6 +4,7 @@
 #pragma once
 
 #include <string>
+#include "dbgcmd.h"
 
 // abstracted interface for struct clnt_settings so that layers
 // below don't need to know the details of the whole client layer
@@ -13,6 +14,7 @@ struct ClientSettingsInterface {
     virtual bool isUnsafe() = 0;
     virtual bool isEarlyEntry() = 0;
     virtual bool isNonStop() = 0;
+    virtual PythonType getPython() = 0;
 };
 
 namespace test {
@@ -26,6 +28,7 @@ struct MockClientSettings : public ClientSettingsInterface {
     bool isUnsafe() override { return false; }
     bool isEarlyEntry() override { return true; }
     bool isNonStop() override { return true; }
+    PythonType getPython() override { return PythonType::Auto; }
 };
 
 } // namespace test

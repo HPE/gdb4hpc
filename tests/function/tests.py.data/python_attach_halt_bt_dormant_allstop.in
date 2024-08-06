@@ -1,0 +1,29 @@
+0: attach $a %[0-9.]+%
+Attaching to application, please wait...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Attach complete.
+Current rank location:
+a{0}: #2  <module> at /src/python/sleep.py:13
+a{0}: #1  main at /src/python/sleep.py:10
+a{0}: #0  sleep at /src/python/sleep.py:7
+0: bt
+a{0}: #2  <module> at /src/python/sleep.py:13
+a{0}: #1  main at /src/python/sleep.py:10
+a{0}: #0  sleep at /src/python/sleep.py:7
+
+0: # backtrace again to ensure that pybe hasn't swapped threads out from under us
+0: bt
+a{0}: #2  <module> at /src/python/sleep.py:13
+a{0}: #1  main at /src/python/sleep.py:10
+a{0}: #0  sleep at /src/python/sleep.py:7
+
+0: # continue for a few seconds to make sure pybe didn't segfault python
+0: continue
+0: maint sleep 5
+0: halt???
+0: kill $a
+Shutting down debugger and killing application for 'a'.
+0: q

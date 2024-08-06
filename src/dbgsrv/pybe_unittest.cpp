@@ -263,6 +263,20 @@ TEST_CASE("backtrace serialization") {
     CHECK(bt_diff != bt_out);
 }
 
+TEST_CASE("empty backtrace serialization") {
+    auto bt_in = pybe::Backtrace{};
+    auto bt_wire = bt_in.serialize();
+    CAPTURE(bt_wire);
+
+    auto* cursor = bt_wire.c_str();
+
+    auto maybe_bt_out = pybe::Backtrace::deserialize(cursor, bt_wire.size());
+    REQUIRE(maybe_bt_out);
+    auto& bt_out = *maybe_bt_out;
+
+    CHECK(bt_in == bt_out);
+}
+
 TEST_CASE("Channel") {
     const auto endpoint = "@pybe_unittest_" + std::to_string(::getpid());
     auto server = pybe::Server::make(endpoint);

@@ -1429,6 +1429,18 @@ void LaunchOpts::read_client_settings(ClientSettingsInterface& csi) {
     this->unsafe_flag = csi.isUnsafe();
     this->proto_name = csi.getProto();
     this->backend_name = csi.getBackend();
+
+    if (csi.getPython() == PythonType::On) {
+        for (auto& jopts : job_opts) {
+            jopts.python = true;
+        }
+    } else if (csi.getPython() == PythonType::Off) {
+        for (auto& jopts : job_opts) {
+            jopts.python = false;
+        }
+    } else {
+        // else auto detected on backend
+    }
 }
 
 void LaunchOpts::enforceValid() {

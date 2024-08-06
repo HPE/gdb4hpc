@@ -1055,32 +1055,153 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "srun_twice"
         runTest(self)
 
+# given "Python 3.11.3" return "3.11"
+def parse_python_minor_version(full_vers: str) -> str:
+    # if caller's `which python3` failed
+    if len(full_vers) == 0:
+        return ""
+
+    # assume "Python 3.xx.yy"
+    vers = full_vers[full_vers.find("3") : full_vers.rfind(".")]
+    return vers
+
 class PythonTest(Gdb4hpcTest):
     def setUp(self):
         super().setUp()
 
-        self.python_version = self.params.get("python_version", default=None)
+        # which = subprocess.run(f"module load cray-python/{self.python_version}; which python{self.python_version}", stdout=subprocess.PIPE, shell=True)
+        self.python_version = self.params.get("python_version", default="3.6")
+        self.extra_tag = self.python_version
 
-        if self.python_version != None and self.python_version != "system":
-            which = subprocess.run(f"module load cray-python/{self.python_version} && which python{self.python_version}", stdout=subprocess.PIPE, shell=True)
-            if which.returncode != 0:
-                self.cancel(f"No python{self.python_version} in PATH")
+        # try to find a version of python that matches
+
+        # does the default python3 in PATH match?
+        # if no python3 is in path (for some reason?) this will just parse and
+        # return an empty string which parse_python_minor_version handles just fine
+        path_vers = parse_python_minor_version(
+            subprocess.run(f"python3 --version", stdout=subprocess.PIPE, shell=True).stdout.decode().strip()
+        )
+
+        if path_vers == self.python_version:
+            self.python_path = subprocess.run(f"which python3", stdout=subprocess.PIPE, shell=True).stdout.decode().strip()
+            return
+
+        # try cray python
+        which = subprocess.run(f"module load cray-python/{self.python_version} && which python{self.python_version}", stdout=subprocess.PIPE, shell=True)
+        if which.returncode == 0:
             self.python_path = which.stdout.decode().strip()
-            self.extra_tag = self.python_version
-        else:
-            # default to system python3
-            which = subprocess.run(["which", "python3"], stdout=subprocess.PIPE)
-            if which.returncode != 0:
-                self.cancel("No python3 in PATH")
+            return
+
+        # try an explicitly versioned python binary
+        which = subprocess.run(f"which python{self.python_version}", stdout=subprocess.PIPE, shell=True)
+        if which.returncode == 0:
             self.python_path = which.stdout.decode().strip()
+            return
+
+        # give up :-(
+        self.cancel(f"Could not locate a python{self.python_version} installation")
+
 
     # debugging the python interpreter doesn't work without special args on anything but slurm
     @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
-    def test_python_halt_backtrace_no_gil(self):
-        self.base_name = "python_halt_backtrace_no_gil"
+    def test_python_launch_halt_bt_active_nonstop(self):
+        self.base_name = "python_launch_halt_bt_active_nonstop"
         subs = (
             ("%.*python3.*%", self.python_path),
         )
+        runTest(self, substitutions = subs)
+
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_launch_halt_bt_active_allstop(self):
+        self.base_name = "python_launch_halt_bt_active_allstop"
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
+
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_launch_halt_bt_dormant_nonstop(self):
+        self.base_name = "python_launch_halt_bt_dormant_nonstop"
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
+
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_launch_halt_bt_dormant_allstop(self):
+        self.base_name = "python_launch_halt_bt_dormant_allstop"
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
+
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    @avocado.skipUnless(os.path.isfile("./bin/CRAY/cti_launch.x"), "Missing cti_launch.x")
+    def test_python_attach_halt_bt_active_allstop(self):
+        self.base_name = "python_attach_halt_bt_active_allstop"
+
+        if self.python_version == None or self.python_version == "3.6" or self.python_version == "system":
+            # the only version <= 3.6 we test *is* 3.6 so we can get
+            # away with simple string equality testing instead of fancy
+            # version number range extraction etc.
+            #
+            # the system python tends to be 3.6 so we skip it too (for now)
+            self.cancel("Attach is not supported <= 3.6")
+
+        # launch job
+        job = subprocess.Popen(
+            [f"./bin/CRAY/cti_launch.x", self.python_path, "./src/python/spin.py", "300"],
+            stderr=subprocess.PIPE
+        )
+
+        app_id = None
+        # wait for job to start and report app id
+        for line in iter(job.stderr.readline, b''):
+            # first line printed will be the app id, and it will come back in bytes
+            app_id = line.decode("utf-8").rstrip()
+            break
+
+        # wait a few seconds to make sure spin.py gets into its loop
+        time.sleep(3)
+
+        subs = ( ("%[0-9.]+%", app_id), )
+
+        runTest(self, substitutions = subs)
+
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    @avocado.skipUnless(os.path.isfile("./bin/CRAY/cti_launch.x"), "Missing cti_launch.x")
+    def test_python_attach_halt_bt_dormant_allstop(self):
+        self.base_name = "python_attach_halt_bt_dormant_allstop"
+
+        if self.python_version == None or self.python_version == "3.6" or self.python_version == "system":
+            # the only version <= 3.6 we test *is* 3.6 so we can get
+            # away with simple string equality testing instead of fancy
+            # version number range extraction etc.
+            #
+            # the system python tends to be 3.6 so we skip it too (for now)
+            self.cancel("Attach is not supported <= 3.6")
+
+        # launch job
+        job = subprocess.Popen(
+            [f"./bin/CRAY/cti_launch.x", self.python_path, "./src/python/sleep.py", "300"],
+            stderr=subprocess.PIPE
+        )
+
+        app_id = None
+        # wait for job to start and report app id
+        for line in iter(job.stderr.readline, b''):
+            # first line printed will be the app id, and it will come back in bytes
+            app_id = line.decode("utf-8").rstrip()
+            break
+
+        # wait a few seconds to make sure sleep.py gets into its loop
+        time.sleep(3)
+
+        subs = ( ("%[0-9.]+%", app_id), )
+
         runTest(self, substitutions = subs)
 
 class c_commnode_fanout(Gdb4hpcTest):

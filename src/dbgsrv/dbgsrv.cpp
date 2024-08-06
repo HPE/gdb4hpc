@@ -137,6 +137,9 @@ int main(int argc, char *argv[], char *env[]) {
         return runUnitTests(argc - 1, &argv[1]);
     }
 
+    if (const auto* seconds = ::getenv("GDB4HPC_DBGSRV_STARTUP_SLEEP")) {
+        ::sleep(::atoi(seconds));
+    }
 #ifdef PERFLOG
     gettimeofday(&tv_srv, NULL);
 #endif

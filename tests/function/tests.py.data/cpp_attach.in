@@ -1,7 +1,9 @@
 1: # attach to a process and mess with a variable, breaking out of a loop
 2: maint set sync on
 3: # the job id and the reported backtrace after attach is unpredictable
-3: attach $a %[0-9.]+%???
+3: set print entry-frame false
+3: attach $a %[0-9.]+%
+Attach complete.
 4: # get back to main
 4: break cpp_attach.cpp:15
 a{0..3}: Breakpoint 1: file /src/C++/cpp_attach.cpp, line 15.

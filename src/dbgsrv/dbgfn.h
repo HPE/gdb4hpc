@@ -103,5 +103,6 @@ extern dbgevent_t *DbgPythonBEGetPython();
 extern dbgevent_t *DbgPythonBESetPython(PythonType setting);
 extern dbgevent_t *DbgPythonBEInject();
 extern dbgevent_t *DbgPythonBEGetGIL();
+extern dbgevent_t *DbgPythonBEAttach();
 
 #endif /* !_DBGFN_H */

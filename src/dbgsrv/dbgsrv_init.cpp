@@ -31,11 +31,11 @@
 
 extern std::function<void(void)> AtServerExit;
 
-static void event_callback(MIEvent *);
+static void event_callback(void*, MIEvent *);
 static void console_callback(char *);
 static void log_callback(char *);
 static void target_callback(char *);
-static void notification_callback(char *, MIList *);
+static void notification_callback(void*, char *, MIList *);
 static void Finish(int);
 static dbgbp_t *get_dbgbp(MICommand *);
 static bool runRocgdb(MISession*);
@@ -97,11 +97,11 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
         MISessionSetDebug(0);
     }
 
-    MISessionRegisterEventCallback(m_session, event_callback);
+    MISessionRegisterEventCallback(m_session, event_callback, nullptr);
     MISessionRegisterConsoleCallback(m_session, console_callback);
     MISessionRegisterLogCallback(m_session, log_callback);
     MISessionRegisterTargetCallback(m_session, target_callback);
-    MISessionRegisterNotifyCallback(m_session, notification_callback);
+    MISessionRegisterNotifyCallback(m_session, notification_callback, nullptr);
 
     // set the gdb path to use standard or gpu specific gdb
     if (custom_gdb) {
@@ -345,6 +345,14 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
         MICommand* cmd = CLIBypassc(1, cmd_argv);
         SendMICommand(m_session, cmd);
         MICommandFree(cmd);
+    }
+
+    if (m_dbg.isPython()) {
+        // initialize python internals
+        m_dbg.ensurePybe();
+        // no need to coerce_gil here - we assume that the launch sequence/entry breakpoints
+        // already dropped us at a point where no thread has the GIL and it will be trivial
+        // to get for subsequent commands.
     }
 
     // call the showframe function to ask for the innermost frame
@@ -599,7 +607,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 }
 
 /* GDBMI callback functions */
-static void event_callback(MIEvent *e) {
+static void event_callback(void* /*ctx*/, MIEvent *e) {
     DVPRINT("*** Dbg %s, %s, e->type %d\n", __FILE__, __func__, e->type);
     DbgGdbMI::setAsyncEvent(e);
 }
@@ -616,7 +624,7 @@ static void target_callback(char *str) {
     DVPRINT("*** Dbg %s, %s, str %s\n", __FILE__, __func__, str);
 }
 
-static void notification_callback(char *className, MIList *) {
+static void notification_callback(void* /*ctx*/, char *className, MIList *) {
     DVPRINT("NEWGDBMI notification> %s\n", className);
 }
 
@@ -628,7 +636,7 @@ static void Finish(int) {
     Shutdown++;
 }
 
-static const std::array<std::string, 21> parallel_entry_pt_strs
+static const auto parallel_entry_pt_strs = std::array
 {
     "*(&MPI_Init)",
     "athos_mpi_init",
@@ -652,7 +660,11 @@ static const std::array<std::string, 21> parallel_entry_pt_strs
     "*&(PMPI_Init)",
     "PMPI_Init",
     "*&(start_pes)",
-    "*&(shmem_init)"
+    "*&(shmem_init)",
+
+    "Py_Initialize", // python 3.6
+    "Py_InitializeEx", // 3.6
+    "Py_InitializeFromConfig", // 3.8+
 };
 
 static const std::array<std::string, 6> exit_pt_strs =
@@ -697,18 +709,19 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
                 main_entry_BP.push_back(bp_res);
             }
         }
+
+        MICommandFree(cmd);
     }
-    MICommandFree(cmd);
 
     // set up the parallel entry breakpoints
     for (auto&& str: parallel_entry_pt_strs) {
-        cmd = MIBreakInsert(0, 0, 0, NULL, 0, str.c_str(), 0);
+        cmd = MIBreakInsert(0, 0, /*allowPending */ 1, NULL, 0, str, 0);
         SendMICommand(m_session, cmd);
         // Note we only want to insert the breakpoint into our internal list if the
         // command succeeded. We expect many of these to fail.
         if (MICommandResultOK(cmd)) {
             if (auto bp_res = get_dbgbp(cmd)) {
-                DVPRINT("Set parallel entry breakpoint on %s\n", str.c_str());
+                DVPRINT("Set parallel entry breakpoint on %s\n", str);
                 parallel_entry_BP.push_back(bp_res);
             }
         }
@@ -897,7 +910,7 @@ dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog, cons
     // Set global main function name if provided
     m_mainFunction = (main_function != nullptr)
         ? main_function
-        : "main";
+        : m_dbg.isPython() ? "" : "main";
 
     cmd = MITargetAttach(pid);
 
@@ -1248,25 +1261,32 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
         (!custom_gdb || !strstr(custom_gdb,"cuda")) ) {
         cmd = _MIGDBSet("non-stop", "on");
         SendMICommand(m_session, cmd);
-        if (!MICommandResultOK(cmd)) {
+        if (MICommandResultOK(cmd)) {
+            isInNonStopMode = true;
+        } else {
             DVPRINT("setting non-stop mode failed\n");
         }
         MICommandFree(cmd);
-
-        // we need to also set mi-async mode when non-stop mode
-        // is on; otherwise commands can hang waiting for all the
-        // threads to stop.
-        cmd = _MIGDBSet("mi-async", "on");
-        SendMICommand(m_session, cmd);
-        if (!MICommandResultOK(cmd)) {
-            DVPRINT("setting mi-asycn mode failed\n");
-        } else {
-            isInNonStopMode = true;
-        }
-            
-        MICommandFree(cmd);
     }
     m_dbg.setIsInNonStopMode(isInNonStopMode);
+
+    // specify that continue/next/step/etc run in the background so control returns
+    // to the user after each command
+    // https://sourceware.org/gdb/current/onlinedocs/gdb.html/Asynchronous-and-non_002dstop-modes.html
+    //
+    // be carefull when using CLIBypass versions of these commands - they don't
+    // respect this setting. e.g. to run CLIBypass "continue" in the background,
+    // you must specify "continue&".
+    cmd = _MIGDBSet("mi-async", "on");
+    SendMICommand(m_session, cmd);
+    if (!MICommandResultOK(cmd)) {
+        DVPRINT("setting mi-async mode failed\n");
+        // dbgsrv assumes we are in async mode everywhere. if this fails,
+        // debugging will stop working very quickly, so bail now.
+        MICommandFree(cmd);
+        return NewErrorEvent(DBGERR_DEBUGGER, "Failed to set up mi");
+    }
+    MICommandFree(cmd);
 
     return NULL;
 }

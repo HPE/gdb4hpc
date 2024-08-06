@@ -177,10 +177,10 @@ def compare_batch_lines(ref_line, out_line):
     # XXX: no make_regex here like in compare_lines because fortran uses % for struct
     # member access, so % might be in the batch line and we can't assume it's a regex.
     #
-    # we make an exception for launch lines since those are often changed at
+    # we make an exception for launch/attach lines since those are often changed at
     # .in -> .rc file build time (substitutions/launcher args) and would throw
     # an error for a mismatch here
-    if not ref_batch_line == out_line and not "launch" in out_line:
+    if not ref_batch_line == out_line and not "launch" in out_line and not "attach" in out_line:
         return "batch lines do not match"
 
     return None
@@ -233,6 +233,8 @@ def compare_files(ref_file_path, out_file_path):
             # notice app launches
             if "Starting application, please wait..." in outline:
                 launching = True
+            if "Attaching to application, please wait..." in outline:
+                launching = True
 
             # input line for the batch file
             out_batch_line = is_batch(outline)
@@ -254,14 +256,14 @@ def compare_files(ref_file_path, out_file_path):
             if launching:
                 # mrnet and zmqnet output differ, so ignore launch output 
                 # until "Launch complete." or another command (checked above)
-                if "Launch complete." in outline:
+                if "Launch complete." in outline or "Attach complete" in outline:
                     launching = False
                     indeterminate = False # XXX: next_ref_line would skip "Launch
                                           #      complete." line otherwise
 
                     # fast forward ref file until it catches up
                     refline = next_ref_line(ref)
-                    while refline is not None and "Launch complete" not in refline:
+                    while refline is not None and ("Launch complete" not in refline and "Attach complete" not in refline):
                         refline = next_ref_line(ref)
                     if refline is None:
                         return error("extra output", outline_num, orig_outline)

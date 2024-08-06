@@ -467,6 +467,11 @@ dbgsrv_alps = executable(
 
 test('dbgsrv_alps unit tests', dbgsrv_alps, args: ['--test'])
 
+libgdb4_unversioned_basename = 'gdb4_pybe_'
+conf.set_quoted('PYBE_SO_UNVERSIONED_BASENAME', 'lib' + libgdb4_unversioned_basename,
+  description: 'Unversioned named of the pybe shared library that will be injected into python 3.'
+)
+
 libgdb4_pybe_sources = [
   './src/dbgsrv/pybe_entry.cpp',
   './src/dbgsrv/pybe_stl.cpp',
@@ -491,7 +496,7 @@ conf.set_quoted('SUPPORTED_PYTHON_VERSIONS_STR', ', '.join(supported_python_vers
 
 foreach py_vers : supported_python_versions
   libgdb4_pybe_so = shared_library(
-    'gdb4_pybe_' + py_vers,
+    libgdb4_unversioned_basename + py_vers,
     sources: libgdb4_pybe_sources,
     include_directories: [
       './external/python-headers/include/python' + py_vers,
@@ -565,6 +570,7 @@ dbgsrv = executable(
     './src/dbgsrv/mrn_topo.cpp',
     './src/dbgsrv/dbgsrv_zmq.cpp',
     './src/dbgsrv/dbgsrv_pybe.cpp',
+    './src/dbgsrv/dbgsrv_pybe_rpc.cpp',
     './src/dbgsrv/mi_utils.cpp',
   ],
   include_directories: [

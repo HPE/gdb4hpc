@@ -437,6 +437,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/src/kokkos/Makefile ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile
 
 %{__cp} -a %{tests_source_dir}/function/src/python/sleep.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/sleep.py
+%{__cp} -a %{tests_source_dir}/function/src/python/spin.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/spin.py
 
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_scalars.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_expressions.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
@@ -542,7 +543,12 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/completions_launch.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/completions_launch.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/launch_from_path.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/launch_from_path.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/positional_args.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/positional_args.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_halt_backtrace_no_gil.in  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_halt_backtrace_no_gil.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_halt_bt_active_allstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_halt_bt_active_allstop.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_halt_bt_dormant_allstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_halt_bt_dormant_allstop.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_active_allstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_allstop.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_active_nonstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_nonstop.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_dormant_allstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_dormant_allstop.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_dormant_nonstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_dormant_nonstop.in
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %{__cp} -a %{tests_source_dir}/function/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
@@ -861,6 +867,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja/reductions_solution.cpp
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/sleep.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/spin.py
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
@@ -965,7 +972,12 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/completions_launch.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/launch_from_path.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/positional_args.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_halt_backtrace_no_gil.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_halt_bt_active_allstop.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_halt_bt_dormant_allstop.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_allstop.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_nonstop.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_dormant_allstop.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_dormant_nonstop.in
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/team_vector_loop.cpp

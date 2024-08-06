@@ -323,6 +323,96 @@ give up the GIL if it has been holding it for too long. The user can actually
 time](https://docs.python.org/3/library/sys.html#sys.setswitchinterval) that
 python waits before giving up the GIL.
 
+#### The GIL in Python 3.6
+
+In versions of python <= 3.6, the GIL system is not created by default. Python
+expects the interpreter bootstrapper (a.k.a. YOU!) to call a special thread
+initialization function. But the thread initialization function comes with a
+quite large caveat: it's not safe to call if you don't know what thread holds
+the GIL.
+
+...wait, what? To initialize the GIL, you need to know which thread holds the
+GIL? Before the GIL exists? Before the GIL has been created, it's not possible
+to programatically check which thread holds the GIL...
+
+This is where things get hairy and I'll spare the details. The important thing
+is that because of how python <= 3.6 is set up, *the thread initialization
+function must be called before python starts interpreting python code*.
+
+This is doable with careful selection of entry breakpoint locations in python
+<= 3.6. We get to an entry breakpoint before python starts interpreting and
+call the function.
+
+But **it's not possible when attaching to python <= 3.6** since it has already
+started interpreting code. Trying to initialize the GIL now results in either
+python crashing or stealing the GIL from the thread that already legitimately
+has it, which results in a python interpreter segfault a short time later.
+
+#### The GIL Should be Invisible to the User
+
+By "invisible" we mean that the application should not advance in secret when
+we are handling the GIL under the hood. For example, running a print command
+should not cause the application to suddenly be in a different location because
+of threads that ran competing for/releasing the GIL. We actually make an even
+stronger guarantee - running a print command should not cause *any user thread*
+to change locations. This is tricky to pull off when the very act of acquiring
+the GIL may require two threads to spin for a moment.
+
+But consider: if *no* thread holds the GIL, getting the GIL only requires
+running one thread, and we already have one hidden thread started for the exact
+purpose of getting the GIL. Additionally, our thread is not important to the
+user so we can let it slip as much as we want. This lets us do some tricks
+under the hood to ensure that any time the user gains control, the application
+is already in a state where getting the GIL is trivial (requires only one
+thread).
+
+Note that we stop short of actually grabbing *and keeping* the GIL. **The GIL is
+never actually *held* between commands**. The idea is to manufacture a state
+such that when we return control to the user, the application will not actually
+hold the GIL, but will be in a state where it's **trivial** to get the GIL
+again as needed. It is acquired on a per-command basis and immediately dropped
+when the command is done (but no threads run yet!). This has the benefit of
+never ending up in a situation where we accidentally hold on to the GIL too
+tightly and block the user's app as well as not needing to have any special
+"but do I already have it?" GIL logic to prevent deadlocks. **As long as
+acquiring the GIL is trivial (i.e. requires only running our hidden thread), we
+can consider it "held" for our purposes here**.
+
+In gdb4hpc code, we usually arrange a trivial GIL by actually grabbing the GIL
+and then immediately dropping it. We can arrange for an invisible GIL by being
+selective of *when* we actually do this GIL grabbing/dropping. There are not
+actually that many situations that we need to worry about. The only times the
+user ever gains control of their app are:
+
+- After a launch
+- After an attach
+- After a halt
+- After a breakpoint (stepping/finishing/etc can be thought of as a special
+  breakpoints in this case)
+
+We need to acquire the GIL right after launch so the user can immediately start
+running commands. The most common use case is to start setting breakpoints
+right after the launch completes. To implement this, we pick special entry
+point locations for python launches. Instead of stopping at main, we stop just
+after python initializes itself and drops the GIL for a moment. Stopping here
+means the GIL is trivial to grab and the user can run commands. We don't actually
+need to lock the GIL at any point here, just stop at a point where it's trivial
+to do so.
+
+Attach and halt have the useful property that the user doesn't actually know
+where their app should be when it stops. They know that it should stop
+*somewhere*, but the file and line number are not predictable. This gives us
+some wiggle room to do things behind the scenes before we give control to the
+user. We attach/halt as normal and end up in a random state where it's not
+known which thread (if any) has the GIL, but we don't give the user control
+yet. Now we do our aquire/drop GIL trick. This causes slippage, but the user
+never knows about it.
+
+Breakpoints are easy - the python tracing functions we use to implement
+breakpoints already guarantee the GIL.
+
+> Note: breakpoints are not actually implemented yet!
+
 ### Getting Results Back to dbgsrv - The Socket
 
 **Problem 4**: After generating the result data with the python C API, we need
@@ -472,5 +562,12 @@ adding a new python version will build libgdb4_pybe against the new python C
 API, which might have breaking changes. In general we try to use stable parts
 of the python C API as much as possible, but for some debugging purposes we
 have to read unstable struct members etc, which might cause an issue during the
-update proccess. Give yourself some extra time for this possibility when you
+update process. Give yourself some extra time for this possibility when you
 are scheduling time to do the update.
+
+You might also need to find a new entry point function. We rely on private
+python symbols so we can set entry breakpoints for launch (see the section
+about keeping the GIL invisible to the user). These symbols can disappear
+between versions or simply not be called by the newest python version. The test
+suite will confirm if you need to investigate this. Passing tests on the new
+version mean no action is necessary.

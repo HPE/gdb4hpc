@@ -1,7 +1,10 @@
+# sleep for argv[1] seconds
+
 import time
+import sys
 
 def sleep():
-    time.sleep(5)
+    time.sleep(int(sys.argv[1]))
 
 def main():
     sleep()

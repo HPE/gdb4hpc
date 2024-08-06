@@ -501,6 +501,17 @@ rep_set_t DbgPythonBEInject(rec_set_t* rec);
 // needed - this function is a legacy debug helper.
 rep_set_t DbgPythonBEGetGIL(rec_set_t* rec);
 
+// `DbgAttachPython` checks if an app is the cpython interpreter and initializes
+// python debugging if it is. if the app is python, it also gets the GIL. Useful
+// for after an attach where we don't know if we are debugging python or not.
+//
+// There are three possible results:
+// 1. the app is cpython and python was initialized successfully. returns DBGEV_OK.
+// 2. the app is cpython and python failed to initialize. returns an error event.
+// 3. the app isn't python and there is nothing to do. returns a DBGEV_STRING.
+//    the actual string value is meaningless and shouldn't be printed.
+rep_set_t DbgAttachPython(rec_set_t* rec);
+
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern bool DbgSetLogDir(const std::string& logdir);
 #endif /* !_DBG_CLIENT_H */

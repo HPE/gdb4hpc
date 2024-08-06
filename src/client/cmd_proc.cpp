@@ -833,51 +833,69 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     rec_set = NewRecSet();
     AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
 
-    // grab all the frames
-    auto rep_set = DbgShowFrame(rec_set, 0);
+    {   // detect/init python. if not a python app, this is a no op
+        auto rep_set = DbgAttachPython(rec_set);
+        ProcessErrorInRepSet(rep_set);
 
-    // cuda-gdb doesn't report the threads as stopped at attachment time.
-    // The debugger should not quit since since this does not inicate "Could not
-    // communicate with application".
-    bool isRunning = false;
-    if (rep_set.hasError()) {
-        isRunning = true;
-        for (auto&& err : rep_set.getErrs()) {
-            if (err->rep_event->ev_errno != DBGERR_ISRUNNING) {
-                isRunning = false;
+        for (const auto& rep : rep_set) {
+            if (rep->rep_event->ev_event == DBGEV_OK) {
+                PrintMsgWithSetInfo(rep->rep_di.c_str(), rep->rep_group.get(),
+                                    "Enabling python debugging. To disable, use `set python off`\n");
+            } else if (rep->rep_event->ev_event == DBGEV_STRING) {
+                // app isn't python, silently move on. we don't actually do anything with the
+                // string. we only use it to represent a trinary result.
             }
         }
     }
 
-    // process error
-    if (!isRunning && ProcessErrorInRepSet(rep_set)) {
-        // This is fatal as its an indication that things are broken (i.e. we
-        // cannot send commands)
-        PrintOutError("Could not communicate with application.\n");
-        auto quit_rep = DbgQuit(*di, DbgQuitType::Detach);
-        ProcessErrorInRepSet(quit_rep);
+    PrintOutMsg("Attach complete.\n");
+
+    {   // grab all the frames
+        auto rep_set = DbgShowFrame(rec_set, 0);
+
+        // cuda-gdb doesn't report the threads as stopped at attachment time.
+        // The debugger should not quit since since this does not inicate "Could not
+        // communicate with application".
+        bool isRunning = false;
+        if (rep_set.hasError()) {
+            isRunning = true;
+            for (auto&& err : rep_set.getErrs()) {
+                if (err->rep_event->ev_errno != DBGERR_ISRUNNING) {
+                    isRunning = false;
+                }
+            }
+        }
+
+        // process error
+        if (!isRunning && ProcessErrorInRepSet(rep_set)) {
+            // This is fatal as its an indication that things are broken (i.e. we
+            // cannot send commands)
+            PrintOutError("Could not communicate with application.\n");
+            auto quit_rep = DbgQuit(*di, DbgQuitType::Detach);
+            ProcessErrorInRepSet(quit_rep);
+            FreeRecSet(rec_set);
+            return 0;
+        }
+
+        // We print the frames below, but we need to print this message only once,
+        // so we do it here
+        if (Client.print_entry_frame) {
+            PrintOutMsg("Current rank location:\n");
+            // Print the current frame based on this bitset
+            // Print the startup frames based on this bitset
+            for (auto&& reply : rep_set) {
+                // point at the frame
+                fp = EVENT_FRAME(reply->rep_event);
+                // print the frame
+                for (const dbgframe_t* f = fp; f != nullptr; f = f->getNext()) {
+                    PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), f);
+                }
+            }
+        }
+
+        // Free the created rec_set
         FreeRecSet(rec_set);
-        return 0;
     }
-
-    // We print the frames below, but we need to print this message only once,
-    // so we do it here
-    if (Client.print_entry_frame) {
-        PrintOutMsg("Current rank location:\n");
-        // Print the current frame based on this bitset
-        // Print the startup frames based on this bitset
-        for (auto&& reply : rep_set) {
-            // point at the frame
-            fp = EVENT_FRAME(reply->rep_event);
-            // print the frame
-            for (const dbgframe_t* f = fp; f != nullptr; f = f->getNext()) {
-                PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), f);
-            }
-        }
-    }
-
-    // Free the created rec_set
-    FreeRecSet(rec_set);
 
     return 1;
 }

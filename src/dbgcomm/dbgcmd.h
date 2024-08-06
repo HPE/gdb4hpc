@@ -86,6 +86,7 @@ enum dbgcmd {
     DBGCMD_PYBESETPYTHON,
     DBGCMD_PYBEINJECT,
     DBGCMD_PYBEGETGIL,
+    DBGCMD_PYBEATTACH,
 };
 
 enum class DbgFrameDir { DOWN, UP, ABSOLUTE };

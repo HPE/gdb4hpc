@@ -426,9 +426,6 @@ dbgevent_t *DbgGdbMI::setWatch(int feId, int type, const char *expr, const dbgco
     return event;
 }
 
-// Used in DbgGdbMI::setCatch to transfer data from a libMI callback. Don't use elsewhere.
-static MIList *MICallbackResult = nullptr;
-
 dbgevent_t *DbgGdbMI::setCatch(int feId, const std::string &event,
                                const std::string &regex, const dbgcomm_info *commInfo) {
     DVPRINT("*** Dbg %s, %s event=%s regex=\"%s\" \n", __FILE__, __func__, event.c_str(), regex.c_str());
@@ -455,29 +452,26 @@ dbgevent_t *DbgGdbMI::setCatch(int feId, const std::string &event,
         // the command is over, no breakpoint info is included. But before that, 
         // a "breakpoint created" async notification is generated with the info 
         // we need. We set a callback here to catch that notification. 
-        // Unfortunately, the callback is a pure C function pointer, so we can't 
-        // use a capturing lambda and need to use a global to get the data out.
 
         // Restore old callback when we're done
-        auto oldCallback = GDBMISession->notify_callback;
+        const auto oldCallback = GDBMISession->notify_callback;
+        const auto oldCallbackCtx = GDBMISession->notify_callback_ctx;
         auto restoreCallbackOnExit = OnScopeExit([&](){
-            MISessionRegisterNotifyCallback(GDBMISession, oldCallback);
+            MISessionRegisterNotifyCallback(GDBMISession, oldCallback, oldCallbackCtx);
         });
 
+        MIList* breakPoints = nullptr;
+
         // Set custom callback
-        MISessionRegisterNotifyCallback(GDBMISession, [](char *className, MIList *results) {
-            // set global
-            MICallbackResult = MIBreakpointGetBreakNotifyInfo(className, results);
-        });
+        MISessionRegisterNotifyCallback(GDBMISession, [](void* list, char *className, MIList *results) {
+            *static_cast<MIList**>(list) = MIBreakpointGetBreakNotifyInfo(className, results);
+        }, &breakPoints);
 
         // Send command
         SendMICommand(GDBMISession, CLICatchCommand.get()); // our callback happens here
         if (!MICommandResultOK(CLICatchCommand.get())) {
             return NewMIErrorEvent(CLICatchCommand.get());
         }
-
-        MIList *breakPoints = nullptr;
-        std::swap(breakPoints, MICallbackResult);
 
         if (breakPoints == nullptr) {
             dbgevent_t *errorEvent;
@@ -2659,8 +2653,33 @@ dbgevent_t* DbgGdbMI::pythonBEInject() {
 
 dbgevent_t* DbgGdbMI::pythonBEGetGIL() {
     DVPRINT("PythonBEGetGIL\n");
-    auto gil = ensurePybe().coerce_gil(); // throws on error
+    ensurePybe().trivialize_gil(); // throws on error
     return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t* DbgGdbMI::pythonBEAttach() {
+    DVPRINT("PythonBEAttach\n");
+
+    auto cmd = make_MICmd(MIDataEvaluateExpression("(char*)Py_GetVersion()"));
+    SendMICommand(GDBMISession, cmd.get());
+    if (MICommandResultOK(cmd.get())) {
+        DVPRINT("enabling python\n");
+        auto& pybe = ensurePybe();
+        if (pybe.get_python_minor_version() <= 6) {
+            return NewErrorEvent( DBGERR_DEBUGGER,
+                "Attach is not supported on python versions <= 3.6. Debugging "
+                "will continue, but python features are disabled.");
+        }
+        pybe.trivialize_gil();
+        setPython(true);
+        return NewEvent(DBGEV_OK);
+    } else {
+        DVPRINT("not python\n");
+        // the string will not actually be printed
+        auto* e = NewEvent(DBGEV_STRING);
+        e->ev_u.ev_u_string = ::strdup("Not a python interpreter");
+        return e;
+    }
 }
 
 bool DbgGdbMI::isPython() const {
@@ -2693,6 +2712,13 @@ static dbgframe_t* pybe_backtrace_to_dbgframe(const pybe::Backtrace& bt) {
             last_frame->setNext(frame);
             last_frame = frame;
         }
+    }
+
+    if (first_frame == nullptr) {
+        // if the user requests a backtrace before python has started, we won't
+        // get any frames. in that case give the user something informative
+        auto location = dbgloc(nullptr, ::strdup("No python backtrace"), nullptr, 0);
+        first_frame = new dbgframe_t(0, location, nullptr, nullptr, nullptr);
     }
 
     return first_frame;
@@ -3245,7 +3271,9 @@ dbgevent_t *DbgGdbMI::quit(bool detach) {
 ** Interrupt the debugger.
 */
 dbgevent_t *DbgGdbMI::interrupt(bool all) {
-    return m_initializer->interrupt(all);
+    auto* e = m_initializer->interrupt(all);
+    if (isPython()) ensurePybe().trivialize_gil();
+    return e;
 }
 
 dbgevent_t *DbgGdbMI::launch(const char *, int, const char *,

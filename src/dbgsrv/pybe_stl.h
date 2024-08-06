@@ -96,6 +96,21 @@ struct StrongRef {
     T* ptr;
 };
 
+class LogFile {
+public:
+    static Expected<LogFile, std::nullptr_t> open(StringView dir_path);
+    LogFile(const LogFile& other) = delete;
+    LogFile(LogFile&& expiring);
+    ~LogFile();
+
+    void write(const char* format, ...) __attribute__((format (printf,2,3)));
+    void write_v(const char* format, va_list args);
+private:
+    LogFile() = default;
+
+    FILE* m_file = nullptr;
+};
+
 void log(const char *format, ...) __attribute__((format (printf,1,2)));
 
 } // namespace pybe

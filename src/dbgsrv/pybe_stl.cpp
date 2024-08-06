@@ -55,15 +55,75 @@ int Thread::detach() {
     return rc;
 }
 
+String to_string(int num) {
+    auto result = String{};
+
+    auto len = ::snprintf(nullptr, 0, "%d", num) + 1;
+    auto buf = new char[len];
+    ::snprintf(buf, len, "%d", num);
+    // XXX: is there a way to do this without the copy?
+    result.append(buf);
+    delete[] buf;
+
+    return result;
+}
+
+Expected<LogFile, std::nullptr_t> LogFile::open(StringView dir_path) {
+    auto result = LogFile{};
+
+    auto filename = String{dir_path.begin(), dir_path.size()} + "/pybe_";
+    filename.append(to_string(::getpid()).c_str());
+    filename.append(".log");
+
+    result.m_file = ::fopen(filename.c_str(), "w");
+    if (!result.m_file) result.m_file = ::fopen(filename.c_str(), "a");
+    if (!result.m_file) return nullptr;
+
+    return result;
+}
+
+LogFile::LogFile(LogFile&& expiring)
+    : m_file{nullptr}
+{
+    std::swap(m_file, expiring.m_file);
+}
+
+LogFile::~LogFile() {
+    if (m_file) {
+        ::fclose(m_file);
+    }
+}
+
+void LogFile::write(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    write_v(fmt, args);
+    va_end(args);
+}
+
+void LogFile::write_v(const char* fmt, va_list args) {
+    ::vfprintf(m_file, fmt, args);
+    ::fflush(m_file);
+}
+
 void log(const char *format, ...) {
-    // XXX: should be using an env var macro defined in a header
-    static const auto logging_enabled = [](){ return ::getenv("CRAY_DBG_LOG_DIR") != nullptr; }();
-    if (logging_enabled) {
-        // XXX: placeholder until proper logging solution is implemented.
-        //      for now this will be seen as user application output.
+    static auto logfile = []() -> Expected<LogFile, std::nullptr_t> {
+        // XXX: should be using an env var macro defined in a header
+        if (const auto* path = ::getenv("CRAY_DBG_LOG_DIR")) {
+            auto log = LogFile::open(path);
+            if (!log) {
+                ::fprintf(stderr, "Warning: Failed to open pybe log file\n");
+            }
+            log->write("pybe log start\n");
+            return std::move(*log);
+        }
+        return nullptr;
+    }();
+
+    if (logfile) {
         va_list arg_list;
         va_start(arg_list, format);
-        vfprintf(stderr, format, arg_list);
+        logfile->write_v(format, arg_list);
         va_end(arg_list);
     }
 }

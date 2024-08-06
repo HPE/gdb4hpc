@@ -461,6 +461,11 @@ dbgevent_t *DbgPythonBEGetGIL() {
     return DbgBackendSW->pythonBEGetGIL();
 }
 
+dbgevent_t *DbgPythonBEAttach() {
+    DBG_READY();
+    return DbgBackendSW->pythonBEAttach();
+}
+
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     DBG_READY();
     return DbgBackendSW->directCmd(cmd_argc, cmd_argv);

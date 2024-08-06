@@ -2775,6 +2775,12 @@ rep_set_t DbgPythonBEGetGIL(rec_set_t* rec) {
     return result;
 }
 
+rep_set_t DbgAttachPython(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYBEATTACH);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK, DBGEV_STRING);
+    return result;
+}
+
 /*
 ** DBG_DELETEBREAK: Delete a breakpoint.
 */

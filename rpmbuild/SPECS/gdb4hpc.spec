@@ -282,6 +282,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/share/doc/vscode-plugin.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/python-extension.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/python-extension.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
+%{__cp} -a %{external_build_dir}/share/doc/help.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 
 # modulefile
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/modulefiles/%{modulefile_name}
@@ -743,6 +744,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/vscode-plugin.html
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/python-extension.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/python-extension.html
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/help.md
 
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}
 %attr(755, root, root) %{prefix}/%{set_default_path}/%{set_default_command}_%{cray_product}_%{pkgversion}

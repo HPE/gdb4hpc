@@ -21,8 +21,9 @@ mkdir -p "$OUTPUT_DIR/guides"
 # Collect index
 cp ./index.md "$OUTPUT_DIR"
 
-# Collect man pages
+# Collect man pages and references
 cp ../man/gdb4hpc.1.md "$OUTPUT_DIR/man"
+cp ../help/help-web.md "$OUTPUT_DIR/man/help.md"
 
 cp -r ../guides/img "$OUTPUT_DIR/guides"
 

@@ -115,7 +115,7 @@ static void usage(char *name) {
 }
 
 static void Banner(void) {
-    PrintOutMsg("gdb4hpc %s - Cray Interactive Parallel Debugger\n", GUARD_VERSION);
+    PrintOutMsg("gdb4hpc %s - Cray Interactive Parallel Debugger\n", GDB4HPC_VERSION);
     PrintOutMsg("With Cray Comparative Debugging Technology.\n");
     PrintOutMsg("Copyright 2007-2023 Hewlett Packard Enterprise Development LP.\n");
     PrintOutMsg(
@@ -463,7 +463,7 @@ ParsedArgs parse_argv(int argc, char* argv[]) {
                 parsed.should_print_banner = false;
                 break;
             case 'v':
-                PrintOutMsg("gdb4hpc-%s\n", GUARD_VERSION);
+                PrintOutMsg("gdb4hpc-%s\n", GDB4HPC_VERSION);
                 exit(0);
             case 'h':
                 usage(argv[0]);

@@ -675,7 +675,7 @@ static int cmd_show_directories_cmd(rec_set_t *rec_set) {
 
 
 static int cmd_show_version_cmd() {
-    PrintOutMsg("Version %s\n", GUARD_VERSION);
+    PrintOutMsg("Version %s\n", GDB4HPC_VERSION);
     return 1;
 }
 

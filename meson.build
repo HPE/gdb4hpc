@@ -76,14 +76,29 @@ capnp_prog = find_program(
 
 bison_prog = find_program('bison')
 
+python3_prog = find_program('python3')
+
 # config -------------------------------------------------------------------------------
 
 conf = configuration_data()
 
-conf.set_quoted('GUARD_VERSION', meson.project_version())
-conf.set('ZMQNET', 1)
-conf.set('MRNET', 1)
-conf.set('ALPS', 1)
+conf.set_quoted('GDB4HPC_VERSION', meson.project_version(), description: 'the gdb4hpc version including build number, e.g. 4.16.3.99')
+
+# for use in generated documentation. since cpedocs requires that we commit documentation to
+# gdb4hpc's repo for easy fetching, we never want the master branch to contain docs that say
+# e.g. "for gdb4hpc 4.16.3.9999".
+version_short = run_command(
+  'bash',
+  '-c', 'source '
+  + meson.current_source_dir()
+  + '/release_versioning && echo "$major.$minor.$revision"',
+  check: true,
+).stdout().strip()
+conf.set_quoted('GDB4HPC_VERSION_SHORT', version_short, description: 'the gdb4hpc version not including build number, e.g. 4.16.3')
+
+conf.set('ZMQNET', 1, description: 'legacy. always 1.')
+conf.set('MRNET', 1, description: 'legacy. always 1.')
+conf.set('ALPS', 1, description: 'legacy. always 1.')
 
 # internal dependencies ----------------------------------------------------------------
 #
@@ -315,24 +330,6 @@ libgdb4_gram_a = static_library(
   ],
 )
 
-libgdb4_df_a = static_library(
-  'gdb4_df',
-  sources: [
-    './src/script/script_client.cpp',
-    './src/script/script_data.cpp',
-    './src/script/script_settings.cpp',
-  ],
-  include_directories: [
-    './src',
-    './src/dbgcomm',
-    './src/gram',
-    './src/dbgclnt',
-    './src/useful',
-    './src/client',
-    './src/bitset',
-  ],
-)
-
 libgdb4_dbgclnt_a = static_library(
   'gdb4_dbgclnt',
   sources: [
@@ -372,80 +369,6 @@ libgdb4_dbgclnt_a = static_library(
     unittest_dep,
   ],
 )
-
-gdb4hpc = executable(
-  'gdb4hpc',
-  sources: [
-    './src/client/main.cpp',
-    './src/client/cli_funcs.cpp',
-    './src/client/cmd.cpp',
-    './src/client/command_invoke.cpp',
-    './src/client/command_invoke_tests.cpp',
-    './src/client/help_dict.cpp',
-    './src/client/cmd_assign.cpp',
-    './src/client/cmd_break.cpp',
-    './src/client/cmd_checkpoint.cpp',
-    './src/client/cmd_comp.cpp',
-    './src/client/cmd_env.cpp',
-    './src/client/cmd_iostat.cpp',
-    './src/client/cmd_frame.cpp',
-    './src/client/cmd_go.cpp',
-    './src/client/cmd_list.cpp',
-    './src/client/cmd_print.cpp',
-    './src/client/cmd_proc.cpp',
-    './src/client/cmd_procset.cpp',
-    './src/client/cmd_source.cpp',
-    './src/client/cmd_step.cpp',
-    './src/client/cmd_thread.cpp',
-    './src/client/cmd_whatis.cpp',
-    './src/client/cli_readline.cpp',
-    './src/client/cli_socket.cpp',
-    './src/client/cli_file.cpp',
-    './src/client/cmd_passthru.cpp',
-    './src/client/cmd_script.cpp',
-    './src/client/cmd_blockmap.cpp',
-    './src/client/cmd_utils.cpp',
-    './src/client/mi_funcs.cpp',
-    './src/client/cmd_python.cpp',
-    './src/client/cmd_interpreter.cpp',
-    './src/client/interpreter.cpp',
-    './src/client/interpreter_console.cpp',
-    './src/client/interpreter_mi.cpp',
-    './src/client/bttree.cpp',
-  ],
-  include_directories: [
-    './src',
-    './src/script',
-    './src/dbgclnt',
-    './src/dbgcomm',
-    './src/useful',
-    './src/gram',
-    './src/bitset',
-  ],
-  dependencies: [
-    zmqnet_dep,
-    mrnet_dep,
-    cti_fe_dep,
-    cdst_support_dep,
-    system_python_dep,
-    libedit_dep,
-    libdw_dep,
-    libmi_dep,
-    unittest_dep,
-  ],
-  link_with: [
-    libgdb4_df_a,
-    libgdb4_dbgclnt_a,
-    libgdb4_gram_a,
-    libgdb4_useful_a,
-    libgdb4_dbg_a,
-    libgdb4_bitset_a,
-  ],
-  install: true,
-  install_rpath: '$ORIGIN/../lib',
-)
-
-test('client unit tests', gdb4hpc, args: ['--test'])
 
 dbgsrv_alps = executable(
   'dbgsrv_alps',
@@ -599,7 +522,140 @@ dbgsrv = executable(
 
 test('server unit tests', dbgsrv, args: ['--test'])
 
-configure_file(
+config_h = configure_file(
   output: 'config.h',
   configuration: conf,
 )
+
+help_web = custom_target(
+  input: [
+    './doc/help/help_input.md',
+    './doc/help/generate_help_web.py',
+  ],
+  output: ['help.md', 'help-web.md'],
+  command: [
+    python3_prog,
+    meson.current_source_dir() + '/doc/help/generate_help_web.py',
+    meson.current_source_dir() + '/doc/help/help_input.md',
+    config_h,
+    '@OUTPUT@',
+  ],
+
+  install: true,
+  # note that each directory entry maps to each output,
+  # so help.md (output[0]) goes to /opt, and help-web goes to ./doc
+  install_dir: [
+    './share/doc',
+    meson.current_source_dir() + '/doc/help', # for cpedocs, see /doc/help/README.md
+  ]
+)
+
+# TODO: hook the rest of the .md files up here and use pandoc to generate html for all of them.
+
+help_sources = custom_target(
+  input: [
+    './doc/help/help_input.md',
+    './doc/help/generate_help_source.py',
+  ],
+  output: ['help_dict.h', 'help_dict.cpp'],
+  command: [
+    python3_prog,
+    meson.current_source_dir() + '/doc/help/generate_help_source.py',
+    meson.current_source_dir() + '/doc/help/help_input.md',
+    config_h,
+    '@OUTPUT@',
+  ],
+)
+
+libgdb4_df_a = static_library(
+  'gdb4_df',
+  sources: [
+    './src/script/script_client.cpp',
+    './src/script/script_data.cpp',
+    './src/script/script_settings.cpp',
+    help_sources[0],
+  ],
+  include_directories: [
+    './src',
+    './src/dbgcomm',
+    './src/gram',
+    './src/dbgclnt',
+    './src/useful',
+    './src/client',
+    './src/bitset',
+  ],
+)
+
+gdb4hpc = executable(
+  'gdb4hpc',
+  sources: [
+    './src/client/main.cpp',
+    './src/client/cli_funcs.cpp',
+    './src/client/cmd.cpp',
+    './src/client/command_invoke.cpp',
+    './src/client/command_invoke_tests.cpp',
+    './src/client/cmd_assign.cpp',
+    './src/client/cmd_break.cpp',
+    './src/client/cmd_checkpoint.cpp',
+    './src/client/cmd_comp.cpp',
+    './src/client/cmd_env.cpp',
+    './src/client/cmd_iostat.cpp',
+    './src/client/cmd_frame.cpp',
+    './src/client/cmd_go.cpp',
+    './src/client/cmd_list.cpp',
+    './src/client/cmd_print.cpp',
+    './src/client/cmd_proc.cpp',
+    './src/client/cmd_procset.cpp',
+    './src/client/cmd_source.cpp',
+    './src/client/cmd_step.cpp',
+    './src/client/cmd_thread.cpp',
+    './src/client/cmd_whatis.cpp',
+    './src/client/cli_readline.cpp',
+    './src/client/cli_socket.cpp',
+    './src/client/cli_file.cpp',
+    './src/client/cmd_passthru.cpp',
+    './src/client/cmd_script.cpp',
+    './src/client/cmd_blockmap.cpp',
+    './src/client/cmd_utils.cpp',
+    './src/client/mi_funcs.cpp',
+    './src/client/cmd_python.cpp',
+    './src/client/cmd_interpreter.cpp',
+    './src/client/interpreter.cpp',
+    './src/client/interpreter_console.cpp',
+    './src/client/interpreter_mi.cpp',
+    './src/client/bttree.cpp',
+    help_sources,
+  ],
+  include_directories: [
+    './src',
+    './src/script',
+    './src/dbgclnt',
+    './src/dbgcomm',
+    './src/useful',
+    './src/gram',
+    './src/bitset',
+  ],
+  dependencies: [
+    zmqnet_dep,
+    mrnet_dep,
+    cti_fe_dep,
+    cdst_support_dep,
+    system_python_dep,
+    libedit_dep,
+    libdw_dep,
+    libmi_dep,
+    unittest_dep,
+  ],
+  link_with: [
+    libgdb4_df_a,
+    libgdb4_dbgclnt_a,
+    libgdb4_gram_a,
+    libgdb4_useful_a,
+    libgdb4_dbg_a,
+    libgdb4_bitset_a,
+  ],
+  install: true,
+  install_rpath: '$ORIGIN/../lib',
+)
+
+test('client unit tests', gdb4hpc, args: ['--test'])

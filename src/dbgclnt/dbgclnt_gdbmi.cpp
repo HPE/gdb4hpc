@@ -21,6 +21,7 @@
 
 #include "MI.h"
 #include "dbgclnt_debugfe.h"
+#include "entry_pts.h"
 #include "defs.h"
 #include "useful.h"
 
@@ -644,29 +645,6 @@ dbgevent_t* DbgFE::fetch_symbols(MICommand& cmd) {
     return result;
 }
 
-static const std::array<std::string, 16> parallel_entry_pt_strs
-{
-    "PMI_Init",
-    "MPI_Init",
-    "__pgas_runtime_error_checking",
-    "PMI2_Init",
-    "MPI_INIT_THREAD__",
-
-    "MPI_INIT__",
-    "mpi_init__",
-    "mpi_init_thread__",
-    "MPI_INIT_THREAD_",
-    "MPI_INIT_",
-
-    "mpi_init_thread_",
-    "mpi_init_",
-    "MPI::Init",
-    "PMPI_Init",
-    "start_pes",
-
-    "shmem_init"
-};
-
 dbgevent_t *DbgFE::checkStartupFunc() {
     DPRINT("*** DbgFECheckStartupFunc_fe\n");
 
@@ -682,7 +660,7 @@ dbgevent_t *DbgFE::checkStartupFunc() {
     auto foundBP = false;
     
     for (auto&& str: parallel_entry_pt_strs) {
-        cmd = MIBreakInsert(0, 0, 0, NULL, 0, str.c_str(), 0);
+        cmd = MIBreakInsert(0, 0, 0, NULL, 0, str, 0);
         sendCmd(cmd);
         // We expect many of these to fail - only one has to exist
         if (!MICommandResultOK(cmd)) {

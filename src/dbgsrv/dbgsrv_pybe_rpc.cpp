@@ -81,7 +81,7 @@ int RPC::get_python_minor_version(c_thread_id_t tid) {
         // examples of what we're expecting:
         // 0x7fffed2cd760 "3.6.8 (default, Jan  5 2024, 08:58:17) \n[GCC 8.5.0 20210514 (Red Hat 8.5.0-20)]"
         // 0x7fffed2cd760 "3.0a5+ (py3k:63103M, May 12 2008, 00:53:55) \n[GCC 4.2.3]"
-        static std::regex py_version_re{R"(3\.(\d+)[^\d])"};
+        static std::regex py_version_re{R"(\b3\.(\d+)[^\d])"};
         auto match = std::smatch{};
         if (std::regex_search(full_version_buf, match, py_version_re)) {
             return std::string{match[1].first, match[1].second};
@@ -249,9 +249,6 @@ RPC::c_thread_id_t RPC::spawn_pybe_gil_thread(c_thread_id_t tid) {
                     return;
                 }
             }
-
-            // never found it
-            *static_cast<int*>(tid) = -1;
         }, &pybe_thread_id);
 
         const auto fn = "pybe::spawn_GIL_grabbing_thread()";
@@ -613,6 +610,43 @@ pybe::Backtrace RPC::get_python_backtrace(c_thread_id_t tid, py_thread_id_t py_t
 
     // TODO: be more informative
     throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
+}
+
+std::string RPC::eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std::string_view expr) {
+    if (!m_pybe_channel) {
+        throw todo_write_better_error_message();
+    }
+
+    auto& channel = *m_pybe_channel;
+
+    const auto seq = channel.generate_sequence_number();
+    {
+        // note the '"' at the beginning of `gdb_expr` below - in order to properly
+        // send an expression with spaces to gdbmi, we have to surround the whole thing
+        // in quotes. then we have to surround the char* argument with escaped quotes, looking
+        // something like this: "eval_expr(seq, \"<expr>\")". now, if expr *itself* contains
+        // quotes, those need to be escaped *twice* since they are two layers of quotes deep.
+        auto double_escaped = std::string{expr};
+        double_escaped = std::regex_replace(double_escaped, std::regex{R"(")"}, R"(\\\")");
+
+        const auto gdb_expr = std::string{"\"(bool)pybe::eval_expr("} + std::to_string(seq) + "," + std::to_string(ptid) + ",\\\"" + double_escaped + "\\\")\"";
+
+        auto cmd = make_MICmd(MIDataEvaluateExpressionThread(gdb_expr.c_str(), tid));
+
+        try_send_command(m_parent_session, *cmd, [](){
+            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to eval");
+        });
+
+        // TODO check that the actual return value is 'true'
+    }
+
+    auto buf = channel.recv_with_timeout(seq);
+    if (buf == "") {
+        // TODO: be more informative
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to eval");
+    }
+
+    return buf;
 }
 
 RPC::RestoreCurrentThreadOnScopeExit::RestoreCurrentThreadOnScopeExit(RPC& rpc)

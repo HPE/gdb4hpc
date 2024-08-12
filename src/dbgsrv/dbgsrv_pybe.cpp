@@ -119,6 +119,10 @@ pybe::Backtrace Pybe::GILHolder::get_backtrace() {
     return m_parent_rpc.get_python_backtrace(m_gil_thread_id, m_py_thread_id);
 }
 
+std::string Pybe::GILHolder::eval_py_expression(std::string_view expr) {
+    return m_parent_rpc.eval_py_expression(m_gil_thread_id, m_py_thread_id, expr);
+}
+
 TEST_CASE("supported python versions are indeed supported") {
     for (const char* version : (const char* [])SUPPORTED_PYTHON_VERSIONS) {
         CHECK(python_version_is_supported(version));

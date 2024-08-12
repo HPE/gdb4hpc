@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 #include <fstream>
@@ -138,7 +139,7 @@ int main(int argc, char *argv[], char *env[]) {
     }
 
     if (const auto* seconds = ::getenv("GDB4HPC_DBGSRV_STARTUP_SLEEP")) {
-        ::sleep(::atoi(seconds));
+        std::this_thread::sleep_for(std::chrono::seconds(::atoi(seconds)));
     }
 #ifdef PERFLOG
     gettimeofday(&tv_srv, NULL);

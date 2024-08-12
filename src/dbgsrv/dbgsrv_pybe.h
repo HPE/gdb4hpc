@@ -68,6 +68,9 @@ class Pybe::GILHolder {
     // destructing GILHolder releases it.
 public:
     // no constructor - create via Pybe::coerce_gil
+    GILHolder(const GILHolder& other) = delete;
+    GILHolder& operator=(const GILHolder& other) = delete;
+    GILHolder(GILHolder&& expiring) = delete; // TODO implement this
 
     // releases the GIL
     ~GILHolder();
@@ -76,6 +79,12 @@ public:
     //
     // throws dbgevent_t* error on failure.
     pybe::Backtrace get_backtrace();
+
+    // evaluate the python language expression `expr` at the python location of
+    // the current thread.
+    //
+    // throws dbgevent_t* error on failure.
+    std::string eval_py_expression(std::string_view expr);
 
 private:
     friend Pybe;

@@ -2611,6 +2611,37 @@ AIFStream* AIFStream::fromMultiThreadResult(const char* val) {
     return new AIFStream(buff->exportResult(), false);
 }    
 
+AIFStream* AIFStream::fromPybeResult(const std::string& str) {
+    // the goal of this function is to pack up `str` *exactly* as it comes in.
+    // ais::Literal is the most fitting for this, but we still can't do a
+    // nice any.parse(...) call because:
+    //
+    // 1. ais::Literal stops parsing `str` at the first whitespace. if `str` has
+    //    spaces in it, it will be truncated.
+    // 2. if `str` begins with quotes, ais::Literal will remove them. we want
+    //    to keep quotes in this case for printing strings etc. i.e. we want
+    //    to keep the formatting that python gave us exactly.
+    // 3. python often prints things surrounded by </>, e.g. built-in modules
+    //    look like "<module 'sys' (built-in)>" when printed. ais::Type::parse
+    //    assumes anything that begins with '<' is an error and treats it
+    //    differently. in particular any rank information is lost.
+    //
+    // maybe this is calling for a new ais::PybeResult type or something similar
+    // that fixes all of these problems, but for now I'm just going to make the
+    // tests pass with a hack until it becomes a problem.
+
+    auto lit = std::make_shared<ais::Literal>();
+    auto any = ais::Any(lit, 0);
+    auto buf = std::make_shared<WriteBuffer>();
+    auto writer = ais::Writer{buf};
+
+    writer.writeType(any);
+    writer.writeInt(0); // index id
+    writer.writeString(str);
+
+    return new AIFStream(buf->exportResult(), false);
+}
+
 TEST_CASE("RajaSubArray::generateIndices: 1x4 slice of a 4x4 view") {
     auto bounds = mdspan{{4, 4}, {4, 1} };
 

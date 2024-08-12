@@ -2736,6 +2736,20 @@ dbgevent_t* DbgGdbMI::pythonBEBacktrace() {
     return e;
 }
 
+dbgevent_t* DbgGdbMI::pythonBEEvalExpr(std::string_view expr) {
+    DVPRINT("pythonBEEvalExpr [%*s]\n", (int)expr.size(), expr.data());
+    auto gil = ensurePybe().coerce_gil();
+
+    // if expr involves quotes, gdb4hpc will send them in escaped
+    auto escaped = std::string{expr};
+    escaped = std::regex_replace(escaped, std::regex{R"(\\")"}, R"(")");
+
+    auto result = gil.eval_py_expression(escaped);
+    auto* e = NewEvent(DBGEV_DATA);
+    e->ev_u.ev_u_data = AIFStream::fromPybeResult(result);
+    return e;
+}
+
 // given a completed command and its console output, check for python errors.
 // if an error is detected, it will be returned as an error event. otherwise,
 // returns nullptr. an empty `output` is considered an error.

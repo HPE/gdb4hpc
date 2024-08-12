@@ -23,6 +23,19 @@ namespace pybe {
 
 // TODO: name these functions better
 
+PyThreadState* get_threadstate(unsigned long py_thread_id) {
+    auto* intr = PyInterpreterState_Head();
+    auto* result = PyInterpreterState_ThreadHead(intr);
+    // XXX: in python 3.6 and below, the thread id is signed, but in
+    // python 3.7 and above it's unsigned. since we're just comparing bits we
+    // always case to unsigned
+    while (result && (unsigned long)result->thread_id != py_thread_id) {
+        result = PyThreadState_Next(result);
+    }
+    // XXX: add error handling
+    return result;
+}
+
 bool get_backtrace(uint32_t seq, unsigned long py_thread_id) {
     log("get_backtrace\n");
     if (!g_connection) [[ unlikely ]] {
@@ -34,19 +47,7 @@ bool get_backtrace(uint32_t seq, unsigned long py_thread_id) {
         return false;
     }
 
-    auto* intr = PyInterpreterState_Head();
-
-    auto* tstate = [&](){
-        auto* result = PyInterpreterState_ThreadHead(intr);
-        // XXX: in python 3.6 and below, the thread id is signed, but in
-        // python 3.7 and above it's unsigned. since we're just comparing bits we
-        // always case to unsigned
-        while (result && (unsigned long)result->thread_id != py_thread_id) {
-            result = PyThreadState_Next(result);
-        }
-        return result;
-    }();
-
+    auto* tstate = get_threadstate(py_thread_id);
     if (tstate == nullptr) {
         log("couldn't find thread\n");
         return false;
@@ -80,6 +81,38 @@ bool get_backtrace(uint32_t seq, unsigned long py_thread_id) {
     log("serialized backtrace: \"%s\"\n", wire.c_str());
     if (g_connection->channel.send_with_timeout(wire.c_str(), wire.size(), seq) == -1) [[ unlikely ]] {
         log("failed to send backtrace result\n");
+        return false;
+    }
+
+    return true;
+}
+
+bool eval_expr(uint32_t seq, unsigned long py_thread_id, const char* expr) {
+    auto* tstate = get_threadstate(py_thread_id);
+    if (tstate == nullptr) {
+        log("couldn't find thread\n");
+        return false;
+    }
+
+    auto frame = StrongRef(PyThreadState_GetFrame(tstate));
+    if (!frame.ptr) {
+        log("missing frame\n");
+        return false;
+    }
+
+    auto globals = StrongRef(PyFrame_GetGlobals(frame.ptr));
+    auto locals = StrongRef(PyFrame_GetLocals(frame.ptr));
+
+    auto result = StrongRef(PyRun_String(expr, Py_eval_input, globals.ptr, locals.ptr));
+
+    char buf[8192];
+    auto* stream = ::fmemopen(buf, sizeof(buf), "w");
+
+    PyObject_Print(result.ptr, stream, 0); // TODO error check
+    ::fclose(stream); // adds the null terminator
+
+    if (g_connection->channel.send_with_timeout(buf, strlen(buf), seq) == -1) [[ unlikely ]] {
+        log("failed to send eval result\n");
         return false;
     }
 

@@ -298,6 +298,7 @@ dbgevent_t *DbgSetVar(const char *var, const char* val, const char* threads) {
 
 dbgevent_t *DbgEvalExpr(const char *expr, long exprCnt, const char* threads) {
     DBG_READY();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBEEvalExpr(expr);
     return DbgBackendSW->evalExpr(expr, exprCnt, threads);
 }
 

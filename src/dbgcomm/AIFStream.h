@@ -118,6 +118,7 @@ public:
     // printed with quote marks
     static AIFStream* fromLiteral(const std::string& val);
     static AIFStream* fromMultiThreadResult(const char* val);
+    static AIFStream* fromPybeResult(const std::string& str);
 
     // create a stream by operating on 1 or 2 existing streams
     // the input streams are consumed

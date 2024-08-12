@@ -121,6 +121,7 @@ public:
     dbgevent_t* pythonBEInject();
     dbgevent_t* pythonBEBacktrace();
     dbgevent_t* pythonBEGetGIL();
+    dbgevent_t* pythonBEEvalExpr(std::string_view expr);
 
     dbgevent_t* pythonBEAttach();
 

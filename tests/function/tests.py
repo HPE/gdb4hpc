@@ -1204,6 +1204,15 @@ class PythonTest(Gdb4hpcTest):
 
         runTest(self, substitutions = subs)
 
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_print(self):
+        self.base_name = "python_print"
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

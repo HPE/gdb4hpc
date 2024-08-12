@@ -117,6 +117,9 @@ public:
     // use thread `tid` to call pybe and generate a backtrace for python thread `ptid`.
     pybe::Backtrace get_python_backtrace(c_thread_id_t tid, py_thread_id_t ptid);
 
+    // use thread 'tid' to call pybe and evaluate 'expr' in the context of python thread `ptid`.
+    std::string eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std::string_view expr);
+
 private:
     // this is private because RPC is supposed to be side-effect free, but some
     // implementations require a

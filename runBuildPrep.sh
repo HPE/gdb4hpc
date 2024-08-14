@@ -57,13 +57,10 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
 
 elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
 
-    if [[ "$target_os" == "$cdst_os_centos8" ]]; then
-      # Note the following will be different on build VMs vs DST. Errors are okay.
-      yum config-manager --set-enabled powertools
-    elif [[ "$target_os" -lt "$cdst_os_centos8" ]]; then
+    if [[ "$target_os" -lt "$cdst_os_rhel9_min" ]]; then
       yum --assumeyes install subscription-manager
       subscription-manager repos --enable codeready-builder-for-rhel-8-$target_arch-rpms
-    elif [[ "$target_os" -ge "$cdst_os_rhel93" ]]; then
+    else
       yum --assumeyes install subscription-manager
       subscription-manager repos --enable codeready-builder-for-rhel-9-$target_arch-rpms
     fi
@@ -74,25 +71,23 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
 
       mirrored_repo_1=''
       mirrored_repo_2=''
+      
       arch=$(uname -m)
 
-      if [[ "$target_os" -lt "$cdst_os_centos8" ]]; then
-        mirrored_repo_1="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/mirror-epel/epel/8/Everything/$arch/"
-
-        if [[ "$target_os" -lt "$cdst_os_rhel88" ]]; then
-          mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/redhat/rhel/8.8/latest/CRB/$arch/os/"
-
-        elif [[ "$target_os" -eq "$cdst_os_rhel89" ]]; then
-          mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/8.9/$arch/latest/CRB/os/"
-
-        fi
-
-      elif [[ "$target_os" -ge "$cdst_os_rhel93" ]]; then  
-        mirrored_repo_1="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/mirror-epel/epel/9/Everything/$arch/"
-
-        mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/9.3/$arch/latest/CRB/os/"
-
+      if [[ "$target_os" -lt "$cdst_os_rhel9_min" ]]; then
+          mirrored_repo_1="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/mirror-epel/epel/8/Everything/$arch/"
+      else
+	  mirrored_repo_1="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/mirror-epel/epel/9/Everything/$arch/"
       fi
+
+      if [[ "$target_os" -eq "$cdst_os_rhel89" ]]; then
+          mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/8.9/$arch/latest/CRB/os/"
+      elif [[ "$target_os" -eq "$cdst_os_rhel810" ]]; then
+	  mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/8.10/$arch/latest/CRB/os/"
+      elif [[ "$target_os" -eq "$cdst_os_rhel94" ]]; then
+          mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/9.4/$arch/latest/CRB/os/"
+      fi
+
       sudo yum-config-manager --add-repo $mirrored_repo_1 "mirrored_repo_1"
       sudo yum-config-manager --add-repo $mirrored_repo_2 "mirrored_repo_2"
 

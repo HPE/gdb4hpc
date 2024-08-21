@@ -122,6 +122,12 @@ public:
     dbgevent_t* pythonBEBacktrace();
     dbgevent_t* pythonBEGetGIL();
     dbgevent_t* pythonBEEvalExpr(std::string_view expr);
+    dbgevent_t* pythonBESetLineBreakpoint(int feid, std::string_view filename, int line);
+    dbgevent_t* pythonBESetFuncBreakpoint(int feid, std::string_view filename, std::string_view func);
+    dbgevent_t* pythonBEDeleteBreakpoint(int feid);
+    dbgevent_t* pythonBEStep(bool step_in);
+
+    dbgevent_t* pythonBEHandleAsyncStop(MIEvent* event);
 
     dbgevent_t* pythonBEAttach();
 

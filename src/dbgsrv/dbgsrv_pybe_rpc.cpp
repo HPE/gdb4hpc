@@ -28,8 +28,33 @@ void try_send_command_impl(MISession& sess, MICommand& cmd, FN fail_callback, co
     }
 }
 
+// using MISession& `sess`, run the mi command `cmd` and check
+// MICommandResultOK. if it's not ok, call `fail_callback`.
+//
 // this is a macro so __file__ and __line__ reflect the callsite
-#define try_send_command(sess, cmd, fn) try_send_command_impl(sess, cmd, fn, __FILE__, __LINE__);
+#define try_send_command(sess, cmd, fail_callback) try_send_command_impl(sess, cmd, fail_callback, __FILE__, __LINE__);
+
+template <typename FN>
+void try_pybe_fn_check_true_impl(MISession& sess, const char* expr, pybe::RPC::c_thread_id_t tid, FN fail_callback, const char* file, int line) {
+    auto cmd = make_MICmd(MIDataEvaluateExpressionThread(expr, tid));
+    try_send_command_impl(sess, *cmd, fail_callback, file, line);
+
+    const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+    if (result.get_view() != "true") {
+        DVPRINT("pybe mi command ran successfully, but did not return true: %s:%d\n", file, line);
+        fail_callback();
+    }
+}
+
+// using MISession& `sess`, evaluate the expression const char* `pybe_fn` on
+// c_thread_id_t `tid`. assume that the expression is calling a function that
+// will return the value true on success, and check that it does.
+//
+// if the expression fails to evaluate (e.g. syntax error) or does not
+// evaluate to true (e.g. pybe internal failure), call `fail_calllback`.
+//
+// this is a macro so __file__ and __line__ reflect the callsite
+#define try_pybe_fn_check_true(sess, pybe_fn, tid, fail_callback) try_pybe_fn_check_true_impl(sess, pybe_fn, tid, fail_callback, __FILE__, __LINE__);
 
 // this is a macro so __file__ and __line__ reflect the callsite
 #define todo_write_better_error_message() (NewErrorEvent(DBGERR_DEBUGGER, "unknown python error: %s:%d", __FILE__, __LINE__))
@@ -43,18 +68,6 @@ RPC::RPC(MISession& parent_sess)
 {}
 
 void RPC::init_GIL(c_thread_id_t tid) {
-    {
-        auto cmd = make_MICmd(MIGDBSet("unwindonsignal", "off"));
-
-        try_send_command(m_parent_session, *cmd, [](){
-            throw NewErrorEvent(DBGERR_DEBUGGER,
-                "Failed to set up python debugging.\n"
-                "This is a bug. Please report it and include the following info:\n"
-                "failure: failed to disable unwind-on-signal");
-            // TODO include error text from gdb
-        });
-    }
-
     const auto fn = "pybe::init_GIL()";
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn, tid));
     try_send_command(m_parent_session, *cmd, [](){
@@ -202,14 +215,9 @@ void RPC::open_pybe_channel(c_thread_id_t tid) {
 
     {   // call connection in pybe
         const auto expr = "(bool)pybe::connect_to_dbgsrv(\"" + socket_path + "\")";
-        auto cmd = make_MICmd(MIDataEvaluateExpressionThread(expr.c_str(), tid));
-
-        try_send_command(m_parent_session, *cmd, [](){
+        try_pybe_fn_check_true(m_parent_session, expr.c_str(), tid, [](){
             throw NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
         });
-
-        // TODO check the actual return value of the command. !MICommandResultOK
-        // only indicates that the gdb action of calling the function worked.
     }
 
     // letting any thrown exceptions propogate out here
@@ -314,7 +322,7 @@ RPC::py_thread_id_t RPC::thread_get_python_id(c_thread_id_t tid) {
     }
 
     {
-        auto cmd = make_MICmd(MIDataEvaluateExpression("(long)pybe::get_python_thread_id()"));
+        auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(long)pybe::get_python_thread_id()", tid));
 
         try_send_command(m_parent_session, *cmd, [](){
             throw NewErrorEvent(DBGERR_DEBUGGER,
@@ -415,9 +423,7 @@ bool RPC::thread_has_GIL(c_thread_id_t tid) {
     });
 
     auto result_buf = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
-    if (result_buf.get_view() != "true") return false;
-
-    return true;
+    return result_buf.get_view() == "true";
 }
 
 void RPC::thread_take_GIL(c_thread_id_t tid) {
@@ -527,7 +533,7 @@ std::optional<RPC::c_thread_id_t> RPC::any_thread_has_GIL() {
         // TODO resume threads that were running
     }
 
-    DVPRINT("gil thread: %u\n", gil_thread);
+    DVPRINT("thread currently holding gil: %u\n", gil_thread);
 
     if (gil_thread == 0) return std::nullopt;
 
@@ -541,7 +547,7 @@ void RPC::thread_continue(c_thread_id_t tid) {
     });
 }
 
-void RPC::thread_finish_with_timeout(c_thread_id_t tid) {
+void RPC::thread_finish_with_timeout(c_thread_id_t tid, unsigned int frame) {
     // in all-stop mode, finish events change the current thread
     auto preserver = RestoreCurrentThreadOnScopeExit{*this};
 
@@ -561,7 +567,7 @@ void RPC::thread_finish_with_timeout(c_thread_id_t tid) {
         *static_cast<bool*>(ctx) = true;
     }, &got_one);
 
-    try_send_command(m_parent_session, *make_MICmd(MIExecFinishThread(tid)), [](){
+    try_send_command(m_parent_session, *make_MICmd(MIExecFinishThreadFrame(tid, frame)), [](){
         throw todo_write_better_error_message();
     });
 
@@ -578,6 +584,40 @@ void RPC::thread_finish_with_timeout(c_thread_id_t tid) {
     // if we still haven't caught an event, the worst that will happen is the user sees
     // a kind of ugly error message. we'll let it slide.
     DVPRINT("was the wait necessary? (finish) waited:%d got_one:%d\n", waited, got_one);
+}
+
+pybe::Backtrace RPC::get_elf_backtrace(c_thread_id_t tid) {
+    auto cmd = make_MICmd(MIStackListAllFramesThread(tid));
+    try_send_command(m_parent_session, *cmd, [](){
+        throw todo_write_better_error_message();
+    });
+
+    auto miframes = MIGetStackListFramesInfo(cmd.get());
+    if (!miframes) throw todo_write_better_error_message();
+    auto miframes_cleanup = OnScopeExit([&](){
+        MIListFree(miframes, (void (*)())MIFrameFree);
+    });
+
+    auto result = Backtrace{};
+
+    MIListSet(miframes);
+    for (
+        MIFrame* frame = (MIFrame*)MIListGet(miframes);
+        frame != nullptr;
+        frame = (MIFrame*)MIListGet(miframes)
+    ) {
+        result.frames.emplace_back(Frame{
+            .function_name = frame->func ? frame->func : "",
+            .file_name = frame->file ? frame->file : "",
+            .line_number = frame->line,
+        });
+    }
+
+    if (result.frames.empty()) {
+        throw todo_write_better_error_message();
+    }
+
+    return result;
 }
 
 pybe::Backtrace RPC::get_python_backtrace(c_thread_id_t tid, py_thread_id_t py_thread_id) {
@@ -612,6 +652,54 @@ pybe::Backtrace RPC::get_python_backtrace(c_thread_id_t tid, py_thread_id_t py_t
     throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
 }
 
+pybe::Frame RPC::get_python_frame(c_thread_id_t tid, py_thread_id_t py_thread_id) {
+    if (!m_pybe_channel) {
+        throw todo_write_better_error_message();
+    }
+
+    auto& channel = *m_pybe_channel;
+
+    const auto seq = channel.generate_sequence_number();
+    const auto fn = std::string{"pybe::get_frame("} + std::to_string(seq) + "," + std::to_string(py_thread_id) + ")";
+
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get frame");
+    });
+
+    auto buf = channel.recv_with_timeout(seq);
+    if (buf == "") {
+        // TODO: be more informative
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get frame");
+    }
+
+    const auto* cursor = buf.c_str();
+    if (auto result = pybe::Frame::deserialize(cursor, buf.size())) {
+        return *result;
+    }
+
+    // TODO: be more informative
+    throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
+}
+
+std::string RPC::eval_elf_expression(c_thread_id_t tid, size_t frame, std::string_view expr) {
+    // note the '"' at the beginning of `gdb_expr` below - in order to properly
+    // send an expression with spaces to gdbmi, we have to surround the whole thing
+    // in quotes. then we have to surround the char* argument with escaped quotes, looking
+    // something like this: "eval_expr(seq, \"<expr>\")". now, if expr *itself* contains
+    // quotes, those need to be escaped *twice* since they are two layers of quotes deep.
+    auto double_escaped = std::string{expr};
+    double_escaped = std::regex_replace(double_escaped, std::regex{R"(")"}, R"(\\\")");
+    const auto gdb_expr = std::string{"\""} + double_escaped + "\"";
+
+    auto cmd = make_MICmd(MIDataEvaluateExpressionThreadFrame(gdb_expr.c_str(), tid, frame));
+    try_send_command(m_parent_session, *cmd, [](){
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to eval");
+    });
+
+    const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+    return result.get_string();
+}
+
 std::string RPC::eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std::string_view expr) {
     if (!m_pybe_channel) {
         throw todo_write_better_error_message();
@@ -631,13 +719,9 @@ std::string RPC::eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std:
 
         const auto gdb_expr = std::string{"\"(bool)pybe::eval_expr("} + std::to_string(seq) + "," + std::to_string(ptid) + ",\\\"" + double_escaped + "\\\")\"";
 
-        auto cmd = make_MICmd(MIDataEvaluateExpressionThread(gdb_expr.c_str(), tid));
-
-        try_send_command(m_parent_session, *cmd, [](){
+        try_pybe_fn_check_true(m_parent_session, gdb_expr.c_str(), tid, [](){
             throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to eval");
         });
-
-        // TODO check that the actual return value is 'true'
     }
 
     auto buf = channel.recv_with_timeout(seq);
@@ -647,6 +731,106 @@ std::string RPC::eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std:
     }
 
     return buf;
+}
+
+void RPC::start_tracing(c_thread_id_t tid) {
+    try_pybe_fn_check_true(m_parent_session, "pybe::init_trace()", tid, [](){
+        throw NewErrorEvent(DBGERR_DEBUGGER,
+            "Failed to set up python debugging.\n"
+            "This is a bug. Please report it and include the following info:\n"
+            "failure: failed to set up tracing");
+        // TODO include error text from gdb
+    });
+}
+
+const char* RPC::get_tracing_function_name() {
+    return "pybe::trace";
+}
+
+const char* RPC::get_GIL_holding_function_name() {
+    return "pybe::PybeImpl::get_GIL_then_breakpoint";
+}
+
+const char* RPC::get_GIL_releasing_function_name() {
+    return "pybe::get_GIL_then_breakpoint";
+}
+
+pybe::Breakpoint RPC::set_breakpoint(c_thread_id_t tid, int feid, std::string_view filename, int line, std::string_view funcname) {
+    // TODO support spaces
+    const auto fn = std::string{"pybe::set_breakpoint("} +
+        std::to_string(feid) + "," +
+        "\"" + std::string{filename} + "\"," +
+        std::to_string(line) + "," +
+        "\"" + std::string{funcname} + "\"" +
+    ")";
+
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+        throw todo_write_better_error_message();
+    });
+
+    return pybe::Breakpoint {
+        .feid = feid,
+        .location = pybe::Frame {
+            .function_name = std::string{funcname},
+            .file_name = std::string{filename},
+            .line_number = line,
+        }
+    };
+}
+
+void RPC::delete_breakpoint(c_thread_id_t tid, int feid) {
+    const auto fn = std::string{"pybe::delete_breakpoint("} + std::to_string(feid) +")";
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+        throw todo_write_better_error_message();
+    });
+}
+
+bool RPC::at_breakpoint(c_thread_id_t tid) {
+    const auto fn = std::string{"pybe::have_breakpoint()"};
+    auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
+    try_send_command(m_parent_session, *cmd, [](){
+        throw todo_write_better_error_message();
+    });
+
+    auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+    return result.get_view() == "true";
+}
+
+pybe::Breakpoint RPC::take_current_breakpoint(c_thread_id_t tid) {
+    if (!m_pybe_channel) {
+        throw todo_write_better_error_message();
+    }
+    auto& channel = *m_pybe_channel;
+
+    const auto seq = channel.generate_sequence_number();
+    {
+        const auto fn = std::string{"pybe::take_current_breakpoint("} + std::to_string(seq) + ")";
+        auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
+
+        try_send_command(m_parent_session, *cmd, [](){
+            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get breakpoint");
+        });
+    }
+
+    auto buf = channel.recv_with_timeout(seq);
+    if (buf.empty()) {
+        // TODO: be more informative
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get breakpoint");
+    }
+
+    const auto* cursor = buf.c_str();
+    if (auto result = pybe::Breakpoint::deserialize(cursor, buf.size())) {
+        return *result;
+    } else {
+        return {};
+    }
+}
+
+void RPC::insert_step_trap(c_thread_id_t tid, py_thread_id_t ptid, bool step_in) {
+    const auto fn = std::string{"pybe::install_step_trap("} + std::to_string(ptid) + "," + std::to_string(step_in) + ")";
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+        throw todo_write_better_error_message();
+    });
 }
 
 RPC::RestoreCurrentThreadOnScopeExit::RestoreCurrentThreadOnScopeExit(RPC& rpc)

@@ -47,6 +47,10 @@ inline auto get_gil_signal_number() {
     return SIGTRAP;
 }
 
+inline auto get_gil_signal_name() {
+    return "SIGTRAP";
+}
+
 namespace detail {
 
 template <typename String_T, typename StringView_T, template <typename T> typename Vector_T>
@@ -81,6 +85,7 @@ class Channel_T {
 public:
     // no ctor: create via Client::connect_with_timeout or Server::accept_with_timeout.
     Channel_T(Channel_T&& expiring);
+    Channel_T& operator=(Channel_T&& expiring);
     ~Channel_T();
 
     // convenience function for use with `send_with_timeout`.
@@ -180,7 +185,14 @@ template <typename Ts>
 Channel_T<Ts>::Channel_T(Channel_T<Ts>&& expiring)
     : m_channel_fd{-1}
 {
+    *this = std::move(expiring);
+}
+
+template <typename Ts>
+Channel_T<Ts>& Channel_T<Ts>::operator=(Channel_T<Ts>&& expiring) {
+    close();
     std::swap(m_channel_fd, expiring.m_channel_fd);
+    return *this;
 }
 
 template <typename Ts>
@@ -674,6 +686,7 @@ pybe::Expected<Channel_T<Ts>, std::nullptr_t> Server_T<Ts>::accept_with_timeout(
 
 template <typename Ts> struct Frame_T;
 template <typename Ts> struct Backtrace_T;
+template <typename Ts> struct Breakpoint_T;
 
 template <typename Ts>
 struct WireMsgBuilder_T {
@@ -685,6 +698,7 @@ struct WireMsgBuilder_T {
 
         Frame,
         Backtrace,
+        Breakpoint,
     };
 
     Ts::String msg;
@@ -694,6 +708,7 @@ struct WireMsgBuilder_T {
 
     void push(const Frame_T<Ts>& frame);
     void push(const Backtrace_T<Ts>& frame);
+    void push(const Breakpoint_T<Ts>& breakpoint);
 };
 
 template <typename Ts>
@@ -737,6 +752,15 @@ void WireMsgBuilder_T<Ts>::push(const Backtrace_T<Ts>& bt) {
     for (const auto& frame : bt.frames) {
         push(frame);
     }
+}
+
+template <typename Ts>
+void WireMsgBuilder_T<Ts>::push(const Breakpoint_T<Ts>& bp) {
+    this->msg.append(detail::to_string<Ts>(static_cast<int>(Type::Breakpoint)).c_str());
+    this->msg.append(" ");
+
+    push(bp.feid);
+    push(bp.location);
 }
 
 // deserialization helpers
@@ -859,6 +883,49 @@ bool Backtrace_T<Ts>::operator==(const Backtrace_T<Ts>& other) const {
         if (this->frames[i] != other.frames[i]) return false;
     }
     return true;
+}
+
+template <typename Ts>
+struct Breakpoint_T {
+    // a pybe breakpoint
+
+    Ts::String serialize() const;
+    static Expected<Breakpoint_T, std::nullptr_t> deserialize(const char*& data, size_t len);
+
+    bool operator==(const Breakpoint_T& other) const = default;
+
+    int feid;
+    Frame_T<Ts> location;
+};
+
+template <typename Ts>
+Ts::String Breakpoint_T<Ts>::serialize() const {
+    auto result = detail::WireMsgBuilder_T<Ts>{};
+    result.push(*this);
+    return std::move(result.msg);
+}
+
+template <typename Ts>
+Expected<Breakpoint_T<Ts>, std::nullptr_t> Breakpoint_T<Ts>::deserialize(const char*& cursor, size_t len) {
+    auto result = Breakpoint_T{};
+
+    // TODO bounds check with size_t param
+
+    if (!detail::consume_type<Ts>(cursor, detail::WireMsgBuilder_T<Ts>::Type::Breakpoint)) return nullptr;
+
+    if (auto maybe_int = parse_int<Ts>(cursor)) {
+        result.feid = *maybe_int;
+    } else {
+        return nullptr;
+    }
+
+    if (auto maybe_loc = Frame_T<Ts>::deserialize(cursor, len)) {
+        result.location = *maybe_loc;
+    } else {
+        return nullptr;
+    }
+
+    return result;
 }
 
 // [de]serializing helpers

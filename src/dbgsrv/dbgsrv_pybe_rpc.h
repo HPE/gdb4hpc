@@ -100,12 +100,13 @@ public:
     // return true if thread `tid` currently holds the GIL.
     bool thread_has_GIL(c_thread_id_t tid);
 
-    // run thread `tid` until it finishes its current function.
+    // run thread `tid` until it returns from frame number `frame`.
+    // frame 0 is the deepest frame, but not necessarily the current frame.
     //
     // XXX: the following is intended but not currently implemented:
     // if the thread doesn't finish the function after a short time, stop the
     // thread, give up, and throw an error.
-    void thread_finish_with_timeout(c_thread_id_t tid);
+    void thread_finish_with_timeout(c_thread_id_t tid, unsigned int frame);
 
     // check if *any* thread currently has the GIL. if one does, return its thread id.
     std::optional<c_thread_id_t> any_thread_has_GIL();
@@ -114,11 +115,79 @@ public:
     // a short amount of time, the function gives up and throws an error.
     void thread_take_GIL(c_thread_id_t tid);
 
+    // get elf backtrace of thread `tid`
+    pybe::Backtrace get_elf_backtrace(c_thread_id_t tid);
+
     // use thread `tid` to call pybe and generate a backtrace for python thread `ptid`.
     pybe::Backtrace get_python_backtrace(c_thread_id_t tid, py_thread_id_t ptid);
 
+    // use thread `tid` to call pybe and get the current frame of python thread `ptid`.
+    pybe::Frame get_python_frame(c_thread_id_t tid, py_thread_id_t ptid);
+
+    // evaluate expression `expr` in frame `frame` on thread `tid` and return the result.
+    std::string eval_elf_expression(c_thread_id_t tid, size_t frame, std::string_view expr);
+
     // use thread 'tid' to call pybe and evaluate 'expr' in the context of python thread `ptid`.
     std::string eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std::string_view expr);
+
+    // use thread 'tid' to call pybe and initialize the pybe trace/breakpoint system.
+    void start_tracing(c_thread_id_t tid);
+
+    // some python debugging functionality requires knowing pybe function names.
+    // for example, getting the GIL safely requires knowing if pybe is stopped
+    // in the python tracing callback that it installs because in that case it
+    // already has the GIL.
+    //
+    // to avoid hard coding these function names anywhere, we provide some
+    // functions to get them here.
+
+    // return the name of the tracing function that `start_tracing` will install.
+    const char* get_tracing_function_name();
+
+    // return the name of the function that will call PyGILState_Ensure when
+    // `thread_take_GIL` is called.
+    const char* get_GIL_holding_function_name();
+
+    // return the name of the function that will call PyGILState_Release to
+    // complete the sequence that `thread_take_GIL` initializes.
+    const char* get_GIL_releasing_function_name();
+
+    // use thread `tid` to call pybe and insert a breakpoint for `funcname` in
+    // `filename` or `filename`:`line`. `filename`, `line`, and `funcname` can
+    // be left unspecified as empty strings or 0. an omitted field is simply
+    // ignored during matching. for example setting a breakpoint at line 9 with
+    // no filename or function name will match line 9 in any file.
+    //
+    // the breakpoint will be saved saved with id `feid`.
+    //
+    // XXX: pybe does not verify that the passed arguments are valid. e.g. if a
+    // file/function actually exists
+    pybe::Breakpoint set_breakpoint(c_thread_id_t tid, int feid, std::string_view filename, int line, std::string_view funcname);
+
+    // use thread `tid` to call pybe and delete the breakpoint with id `feid`.
+    void delete_breakpoint(c_thread_id_t tid, int feid);
+
+    // use thread `tid` to call pybe and check if the reason that pybe just
+    // raised the GIL signal is that pybe detected a breakpoint.
+    bool at_breakpoint(c_thread_id_t tid);
+
+    // if `at_breakpoint` returns true, this function can be called to use
+    // thread `tid` to call pybe and obtain the breakpoint that was just hit.
+    // this will also clear the breakpoint from the internal pybe buffer that
+    // holds it. i.e. this function can only be called once per breakpoint hit.
+    //
+    // XXX: maybe at_breakpoint and this function can be merged into one.
+    pybe::Breakpoint take_current_breakpoint(c_thread_id_t tid);
+
+    // use thread `tid` to call pybe and insert a trap that will be activated
+    // when python thread `ptid` starts executing a new line. if `step_in` is
+    // true, the trap will be activated by function calls. if it's false,
+    // function calls will be skipped (mimics the gdb commands step and next,
+    // respectively).
+    //
+    // note that this function does not start any threads - that needs to be
+    // done seperately.
+    void insert_step_trap(c_thread_id_t tid, py_thread_id_t ptid, bool step_in);
 
 private:
     // this is private because RPC is supposed to be side-effect free, but some

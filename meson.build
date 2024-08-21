@@ -397,7 +397,9 @@ conf.set_quoted('PYBE_SO_UNVERSIONED_BASENAME', 'lib' + libgdb4_unversioned_base
 
 libgdb4_pybe_sources = [
   './src/dbgsrv/pybe_entry.cpp',
+  './src/dbgsrv/pybe_impl.cpp',
   './src/dbgsrv/pybe_stl.cpp',
+  './src/dbgsrv/pybe_comms_pybe.cpp',
 ]
 libgdb4_pybe_cpp_args = [
   '-fno-rtti',
@@ -423,6 +425,7 @@ foreach py_vers : supported_python_versions
     sources: libgdb4_pybe_sources,
     include_directories: [
       './external/python-headers/include/python' + py_vers,
+      './src/useful'
     ],
     override_options: [
       # allow undefined symbols. this gets us a very fast build since we don't
@@ -468,6 +471,9 @@ endforeach
 libgdb4_pybe_insurance_so = shared_library(
   'gdb4_pybe_insurance',
   sources: libgdb4_pybe_sources,
+  include_directories: [
+    './src/useful'
+  ],
   cpp_args: libgdb4_pybe_cpp_args,
   dependencies: [libgdb4_pybe_deps, system_python_dep],
   link_with: [],
@@ -494,6 +500,7 @@ dbgsrv = executable(
     './src/dbgsrv/dbgsrv_zmq.cpp',
     './src/dbgsrv/dbgsrv_pybe.cpp',
     './src/dbgsrv/dbgsrv_pybe_rpc.cpp',
+    './src/dbgsrv/pybe_comms_dbgsrv.cpp',
     './src/dbgsrv/mi_utils.cpp',
   ],
   include_directories: [

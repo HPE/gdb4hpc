@@ -27,6 +27,7 @@ namespace pybe {
 
     using Frame = detail::Frame_T<DbgsrvLowLevels>;
     using Backtrace = detail::Backtrace_T<DbgsrvLowLevels>;
+    using Breakpoint = detail::Breakpoint_T<DbgsrvLowLevels>;
 };
 
 namespace doctest {
@@ -275,6 +276,28 @@ TEST_CASE("empty backtrace serialization") {
     auto& bt_out = *maybe_bt_out;
 
     CHECK(bt_in == bt_out);
+}
+
+TEST_CASE("breakpoint serialization") {
+    auto bp_in = pybe::Breakpoint{
+        .feid = 8,
+        .location = pybe::Frame{
+            .function_name = "bar",
+            .file_name = "foo.py",
+            .line_number = 4,
+        }
+    };
+
+    auto bp_wire = bp_in.serialize();
+    CAPTURE(bp_wire);
+
+    auto* cursor = bp_wire.c_str();
+
+    auto maybe_bp_out = pybe::Breakpoint::deserialize(cursor, bp_wire.size());
+    REQUIRE(maybe_bp_out);
+    auto& bp_out = *maybe_bp_out;
+
+    CHECK(bp_in == bp_out);
 }
 
 TEST_CASE("Channel") {

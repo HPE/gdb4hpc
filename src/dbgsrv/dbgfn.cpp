@@ -145,12 +145,14 @@ dbgevent_t *DbgStartup(void) {
 dbgevent_t *DbgSetLineBreak(int id, int allowPending, const char *file, int line,
                             const char* threadSet, const dbgcomm_info *ci) {
     DBG_READY();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBESetLineBreakpoint(id, file, line);
     return DbgBackendSW->setLineBreak(id, allowPending, file, line, threadSet, ci);
 }
 
 dbgevent_t *DbgSetFuncBreak(int id, int allowPending, const char *file, const char *func,
                             const char* threadSet, const dbgcomm_info *ci) {
     DBG_READY();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBESetFuncBreakpoint(id, file, func);
     return DbgBackendSW->setFuncBreak(id, allowPending, file, func, threadSet, ci);
 }
 
@@ -181,6 +183,7 @@ dbgevent_t *DbgDeleteCheckpoint(unsigned int id) {
 
 dbgevent_t *DbgDeleteBreak(int bp) {
     DBG_READY();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBEDeleteBreakpoint(bp);
     return DbgBackendSW->deleteBreak(bp);
 }
 
@@ -237,6 +240,7 @@ dbgevent_t *DbgSetArgs(const char *args) {
 
 dbgevent_t *DbgStep(int count, int in, const char* threads) {
     DBG_STOPPED();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBEStep(static_cast<bool>(in));
     return DbgBackendSW->step(count, in, threads);
 }
 

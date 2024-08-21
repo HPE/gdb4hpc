@@ -182,14 +182,19 @@ Tests for Cray gdb4hpc parallel debugger
 # Libraries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libgdb4_unittest.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.6.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.8.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.9.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.10.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.11.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libgdb4_pybe_3.12.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libgdb4_dbgagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libgdb4_zmqnetagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
+
+# The pybe libraries require debug info to work - the rpm packaging process will strip them
+# by default. We could disable *all* stripping in the package, but another way to disable
+# stripping for only select files is to disguise them as non-binary files.
+%{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.6.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.gz
+%{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.8.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.gz
+%{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.9.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.gz
+%{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.10.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.gz
+%{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.11.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.gz
+%{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.12.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.gz
+
 # Libraries static
 # pkg-config
 # Headers
@@ -547,13 +552,17 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/completions_launch.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/completions_launch.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/launch_from_path.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/launch_from_path.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/positional_args.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/positional_args.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_halt_bt_active_allstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_halt_bt_active_allstop.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_detect_36.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_detect_36.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_halt_bt_active_allstop.in  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_halt_bt_active_allstop.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_halt_bt_dormant_allstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_halt_bt_dormant_allstop.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_active_allstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_allstop.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_active_nonstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_nonstop.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_break_bt_print.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_break_bt_print.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_break_set.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_break_set.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_active_allstop.in  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_allstop.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_active_nonstop.in  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_nonstop.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_dormant_allstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_dormant_allstop.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_halt_bt_dormant_nonstop.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_dormant_nonstop.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_print.in ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_print.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_print.in                   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_print.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_stepnext.in                ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_stepnext.in
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %{__cp} -a %{tests_source_dir}/function/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
@@ -594,6 +603,13 @@ else
     # lua module
     %{__sed} -i "/^prepend-path[[:space:]]*LD_LIBRARY_PATH.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 fi
+
+%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.gz
+%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.gz
+%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.gz
+%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.gz
+%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.gz
+%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.gz
 
 %preun
 default_link="${RPM_INSTALL_PREFIX}/%{cray_product}/default"
@@ -666,12 +682,18 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{release_notes_file}
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{attributions_name}
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_unittest.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_dbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_zmqnetagg.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile
@@ -978,13 +1000,17 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/completions_launch.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/launch_from_path.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/positional_args.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_detect_36.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_halt_bt_active_allstop.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_halt_bt_dormant_allstop.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_break_bt_print.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_break_set.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_allstop.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_active_nonstop.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_dormant_allstop.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_halt_bt_dormant_nonstop.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_print.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_print.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_stepnext.in
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/team_vector_loop.cpp

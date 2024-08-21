@@ -1143,12 +1143,10 @@ class PythonTest(Gdb4hpcTest):
     def test_python_attach_halt_bt_active_allstop(self):
         self.base_name = "python_attach_halt_bt_active_allstop"
 
-        if self.python_version == None or self.python_version == "3.6" or self.python_version == "system":
+        if self.python_version == "3.6":
             # the only version <= 3.6 we test *is* 3.6 so we can get
             # away with simple string equality testing instead of fancy
             # version number range extraction etc.
-            #
-            # the system python tends to be 3.6 so we skip it too (for now)
             self.cancel("Attach is not supported <= 3.6")
 
         # launch job
@@ -1176,12 +1174,10 @@ class PythonTest(Gdb4hpcTest):
     def test_python_attach_halt_bt_dormant_allstop(self):
         self.base_name = "python_attach_halt_bt_dormant_allstop"
 
-        if self.python_version == None or self.python_version == "3.6" or self.python_version == "system":
+        if self.python_version == "3.6":
             # the only version <= 3.6 we test *is* 3.6 so we can get
             # away with simple string equality testing instead of fancy
             # version number range extraction etc.
-            #
-            # the system python tends to be 3.6 so we skip it too (for now)
             self.cancel("Attach is not supported <= 3.6")
 
         # launch job
@@ -1204,10 +1200,74 @@ class PythonTest(Gdb4hpcTest):
 
         runTest(self, substitutions = subs)
 
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    @avocado.skipUnless(os.path.isfile("./bin/CRAY/cti_launch.x"), "Missing cti_launch.x")
+    def test_python_attach_detect_36(self):
+        self.base_name = "python_attach_detect_36"
+
+        if self.python_version != "3.6":
+            self.cancel("This test is only relevant to 3.6")
+
+        # launch job
+        job = subprocess.Popen(
+            [f"./bin/CRAY/cti_launch.x", self.python_path, "./src/python/spin.py", "300"],
+            stderr=subprocess.PIPE
+        )
+
+        app_id = None
+        # wait for job to start and report app id
+        for line in iter(job.stderr.readline, b''):
+            # first line printed will be the app id, and it will come back in bytes
+            app_id = line.decode("utf-8").rstrip()
+            break
+
+        # wait a few seconds to make sure sleep.py gets into its loop
+        time.sleep(3)
+
+        subs = ( ("%[0-9.]+%", app_id), )
+
+        runTest(self, substitutions = subs)
+
     # debugging the python interpreter doesn't work without special args on anything but slurm
     @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
     def test_python_print(self):
         self.base_name = "python_print"
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
+
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_launch_print(self):
+        self.base_name = "python_launch_print"
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
+
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_launch_break_bt_print(self):
+        self.base_name = "python_launch_break_bt_print"
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
+
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_launch_break_set(self):
+        self.base_name = "python_launch_break_set"
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
+
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_launch_stepnext(self):
+        self.base_name = "python_launch_stepnext"
         subs = (
             ("%.*python3.*%", self.python_path),
         )

@@ -351,9 +351,8 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
     if (m_dbg.isPython()) {
         // initialize python internals
         m_dbg.ensurePybe();
-        // no need to coerce_gil here - we assume that the launch sequence/entry breakpoints
-        // already dropped us at a point where no thread has the GIL and it will be trivial
-        // to get for subsequent commands.
+        // the first call to ensurePybe will implicitly trvialize the gil,
+        // no need to explicitly do it here
     }
 
     // call the showframe function to ask for the innermost frame

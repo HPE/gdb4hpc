@@ -18,10 +18,14 @@ namespace pybe::detail {
 
 
 namespace pybe {
-    using Channel = detail::Channel_T<detail::LowLevels>;
-    using Client = detail::Client_T<detail::LowLevels>;
 
-    using Frame = detail::Frame_T<detail::LowLevels>;
-    using Backtrace = detail::Backtrace_T<detail::LowLevels>;
+using Channel = detail::Channel_T<detail::LowLevels>;
+using Client = detail::Client_T<detail::LowLevels>;
+
+using Frame = detail::Frame_T<detail::LowLevels>;
+using Backtrace = detail::Backtrace_T<detail::LowLevels>;
+using Breakpoint = detail::Breakpoint_T<detail::LowLevels>;
+
+Frame to_frame(PyFrameObject& pyframe);
 
 } // namespace pybe;

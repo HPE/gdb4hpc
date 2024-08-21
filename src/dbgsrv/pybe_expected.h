@@ -14,18 +14,6 @@ public:
     Expected(const E& error) : m_contents{error}, m_ok{false} {};
     Expected(T&& value) : m_contents{std::move(value)}, m_ok{true} {};
     Expected(E&& error) : m_contents{std::move(error)}, m_ok{false} {};
-    Expected& operator=(T&& value) {
-        this->~Expected();
-        m_contents.value = std::move(value);
-        m_ok = true;
-        return *this;
-    }
-    Expected& operator=(E&& error) {
-        this->~Expected();
-        m_contents.error = std::move(error);
-        m_ok = false;
-        return *this;
-    }
 
     ~Expected() {
         if (m_ok) {

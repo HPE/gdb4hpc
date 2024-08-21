@@ -1,0 +1,20 @@
+0: # test that gdb4hpc detects python 3.6 on attach and safely disables python
+0: set print entry-frame false
+0: attach $a %[0-9.]+%
+Attaching to application, please wait...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Attach complete.
+a{0}: Debugger error: Attach is not supported on python versions <= 3.6. Debugging will continue, but python features are disabled.
+0: show python
+Python mode for future launches is auto.
+For current procsets:
+a{0}: Python mode is off.
+0: # continue for a few seconds to make sure pybe didn't segfault python
+0: continue
+0: maint sleep 3
+0: halt???
+0: kill $a
+Shutting down debugger and killing application for 'a'.

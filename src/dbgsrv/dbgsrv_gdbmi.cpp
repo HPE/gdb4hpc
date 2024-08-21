@@ -2664,12 +2664,12 @@ dbgevent_t* DbgGdbMI::pythonBEAttach() {
     SendMICommand(GDBMISession, cmd.get());
     if (MICommandResultOK(cmd.get())) {
         DVPRINT("enabling python\n");
-        auto& pybe = ensurePybe();
-        if (pybe.get_python_minor_version() <= 6) {
-            return NewErrorEvent( DBGERR_DEBUGGER,
+        if (Pybe::get_python_minor_version(*GDBMISession) <= 6) {
+            return NewErrorEvent(DBGERR_DEBUGGER,
                 "Attach is not supported on python versions <= 3.6. Debugging "
                 "will continue, but python features are disabled.");
         }
+        auto& pybe = ensurePybe();
         pybe.trivialize_gil();
         setPython(true);
         return NewEvent(DBGEV_OK);
@@ -2690,40 +2690,6 @@ void DbgGdbMI::setPython(bool isPython) {
     m_isPython = isPython;
 }
 
-// TODO name this better
-static dbgframe_t* pybe_backtrace_to_dbgframe(const pybe::Backtrace& bt) {
-    int current_level = 0;
-    auto* first_frame = static_cast<dbgframe_t*>(nullptr); // "first" meaning "deepest"
-    auto* last_frame = static_cast<dbgframe_t*>(nullptr);  // "last" meaning "shallowest" (e.g. main)
-
-    for (const auto& py_frame : bt.frames) {
-        // dbgloc owns the ptrs given to it
-        auto location = dbgloc(::strdup(py_frame.file_name.c_str()),
-                               ::strdup(py_frame.function_name.c_str()),
-                               ::strdup("") /* address */,
-                               py_frame.line_number);
-        auto frame = new dbgframe_t(current_level, location, nullptr, nullptr, nullptr);
-        current_level++;
-
-        if (!first_frame) {
-            first_frame = frame;
-            last_frame = frame;
-        } else {
-            last_frame->setNext(frame);
-            last_frame = frame;
-        }
-    }
-
-    if (first_frame == nullptr) {
-        // if the user requests a backtrace before python has started, we won't
-        // get any frames. in that case give the user something informative
-        auto location = dbgloc(nullptr, ::strdup("No python backtrace"), nullptr, 0);
-        first_frame = new dbgframe_t(0, location, nullptr, nullptr, nullptr);
-    }
-
-    return first_frame;
-}
-
 dbgevent_t* DbgGdbMI::pythonBEBacktrace() {
     DVPRINT("pythonBEBacktrace\n");
 
@@ -2731,7 +2697,7 @@ dbgevent_t* DbgGdbMI::pythonBEBacktrace() {
     auto bt = gil.get_backtrace();
 
     auto* e = NewEvent(DBGEV_FRAME);
-    e->ev_frame = pybe_backtrace_to_dbgframe(bt);
+    e->ev_frame = to_dbgframe(bt).release();
 
     return e;
 }
@@ -2748,6 +2714,92 @@ dbgevent_t* DbgGdbMI::pythonBEEvalExpr(std::string_view expr) {
     auto* e = NewEvent(DBGEV_DATA);
     e->ev_u.ev_u_data = AIFStream::fromPybeResult(result);
     return e;
+}
+
+dbgevent_t* DbgGdbMI::pythonBESetLineBreakpoint(int feid, std::string_view filename, int line) {
+    auto& pybe = ensurePybe();
+    auto gil = pybe.coerce_gil();
+
+    auto bp = gil.set_breakpoint(feid, filename, line, /* func */ "");
+
+    auto result = NewEvent(DBGEV_BPSET);
+    result->ev_u.ev_u_bp = to_dbgbp(bp).release();
+    return result;
+}
+
+dbgevent_t* DbgGdbMI::pythonBESetFuncBreakpoint(int feid, std::string_view file, std::string_view func) {
+    auto& pybe = ensurePybe();
+    auto gil = pybe.coerce_gil();
+
+    auto bp = gil.set_breakpoint(feid, file, /* line */ 0, func);
+
+    auto result = NewEvent(DBGEV_BPSET);
+    result->ev_u.ev_u_bp = to_dbgbp(bp).release();
+    return result;
+}
+
+dbgevent_t* DbgGdbMI::pythonBEDeleteBreakpoint(int feid) {
+    auto& pybe = ensurePybe();
+    auto gil = pybe.coerce_gil();
+
+    gil.delete_breakpoint(feid);
+    return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t* DbgGdbMI::pythonBEStep(bool step_in) {
+    {
+        auto& pybe = ensurePybe();
+        auto gil = pybe.coerce_gil();
+        gil.insert_step_trap(step_in);
+        // we have to release the gil (scope exit) to allow python to run again!
+    }
+
+    {
+        // XXX: this should probably be merged with/just call ::go - leaving
+        // separate for now because ::go does its own thing with threads and pybe
+        // requires its own thread strategy
+        auto cmd = make_MICmd(MIExecContinue());
+        SendMICommand(GDBMISession, cmd.get());
+        if (!MICommandResultOK(cmd.get())) return NewErrorEvent(DBGERR_DEBUGGER, "Failed to start step");
+
+        ThreadAsyncCheck(WaitEvent, nullptr);
+
+        Status = DBGSTAT_RUNNING;
+    }
+
+    // async step end event will be generated later, return OK now
+    return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t* DbgGdbMI::pythonBEHandleAsyncStop(MIEvent* event) {
+    DVPRINT("Handling python async stop\n");
+
+    auto& pybe = ensurePybe();
+
+    // boldly assuming pybe is in the trace function and this won't cause slippage in all-stop
+    auto gil = pybe.coerce_gil();
+
+    // figure out why we stopped
+    if (auto maybe_bp = gil.find_current_breakpoint()) {
+        // pybe breakpoint hit
+
+        auto result = NewEvent(DBGEV_BPHIT);
+        result->ev_u.ev_u_bp = to_dbgbp(*maybe_bp).release();
+        return result;
+    } else {
+        // must be the end of a step
+
+        auto result = NewEvent(DBGEV_STEP);
+
+        // we have no way to print python source for each step yet,
+        // so tell the frontend to always print the frame
+        result->ev_step.step_frame_changed = true;
+
+        result->ev_step.step_frame = to_dbgframe(gil.get_frame(), 0).release();
+        result->ev_step.step_threadId = event->threadId;
+
+        return result;
+    }
 }
 
 // given a completed command and its console output, check for python errors.
@@ -3883,6 +3935,14 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
 
         case MIEventTypeSignal:
             DVPRINT("MIEventTypeSignal %s\n", evt->sigName);
+
+            if (isPython() && strcmp(evt->sigName, pybe::get_gil_signal_name()) == 0) {
+                if (auto* bpevent = pythonBEHandleAsyncStop(evt)) {
+                    Status = DBGSTAT_STOPPED;
+                    return bpevent;
+                }
+                // else fall through and treat it as a real signal
+            }
 
             if (strcmp(evt->sigName,"SIGSTOP") == 0 && m_initializer->ignoreSigstop()) {
                 DVPRINT("ignoring SIGSTOP\n");

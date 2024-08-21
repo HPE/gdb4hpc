@@ -16,6 +16,7 @@
 
 #include <TINYSTL/string.h>
 #include <TINYSTL/string_view.h>
+#include <TINYSTL/unordered_set.h>
 #include <TINYSTL/vector.h>
 
 #include "pythoncapi_compat.h"
@@ -27,6 +28,7 @@ namespace pybe {
 using String = tinystl::string;
 using StringView = tinystl::string_view;
 template <typename T> using Vector = tinystl::vector<T>;
+template <typename T> using Set = tinystl::unordered_set<T>;
 
 class Thread {
     // mimics std::thread with pthread

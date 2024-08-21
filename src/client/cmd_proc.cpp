@@ -833,6 +833,8 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     rec_set = NewRecSet();
     AddReceiverToSet(rec_set, NewGroupReceiver(*di, di->fullBitset()));
 
+    PrintOutMsg("Attach complete.\n");
+
     {   // detect/init python. if not a python app, this is a no op
         auto rep_set = DbgAttachPython(rec_set);
         ProcessErrorInRepSet(rep_set);
@@ -847,8 +849,6 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
             }
         }
     }
-
-    PrintOutMsg("Attach complete.\n");
 
     {   // grab all the frames
         auto rep_set = DbgShowFrame(rec_set, 0);

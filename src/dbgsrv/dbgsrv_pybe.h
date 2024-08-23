@@ -13,7 +13,7 @@ class Pybe {
     // interacting with the so.
     //
     // most shared library functions require the GIL and are behind a different API, `GILHolder`.
-    // use `Pybe::coerce_gil` to arrange that the pybe shared library has the GIL and
+    // use `Pybe::run_until_gil` to arrange that the pybe shared library has the GIL and
     // is ready for further commands.
 public:
     // inject and set up pybe. throws on failure. should only be called once for each inferior.
@@ -21,10 +21,13 @@ public:
 
     class GILHolder;
     // coerce the inferior into a state where the pybe thread has the global
-    // interpreter lock and return an API to actions that are only available
-    // under such conditions. this might mean running user python threads until
-    // they release the GIL. when the returned object is destructed, coerce the
-    // inferior into a state where the GIL is released.
+    // interpreter lock by running the necessary threads until the lock is held.
+    // return an API to actions that are only available under such conditions.
+    // this might mean running user python threads until they release the GIL.
+    //
+    // when the returned object is destructed, coerce the
+    // inferior into a state where the GIL is released by
+    // running it a short while.
     //
     // this function is marked [[ nodiscard ]] because side effects happen when
     // the returned GILHolder is destructed. it is probably a programmer error
@@ -33,17 +36,21 @@ public:
     //
     // throws dbgevent_t* error on failure.
     [[ nodiscard ]]
-    GILHolder coerce_gil();
+    GILHolder run_until_gil();
 
-    // coerce the inferior into a state where calling coerce_gil would not
+    // coerce the inferior into a state where calling run_until_gil would not
     // require any user threads to run.
     //
-    // this function simply calls coerce_gil and then immediately discards the
+    // this function simply calls run_until_gil and then immediately discards the
     // GIL. this function is mainly for expressing intent in situations where
     // you are arranging that the GIL be trivial to grab in the future, but
     // don't care about the GIL right now.
     //
     // throws dbgevent_t* error on failure.
+    //
+    // FIXME: there should be a different function available than run_until_gil
+    // for using after this function that checks that the assumption that the
+    // gil is trivial to get is true.
     void trivialize_gil();
 
     // return the minor version of the python inferior.
@@ -63,12 +70,12 @@ class Pybe::GILHolder {
     // it has RAII behavior in that constructing GILHolder aquires the GIL, and
     // destructing GILHolder releases it.
 public:
-    // no constructor - create via Pybe::coerce_gil
+    // no constructor - create via Pybe::run_until_gil
     GILHolder(const GILHolder& other) = delete;
     GILHolder& operator=(const GILHolder& other) = delete;
-    GILHolder(GILHolder&& expiring) = delete; // TODO implement this
+    GILHolder(GILHolder&& expiring) = delete; // this is a well defined operation, just not needed yet
 
-    // releases the GIL
+    // releases the GIL, might run user python threads for a bit in all stop mode
     ~GILHolder();
 
     // retreive the current python frame.
@@ -128,7 +135,7 @@ public:
 private:
     friend Pybe::Pybe(MISession&); // XXX: pybe ctor needs the gil to initialize tracing/breakpoints.
                                    //      would be nice if it didn't!
-    friend GILHolder Pybe::coerce_gil();
+    friend GILHolder Pybe::run_until_gil();
     GILHolder(pybe::RPC& rpc, int gil_thread_id, long py_thread_id);
 
     pybe::RPC& m_parent_rpc;

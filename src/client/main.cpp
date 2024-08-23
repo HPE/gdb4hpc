@@ -537,7 +537,7 @@ int main(int argc, char *argv[]) {
         // a non-interactive stdout will have 0 rows,
         // which is interpreted as "never page" properly.
     }
-    Client.python = PythonType::Auto;
+    Client.python = PyMode::Auto;
 
     /*
     ** Set signal handlers.

@@ -13,7 +13,7 @@ namespace pybe {
 class RPC {
     // remote procedure calls into the pybe shared library.
     //
-    // the only place a pybe::function_name() should be written down as a magic
+    // the only place a pybe function_name should be written down as a magic
     // string, anywhere in gdb4hpc, is in this class.
     //
     // the class has almost no invariants. it is meant to be a very low level
@@ -74,6 +74,7 @@ public:
 
     // initialize python internals and create the GIL. `tid` *must* be the
     // main python thread. this is only meaningful on python versions <= 3.6.
+    // for other versions, it's a no-op.
     void init_GIL(c_thread_id_t tid);
 
     // create the socket used for delivering large pybe results (e.g. backtraces).
@@ -85,7 +86,7 @@ public:
 
     // give thread `tid` a new `name`. the new name will be visible to the user
     // in the output of commands like info thread.
-    void thread_name(c_thread_id_t tid, std::string_view name);
+    void thread_set_name(c_thread_id_t tid, std::string_view name);
 
     // get the python id of the current thread `tid`. if `tid` is not a python thread
     // (e.g. a plain old pthread not registered with python), throws an error.
@@ -109,7 +110,7 @@ public:
     void thread_finish_with_timeout(c_thread_id_t tid, unsigned int frame);
 
     // check if *any* thread currently has the GIL. if one does, return its thread id.
-    std::optional<c_thread_id_t> any_thread_has_GIL();
+    std::optional<c_thread_id_t> get_GIL_holding_thread();
 
     // run thread `tid` and have it compete for the GIL. if it doesn't get the GIL in
     // a short amount of time, the function gives up and throws an error.
@@ -131,7 +132,7 @@ public:
     std::string eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std::string_view expr);
 
     // use thread 'tid' to call pybe and initialize the pybe trace/breakpoint system.
-    void start_tracing(c_thread_id_t tid);
+    void install_breakpoint_trace(c_thread_id_t tid);
 
     // some python debugging functionality requires knowing pybe function names.
     // for example, getting the GIL safely requires knowing if pybe is stopped

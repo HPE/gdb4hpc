@@ -145,14 +145,14 @@ dbgevent_t *DbgStartup(void) {
 dbgevent_t *DbgSetLineBreak(int id, int allowPending, const char *file, int line,
                             const char* threadSet, const dbgcomm_info *ci) {
     DBG_READY();
-    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBESetLineBreakpoint(id, file, line);
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBESetLineBreakpoint(id, file, line);
     return DbgBackendSW->setLineBreak(id, allowPending, file, line, threadSet, ci);
 }
 
 dbgevent_t *DbgSetFuncBreak(int id, int allowPending, const char *file, const char *func,
                             const char* threadSet, const dbgcomm_info *ci) {
     DBG_READY();
-    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBESetFuncBreakpoint(id, file, func);
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBESetFuncBreakpoint(id, file, func);
     return DbgBackendSW->setFuncBreak(id, allowPending, file, func, threadSet, ci);
 }
 
@@ -183,7 +183,7 @@ dbgevent_t *DbgDeleteCheckpoint(unsigned int id) {
 
 dbgevent_t *DbgDeleteBreak(int bp) {
     DBG_READY();
-    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBEDeleteBreakpoint(bp);
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBEDeleteBreakpoint(bp);
     return DbgBackendSW->deleteBreak(bp);
 }
 
@@ -240,7 +240,7 @@ dbgevent_t *DbgSetArgs(const char *args) {
 
 dbgevent_t *DbgStep(int count, int in, const char* threads) {
     DBG_STOPPED();
-    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBEStep(static_cast<bool>(in));
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBEStep(static_cast<bool>(in));
     return DbgBackendSW->step(count, in, threads);
 }
 
@@ -302,7 +302,7 @@ dbgevent_t *DbgSetVar(const char *var, const char* val, const char* threads) {
 
 dbgevent_t *DbgEvalExpr(const char *expr, long exprCnt, const char* threads) {
     DBG_READY();
-    if (DbgBackendSW->isPython()) return DbgBackendSW->pythonBEEvalExpr(expr);
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBEEvalExpr(expr);
     return DbgBackendSW->evalExpr(expr, exprCnt, threads);
 }
 
@@ -421,54 +421,54 @@ dbgevent_t *DbgSignal(char const* signame) {
     return DbgBackendSW->signal(signame);
 }
 
-dbgevent_t *DbgPythonBacktrace() {
+dbgevent_t *DbgPyExtBacktrace() {
     DBG_READY();
-    return DbgBackendSW->pythonBacktrace();
+    return DbgBackendSW->pyExtBacktrace();
 }
 
-dbgevent_t *DbgPythonList(const std::string& arg) {
+dbgevent_t *DbgPyExtList(const std::string& arg) {
     DBG_READY();
-    return DbgBackendSW->pythonList(arg);
+    return DbgBackendSW->pyExtList(arg);
 }
 
-dbgevent_t *DbgPythonMoveFrame(DbgFrameDir dir) {
+dbgevent_t *DbgPyExtMoveFrame(DbgFrameDir dir) {
     DBG_READY();
-    return DbgBackendSW->pythonMoveFrame(dir);
+    return DbgBackendSW->pyExtMoveFrame(dir);
 }
 
-dbgevent_t *DbgPythonPrint(const std::string& name) {
+dbgevent_t *DbgPyExtPrint(const std::string& name) {
     DBG_READY();
-    return DbgBackendSW->pythonPrint(name);
+    return DbgBackendSW->pyExtPrint(name);
 }
 
-dbgevent_t *DbgPythonLocals() {
+dbgevent_t *DbgPyExtLocals() {
     DBG_READY();
-    return DbgBackendSW->pythonLocals();
+    return DbgBackendSW->pyExtLocals();
 }
 
-dbgevent_t *DbgPythonBEGetPython() {
+dbgevent_t *DbgPyBEGetPython() {
     DBG_READY();
-    return DbgBackendSW->pythonBEGetPython();
+    return DbgBackendSW->pyBEGetPython();
 }
 
-dbgevent_t *DbgPythonBESetPython(PythonType setting) {
+dbgevent_t *DbgPyBESetPython(PyMode setting) {
     DBG_READY();
-    return DbgBackendSW->pythonBESetPython(setting);
+    return DbgBackendSW->pyBESetPython(setting);
 }
 
-dbgevent_t *DbgPythonBEInject() {
+dbgevent_t *DbgPyBEInject() {
     DBG_READY();
-    return DbgBackendSW->pythonBEInject();
+    return DbgBackendSW->pyBEInject();
 }
 
-dbgevent_t *DbgPythonBEGetGIL() {
+dbgevent_t *DbgPyBEGetGIL() {
     DBG_READY();
-    return DbgBackendSW->pythonBEGetGIL();
+    return DbgBackendSW->pyBEGetGIL();
 }
 
-dbgevent_t *DbgPythonBEAttach() {
+dbgevent_t *DbgPyBEAttach() {
     DBG_READY();
-    return DbgBackendSW->pythonBEAttach();
+    return DbgBackendSW->pyBEAttach();
 }
 
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {

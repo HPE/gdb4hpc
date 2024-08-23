@@ -85,7 +85,7 @@ int RPC::get_python_minor_version(c_thread_id_t tid) {
 
         try_send_command(m_parent_session, *cmd, [](){
             throw NewErrorEvent(DBGERR_DEBUGGER,
-                "Failed to detect python version. Disabling python debugging "
+                "Failed to detect python version (couldn't communicate). Disabling python debugging "
                 "for this rank. Re-enable with `set python on`.\n");
         });
 
@@ -109,7 +109,9 @@ int RPC::get_python_minor_version(c_thread_id_t tid) {
 
     const auto version = ::strtol(python_version_str.c_str(), nullptr, 10);
     if (version == 0) {
-        throw todo_write_better_error_message();
+        throw NewErrorEvent(DBGERR_DEBUGGER,
+            "Failed to detect python version (couldn't parse version number). Disabling python debugging "
+            "for this rank. Re-enable with `set python on`.\n");
     }
     return version;
 }
@@ -178,10 +180,9 @@ void RPC::open_pybe_channel(c_thread_id_t tid) {
     if (auto maybe_pybe_server = pybe::Server::make(socket_path)) {
         m_pybe_server = std::make_unique<pybe::Server>(std::move(*maybe_pybe_server));
     } else {
-        // XXX: calling strerror is probably wrong here at this point
-        DVPRINT("failed to create server socket: %s\n", strerror(errno));
-        // TODO better error message
-        throw NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
+        DVPRINT("failed to create pybe server\n");
+        // not much the user can do if this fails. just emit a bug report friendly error
+        throw NewErrorEvent(DBGERR_INTERNAL, "Failed to set up communication with to python. (server creation failed)");
     }
 
     // SendMICommand will block until the command completes and the
@@ -206,10 +207,9 @@ void RPC::open_pybe_channel(c_thread_id_t tid) {
         if (auto maybe_channel = server.accept_with_timeout()) {
             return std::make_unique<pybe::Channel>(std::move(*maybe_channel));
         } else {
-            // XXX: calling strerror is probably wrong here at this point
-            DVPRINT("failed to create server socket: %s\n", strerror(errno));
-            // TODO better error message
-            throw NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
+            DVPRINT("failed to create server socket\n");
+            // not much the user can do if this fails. just emit a bug report friendly error
+            throw NewErrorEvent(DBGERR_INTERNAL, "Failed to set up communication with to python. (channel creation failed)");
         }
     }, std::ref(*m_pybe_server));
 
@@ -267,14 +267,6 @@ RPC::c_thread_id_t RPC::spawn_pybe_gil_thread(c_thread_id_t tid) {
             // XXX: can't really check for error here because gdb reports the SIGTRAP that
             // the new thread receives as a debugger error despite well defined behavior.
             // but maybe we could do some parsing of the output text.
-
-            // DVPRINT("PythonBEGetGIL: error starting GIL thread\n");
-            // return NewErrorEvent(DBGERR_DEBUGGER,
-            //     "Failed to set up python debugging.\n"
-            //     "This is a bug. Please report it and include the following info:\n"
-            //     "failure: failed to start GIL thread (%s)\n",
-            //     fn);
-            // // TODO include error text from gdb
         }
 
         // this should have been set in the callback we set up
@@ -325,16 +317,19 @@ RPC::py_thread_id_t RPC::thread_get_python_id(c_thread_id_t tid) {
         auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(long)pybe::get_python_thread_id()", tid));
 
         try_send_command(m_parent_session, *cmd, [](){
-            throw NewErrorEvent(DBGERR_DEBUGGER,
-                "Failed to set up python debugging.\n"
-                "This is a bug. Please report it and include the following info:\n"
-                "failure: failed to determine thread id");
+            // not much the user can do if this fails. we already verified that we are on a python
+            // thread above so something internal must be wrong. just emit a bug report friendly error message.
+            throw NewErrorEvent(DBGERR_INTERNAL, "failed to get python thread id (failed to communicate)");
         });
 
         auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
-        const auto version = ::strtol(result.get(), nullptr, 10);
-        if (version == 0) throw todo_write_better_error_message();
-        return version;
+        const auto ptid = ::strtol(result.get(), nullptr, 10);
+        if (ptid == 0) {
+            // not much the user can do if this fails. we already verified that we are on a python
+            // thread above so something internal must be wrong. just emit a bug report friendly error message.
+            throw NewErrorEvent(DBGERR_INTERNAL, "failed to get python thread id (failed to parse id)");
+        }
+        return ptid;
     }
 }
 
@@ -361,10 +356,8 @@ void RPC::thread_interrupt(c_thread_id_t tid) {
     auto cmd = make_MICmd(MIExecInterruptThread(tid));
 
     try_send_command(m_parent_session, *cmd, [](){
-        throw NewErrorEvent(DBGERR_DEBUGGER,
-            "Failed to set up python debugging.\n"
-            "This is a bug. Please report it and include the following info:\n"
-            "failure: failed to switch to GIL thread");
+        // not much the user can do if the interrupt failed. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "thread_interrupt: failed to interrupt thread.");
         // TODO include error text from gdb
     });
 
@@ -382,7 +375,7 @@ void RPC::thread_interrupt(c_thread_id_t tid) {
     DVPRINT("was the wait necessary? (finish) waited:%d got_one:%d\n", waited, got_one);
 }
 
-void RPC::thread_name(c_thread_id_t tid, std::string_view name) {
+void RPC::thread_set_name(c_thread_id_t tid, std::string_view name) {
     // the thread name command is only available in the console interpreter and
     // only operates on the current thread, so we have to silently switch threads around
     auto cleanup = RestoreCurrentThreadOnScopeExit{*this};
@@ -411,7 +404,8 @@ void RPC::thread_select(c_thread_id_t tid) {
 
     auto cmd = make_MICmd(CLIBypass(argv.size(), const_cast<char**>(argv.data())));
     try_send_command(m_parent_session, *cmd, [](){
-        throw todo_write_better_error_message();
+        // not much the user can do if the select failed. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to select thread.");
     });
 }
 
@@ -419,7 +413,8 @@ bool RPC::thread_has_GIL(c_thread_id_t tid) {
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(bool)PyGILState_Check()", tid));
 
     try_send_command(m_parent_session, *cmd, [](){
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to check for GIL");
     });
 
     auto result_buf = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -436,7 +431,7 @@ void RPC::thread_take_GIL(c_thread_id_t tid) {
         auto cmd = make_MICmd(MIGDBSet("unwindonsignal", "off"));
 
         try_send_command(m_parent_session, *cmd, [](){
-            throw NewErrorEvent(DBGERR_DEBUGGER,
+            throw NewErrorEvent(DBGERR_INTERNAL,
                 "Failed to set up python debugging.\n"
                 "This is a bug. Please report it and include the following info:\n"
                 "failure: failed to disable unwind-on-signal");
@@ -488,7 +483,7 @@ void RPC::thread_take_GIL(c_thread_id_t tid) {
     }
 }
 
-std::optional<RPC::c_thread_id_t> RPC::any_thread_has_GIL() {
+std::optional<RPC::c_thread_id_t> RPC::get_GIL_holding_thread() {
     {
         // gdb will emit an error for the below thread apply call below if *any* single
         // thread is running, so we have to manually stop threads before the command
@@ -501,7 +496,9 @@ std::optional<RPC::c_thread_id_t> RPC::any_thread_has_GIL() {
     {
         auto cmd = make_MICmd(MIExecInterruptAll());
         try_send_command(m_parent_session, *cmd, [](){
-            throw todo_write_better_error_message();
+            // not much the user can do if the interrupt failed. just emit a bug report friendly error.
+            throw NewErrorEvent(DBGERR_INTERNAL, "get_GIL_holding_thread: failed to interrupt thread");
+            // TODO include error text from gdb
         });
     }
 
@@ -511,7 +508,9 @@ std::optional<RPC::c_thread_id_t> RPC::any_thread_has_GIL() {
         const char* argv[] = { "thread", "apply", "all", "p", "(int)PyGILState_Check()" };
         auto cmd = make_MICmd(CLIBypass(sizeof(argv) / sizeof(argv[0]), const_cast<char**>(argv)));
         try_send_command(m_parent_session, *cmd, [](){
-            throw todo_write_better_error_message();
+            // not much the user can do if this fails. just emit a bug report friendly error.
+            throw NewErrorEvent(DBGERR_INTERNAL, "get_GIL_holding_thread: failed to find GIL (command failed)");
+            // TODO include error text from gdb
         });
 
         auto result_buf = MallocedCharPtr(MICommandConsoleOOBMessages(cmd.get()));
@@ -535,6 +534,7 @@ std::optional<RPC::c_thread_id_t> RPC::any_thread_has_GIL() {
 
     DVPRINT("thread currently holding gil: %u\n", gil_thread);
 
+    // XXX: no way to tell this apart from the regex failing to parse anything
     if (gil_thread == 0) return std::nullopt;
 
     return gil_thread;
@@ -543,7 +543,9 @@ std::optional<RPC::c_thread_id_t> RPC::any_thread_has_GIL() {
 void RPC::thread_continue(c_thread_id_t tid) {
     auto cmd = make_MICmd(MIExecContinueThread(tid));
     try_send_command(m_parent_session, *cmd, [](){
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to continue");
+        // TODO include error text from gdb
     });
 }
 
@@ -568,7 +570,9 @@ void RPC::thread_finish_with_timeout(c_thread_id_t tid, unsigned int frame) {
     }, &got_one);
 
     try_send_command(m_parent_session, *make_MICmd(MIExecFinishThreadFrame(tid, frame)), [](){
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to execute finish");
+        // TODO include error text from gdb
     });
 
     // eat the generated *stopped
@@ -589,11 +593,17 @@ void RPC::thread_finish_with_timeout(c_thread_id_t tid, unsigned int frame) {
 pybe::Backtrace RPC::get_elf_backtrace(c_thread_id_t tid) {
     auto cmd = make_MICmd(MIStackListAllFramesThread(tid));
     try_send_command(m_parent_session, *cmd, [](){
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to list frames");
+        // TODO include error text from gdb
     });
 
     auto miframes = MIGetStackListFramesInfo(cmd.get());
-    if (!miframes) throw todo_write_better_error_message();
+    if (!miframes) {
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to extract frame info (mi returned nullptr)");
+        // TODO include error text from gdb
+    }
     auto miframes_cleanup = OnScopeExit([&](){
         MIListFree(miframes, (void (*)())MIFrameFree);
     });
@@ -614,7 +624,9 @@ pybe::Backtrace RPC::get_elf_backtrace(c_thread_id_t tid) {
     }
 
     if (result.frames.empty()) {
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to extract frame info (no frames found)");
+        // TODO include error text from gdb
     }
 
     return result;
@@ -622,7 +634,8 @@ pybe::Backtrace RPC::get_elf_backtrace(c_thread_id_t tid) {
 
 pybe::Backtrace RPC::get_python_backtrace(c_thread_id_t tid, py_thread_id_t py_thread_id) {
     if (!m_pybe_channel) {
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "get_python_backtrace: used before communication available");
     }
 
     auto& channel = *m_pybe_channel;
@@ -630,17 +643,16 @@ pybe::Backtrace RPC::get_python_backtrace(c_thread_id_t tid, py_thread_id_t py_t
     const auto seq = channel.generate_sequence_number();
     {
         const auto fn = std::string{"\"pybe::get_backtrace("} + std::to_string(seq) + ", " + std::to_string(py_thread_id) + ")\"";
-        auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
-
-        try_send_command(m_parent_session, *cmd, [](){
-            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
+        try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+            // not much the user can do if this fails. just emit a bug report friendly error.
+            throw NewErrorEvent(DBGERR_INTERNAL, "get_python_backtrace: pybe fn failed");
         });
     }
 
     auto buf = channel.recv_with_timeout(seq);
     if (buf == "") {
-        // TODO: be more informative
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "get_python_backtrace: got nothing from pybe");
     }
 
     const auto* cursor = buf.c_str();
@@ -648,13 +660,14 @@ pybe::Backtrace RPC::get_python_backtrace(c_thread_id_t tid, py_thread_id_t py_t
         return *result;
     }
 
-    // TODO: be more informative
-    throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
+    // not much the user can do if this fails. just emit a bug report friendly error.
+    throw NewErrorEvent(DBGERR_INTERNAL, "get_python_backtrace: failed to deserialize data");
 }
 
 pybe::Frame RPC::get_python_frame(c_thread_id_t tid, py_thread_id_t py_thread_id) {
     if (!m_pybe_channel) {
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "get_python_frame: used before communication available");
     }
 
     auto& channel = *m_pybe_channel;
@@ -663,13 +676,14 @@ pybe::Frame RPC::get_python_frame(c_thread_id_t tid, py_thread_id_t py_thread_id
     const auto fn = std::string{"pybe::get_frame("} + std::to_string(seq) + "," + std::to_string(py_thread_id) + ")";
 
     try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get frame");
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "get_python_frame: pybe fn failed");
     });
 
     auto buf = channel.recv_with_timeout(seq);
     if (buf == "") {
-        // TODO: be more informative
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get frame");
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "get_python_frame: got nothing from pybe");
     }
 
     const auto* cursor = buf.c_str();
@@ -677,8 +691,8 @@ pybe::Frame RPC::get_python_frame(c_thread_id_t tid, py_thread_id_t py_thread_id
         return *result;
     }
 
-    // TODO: be more informative
-    throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get backtrace");
+    // not much the user can do if this fails. just emit a bug report friendly error.
+    throw NewErrorEvent(DBGERR_INTERNAL, "get_python_frame: failed to deserialize data");
 }
 
 std::string RPC::eval_elf_expression(c_thread_id_t tid, size_t frame, std::string_view expr) {
@@ -692,8 +706,8 @@ std::string RPC::eval_elf_expression(c_thread_id_t tid, size_t frame, std::strin
     const auto gdb_expr = std::string{"\""} + double_escaped + "\"";
 
     auto cmd = make_MICmd(MIDataEvaluateExpressionThreadFrame(gdb_expr.c_str(), tid, frame));
-    try_send_command(m_parent_session, *cmd, [](){
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to eval");
+    try_send_command(m_parent_session, *cmd, [&](){
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s", expr.size(), expr.data());
     });
 
     const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -702,7 +716,8 @@ std::string RPC::eval_elf_expression(c_thread_id_t tid, size_t frame, std::strin
 
 std::string RPC::eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std::string_view expr) {
     if (!m_pybe_channel) {
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "eval_py_expression: used before communication available");
     }
 
     auto& channel = *m_pybe_channel;
@@ -719,23 +734,24 @@ std::string RPC::eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std:
 
         const auto gdb_expr = std::string{"\"(bool)pybe::eval_expr("} + std::to_string(seq) + "," + std::to_string(ptid) + ",\\\"" + double_escaped + "\\\")\"";
 
-        try_pybe_fn_check_true(m_parent_session, gdb_expr.c_str(), tid, [](){
-            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to eval");
+        try_pybe_fn_check_true(m_parent_session, gdb_expr.c_str(), tid, [&](){
+            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s", expr.size(), expr.data());
         });
     }
 
     auto buf = channel.recv_with_timeout(seq);
     if (buf == "") {
-        // TODO: be more informative
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to eval");
+        // we should never get an empty string back - even an empty string will come back from python as two double quotes.
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "eval_py_expr: got nothing from pybe");
     }
 
     return buf;
 }
 
-void RPC::start_tracing(c_thread_id_t tid) {
+void RPC::install_breakpoint_trace(c_thread_id_t tid) {
     try_pybe_fn_check_true(m_parent_session, "pybe::init_trace()", tid, [](){
-        throw NewErrorEvent(DBGERR_DEBUGGER,
+        throw NewErrorEvent(DBGERR_INTERNAL,
             "Failed to set up python debugging.\n"
             "This is a bug. Please report it and include the following info:\n"
             "failure: failed to set up tracing");
@@ -764,8 +780,13 @@ pybe::Breakpoint RPC::set_breakpoint(c_thread_id_t tid, int feid, std::string_vi
         "\"" + std::string{funcname} + "\"" +
     ")";
 
-    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
-        throw todo_write_better_error_message();
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [&](){
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to set breakpoint at function \"%*s\" in file \"%*s\", line %d",
+                            (int)funcname.size(), funcname.data(),
+                            (int)filename.size(), filename.data(),
+                            line);
+        // TODO include error text from gdb - right now we can't tell if
+        // pybe failed or the user simply passed a bad breakpoint
     });
 
     return pybe::Breakpoint {
@@ -780,8 +801,10 @@ pybe::Breakpoint RPC::set_breakpoint(c_thread_id_t tid, int feid, std::string_vi
 
 void RPC::delete_breakpoint(c_thread_id_t tid, int feid) {
     const auto fn = std::string{"pybe::delete_breakpoint("} + std::to_string(feid) +")";
-    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
-        throw todo_write_better_error_message();
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [&](){
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to delete breakpoint %d", feid);
+        // TODO include error text from gdb - right now we can't tell if
+        // pybe failed or the user simply passed a bad breakpoint
     });
 }
 
@@ -789,7 +812,9 @@ bool RPC::at_breakpoint(c_thread_id_t tid) {
     const auto fn = std::string{"pybe::have_breakpoint()"};
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
     try_send_command(m_parent_session, *cmd, [](){
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to determine if python is at a breakpoint");
+        // TODO include error text from gdb
     });
 
     auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -798,7 +823,8 @@ bool RPC::at_breakpoint(c_thread_id_t tid) {
 
 pybe::Breakpoint RPC::take_current_breakpoint(c_thread_id_t tid) {
     if (!m_pybe_channel) {
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "take_current_breakpoint: used before communication available");
     }
     auto& channel = *m_pybe_channel;
 
@@ -808,28 +834,33 @@ pybe::Breakpoint RPC::take_current_breakpoint(c_thread_id_t tid) {
         auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
 
         try_send_command(m_parent_session, *cmd, [](){
-            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get breakpoint");
+            // not much the user can do if this fails. just emit a bug report friendly error.
+            throw NewErrorEvent(DBGERR_INTERNAL, "failed to take breakpoint");
+            // TODO include error text from gdb
         });
     }
 
     auto buf = channel.recv_with_timeout(seq);
     if (buf.empty()) {
-        // TODO: be more informative
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to get breakpoint");
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "take_current_breakpoint: got nothing from pybe");
     }
 
     const auto* cursor = buf.c_str();
     if (auto result = pybe::Breakpoint::deserialize(cursor, buf.size())) {
         return *result;
     } else {
-        return {};
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "take_current_breakpoint: failed to deserialize data");
     }
 }
 
 void RPC::insert_step_trap(c_thread_id_t tid, py_thread_id_t ptid, bool step_in) {
     const auto fn = std::string{"pybe::install_step_trap("} + std::to_string(ptid) + "," + std::to_string(step_in) + ")";
     try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
-        throw todo_write_better_error_message();
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to set up python step");
+        // TODO include error text from gdb
     });
 }
 

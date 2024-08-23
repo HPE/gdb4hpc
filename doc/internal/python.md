@@ -323,6 +323,10 @@ give up the GIL if it has been holding it for too long. The user can actually
 time](https://docs.python.org/3/library/sys.html#sys.setswitchinterval) that
 python waits before giving up the GIL.
 
+There are some exceptions to this approach to getting the GIL that happen
+during breakpoints and right after launch. See "The GIL Should be Invisible
+to the User" for a breakdown of all of the GIL situations.
+
 #### The GIL in Python 3.6
 
 In versions of python <= 3.6, the GIL system is not created by default. Python
@@ -385,19 +389,68 @@ actually that many situations that we need to worry about. The only times the
 user ever gains control of their app are:
 
 - After a launch
-- After an attach
-- After a halt
 - After a breakpoint (stepping/finishing/etc can be thought of as a special
   breakpoints in this case)
+- After an attach
+- After a halt
 
-We need to acquire the GIL right after launch so the user can immediately start
-running commands. The most common use case is to start setting breakpoints
-right after the launch completes. To implement this, we pick special entry
-point locations for python launches. Instead of stopping at main, we stop just
-after python initializes itself and drops the GIL for a moment. Stopping here
-means the GIL is trivial to grab and the user can run commands. We don't actually
-need to lock the GIL at any point here, just stop at a point where it's trivial
-to do so.
+##### Getting the GIL after Launch, after Breakpoints, and Avoiding Slippage
+
+After launching, we need to acquire the GIL so the user can immediately start
+running commands. After all, the most common use case of a debugger is to start
+setting breakpoints right after starting. To implement this, we pick special
+entry point locations for python launches. Instead of stopping at main, we stop
+just after python initializes itself. At this point, the main python thread has
+the GIL but has not run any python code yet.
+
+After launch is one of the exceptions where we don't use our hidden thread to
+get the GIL. We can't use the GIL thread because it would cause slippage.
+
+**Slippage** is what we call anything that changes the location of the python
+interpreter when it shouldn't. For example, consider a user setting a
+breakpoint at filename.py:80. When the application hits that breakpoint and the
+user runs a `backtrace` command, they should see that the application is
+stopped at filename.py:80 (of course). But often in pybe development
+the application suddenly appears at filename.py:81 (or later) even though
+it was never started up again after the breakpoint! That's slippage. It's
+an extremely common problem in pybe that we need to always be careful about.
+
+Now consider the situation we are in after we connect to a freshly launched
+python interpreter and want to set a breakpoint at the very first python line
+that will be executed. Our default process of getting the GIL requires that we
+start our hidden thread, start the GIL holding thread, and wait a little while
+for the holder to release the GIL and our hidden thread to get it. But if we
+did this right after launch, we might slip past our first python line that we
+wanted to break at since the main thread has to run for a short time!
+
+So we need to break our original rule of not using the main thread's GIL to run
+commands. We set that initial breakpoint using the main thread that already has
+the GIL. Indeed, this is undesirable for the original reasons that motivated us
+to use the hidden thread (unreproducable threading bugs). But through thorough
+testing and the fact that we are operating in a fairly low variance situation
+(for each version of python, the launch process will stop at the same
+location), we get away with it.
+
+Breakpoints are similar. Breakpoints are implemented by registering a tracing
+function with python. The running python thread will call our tracing function
+before every python line executed. Since it's being called directly from python,
+the GIL is held during the trace function. The trace function is where
+breakpoints are detected and hit. When a breakpoint is detected, a signal is
+raised and the python thread stops, waiting for input from gdb.
+
+We have to avoid slippage for the same reason that was laid out in the
+paragraph that defined slippage: once we hit a breakpoint, we can't let the
+python interpreter move on until the user says so. But we can't start a thread
+to compete for the GIL since the main thread already has it.
+
+Again, we break our rule and directly use the main python thread's GIL. But
+this time the situation is more well defined. It's reasonable to assume that
+python *expects* the python C API to be used within the tracing function - why
+else would it exist? So we simply assume that using the main thread's GIL won't
+lead to mysterious reference counting bugs. Hopefully that is never proven to
+be a bad assumption. :-)
+
+##### Getting the GIL after Attach or Halt
 
 Attach and halt have the useful property that the user doesn't actually know
 where their app should be when it stops. They know that it should stop
@@ -408,10 +461,43 @@ known which thread (if any) has the GIL, but we don't give the user control
 yet. Now we do our aquire/drop GIL trick. This causes slippage, but the user
 never knows about it.
 
-Breakpoints are easy - the python tracing functions we use to implement
-breakpoints already guarantee the GIL.
+##### Slippage and All Stop Mode
 
-> Note: breakpoints are not actually implemented yet!
+One last note on slippage. It's a particularly tricky problem to deal with in
+all stop mode. gdb has two main modes of operation for multithreaded apps: non
+stop mode and all stop mode. In non stop mode, gdb has the ability to stop a
+single thread (or any arbitrary amount of threads) while others keep running.
+This is ideal for how we implement pybe since it lets us run pybe operations at
+a very granular level without the whole app starting up and changing state.
+In all stop mode, once one thread stops, gdb stops the rest of the threads. The
+same applies to starting threads. Crucially, using gdb's `call` command starts
+a thread to evaluate its result. This means that in all stop mode the `call`
+command starts all threads! This is important to us because we use gdb's `call`
+as the basic interface between dbgsrv and pybe.
+
+This means that sometimes, while it would seem more safe to use our hidden
+thread to do something, we have to use the main thread to avoid slippage. For
+example, setting breakpoints doesn't actually require the GIL. Setting a
+breakpoint doesn't use the python C API (which requires the GIL), it just sets
+up some pybe internal tracking information. This makes it tempting to always
+use our hidden thread for setting breakpoints. But setting breakpoints still
+requires a `call` into pybe. If we tried to set a breakpoint using the hidden
+thread in all stop mode, the main thread might slip while we do it!
+
+All stop mode is actually the default setting for gdb, but in gdb4hpc we
+silently set non stop mode as the default. We do this by running a quick `set
+non-stop on` in gdb before we attach to a freshly launched app. The gdb4hpc
+user has the option to disable this with the gdb4hpc command `set non-stop
+off`.
+
+Notably, the user can't change the non stop/all stop setting after gdb has
+launched or attached to an app. This is a gdb limitation.
+
+Double notably, gdb4hpc's `attach` command does not respect the current gdb4hpc
+`non-stop` setting. Since all stop is the default gdb setting, all gdb4hpc
+attaches run in all stop mode. This is basically an oversight in gdb4hpc and
+could be fixed very easily with a quick bugfix PR, but it's the current status
+quo and worth keeping in mind.
 
 ### Getting Results Back to dbgsrv - The Socket
 
@@ -420,8 +506,9 @@ a way to get it back to dbgsrv.
 
 Since we are running our functions inside of the python interpreter, not
 dbgsrv, we can't simply `return` the generated struct to the caller. The caller
-is the GIL grabbing thread and if we returned it there that backtrace we worked
-so hard to build would disappear into the ether forever.
+is some function in some thread in the python interpreter and if we returned it
+there that python debug data we worked so hard to collect would disappear into
+the ether forever.
 
 Since we used gdb's `call` command to initiate the pybe functions and `call`
 does print the return value, it might be tempting to try an approach where we
@@ -447,7 +534,9 @@ It does introduce some new problems we have to solve. e.g. we are now
 vulnerable to blocking forever if something goes wrong. But the new problems
 are problems that only need to be solved once instead of for every gdb
 release/distribution. The socket is a unix domain socket so there is no worry
-about network trouble. #### Linux Socket vs. zmq Sockets
+about network trouble.
+
+#### Linux Socket vs. zmq Sockets
 
 We use a plain old Linux socket. But we already use zmq in zmqnet, which is a
 lot nicer. Why don't we use zmq in pybe too?
@@ -476,7 +565,7 @@ that is easy to maintain and can be shared by the dbgsrv and pybe shared
 library.
 
 Usually writing a serialization/deserialization library is pretty easy
-(especially if it doesn't happen to be optimal). But in this case, the two
+(especially if it doesn't have to be optimal). But in this case, the two
 sides communicating are not using the same standard libraries.
 
 The pybe shared library is written in C++, but without the C++ standard
@@ -486,7 +575,11 @@ library symbols in the pybe shared library and a user was using a python
 extension that used a different version of the C++ shared library, symbol
 conflicts could happen. The pybe shared library uses TINYSTL to replace some
 common C++ shared library containers (strings, vectors, etc). This is
-statically linked and won't interfere with user apps.
+statically linked and won't interfere with user apps. pybe also uses some
+of the C++ shared library that is templatized and completely implemented in
+headers, e.g. smart pointers. Since they are templatized on pybe internal
+types, they won't collide with any symbols in the wild. And even if they did,
+they are compiled as private symbols in pybe so they wouldn't collide anyway.
 
 So with dbgsrv using the C++ standard library and pybe using TINYSTL, how do we
 write the serialization library in such a way that we only have to maintain a
@@ -494,11 +587,11 @@ single codebase instead of two copies, one with each shared library?
 
 The pybe communications library is templatized on the basic C++ standard
 library containers. When dbgsrv is compiled, it plugs in the C++ standard
-library. When pybe is compiled, it plugs in TINYSTL. TINYSTL is (intentionally)
-similar enough to the C++ standard library that strings and vectors can more or
-less be used interchangeably. Since the data is first serialized into raw bytes
-before contacting the other side, each side is free to use whatever string
-(etc.) implementation it wants.
+library. When pybe is compiled, it plugs in TINYSTL. TINYSTL is intentionally
+similar enough to the C++ standard library that STL strings/vectors/etc can
+more or less be used interchangeably with TINYSTL strings/vectors/etc. Since
+the data is first serialized into raw bytes before contacting the other side,
+each side is free to use whatever string (etc.) implementation it wants.
 
 ### Supporting Multiple Python Versions
 
@@ -521,8 +614,8 @@ versions of the code that uses the python API, one against each python version
 we support and pick the correct one at runtime.
 
 We test multiple versions using avocado's parameters/variant feature. The test
-suite will search for all minor versions of cray-python on the system and test
-against them - plus the system python e.g. /usr/bin/python3.
+suite will try to find different versions of python available on the system and
+test against them. See avocado_config_python.yaml and tests.py.
 
 #### Changing The Supported Set Of Python Versions
 
@@ -536,7 +629,8 @@ To add or remove a python version, the following need to be updated:
    set of versions.
 
 Confirm 1 and 2 by building gdb4hpc and checking the build directory for the
-expected .so files.
+expected .so files. (API changes/breakages might make this take longer than you
+bargained for, see step 5)
 
 3. The various lists of libgdb4_pybe_3.XX.so files in the .spec file need to
    be updated with the new set of versions.
@@ -544,8 +638,8 @@ expected .so files.
 The list should match the list of built libgdb4_pybe_3.X.so files. (Ignore
 libgdb4_pybe_insurance.so). Confirm by building the rpm. Make sure you have run
 meson install and be careful that you don't have any old versions of
-libgdb4_pybe in the installation directory that might be accidentally picked
-up.
+libgdb4_pybe_3.X.so in the installation directory that might be accidentally
+picked up.
 
 4. avocado_config_python.yaml needs to be updated with the new set of versions.
 
@@ -556,18 +650,53 @@ supported python version (skipped tests are okay). To check, run:
 $ ./test_tool.py -st python -c avocado_config_python.yaml
 ```
 
-In theory, that's all you need to do. gdb4hpc automatically detects and loads
-the right version at runtime so no dbgsrv code changes should be needed. But
-adding a new python version will build libgdb4_pybe against the new python C
-API, which might have breaking changes. In general we try to use stable parts
-of the python C API as much as possible, but for some debugging purposes we
-have to read unstable struct members etc, which might cause an issue during the
-update process. Give yourself some extra time for this possibility when you
-are scheduling time to do the update.
+5. (sometimes) dbgsrv code.
+
+In theory, you can end at step 4. gdb4hpc knows the list of supported python
+versions from the build system you updated in step 2, and it automatically
+detects and loads the right version at runtime so no dbgsrv code changes will
+be needed for version selection. But adding a new python version will build
+libgdb4_pybe against the new python C API, which might have breaking changes.
+In general we try to use stable parts of the python C API as much as possible,
+but for some debugging purposes we have to read unstable struct members etc,
+which might cause an issue during the update process. Give yourself some extra
+time for this possibility when you are scheduling time to do the update.
 
 You might also need to find a new entry point function. We rely on private
 python symbols so we can set entry breakpoints for launch (see the section
 about keeping the GIL invisible to the user). These symbols can disappear
-between versions or simply not be called by the newest python version. The test
-suite will confirm if you need to investigate this. Passing tests on the new
-version mean no action is necessary.
+between versions or simply not be called by the newest python version.
+
+Similarly, detecting the special case for using the GIL at launch (see the
+section about slippage) relies on private python function names and might need
+to be changed.
+
+In general, the test suite will confirm if you need to investigate anything.
+Passing tests on the new version mean no action is necessary.
+
+### Compiler/Packaging Quirks of libgdb4_pybe.3.X.so
+
+**Problem 7**: We do some weird stuff to make this all work and compilers/rpm
+aren't expecting it.
+
+In some places in pybe, we rely on information that compilers assume doesn't
+get relied on. As the end of the last section alludes to, we rely on certain
+symbols being present in stack traces to determine how to use the GIL.
+Compilers love to inline functions calls when they can, which can break things.
+
+Similar things can happen to local variables that appear unused in the source
+code but are modified by gdb commands.
+
+These are all solved by compiler attributes/keywords, be sure to keep an eye
+out for them! If you add one, add a comment explaining why it's there.
+
+Another note is that since dbgsrv communicates with the pybe shared library
+with gdb, the shared library requires debug info. This is easy enough to tell
+the build system, but rpms have their own assumptions. The default process of
+packaging a binary in an rpm ends with stripping the binary of all debug info.
+The intent is that debug info will be offered as a separate package - but we
+don't do that. So we need to figure out a way to disable the stripping.
+Stripping can be disabled globally, but for a more granular approach we do a
+trick. We package the pybe shared library as a compressed gzip file and
+uncompress it at package installation time. Properly packaging this requires
+some uncommon rpm macros (e.g. `%ghost`), but it works.

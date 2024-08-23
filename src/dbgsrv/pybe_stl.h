@@ -2,11 +2,11 @@
 //
 // stl-like functions and classes that aren't offered in tinystl.
 //
-// TODO write in python.md why we use Result<> instead of constructors.
-//      short answer: with no stdlib++, we have no exceptions. without
-//      exceptions there is no way to error check contructors, so we
-//      wrap them in `make` functions that return a Result<> that must
-//      be checked.
+// why we use Result<> instead of constructors:
+// with no stdlib++, we have no exceptions. without
+// exceptions there is no way to error check contructors, so we
+// wrap them in `make` functions that return a Result<> that must
+// be checked.
 
 #pragma once
 

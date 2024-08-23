@@ -1299,7 +1299,7 @@ dbgevent_t* DbgGdbMI::showElfFrames(int count, const char* threads) {
 }
 
 dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
-    return isPython() ? pythonBEBacktrace() : showElfFrames(count, threads);
+    return isPython() ? pyBEBacktrace() : showElfFrames(count, threads);
 }
 
 /*
@@ -2499,7 +2499,7 @@ dbgevent_t *DbgGdbMI::signal(char const* signame) {
     return e;
 }
 
-dbgevent_t* DbgGdbMI::pythonBacktrace() {
+dbgevent_t* DbgGdbMI::pyExtBacktrace() {
     DVPRINT("pythonBacktrace\n");
 
     const char* argv[1] = { "py-bt" };
@@ -2521,7 +2521,7 @@ dbgevent_t* DbgGdbMI::pythonBacktrace() {
     }
 }
 
-dbgevent_t* DbgGdbMI::pythonList(const std::string& arg) {
+dbgevent_t* DbgGdbMI::pyExtList(const std::string& arg) {
     DVPRINT("pythonList\n");
 
     const char* argv[2] = { "py-list", arg.c_str() };
@@ -2539,7 +2539,7 @@ dbgevent_t* DbgGdbMI::pythonList(const std::string& arg) {
     return e;
 }
 
-dbgevent_t* DbgGdbMI::pythonMoveFrame(DbgFrameDir dir) {
+dbgevent_t* DbgGdbMI::pyExtMoveFrame(DbgFrameDir dir) {
     DVPRINT("pythonMoveFrame\n");
 
     auto cmd = [&]() {
@@ -2575,7 +2575,7 @@ dbgevent_t* DbgGdbMI::pythonMoveFrame(DbgFrameDir dir) {
     }
 }
 
-dbgevent_t* DbgGdbMI::pythonPrint(const std::string& name) {
+dbgevent_t* DbgGdbMI::pyExtPrint(const std::string& name) {
     DVPRINT("pythonPrint %s\n", name.c_str());
 
     const char* argv[2] = { "py-print", name.c_str() };
@@ -2594,7 +2594,7 @@ dbgevent_t* DbgGdbMI::pythonPrint(const std::string& name) {
     return e;
 }
 
-dbgevent_t* DbgGdbMI::pythonLocals() {
+dbgevent_t* DbgGdbMI::pyExtLocals() {
     DVPRINT("pythonLocals\n");
 
     const char* argv[1] = { "py-locals" };
@@ -2631,33 +2631,33 @@ Pybe& DbgGdbMI::ensurePybe() {
     }
 }
 
-dbgevent_t* DbgGdbMI::pythonBEGetPython() {
+dbgevent_t* DbgGdbMI::pyBEGetPython() {
     auto e = NewEvent(DBGEV_STRING);
     e->ev_string = isPython() ? ::strdup("on") : ::strdup("off");
     return e;
 };
 
-dbgevent_t* DbgGdbMI::pythonBESetPython(PythonType setting) {
-    if (setting != PythonType::On && setting != PythonType::Off) {
+dbgevent_t* DbgGdbMI::pyBESetPython(PyMode setting) {
+    if (setting != PyMode::On && setting != PyMode::Off) {
         throw NewErrorEvent(DBGERR_DEBUGGER, "Expected \"on\" or \"off\".");
     }
-    setPython(setting == PythonType::On);
+    setPython(setting == PyMode::On);
     return NewEvent(DBGEV_OK);
 };
 
-dbgevent_t* DbgGdbMI::pythonBEInject() {
+dbgevent_t* DbgGdbMI::pyBEInject() {
     DVPRINT("pythonBEInject\n");
     ensurePybe(); // throws on failure
     return NewEvent(DBGEV_OK);
 }
 
-dbgevent_t* DbgGdbMI::pythonBEGetGIL() {
+dbgevent_t* DbgGdbMI::pyBEGetGIL() {
     DVPRINT("PythonBEGetGIL\n");
     ensurePybe().trivialize_gil(); // throws on error
     return NewEvent(DBGEV_OK);
 }
 
-dbgevent_t* DbgGdbMI::pythonBEAttach() {
+dbgevent_t* DbgGdbMI::pyBEAttach() {
     DVPRINT("PythonBEAttach\n");
 
     auto cmd = make_MICmd(MIDataEvaluateExpression("(char*)Py_GetVersion()"));
@@ -2690,10 +2690,10 @@ void DbgGdbMI::setPython(bool isPython) {
     m_isPython = isPython;
 }
 
-dbgevent_t* DbgGdbMI::pythonBEBacktrace() {
+dbgevent_t* DbgGdbMI::pyBEBacktrace() {
     DVPRINT("pythonBEBacktrace\n");
 
-    auto gil = ensurePybe().coerce_gil();
+    auto gil = ensurePybe().run_until_gil();
     auto bt = gil.get_backtrace();
 
     auto* e = NewEvent(DBGEV_FRAME);
@@ -2702,9 +2702,9 @@ dbgevent_t* DbgGdbMI::pythonBEBacktrace() {
     return e;
 }
 
-dbgevent_t* DbgGdbMI::pythonBEEvalExpr(std::string_view expr) {
+dbgevent_t* DbgGdbMI::pyBEEvalExpr(std::string_view expr) {
     DVPRINT("pythonBEEvalExpr [%*s]\n", (int)expr.size(), expr.data());
-    auto gil = ensurePybe().coerce_gil();
+    auto gil = ensurePybe().run_until_gil();
 
     // if expr involves quotes, gdb4hpc will send them in escaped
     auto escaped = std::string{expr};
@@ -2716,9 +2716,9 @@ dbgevent_t* DbgGdbMI::pythonBEEvalExpr(std::string_view expr) {
     return e;
 }
 
-dbgevent_t* DbgGdbMI::pythonBESetLineBreakpoint(int feid, std::string_view filename, int line) {
+dbgevent_t* DbgGdbMI::pyBESetLineBreakpoint(int feid, std::string_view filename, int line) {
     auto& pybe = ensurePybe();
-    auto gil = pybe.coerce_gil();
+    auto gil = pybe.run_until_gil();
 
     auto bp = gil.set_breakpoint(feid, filename, line, /* func */ "");
 
@@ -2727,9 +2727,9 @@ dbgevent_t* DbgGdbMI::pythonBESetLineBreakpoint(int feid, std::string_view filen
     return result;
 }
 
-dbgevent_t* DbgGdbMI::pythonBESetFuncBreakpoint(int feid, std::string_view file, std::string_view func) {
+dbgevent_t* DbgGdbMI::pyBESetFuncBreakpoint(int feid, std::string_view file, std::string_view func) {
     auto& pybe = ensurePybe();
-    auto gil = pybe.coerce_gil();
+    auto gil = pybe.run_until_gil();
 
     auto bp = gil.set_breakpoint(feid, file, /* line */ 0, func);
 
@@ -2738,18 +2738,18 @@ dbgevent_t* DbgGdbMI::pythonBESetFuncBreakpoint(int feid, std::string_view file,
     return result;
 }
 
-dbgevent_t* DbgGdbMI::pythonBEDeleteBreakpoint(int feid) {
+dbgevent_t* DbgGdbMI::pyBEDeleteBreakpoint(int feid) {
     auto& pybe = ensurePybe();
-    auto gil = pybe.coerce_gil();
+    auto gil = pybe.run_until_gil();
 
     gil.delete_breakpoint(feid);
     return NewEvent(DBGEV_OK);
 }
 
-dbgevent_t* DbgGdbMI::pythonBEStep(bool step_in) {
+dbgevent_t* DbgGdbMI::pyBEStep(bool step_in) {
     {
         auto& pybe = ensurePybe();
-        auto gil = pybe.coerce_gil();
+        auto gil = pybe.run_until_gil();
         gil.insert_step_trap(step_in);
         // we have to release the gil (scope exit) to allow python to run again!
     }
@@ -2771,13 +2771,13 @@ dbgevent_t* DbgGdbMI::pythonBEStep(bool step_in) {
     return NewEvent(DBGEV_OK);
 }
 
-dbgevent_t* DbgGdbMI::pythonBEHandleAsyncStop(MIEvent* event) {
+dbgevent_t* DbgGdbMI::pyBEHandleAsyncStop(MIEvent* event) {
     DVPRINT("Handling python async stop\n");
 
     auto& pybe = ensurePybe();
 
     // boldly assuming pybe is in the trace function and this won't cause slippage in all-stop
-    auto gil = pybe.coerce_gil();
+    auto gil = pybe.run_until_gil();
 
     // figure out why we stopped
     if (auto maybe_bp = gil.find_current_breakpoint()) {
@@ -3937,7 +3937,7 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
             DVPRINT("MIEventTypeSignal %s\n", evt->sigName);
 
             if (isPython() && strcmp(evt->sigName, pybe::get_gil_signal_name()) == 0) {
-                if (auto* bpevent = pythonBEHandleAsyncStop(evt)) {
+                if (auto* bpevent = pyBEHandleAsyncStop(evt)) {
                     Status = DBGSTAT_STOPPED;
                     return bpevent;
                 }

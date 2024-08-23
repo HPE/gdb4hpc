@@ -1069,7 +1069,6 @@ class PythonTest(Gdb4hpcTest):
     def setUp(self):
         super().setUp()
 
-        # which = subprocess.run(f"module load cray-python/{self.python_version}; which python{self.python_version}", stdout=subprocess.PIPE, shell=True)
         self.python_version = self.params.get("python_version", default="3.6")
         self.extra_tag = self.python_version
 

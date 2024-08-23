@@ -12,9 +12,20 @@ project(
     'cpp_std=c++20',
     'warning_level=2', # equivalent to -Wall -Wextra
     'werror=true',
-    'b_ndebug=true',
+    'b_ndebug=true', # disable assertions - we fail some C++ standard library assertions currently (CPE-5482)
   ],
 )
+
+# for use in generated documentation. since cpedocs requires that we commit documentation to
+# gdb4hpc's repo for easy fetching, we never want the master branch to contain docs that say
+# e.g. "for gdb4hpc 4.16.3.9999".
+version_short = run_command(
+  'bash',
+  '-c', 'source '
+  + meson.current_source_dir()
+  + '/release_versioning && echo "$major.$minor.$revision"',
+  check: true,
+).stdout().strip()
 
 # external dependencies ----------------------------------------------------------------
 
@@ -59,17 +70,26 @@ python_compat_dep = declare_dependency(
   include_directories: ['./external/pythoncapi-compat'],
 )
 
+# from cdst support
 libedit_dep = dependency('libedit', method: 'pkg-config')
 
+# from cdst support
 libdw_dep = dependency('libdw', method: 'pkg-config')
 
+# from zmqnet
 libLrleBitset_dep = dependency('libLrleBitset', method: 'pkg-config')
+
+doctest_proj = subproject(
+  'doctest',
+)
+doctest_dep = doctest_proj.get_variable('doctest_dep')
 
 pthread_dep = dependency('threads') # 'threads' is a magic meson builtin
 
+# from zmqnet
 capnp_prog = find_program(
   [
-    'capnp',
+    'capnp', # in PATH
     zmqnet_dep.get_variable(pkgconfig: 'prefix') + '/support/bin/capnp',
   ],
 )
@@ -83,17 +103,6 @@ python3_prog = find_program('python3')
 conf = configuration_data()
 
 conf.set_quoted('GDB4HPC_VERSION', meson.project_version(), description: 'the gdb4hpc version including build number, e.g. 4.16.3.99')
-
-# for use in generated documentation. since cpedocs requires that we commit documentation to
-# gdb4hpc's repo for easy fetching, we never want the master branch to contain docs that say
-# e.g. "for gdb4hpc 4.16.3.9999".
-version_short = run_command(
-  'bash',
-  '-c', 'source '
-  + meson.current_source_dir()
-  + '/release_versioning && echo "$major.$minor.$revision"',
-  check: true,
-).stdout().strip()
 conf.set_quoted('GDB4HPC_VERSION_SHORT', version_short, description: 'the gdb4hpc version not including build number, e.g. 4.16.3')
 
 conf.set('ZMQNET', 1, description: 'legacy. always 1.')
@@ -104,11 +113,6 @@ conf.set('ALPS', 1, description: 'legacy. always 1.')
 #
 # these are part of the gdb4hpc build/repo, but are designed/used as if they
 # are standalone libraries.
-
-doctest_proj = subproject(
-  'doctest',
-)
-doctest_dep = doctest_proj.get_variable('doctest_dep')
 
 libgdb4_unittest_so = shared_library(
   'gdb4_unittest',
@@ -392,7 +396,7 @@ test('dbgsrv_alps unit tests', dbgsrv_alps, args: ['--test'])
 
 libgdb4_unversioned_basename = 'gdb4_pybe_'
 conf.set_quoted('PYBE_SO_UNVERSIONED_BASENAME', 'lib' + libgdb4_unversioned_basename,
-  description: 'Unversioned named of the pybe shared library that will be injected into python 3.'
+  description: 'Unversioned name of the pybe shared library that will be injected into the python interpreter when debugging python 3.'
 )
 
 libgdb4_pybe_sources = [

@@ -468,40 +468,35 @@ rep_set_t DbgSignal(rec_set_t *, const char* signame);
 // these require python extensions on the backend gdb and a python interpreter
 // with debug info. if something is missing, these return rep_sets with
 // errors explaining so. see python.md.
-//
-// TODO: rename these to be more clear that they are using python gdb extensions
-//       and not libgdb4_pybe.so
 
-rep_set_t DbgPythonBacktrace(rec_set_t* rec);
-rep_set_t DbgPythonList(rec_set_t* rec, std::string_view list_arg);
-rep_set_t DbgPythonMoveFrame(rec_set_t* rec, DbgFrameDir dir);
-rep_set_t DbgPythonPrint(rec_set_t* rec, std::string_view name);
-rep_set_t DbgPythonLocals(rec_set_t* rec);
-
-// TODO: write full doc comments for these functions when the API is more concrete
+rep_set_t DbgPyExtBacktrace(rec_set_t* rec);
+rep_set_t DbgPyExtList(rec_set_t* rec, std::string_view list_arg);
+rep_set_t DbgPyExtMoveFrame(rec_set_t* rec, DbgFrameDir dir);
+rep_set_t DbgPyExtPrint(rec_set_t* rec, std::string_view name);
+rep_set_t DbgPyExtLocals(rec_set_t* rec);
 
 // `DbgGetPython` returns the current python mode setting of the backend.
 // it's returned as a DBGEV_STRING.
-rep_set_t DbgGetPython(rec_set_t* rec);
+rep_set_t DbgPyBEGetPython(rec_set_t* rec);
 
 // `DbgSetPython` sets python mode on the backends. `setting` is only meaningful
 // as On or Off, not Auto, as auto is only relevant on the client. However, it's
 // sometimes convenient to pass the `setting` without checking it, so this
 // function "supports" Auto by doing a no-op and returning an empty rep_set_t.
-rep_set_t DbgSetPython(rec_set_t* rec, PythonType setting);
+rep_set_t DbgPyBESetPython(rec_set_t* rec, PyMode setting);
 
-// `DbgPythonBEInject` injects libgdb4_pybe.so into the user's app via dlopen. This
+// `DbgPyBEInject` injects libgdb4_pybe.so into the user's app via dlopen. This
 // is done automatically by the backend where needed - this function is a legacy debug helper.
-rep_set_t DbgPythonBEInject(rec_set_t* rec);
+rep_set_t DbgPyBEInject(rec_set_t* rec);
 
-// `DbgPythonBEGetGIL` spawns a thread in the user's app that obtains the
+// `DbgPyBEGetGIL` spawns a thread in the user's app that obtains the
 // cpython global interpreter lock and then halts all of the app's threads. Once
 // the lock is obtained, gdb is free to use the Python C API to implement the
-// other DbgPythonBE functions. This is done automatically by the backend where
+// other pybe functions. This is done automatically by the backend where
 // needed - this function is a legacy debug helper.
-rep_set_t DbgPythonBEGetGIL(rec_set_t* rec);
+rep_set_t DbgPyBEGetGIL(rec_set_t* rec);
 
-// `DbgAttachPython` checks if an app is the cpython interpreter and initializes
+// `DbgPyBEAttach` checks if an app is the cpython interpreter and initializes
 // python debugging if it is. if the app is python, it also gets the GIL. Useful
 // for after an attach where we don't know if we are debugging python or not.
 //
@@ -510,7 +505,7 @@ rep_set_t DbgPythonBEGetGIL(rec_set_t* rec);
 // 2. the app is cpython and python failed to initialize. returns an error event.
 // 3. the app isn't python and there is nothing to do. returns a DBGEV_STRING.
 //    the actual string value is meaningless and shouldn't be printed.
-rep_set_t DbgAttachPython(rec_set_t* rec);
+rep_set_t DbgPyBEAttach(rec_set_t* rec);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern bool DbgSetLogDir(const std::string& logdir);

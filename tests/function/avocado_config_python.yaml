@@ -1,5 +1,12 @@
 # ./test_tool.py -c avocado_config_python.yaml
 # also pass -t python to ./test_tool unless you want to parameterize the *entire test suite*!
+#
+# the test suite will search for each python version in the following order:
+# 1. the `python3` binary in PATH
+# 2. the `python3` binary in the cray-python/3.X module
+# 3. the `python3.X` binary in PATH
+#
+# see the constructor of PythonTest in tests.py.
 python: !mux
   3.6:
     python_version: "3.6"

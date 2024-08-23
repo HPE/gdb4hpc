@@ -435,61 +435,61 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
                 break;
             }
 
-            case DBGCMD_PYBT: {
-                e = DbgPythonBacktrace();
+            case DBGCMD_PYEXTBT: {
+                e = DbgPyExtBacktrace();
                 break;
             }
 
-            case DBGCMD_PYLIST: {
+            case DBGCMD_PYEXTLIST: {
                 std::string arg;
                 is.get(arg);
-                e = DbgPythonList(arg);
+                e = DbgPyExtList(arg);
                 break;
             }
 
-            case DBGCMD_PYMOVEFRAME: {
+            case DBGCMD_PYEXTMOVEFRAME: {
                 int dir;
                 is.get(dir);
-                e = DbgPythonMoveFrame(DbgFrameDir(dir));
+                e = DbgPyExtMoveFrame(DbgFrameDir(dir));
                 break;
             }
 
-            case DBGCMD_PYPRINT: {
+            case DBGCMD_PYEXTPRINT: {
                 std::string name;
                 is.get(name);
-                e = DbgPythonPrint(name);
+                e = DbgPyExtPrint(name);
                 break;
             }
 
-            case DBGCMD_PYLOCALS: {
-                e = DbgPythonLocals();
+            case DBGCMD_PYEXTLOCALS: {
+                e = DbgPyExtLocals();
                 break;
             }
 
             case DBGCMD_PYBEGETPYTHON: {
-                e = DbgPythonBEGetPython();
+                e = DbgPyBEGetPython();
                 break;
             }
 
             case DBGCMD_PYBESETPYTHON: {
                 int onoff;
                 is.get(onoff);
-                e = DbgPythonBESetPython(static_cast<PythonType>(onoff));
+                e = DbgPyBESetPython(static_cast<PyMode>(onoff));
                 break;
             }
 
             case DBGCMD_PYBEINJECT: {
-                e = DbgPythonBEInject();
+                e = DbgPyBEInject();
                 break;
             }
 
             case DBGCMD_PYBEGETGIL: {
-                e = DbgPythonBEGetGIL();
+                e = DbgPyBEGetGIL();
                 break;
             }
 
             case DBGCMD_PYBEATTACH: {
-                e = DbgPythonBEAttach();
+                e = DbgPyBEAttach();
                 break;
             }
         }

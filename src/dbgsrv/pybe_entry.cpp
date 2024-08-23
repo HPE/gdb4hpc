@@ -13,7 +13,7 @@ static PybeImpl& get_pybe() {
     return impl;
 }
 
-// TODO: name these functions better
+// note that dbgsrv is sensitive to all of these function names
 
 bool get_backtrace(uint32_t seq, unsigned long py_thread_id) {
     return get_pybe().get_backtrace(seq, py_thread_id);

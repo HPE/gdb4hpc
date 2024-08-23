@@ -106,32 +106,36 @@ public:
     dbgevent_t *shell(int argc, char **argv);
     dbgevent_t *signal(char const* signame);
 
+    // pyExt* functions use gdb python extensions, pyBE* functions use pybe. see python.md
+
     // these python features require that the backend gdb has loaded python extensions. see python.md
-    dbgevent_t* pythonBacktrace();
-    dbgevent_t* pythonList(const std::string& arg);
-    dbgevent_t* pythonMoveFrame(DbgFrameDir dir);
-    dbgevent_t* pythonPrint(const std::string& name);
-    dbgevent_t* pythonLocals();
+    dbgevent_t* pyExtBacktrace();
+    dbgevent_t* pyExtList(const std::string& arg);
+    dbgevent_t* pyExtMoveFrame(DbgFrameDir dir);
+    dbgevent_t* pyExtPrint(const std::string& name);
+    dbgevent_t* pyExtLocals();
 
     // endpoints of `get/set python` commands
-    dbgevent_t* pythonBEGetPython();
-    dbgevent_t* pythonBESetPython(PythonType setting);
+    dbgevent_t* pyBEGetPython();
+    dbgevent_t* pyBESetPython(PyMode setting);
 
     // these python features use the pybe injected library. see python.md
-    dbgevent_t* pythonBEInject();
-    dbgevent_t* pythonBEBacktrace();
-    dbgevent_t* pythonBEGetGIL();
-    dbgevent_t* pythonBEEvalExpr(std::string_view expr);
-    dbgevent_t* pythonBESetLineBreakpoint(int feid, std::string_view filename, int line);
-    dbgevent_t* pythonBESetFuncBreakpoint(int feid, std::string_view filename, std::string_view func);
-    dbgevent_t* pythonBEDeleteBreakpoint(int feid);
-    dbgevent_t* pythonBEStep(bool step_in);
+    dbgevent_t* pyBEInject();
+    dbgevent_t* pyBEBacktrace();
+    dbgevent_t* pyBEGetGIL();
+    dbgevent_t* pyBEEvalExpr(std::string_view expr);
+    dbgevent_t* pyBESetLineBreakpoint(int feid, std::string_view filename, int line);
+    dbgevent_t* pyBESetFuncBreakpoint(int feid, std::string_view filename, std::string_view func);
+    dbgevent_t* pyBEDeleteBreakpoint(int feid);
+    dbgevent_t* pyBEStep(bool step_in);
 
-    dbgevent_t* pythonBEHandleAsyncStop(MIEvent* event);
+    // pybe breakpoint callback
+    dbgevent_t* pyBEHandleAsyncStop(MIEvent* event);
 
-    dbgevent_t* pythonBEAttach();
+    // initialize pybe after attaching to an already running python app
+    dbgevent_t* pyBEAttach();
 
-    // return true if we should prefer the python versions of commands when possible
+    // return true if we should prefer the pybe versions of commands when possible
     bool isPython() const;
     void setPython(bool isPython);
 

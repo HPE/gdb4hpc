@@ -53,7 +53,7 @@ Pybe::Pybe(MISession& mi)
     // careful to set up the thread so that calling init_GIL below is safe.
     // slipping would destroy that and that would be very sad.
 
-    m_rpc.thread_name(m_gil_thread_id, "gdb4hpc python");
+    m_rpc.thread_set_name(m_gil_thread_id, "gdb4hpc python");
     m_rpc.thread_interrupt(m_gil_thread_id);
     m_rpc.open_pybe_channel(current_thread);
 
@@ -69,7 +69,7 @@ Pybe::Pybe(MISession& mi)
         // already have the GIL, but after an attach, there might be some slippage in getting it
         auto py_thread_id = m_rpc.thread_get_python_id(current_thread);
         auto gil = GILHolder(m_rpc, current_thread, py_thread_id);
-        m_rpc.start_tracing(current_thread);
+        m_rpc.install_breakpoint_trace(current_thread);
     }
 
     // XXX: this constructor might be called twice for a single inferior:
@@ -79,7 +79,7 @@ Pybe::Pybe(MISession& mi)
     // this is a low priority but still valid usecase - tracked in PE-55412
 }
 
-Pybe::GILHolder Pybe::coerce_gil() {
+Pybe::GILHolder Pybe::run_until_gil() {
     // throws if not a python thread
     auto main_thread_id = m_rpc.current_thread_get_id();
     auto py_thread_id = m_rpc.thread_get_python_id(main_thread_id);
@@ -144,7 +144,7 @@ Pybe::GILHolder Pybe::coerce_gil() {
 
 void Pybe::trivialize_gil() {
     // get the gil and then immediately drop it
-    [[ maybe_unused ]] auto gil = coerce_gil();
+    [[ maybe_unused ]] auto gil = run_until_gil();
 }
 
 namespace {
@@ -240,7 +240,7 @@ Pybe::GILHolder::GILHolder(pybe::RPC& rpc, int gil_thread_id, long py_thread_id)
 
     // note that this will slip in all-stop mode, but that's okay because we've
     // already checked if we can get the gil without slipping above.
-    auto maybe_gil_thread = m_parent_rpc.any_thread_has_GIL();
+    auto maybe_gil_thread = m_parent_rpc.get_GIL_holding_thread();
 
     // XXX: don't look at a global (non_stop_flag)
     // if we are in all-stop mode, the thread_take_GIL call will start the holding thread implicitly

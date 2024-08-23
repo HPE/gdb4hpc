@@ -132,10 +132,18 @@ bool PybeImpl::eval_expr(uint32_t seq, unsigned long py_thread_id, const char* e
         char* buf;
         size_t size;
         auto* stream = ::open_memstream(&buf, &size);
-        PyObject_Print(result.ptr, stream, 0); // TODO error check
+        if (PyObject_Print(result.ptr, stream, 0) == -1) {
+            return std::pair{static_cast<char*>(nullptr), 0ul};
+        }
         ::fclose(stream);
         return std::pair{buf, size};
     }();
+
+    if (result_buf == nullptr) {
+        log("PyObject_Print failed\n");
+        return false;
+    }
+
     auto result_buf_cleanup = OnScopeExit([&](){ ::free(result_buf); });
 
     if (m_connection->send_with_timeout(result_buf, size, seq) == -1) [[ unlikely ]] {
@@ -162,14 +170,14 @@ unsigned long PybeImpl::get_python_thread_id() {
 bool PybeImpl::connect_to_dbgsrv(const char* endpoint) {
     auto maybe_client = pybe::Client::make(endpoint);
     if (!maybe_client) [[ unlikely ]] {
-        // TODO better error
+        log("failed create client\n");
         return false;
     }
     auto& client = *maybe_client;
 
     auto maybe_channel = client.connect_with_timeout();
     if (!maybe_channel) {
-        // TODO better error
+        log("failed to connect to server\n");
         return false;
     }
 
@@ -220,14 +228,13 @@ bool PybeImpl::spawn_GIL_grabbing_thread() {
     pthread_sigmask(SIG_BLOCK, &old_signals, nullptr);
 
     if (!maybe_grabber) {
-        // TODO error reporting mechanism
+        log("failed to create GIL thread\n");
         return false;
     }
     auto& grabber = *maybe_grabber;
 
     if (grabber.detach()) {
-        // TODO error reporting mechanism
-        // ... or is this a fatal error? what are we supposed to do?
+        log("failed to detach GIL grabbing thread\n");
         return false;
     }
 

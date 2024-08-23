@@ -42,7 +42,7 @@ namespace pybe {
 
 // return the signal number that will be emitted when pybe gets the GIL.
 inline auto get_gil_signal_number() {
-    // TODO: consider if there is a better signal to use.
+    // TODO: consider if there is a better signal to use, or at least make it configurable by the user.
     //       isn't SIGTRAP used by a few other os facilities?
     return SIGTRAP;
 }

@@ -77,11 +77,11 @@ enum dbgcmd {
     DBGCMD_SIGNAL,
     // TODO: rename all DBGCMD_PY* to be more clear about which use gdb python extensions
     //       and which use libgdb4_pybe.so.
-    DBGCMD_PYBT,
-    DBGCMD_PYLIST,
-    DBGCMD_PYMOVEFRAME,
-    DBGCMD_PYPRINT,
-    DBGCMD_PYLOCALS,
+    DBGCMD_PYEXTBT,
+    DBGCMD_PYEXTLIST,
+    DBGCMD_PYEXTMOVEFRAME,
+    DBGCMD_PYEXTPRINT,
+    DBGCMD_PYEXTLOCALS,
     DBGCMD_PYBEGETPYTHON,
     DBGCMD_PYBESETPYTHON,
     DBGCMD_PYBEINJECT,
@@ -93,6 +93,7 @@ enum class DbgFrameDir { DOWN, UP, ABSOLUTE };
 
 enum class DbgDirOp { ADD, SET, SUB, SHOW_SUB, UNSET_SUB };
 
-enum class PythonType : int { Auto, On, Off };
+// XXX: "PythonMode" collides with a class name in cmd_python.cpp
+enum class PyMode : int { Auto, On, Off };
 
 #endif /* !_DBGCMD_H */

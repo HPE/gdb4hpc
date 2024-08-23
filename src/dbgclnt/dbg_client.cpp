@@ -2713,69 +2713,69 @@ rep_set_t DbgSignal(rec_set_t* recSet, const char* signame) {
     return result;
 }
 
-rep_set_t DbgPythonBacktrace(rec_set_t* rec) {
-    auto req = CommandToSocProto(DBGCMD_PYBT);
+rep_set_t DbgPyExtBacktrace(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYEXTBT);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_FRAME);
     return result;
 }
 
-rep_set_t DbgPythonList(rec_set_t* rec, std::string_view list_arg) {
-    auto req = CommandToSocProto(DBGCMD_PYLIST, list_arg);
+rep_set_t DbgPyExtList(rec_set_t* rec, std::string_view list_arg) {
+    auto req = CommandToSocProto(DBGCMD_PYEXTLIST, list_arg);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
     return result;
 }
 
-rep_set_t DbgPythonMoveFrame(rec_set_t* rec, DbgFrameDir dir) {
+rep_set_t DbgPyExtMoveFrame(rec_set_t* rec, DbgFrameDir dir) {
     if (dir == DbgFrameDir::ABSOLUTE) {
         // this error case could be better, but with the currently
         // available py- commands, it will never happen
         return rep_set_t();
     }
 
-    auto req = CommandToSocProto(DBGCMD_PYMOVEFRAME, int(dir));
+    auto req = CommandToSocProto(DBGCMD_PYEXTMOVEFRAME, int(dir));
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_FRAME);
     return result;
 }
 
-rep_set_t DbgPythonPrint(rec_set_t* rec, std::string_view name) {
-    auto req = CommandToSocProto(DBGCMD_PYPRINT, name);
+rep_set_t DbgPyExtPrint(rec_set_t* rec, std::string_view name) {
+    auto req = CommandToSocProto(DBGCMD_PYEXTPRINT, name);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
     return result;
 }
 
-rep_set_t DbgPythonLocals(rec_set_t* rec) {
-    auto req = CommandToSocProto(DBGCMD_PYLOCALS);
+rep_set_t DbgPyExtLocals(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_PYEXTLOCALS);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
     return result;
 }
 
-rep_set_t DbgGetPython(rec_set_t* rec) {
+rep_set_t DbgPyBEGetPython(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEGETPYTHON);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
     return result;
 }
 
-rep_set_t DbgSetPython(rec_set_t* rec, PythonType setting) {
-    using enum PythonType;
+rep_set_t DbgPyBESetPython(rec_set_t* rec, PyMode setting) {
+    using enum PyMode;
     if (setting == Auto) return rep_set_t(); // auto is only meaningful on the client
     auto req = CommandToSocProto(DBGCMD_PYBESETPYTHON, static_cast<int>(setting));
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
     return result;
 }
 
-rep_set_t DbgPythonBEInject(rec_set_t* rec) {
+rep_set_t DbgPyBEInject(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEINJECT);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
     return result;
 }
 
-rep_set_t DbgPythonBEGetGIL(rec_set_t* rec) {
+rep_set_t DbgPyBEGetGIL(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEGETGIL);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
     return result;
 }
 
-rep_set_t DbgAttachPython(rec_set_t* rec) {
+rep_set_t DbgPyBEAttach(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEATTACH);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK, DBGEV_STRING);
     return result;

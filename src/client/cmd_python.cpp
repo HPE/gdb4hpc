@@ -87,7 +87,7 @@ static int cmd_python_cmd(ConsoleInterpreter& console, int argc, const char* con
 }
 
 static int cmd_py_bt(rec_set_t* rec_set) {
-    auto rep_set = DbgPythonBacktrace(rec_set);
+    auto rep_set = DbgPyExtBacktrace(rec_set);
 
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
 
@@ -111,7 +111,7 @@ static int cmd_py_list(rec_set_t* rec_set, int argc, const char* const argv[]) {
         return ss.str();
     }();
 
-    auto rep_set = DbgPythonList(rec_set, arg);
+    auto rep_set = DbgPyExtList(rec_set, arg);
 
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
 
@@ -137,7 +137,7 @@ static int cmd_py_list(rec_set_t* rec_set, int argc, const char* const argv[]) {
 }
 
 static int py_move(rec_set_t* rec_set, DbgFrameDir dir) {
-    auto rep_set = DbgPythonMoveFrame(rec_set, dir);
+    auto rep_set = DbgPyExtMoveFrame(rec_set, dir);
 
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
 
@@ -178,7 +178,7 @@ static int cmd_py_print(rec_set_t* rec_set, int argc, const char* const argv[]) 
     }
 
     auto name = std::string_view{argv[1]};
-    auto rep_set = DbgPythonPrint(rec_set, name);
+    auto rep_set = DbgPyExtPrint(rec_set, name);
 
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
 
@@ -192,7 +192,7 @@ static int cmd_py_print(rec_set_t* rec_set, int argc, const char* const argv[]) 
 }
 
 static int cmd_py_locals(rec_set_t* rec_set) {
-    auto rep_set = DbgPythonLocals(rec_set);
+    auto rep_set = DbgPyExtLocals(rec_set);
 
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
 
@@ -211,7 +211,7 @@ static int set_python(rec_set_t* rec_set, int argc, const char* const argv[]) {
         return Command::Failure;
     }
 
-    using enum PythonType;
+    using enum PyMode;
     auto setting = Auto;
     auto arg = std::string_view{argv[1]};
     if (arg == "auto") setting = Auto;
@@ -226,7 +226,7 @@ static int set_python(rec_set_t* rec_set, int argc, const char* const argv[]) {
 
     auto had_error = false;
     if (rec_set) {
-        auto rep_set = DbgSetPython(rec_set, setting);
+        auto rep_set = DbgPyBESetPython(rec_set, setting);
         had_error = ProcessErrorInRepSet(rep_set);
         for (const auto* rep : rep_set) {
             const auto message = (setting == On) ? "Set python mode.\n" : "Unset python mode.\n";
@@ -238,8 +238,8 @@ static int set_python(rec_set_t* rec_set, int argc, const char* const argv[]) {
 }
 
 static int show_python(rec_set_t* rec_set) {
-    using enum PythonType;
-    const auto ptype_to_str = [](PythonType ptype) {
+    using enum PyMode;
+    const auto ptype_to_str = [](PyMode ptype) {
         switch (ptype) {
             case Auto: return "auto";
             case On: return "on";
@@ -253,7 +253,7 @@ static int show_python(rec_set_t* rec_set) {
 
     PrintOutMsg("For current procsets:\n");
     auto had_error = false;
-    auto rep_set = DbgGetPython(rec_set);
+    auto rep_set = DbgPyBEGetPython(rec_set);
     had_error = ProcessErrorInRepSet(rep_set);
     for (const auto* rep : rep_set) {
         const auto message = std::string{"Python mode is "} + rep->rep_event->ev_string + ".";
@@ -264,13 +264,13 @@ static int show_python(rec_set_t* rec_set) {
 }
 
 static int pybe_inject(rec_set_t* rec_set) {
-    auto rep_set = DbgPythonBEInject(rec_set);
+    auto rep_set = DbgPyBEInject(rec_set);
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
     return had_error ? Command::Failure : Command::Success;
 }
 
 static int pybe_get_GIL(rec_set_t* rec_set) {
-    auto rep_set = DbgPythonBEGetGIL(rec_set);
+    auto rep_set = DbgPyBEGetGIL(rec_set);
     auto had_error = static_cast<bool>(ProcessErrorInRepSet(rep_set));
     return had_error ? Command::Failure : Command::Success;
 }

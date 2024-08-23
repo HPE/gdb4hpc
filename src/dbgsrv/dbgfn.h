@@ -93,16 +93,16 @@ extern dbgevent_t *DbgOpenSocket(const char *, int);
 extern dbgevent_t *DbgCloseSocket(void);
 extern dbgevent_t *DbgSignal(char const*);
 
-extern dbgevent_t *DbgPythonBacktrace();
-extern dbgevent_t *DbgPythonList(const std::string& arg);
-extern dbgevent_t *DbgPythonMoveFrame(DbgFrameDir dir);
-extern dbgevent_t *DbgPythonPrint(const std::string& name);
-extern dbgevent_t *DbgPythonLocals();
+extern dbgevent_t *DbgPyExtBacktrace();
+extern dbgevent_t *DbgPyExtList(const std::string& arg);
+extern dbgevent_t *DbgPyExtMoveFrame(DbgFrameDir dir);
+extern dbgevent_t *DbgPyExtPrint(const std::string& name);
+extern dbgevent_t *DbgPyExtLocals();
 
-extern dbgevent_t *DbgPythonBEGetPython();
-extern dbgevent_t *DbgPythonBESetPython(PythonType setting);
-extern dbgevent_t *DbgPythonBEInject();
-extern dbgevent_t *DbgPythonBEGetGIL();
-extern dbgevent_t *DbgPythonBEAttach();
+extern dbgevent_t *DbgPyBEGetPython();
+extern dbgevent_t *DbgPyBESetPython(PyMode setting);
+extern dbgevent_t *DbgPyBEInject();
+extern dbgevent_t *DbgPyBEGetGIL();
+extern dbgevent_t *DbgPyBEAttach();
 
 #endif /* !_DBGFN_H */

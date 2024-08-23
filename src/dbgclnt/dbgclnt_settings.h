@@ -15,7 +15,7 @@ struct ClientSettingsInterface {
     virtual bool isUnsafe() = 0;
     virtual bool isEarlyEntry() = 0;
     virtual bool isNonStop() = 0;
-    virtual PythonType getPython() = 0;
+    virtual PyMode getPython() = 0;
 };
 
 namespace test {
@@ -29,7 +29,7 @@ struct MockClientSettings : public ClientSettingsInterface {
     bool isUnsafe() override { return false; }
     bool isEarlyEntry() override { return true; }
     bool isNonStop() override { return true; }
-    PythonType getPython() override { return PythonType::Auto; }
+    PyMode getPython() override { return PyMode::Auto; }
 };
 
 } // namespace test

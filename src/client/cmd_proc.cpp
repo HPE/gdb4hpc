@@ -272,7 +272,7 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                                          .gpu_flag = args.gpu_flag,
                                          .debug_flag = args.debug_flag,
                                          .debug_dir = args.debug_dir,
-                                         .python = false, // XXX: no way to detect python in attach case yet
+                                         .python = false, // python will be detected at runtime
             };
 
             // Attach to submitted job
@@ -342,7 +342,7 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
                                          .gpu_flag = args.gpu_flag,
                                          .debug_flag = args.debug_flag,
                                          .debug_dir = args.debug_dir,
-                                         .python = false, // XXX: no way to detect python in attach case yet
+                                         .python = false, // python will be detect at runtime
             };
 
             // Attach to submitted job
@@ -709,7 +709,7 @@ static int cmd_attach_cmd(Interpreter& caller, int argc, const char* const argv[
                             .gpu_flag = false,
                             .debug_flag = false,
                             .debug_dir = "",
-                            .python = false, // XXX: no way to detect python in attach case yet
+                            .python = false, // python will be detected at runtime
     };
     
     while ((opt = getopt_long(argc, mut_argv.v.data(), "", attach_long_opts, &opt_ind)) !=
@@ -836,7 +836,7 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
     PrintOutMsg("Attach complete.\n");
 
     {   // detect/init python. if not a python app, this is a no op
-        auto rep_set = DbgAttachPython(rec_set);
+        auto rep_set = DbgPyBEAttach(rec_set);
         ProcessErrorInRepSet(rep_set);
 
         for (const auto& rep : rep_set) {

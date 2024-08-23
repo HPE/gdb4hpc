@@ -38,6 +38,10 @@ public:
     // runs -symbol-info-variables --include-nondebug --name "^`name`" --max-results 200.
     // returned event is DBGEV_SYMBOLS, or nullptr/DBGEV_ERROR on error.
     dbgevent_t *getVariableSymbolNames(std::string_view name);
+    // Get struct members for variable with fully-qualified name fq_name.
+    // Prefix `name` to member results.
+    // returned event is DBGEV_VARS, or nullptr/DBGEV_ERROR on error.
+    dbgevent_t *getStructMemberNames(std::string_view fq_name, std::string_view name);
 
     //--------------------------------------------------
     // for managing a set of pending locations to list

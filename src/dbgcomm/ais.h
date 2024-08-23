@@ -817,7 +817,11 @@ public:
     int getIndex0() const { return m_idx0; }
     void setBounds(int len, int idx0) { m_numElems = len; m_idx0 = idx0; }
 
-    class Output { public: virtual Writer& getOut(ais::Writer& out) { return out; } };
+    class Output {
+        public:
+        virtual Writer& getOut(ais::Writer& out) { return out; }
+        virtual ~Output() {}
+    };
     void setOutput(std::unique_ptr<Output>&& out);
 
     bool resetTruncation() const;
@@ -1194,6 +1198,7 @@ enum Comparison { LT, WARN_LT, EQ, WARN_GT, GT, NOT_COMPARABLE };
 class VStream {
 public:
     virtual void apply(Visitor& v) = 0;
+    virtual ~VStream() {}
 };
 
 // Class that allow applying a Visitor to a read data stream

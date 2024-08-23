@@ -71,13 +71,35 @@ a{8}: Breakpoint 8, inheritanceTest() at /src/C++/cpp_ds_test1.cpp:330
 36: focus $a{9}
 37: maint complete break functionP<>
 functionPointers()
-38: break functionPointers
-a{9}: Breakpoint 9: file /src/C++/cpp_ds_test1.cpp, line 622.
+38: break nestedTypedef
+a{9}: Breakpoint 9: file /src/C++/cpp_ds_test1.cpp, line 392.
 39: c
-a{9}: Breakpoint 9, functionPointers() at /src/C++/cpp_ds_test1.cpp:622
-40: focus $all
-41: # from $a{0} in main
-41: maint complete print area<>
+a{9}: Breakpoint 9, nestedTypedef() at /src/C++/cpp_ds_test1.cpp:392
+40: maint complete print c2.<>
+c2.Classy2
+c2.Double
+c2.n
+c2.setZZ
+c2.x
+c2.y
+c2.zz
+41: maint complete print c2.x<>
+c2.x
+42: maint complete print c2.set<>
+c2.setZZ
+43: maint complete print c2.n.<>
+c2.n.Int
+c2.n.Nesty
+c2.n.ch_ch_ch_cherry_bomb
+44: maint complete print c2.n.ch_<>
+c2.n.ch_ch_ch_cherry_bomb
+45: break functionPointers
+a{9}: Breakpoint 10: file /src/C++/cpp_ds_test1.cpp, line 622.
+46: c
+a{9}: Breakpoint 10, functionPointers() at /src/C++/cpp_ds_test1.cpp:622
+47: focus $all
+48: # from $a{0} in main
+49: maint complete print area<>
 area1
 area2
 0: # from $a{1} in variableSizeDataTest

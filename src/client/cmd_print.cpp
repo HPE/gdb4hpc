@@ -190,6 +190,7 @@ static Interpreter::Completions cmd_print_completion(
         comps.add_function_symbol_names(recv->rec_di, partial_word);
         // globals and locals are included here
         comps.add_variable_symbol_names(recv->rec_di, *recv->rec_group, partial_word);
+        comps.add_struct_member_names(recv->rec_di, *recv->rec_group, partial_word);
     }
     return comps;
 }

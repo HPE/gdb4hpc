@@ -25,6 +25,8 @@
 #include "defs.h"
 #include "useful.h"
 
+#include "unittest_macros.h"
+
 DbgFE::DbgFE(const char* gdbPath) {
 
     m_session = MISessionNew();
@@ -585,6 +587,103 @@ dbgevent_t* DbgFE::getFunctionSymbolNames(std::string_view name) {
     return fetch_symbols(*cmd);
 }
 
+namespace detail {
+
+// Remove parens or braces, var(...) or var[...]
+static auto strip_trailing_nested(std::string_view line, char left, char right) {
+    if (line.back() != right) {
+        return line;
+    }
+
+    auto nested_count = int{1};
+    auto idx = size_t{line.length() - 2};
+    while (idx > 0) {
+        if (line.at(idx) == right) { nested_count++; }
+        else if (line.at(idx) == left) { nested_count--; }
+        if (nested_count == 0) { break; }
+        idx--;
+    }
+    return line.substr(0, idx);
+}
+
+TEST_CASE("strip_trailing_nested") {
+    CHECK(strip_trailing_nested("integer", '(', ')') == "integer");
+    CHECK(strip_trailing_nested("(*fp)(int)", '(', ')') == "(*fp)");
+    CHECK(strip_trailing_nested("(*(*fp)(int))(int)", '(', ')') == "(*(*fp)(int))");
+    CHECK(strip_trailing_nested("array[5]", '[', ']') == "array");
+}
+
+static auto strip_leading_type(std::string_view line) {
+    if (line.empty()) { return line; }
+    auto idx = line.length() - 1;
+    auto count = 0;
+    while (true) {
+        if (line.at(idx) == '(') { count++; }
+        else if (line.at(idx) == ')') { count--; }
+        else if ((line.at(idx) == ' ') && (count == 0)) { break; }
+        if (idx == 0) { return line; }
+        idx--;
+    }
+    return line.substr(idx + 1);
+}
+
+TEST_CASE("strip_leading_type") {
+    CHECK(strip_leading_type("integer") == "integer");
+    CHECK(strip_leading_type("int integer") == "integer");
+    CHECK(strip_leading_type("int const integer") == "integer");
+    CHECK(strip_leading_type("int (*fp)(int, int)") == "(*fp)(int, int)");
+}
+
+} // namespace detail
+
+// Get variable name from ptype result line
+static std::string extract_member_name(std::string_view line) {
+    if ((line.empty()) || (line.back() != ';')) { return {}; }
+
+    // Strip trailing ;
+    line = line.substr(0, line.length() - 1);
+
+    // Strip type identifier
+    line = detail::strip_leading_type(line);
+
+    while (!line.empty() && (!::isalnum(line.front()) || !::isalnum(line.back()))) {
+
+        // Strip function pointer components
+        line = detail::strip_trailing_nested(line, '(', ')');
+
+        // Strip array components
+        while (line.back() == ']') {
+            line = detail::strip_trailing_nested(line, '[', ']');
+        }
+
+        // Remove nested parens
+        if ((line.front() == '(') && (line.back() == ')')) {
+            line = line.substr(1, line.length() - 2);
+        }
+
+        // Strip pointer components
+        while (line.front() == '*') {
+            line = line.substr(1);
+        }
+    }
+
+    return std::string{line};
+}
+
+TEST_CASE("extract_member_name") {
+    CHECK(extract_member_name("int integer;") == "integer");
+    CHECK(extract_member_name("const float fp;") == "fp");
+    CHECK(extract_member_name("int array[5];") == "array");
+    CHECK(extract_member_name("int array[5][10];") == "array");
+    CHECK(extract_member_name("char *string;") == "string");
+    CHECK(extract_member_name("int (*arrayptr)[10];") == "arrayptr");
+    CHECK(extract_member_name("struct Struct sp;") == "sp");
+    CHECK(extract_member_name("int (*fp)(int);") == "fp");
+    CHECK(extract_member_name("int (*fp)(int, int);") == "fp");
+    CHECK(extract_member_name("int (*(*(*fp)(int, int))(int))(int);") == "fp");
+    CHECK(extract_member_name("int (*fp[5][19])(int);") == "fp");
+}
+
 dbgevent_t* DbgFE::getVariableSymbolNames(std::string_view name) {
     auto patched_name = std::string{"^"};
     patched_name.append(name);
@@ -604,6 +703,43 @@ dbgevent_t* DbgFE::getVariableSymbolNames(std::string_view name) {
     }
 
     return fetch_symbols(*cmd);
+}
+
+dbgevent_t* DbgFE::getStructMemberNames(std::string_view fq_name, std::string_view name) {
+    auto cmd = CLIPtype(std::string{fq_name}.c_str());
+    auto cmd_cleanup = OnScopeExit([&](){ MICommandFree(cmd); });
+    sendCmd(cmd);
+    if (!MICommandResultOK(cmd)) {
+        return NewErrorEvent(DBGERR_DEBUGGER,
+                             "Gdb set substitute-path command failed.");
+    }
+    auto res = MallocedCharPtr{MICommandConsoleOOBMessages(cmd)};
+
+    auto ss = std::istringstream{res.get()};
+    auto line = std::string{};
+    std::getline(ss, line);
+
+    auto e = NewEvent(DBGEV_VARS);
+    e->ev_vars = nullptr;
+    auto var_next = &e->ev_vars;
+
+    while (std::getline(ss, line)) {
+
+        auto member_name = extract_member_name(std::move(line));
+        if (member_name.empty()) {
+            continue;
+        }
+
+        auto dbgvar = (dbgvars_t *)malloc(sizeof(dbgvars_t));
+        dbgvar->var_name = strdup((std::string{name} + "." + member_name).c_str());
+        dbgvar->var_type = nullptr;
+        dbgvar->var_next = nullptr;
+
+        *var_next = dbgvar;
+        var_next = &dbgvar->var_next;
+    }
+
+    return e;
 }
 
 dbgevent_t* DbgFE::fetch_symbols(MICommand& cmd) {

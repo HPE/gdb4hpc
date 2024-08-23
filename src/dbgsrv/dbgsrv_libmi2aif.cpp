@@ -71,6 +71,7 @@ namespace {
 // from..to in for C/C++ containers
 class SubArray {
 public:
+    virtual ~SubArray() {}
     static std::pair<std::string,bool> removeRngs(Mi2Aif& mi, const std::string& expr);
     std::shared_ptr<ais::Type> getType() { return m_type; }
     virtual char* getArrayDataString() = 0;

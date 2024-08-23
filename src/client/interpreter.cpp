@@ -114,6 +114,31 @@ bool Completions::has_function_symbol_names() const {
     return m_has_function_symbol_names;
 }
 
+// Check to see if any variable names have partial_var_name as a prefix
+static bool add_possibilites_from_vars(std::set<std::string>& possibilities,
+    dbgevent_t* vars, std::string_view partial_name) {
+
+    if (!vars || vars->ev_event != DBGEV_VARS) return false;
+
+    auto result = false;
+
+    for (auto* p = vars->ev_u.ev_u_vars; p != nullptr; p = p->var_next) {
+        if (!p->var_name) continue;
+
+        // we only care about the first partial_var_name.size() characters of p->var_name.
+        // calling string_view(p->var_name, partial_var_name.size()) could construct
+        // a string_view that extends past the end of var_name, so we call ::strnlen
+        // on the outside to get the minimum length we need.
+        auto view = std::string_view(p->var_name, ::strnlen(p->var_name, partial_name.size()));
+        if (view == partial_name) {
+            possibilities.emplace(p->var_name);
+            result = true;
+        }
+    }
+
+    return result;
+}
+
 void Completions::add_variable_symbol_names(const DbgInvoke& di, const Bitset& ranks, std::string_view partial_var_name) {
     if (!di.frontendGdb()) return;
     auto *gdbmi = di.frontendGdb();
@@ -180,20 +205,8 @@ void Completions::add_variable_symbol_names(const DbgInvoke& di, const Bitset& r
             auto* vars = gdbmi->getScope(locstr.c_str());
             auto vars_cleanup = OnScopeExit([&](){ FreeEvent(vars); });
 
-            if (!vars || vars->ev_event != DBGEV_VARS) continue;
-
-            for (auto* p = vars->ev_u.ev_u_vars; p != nullptr; p = p->var_next) {
-                if (!p->var_name) continue;
-
-                // we only care about the first partial_var_name.size() characters of p->var_name.
-                // calling string_view(p->var_name, partial_var_name.size()) could construct
-                // a string_view that extends past the end of var_name, so we call ::strnlen
-                // on the outside to get the minimum length we need.
-                auto view = std::string_view(p->var_name, ::strnlen(p->var_name, partial_var_name.size()));
-                if (view == partial_var_name) {
-                    this->possibilities.emplace(p->var_name);
-                    m_has_variable_symbol_names = true;
-                }
+            if (add_possibilites_from_vars(this->possibilities, vars, partial_var_name)) {
+                m_has_variable_symbol_names = true;
             }
         }
     }
@@ -234,6 +247,59 @@ void Completions::add_source_file_names(const DbgInvoke& di, std::filesystem::pa
             }
         }
     }
+}
+
+void Completions::add_struct_member_names(const DbgInvoke& di, const Bitset& ranks, std::string_view partial_struct_name) {
+    if (!di.frontendGdb()) return;
+    auto *gdbmi = di.frontendGdb();
+
+    // Get base name of struct before dot
+    auto last_dot = partial_struct_name.rfind('.');
+    if (last_dot == partial_struct_name.npos) {
+        return;
+    }
+    auto struct_name = std::string{partial_struct_name.substr(0, last_dot)};
+
+    // Try global struct members
+    { auto vars = gdbmi->getStructMemberNames(struct_name, struct_name);
+        auto cleanup = OnScopeExit([&](){ FreeEvent(vars); });
+
+        if (add_possibilites_from_vars(this->possibilities, vars, partial_struct_name)) {
+            m_has_struct_member_names = true;
+        }
+    }
+
+    // add local variables
+    if (auto* cached_frames = di.getCachedFrames()) {
+
+        auto seen_locs = std::set<std::string>{};
+        const auto max_queries = 10;
+        auto query_count = 0;
+
+        for (const auto& loc : cached_frames->masked(ranks)) {
+            // ptype requires function name location, not filename:lineno
+            auto locstr = (loc.loc_func) ? std::string{loc.loc_func} : std::string{};
+
+            if (locstr.empty() || seen_locs.contains(locstr)) continue;
+            seen_locs.insert(locstr);
+
+            if (query_count >= max_queries) break;
+            query_count++;
+
+            // Get struct member variables
+            auto fq_struct_name = locstr + "::" + struct_name;
+            auto vars = gdbmi->getStructMemberNames(fq_struct_name, struct_name);
+            auto cleanup = OnScopeExit([&](){ FreeEvent(vars); });
+
+            if (add_possibilites_from_vars(this->possibilities, vars, partial_struct_name)) {
+                m_has_struct_member_names = true;
+            }
+        }
+    }
+}
+
+bool Completions::has_struct_member_names() const {
+    return m_has_struct_member_names;
 }
 
 std::string Completions::calc_common_prefix() const {

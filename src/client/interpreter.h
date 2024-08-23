@@ -165,6 +165,11 @@ public:
     void add_source_file_names(const DbgInvoke& di, std::filesystem::path partial_path);
     bool has_source_file_names() const;
 
+    // given a `struct_name`, add matching
+    // struct members associated with `di` to `possibilities`.
+    void add_struct_member_names(const DbgInvoke& di, const Bitset& ranks, std::string_view partial_var_name);
+    bool has_struct_member_names() const;
+
     // `calc_common_prefix` calculates and returns the longest string of
     // characters common among all `possibilities`.
     //
@@ -177,4 +182,5 @@ private:
     bool m_has_function_symbol_names = false;
     bool m_has_variable_symbol_names = false;
     bool m_has_source_file_names = false;
+    bool m_has_struct_member_names = false;
 };

@@ -9,6 +9,7 @@
 // abstracted interface for struct clnt_settings so that layers
 // below don't need to know the details of the whole client layer
 struct ClientSettingsInterface {
+    virtual ~ClientSettingsInterface() {}
     virtual std::string getProto() = 0;
     virtual std::string getBackend() = 0;
     virtual bool isUnsafe() = 0;

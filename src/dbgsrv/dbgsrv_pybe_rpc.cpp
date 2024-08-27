@@ -347,10 +347,18 @@ void RPC::thread_interrupt(c_thread_id_t tid) {
     bool got_one = false;
     bool waited = false; // for logging purposes only TODO remove
 
-    MISessionRegisterEventCallback(&m_parent_session, [](void* ctx, MIEvent* /*e*/) {
-        // we don't store the event itself because mi will free it after the callback returns
-        DVPRINT("suppressed event\n");
-        *static_cast<bool*>(ctx) = true;
+    MISessionRegisterEventCallback(&m_parent_session, [](void* ctx, MIEvent* e) {
+        if (!e) {
+            DVPRINT("null event??\n");
+            return;
+        }
+
+        if (e->classId == MIEventClassStopped) {
+            *static_cast<bool*>(ctx) = true;
+        } else {
+            DVPRINT("Got unexpected event type %d, %d, moving on...\n", e->classId, e->type);
+        }
+        MIEventFree(e);
     }, &got_one);
 
     auto cmd = make_MICmd(MIExecInterruptThread(tid));
@@ -564,9 +572,18 @@ void RPC::thread_finish_with_timeout(c_thread_id_t tid, unsigned int frame) {
     bool got_one = false;
     bool waited = false; // for logging purposes only TODO remove
 
-    MISessionRegisterEventCallback(&m_parent_session, [](void* ctx, MIEvent* /*e*/) {
-        // TODO make sure the event is freed by mi somewhere and we are not leaking here
-        *static_cast<bool*>(ctx) = true;
+    MISessionRegisterEventCallback(&m_parent_session, [](void* ctx, MIEvent* e) {
+        if (!e) {
+            DVPRINT("null event??\n");
+            return;
+        }
+
+        if (e->classId == MIEventClassStopped) {
+            *static_cast<bool*>(ctx) = true;
+        } else {
+            DVPRINT("Got unexpected event type %d, %d, moving on...\n", e->classId, e->type);
+        }
+        MIEventFree(e);
     }, &got_one);
 
     try_send_command(m_parent_session, *make_MICmd(MIExecFinishThreadFrame(tid, frame)), [](){

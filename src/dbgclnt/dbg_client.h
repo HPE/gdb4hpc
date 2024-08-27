@@ -280,8 +280,8 @@ private:
 
     void sortReplies();
     void sortErrors();
-    bool m_repsIsSorted;
-    bool m_errsIsSorted;
+    bool m_repsIsSorted = true; // empty is sorted
+    bool m_errsIsSorted = true;
 };
 
 // Iteration support for processing the non-error replies of a rep_set_t, which

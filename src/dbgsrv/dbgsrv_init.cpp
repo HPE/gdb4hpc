@@ -1572,7 +1572,7 @@ dbgevent_t *DbgGdbMI::Initializer::interrupt(bool all) {
 
             if (async_e->ev_sig_frame != NULL) {
                 const auto &frameLoc = async_e->ev_sig_frame->getLoc();
-                e->ev_loc = (dbgloc_t *)Alloc(sizeof(dbgloc_t));
+                e->ev_loc = new dbgloc_t;
                 e->ev_loc->loc_file = StrdupOpt(frameLoc.loc_file);
                 e->ev_loc->loc_func = StrdupOpt(frameLoc.loc_func);
                 e->ev_loc->loc_addr = nullptr;  // We don't care about the address

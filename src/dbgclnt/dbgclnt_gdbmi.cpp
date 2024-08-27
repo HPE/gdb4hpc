@@ -203,7 +203,6 @@ dbgevent_t *DbgFE::quit() {
 ** GDB does not have a MI command for this; we use the CLI command.
 */
 dbgevent_t *DbgFE::list(const char* threads, const char *str) {
-    dbgevent_t *e;
     MICommand *cmd;
     MIList *lines;
     CLILineInfo *line;
@@ -216,7 +215,9 @@ dbgevent_t *DbgFE::list(const char* threads, const char *str) {
     cmd = CLIList(str);
     sendCmd(cmd);
     if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, MICommandResultErrorMessage(cmd));
+        auto* msg = MICommandResultErrorMessage(cmd);
+        auto* e = NewErrorEvent(DBGERR_DEBUGGER, "%s", msg); // XXX: copies msg
+        ::free(msg);
         MICommandFree(cmd);
         return e;
     }
@@ -243,7 +244,7 @@ dbgevent_t *DbgFE::list(const char* threads, const char *str) {
     MIListFree(lines, (void (*)())CLILineInfoFree);
     MICommandFree(cmd);
 
-    e = NewEvent(DBGEV_LIST);
+    auto* e = NewEvent(DBGEV_LIST);
     e->ev_list = list;
 
     return e;

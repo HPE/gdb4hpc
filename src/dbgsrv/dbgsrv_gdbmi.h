@@ -242,6 +242,10 @@ private:
 
     DbgGdbMI& m_dbg;
     MISession* m_session;
+    // XXX: these dbgbp_t* are never free'd. but the contained pointers are copied around
+    // pretty freely throughout the codebase so I'm not sure who is actually responsible
+    // for freeind them. leaving it alone for now since it's barely a leak (matches the
+    // lifetime of the entire dbgsrv)
     std::vector<dbgbp_t*> m_exitBP;
     int m_pid;
     char* m_runArgs;

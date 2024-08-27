@@ -154,6 +154,9 @@
 <h1 class="title">Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc</h1>
 </header>
 <h1 id="debugging-python-applications-with-the-gdb-python-debugging-extension-in-gdb4hpc">Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc</h1>
+<blockquote>
+<p>NOTE: These commands are deprecated in favor of python mode. Python mode has more functionality and less requirements. See the “Debugging Python Applications” document for more info.</p>
+</blockquote>
 <h2 id="background">Background</h2>
 <p>gdb is a debugger for compiled binaries, not interpreted languages like Python. This means that when debugging a Python application with gdb, gdb is debugging the Python interpreter internals and not the Python application code. For people developing Python applications, this isn’t very useful.</p>
 <p>In the <a href="https://github.com/python/cpython/blob/main/Tools/gdb/libpython.py">source of the cpython interpreter</a>, there is a gdb extension that can be loaded by gdb to help translate data and state internal to the python interpreter into data and state relevant to the python source code.</p>
@@ -232,9 +235,9 @@ Reading symbols from /opt/cray/pe/python/3.11.7/bin/python3...</code></pre>
 <p>For other workload managers, check the help text of the <code>attach</code> command in gdb4hpc via the <code>help attach</code> command.</p>
 <h2 id="commands">Commands</h2>
 <p>The Python extension adds pretty printers for Python types and the following commands.</p>
-<h3 id="py-bt"><code>py-bt</code></h3>
-<p><code>py-bt</code> is the Python equivalent of gdb4hpc’s <code>bt</code> / <code>backtrace</code> commands. It shows all ranks’ backtraces merged into a single tree:</p>
-<pre><code>dbg all&gt; py-bt
+<h3 id="maint-pyext-bt"><code>maint pyext bt</code></h3>
+<p><code>maint pyext bt</code> is the Python equivalent of gdb4hpc’s <code>bt</code> / <code>backtrace</code> commands. It shows all ranks’ backtraces merged into a single tree:</p>
+<pre><code>dbg all&gt; maint pyext bt
 a{0..2}: #2  &lt;module&gt; at main4.py:48
 a{0..2}: #1  main at main4.py:39
 |
@@ -243,9 +246,9 @@ a{0..2}: #1  main at main4.py:39
 \_ a{1}: #1  scatter at main4.py:17
    a{1}: #0  sleep</code></pre>
 <p>This backtrace shows that all ranks started at <code>&lt;module&gt;</code> (basically Python’s <code>_start</code> equivalent), then diverged in the <code>scatter</code> function. Rank 1 is currently in <code>sleep</code>.</p>
-<h3 id="py-list"><code>py-list</code></h3>
-<p><code>py-list</code> is the Python equivalent of gdb4hpc’s <code>list</code> command.</p>
-<pre><code>dbg all&gt; py-list
+<h3 id="maint-pyext-list"><code>maint pyext list</code></h3>
+<p><code>maint pyext list</code> is the Python equivalent of gdb4hpc’s <code>list</code> command.</p>
+<pre><code>dbg all&gt; maint pyext list
 a{0,2}:
   15    def scatter(nums):
   16        if world_rank == 1:
@@ -264,20 +267,20 @@ a{1}:
   20    def get_avg(a):
   21        avg = 0.0
   22        for n in a:</code></pre>
-<p><code>py-list</code> takes range arguments similar to gdb4hpc’s <code>list</code> command that allow you to list a specific range.</p>
-<pre><code>dbg all&gt; py-list 10,12
+<p><code>maint pyext list</code> takes range arguments similar to gdb4hpc’s <code>list</code> command that allow you to list a specific range.</p>
+<pre><code>dbg all&gt; maint pyext list 10,12
   10        if world_rank == 0:
   11            return [[j * nums_per_rank + i for i in range(nums_per_rank)] for j in range(world_size)]
   12        else:</code></pre>
-<h3 id="py-print-and-py-locals"><code>py-print</code> and <code>py-locals</code></h3>
-<p><code>py-print</code> and <code>py-locals</code> are the Python equivalent of gdb4hpc’s <code>print</code> and <code>info locals</code> commands.</p>
-<p><code>py-print</code> can’t evaluate arbitrary expressions like gdb4hpc’s <code>print</code> command can. It can look up the value of local, global, and builtin names.</p>
-<p><code>py-locals</code> shows the local variables in the current Python frame and their values.</p>
-<h3 id="py-up-and-py-down"><code>py-up</code> and <code>py-down</code></h3>
-<p><code>py-up</code> and <code>py-down</code> are the Python equivalent of gdb4hpc’s <code>up</code> and <code>down</code> commands. They navigate the Python call stack and affect the results of <code>py-print</code> and <code>py-locals</code>. For example, if you wanted to print a variable in the top level function of your Python application, you could repeatedly use <code>py-up</code> to climb up the stack to the top level frame, then use <code>py-locals</code>.</p>
+<h3 id="maint-pyext-print-and-maint-pyext-locals"><code>maint pyext print</code> and <code>maint pyext locals</code></h3>
+<p><code>maint pyext print</code> and <code>maint pyext locals</code> are the Python equivalent of gdb4hpc’s <code>print</code> and <code>info locals</code> commands.</p>
+<p><code>maint pyext print</code> can’t evaluate arbitrary expressions like gdb4hpc’s <code>print</code> command can. It can look up the value of local, global, and builtin names.</p>
+<p><code>maint pyext locals</code> shows the local variables in the current Python frame and their values.</p>
+<h3 id="maint-pyext-up-and-maint-pyext-down"><code>maint pyext up</code> and <code>maint pyext down</code></h3>
+<p><code>maint pyext up</code> and <code>maint pyext down</code> are the Python equivalent of gdb4hpc’s <code>up</code> and <code>down</code> commands. They navigate the Python call stack and affect the results of <code>maint pyext print</code> and <code>maint pyext locals</code>. For example, if you wanted to print a variable in the top level function of your Python application, you could repeatedly use <code>maint pyext up</code> to climb up the stack to the top level frame, then use <code>maint pyext locals</code>.</p>
 <h2 id="hybrid-applicaitons">Hybrid Applicaitons</h2>
-<p>The <code>py-</code> commands provided by the extension only display information about Python code. If you are debugging a hybrid application, use the non <code>py-</code> versions of the commands to debug the native code as you usually would.</p>
-<p>For example, <code>py-bt</code> can be used to show the Python backtrace, but it won’t include any frames from native code. If native code is being run, the usual <code>backtrace</code> command can be used to see it.</p>
+<p>The <code>maint pyext</code> commands provided by the extension only display information about Python code. If you are debugging a hybrid application, use the non <code>py-</code> versions of the commands to debug the native code as you usually would.</p>
+<p>For example, <code>maint pyext bt</code> can be used to show the Python backtrace, but it won’t include any frames from native code. If native code is being run, the usual <code>backtrace</code> command can be used to see it.</p>
 <p>You will also see the frames of the Python interpreter itself, which can be quite large. You can pass an argument to <code>backtrace</code> to limit the number of frames that are displayed. Native extension frames will be at the bottom of the backtrace stack, so limiting the amount of frames will work nicely to isolate them.</p>
 <pre><code>dbg all&gt; backtrace 5
 app{0}: #4  step_one at src/C++/cpp_bt.cpp:62

@@ -692,34 +692,41 @@ Usage: python
 This enters a python interpreter, and all lines enterred will be\
 interpreted as python code.
 
-## py-bt `cmd_py_bt_help`
+## maint pyext `pyext_help`
+
+Use gdb python debugging extensions. These commands require that you are
+debugging the cpython interpreter and that is has debug info available.
+For more info, see the documentation in the python-extension.md file in
+the documentation directory of your gdb4hpc installation.
+
+## maint pyext bt `cmd_py_bt_help`
 Summary: print the current python backtrace.\
-Usage: py-bt
+Usage: maint pyext bt
 
-## py-list `cmd_py_list_help`
+## maint pyext list `cmd_py_list_help`
 Summary: print the current python source location.\
-Usage: py-list\
-       py-list <start line>\
-       py-list <start line>, <end line>
+Usage: maint pyext list\
+       maint pyext list <start line>\
+       maint pyext list <start line>, <end line>
 
-## py-up `cmd_py_up_help`
+## maint pyext up `cmd_py_up_help`
 Summary: move up one frame on the python stack.\
-Usage: py-up
+Usage: maint pyext up
 
-## py-down `cmd_py_down_help`
+## maint pyext down `cmd_py_down_help`
 Summary: move down one frame on the python stack.\
-Usage: py-down
+Usage: maint pyext down
 
-## py-print `cmd_py_print_help`
+## maint pyext print `cmd_py_print_help`
 Summary: prints the value of a python variable.\
-Usage: py-print <name>
+Usage: maint pyext print <name>
 
 Prints the value of a python variable. Valid items include\
 locals, globals, and builtins.
 
-## py-locals `cmd_py_locals_help`
+## maint pyext locals `cmd_py_locals_help`
 Summary: prints the names and values of local python variables.\
-Usage: py-locals
+Usage: maint pyext locals
 
 Prints the value of local variables in the current python frame.\
 If the C frame of the python interpreter corresponds to multiple\

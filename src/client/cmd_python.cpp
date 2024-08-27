@@ -318,27 +318,27 @@ void ConsoleCommandsFactory::insert_python_commands(CommandNode& root) {
 
     // commands which rely on python extensions being loaded, see python.md.
     root.addSubCmd({
-        .name = "py-bt", .ptype = proc_required,
+        .name = "maint pyext bt", .ptype = proc_required,
         .fn = cmd_py_bt,
         .help = cmd_py_bt_help, .desc = "Print the python backtrace."});
     root.addSubCmd({
-        .name = "py-list", .ptype = proc_required,
+        .name = "maint pyext list", .ptype = proc_required,
         .fn = cmd_py_list,
         .help = cmd_py_list_help, .desc = "Print the current python source location."});
     root.addSubCmd({
-        .name = "py-up", .ptype = proc_required,
+        .name = "maint pyext up", .ptype = proc_required,
         .fn = cmd_py_up,
         .help = cmd_py_up_help, .desc = "Move up one frame on the python stack."});
     root.addSubCmd({
-        .name = "py-down", .ptype = proc_required,
+        .name = "maint pyext down", .ptype = proc_required,
         .fn = cmd_py_down,
         .help = cmd_py_down_help, .desc = "Move down one frame on the python stack."});
     root.addSubCmd({
-        .name = "py-print", .ptype = proc_required,
+        .name = "maint pyext print", .ptype = proc_required,
         .fn = cmd_py_print,
         .help = cmd_py_print_help, .desc = "Print the value of a python variable."});
     root.addSubCmd({
-        .name = "py-locals", .ptype = proc_required,
+        .name = "maint pyext locals", .ptype = proc_required,
         .fn = cmd_py_locals,
         .help = cmd_py_locals_help, .desc = "Print the values of the current python local variables."});
 

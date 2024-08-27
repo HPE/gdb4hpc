@@ -36,12 +36,6 @@ ompd
 pipe
 print
 ptype
-py-bt
-py-down
-py-list
-py-locals
-py-print
-py-up
 python
 quit
 release
@@ -97,6 +91,7 @@ complete
 echo
 list-cached-frames
 pybe
+pyext
 set
 show
 sleep
@@ -143,12 +138,6 @@ ompd
 pipe
 print
 ptype
-py-bt
-py-down
-py-list
-py-locals
-py-print
-py-up
 python
 quit
 release

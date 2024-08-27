@@ -682,6 +682,10 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
                    nullptr, class_maint_show_help,
                    "Show information about the debugger environment.");
 
+    root.addSubCmd("maint pyext", nullptr, proc_ignore,
+                   nullptr, pyext_help,
+                   "Use gdb python debugging extensions.");
+
     root.addSubCmd("maint pybe", nullptr, proc_ignore,
                    nullptr, nullptr,
                    "Control the python debugger backend.");

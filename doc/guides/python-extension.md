@@ -4,6 +4,10 @@ title: "Debugging Python Applications with the gdb Python Debugging Extension in
 
 # Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc
 
+> NOTE: These commands are deprecated in favor of python mode. Python mode has
+> more functionality and less requirements. See the "Debugging Python
+> Applications" document for more info.
+
 ## Background
 
 gdb is a debugger for compiled binaries, not interpreted languages like Python.
@@ -213,13 +217,13 @@ For other workload managers, check the help text of the `attach` command in gdb4
 The Python extension adds pretty printers for Python types and the following
 commands.
 
-### `py-bt`
+### `maint pyext bt`
 
-`py-bt` is the Python equivalent of gdb4hpc's `bt` / `backtrace` commands. It
+`maint pyext bt` is the Python equivalent of gdb4hpc's `bt` / `backtrace` commands. It
 shows all ranks' backtraces merged into a single tree:
 
 ```
-dbg all> py-bt
+dbg all> maint pyext bt
 a{0..2}: #2  <module> at main4.py:48
 a{0..2}: #1  main at main4.py:39
 |
@@ -233,12 +237,12 @@ This backtrace shows that all ranks started at `<module>` (basically Python's
 `_start` equivalent), then diverged in the `scatter` function. Rank 1 is
 currently in `sleep`.
 
-### `py-list`
+### `maint pyext list`
 
-`py-list` is the Python equivalent of gdb4hpc's `list` command.
+`maint pyext list` is the Python equivalent of gdb4hpc's `list` command.
 
 ```
-dbg all> py-list
+dbg all> maint pyext list
 a{0,2}:
   15    def scatter(nums):
   16        if world_rank == 1:
@@ -259,42 +263,42 @@ a{1}:
   22        for n in a:
 ```
 
-`py-list` takes range arguments similar to gdb4hpc's `list` command that allow
+`maint pyext list` takes range arguments similar to gdb4hpc's `list` command that allow
 you to list a specific range.
 
 ```
-dbg all> py-list 10,12
+dbg all> maint pyext list 10,12
   10        if world_rank == 0:
   11            return [[j * nums_per_rank + i for i in range(nums_per_rank)] for j in range(world_size)]
   12        else:
 ```
 
-### `py-print` and `py-locals`
+### `maint pyext print` and `maint pyext locals`
 
-`py-print` and `py-locals` are the Python equivalent of gdb4hpc's `print` and
+`maint pyext print` and `maint pyext locals` are the Python equivalent of gdb4hpc's `print` and
 `info locals` commands.
 
-`py-print` can't evaluate arbitrary expressions like gdb4hpc's `print` command
+`maint pyext print` can't evaluate arbitrary expressions like gdb4hpc's `print` command
 can. It can look up the value of local, global, and builtin names.
 
-`py-locals` shows the local variables in the current Python frame and their
+`maint pyext locals` shows the local variables in the current Python frame and their
 values.
 
-### `py-up` and `py-down`
+### `maint pyext up` and `maint pyext down`
 
-`py-up` and `py-down` are the Python equivalent of gdb4hpc's `up` and `down`
+`maint pyext up` and `maint pyext down` are the Python equivalent of gdb4hpc's `up` and `down`
 commands. They navigate the Python call stack and affect the results of
-`py-print` and `py-locals`. For example, if you wanted to print a variable in
+`maint pyext print` and `maint pyext locals`. For example, if you wanted to print a variable in
 the top level function of your Python application, you could repeatedly use
-`py-up` to climb up the stack to the top level frame, then use `py-locals`.
+`maint pyext up` to climb up the stack to the top level frame, then use `maint pyext locals`.
 
 ## Hybrid Applicaitons
 
-The `py-` commands provided by the extension only display information about
+The `maint pyext` commands provided by the extension only display information about
 Python code. If you are debugging a hybrid application, use the non `py-`
 versions of the commands to debug the native code as you usually would.
 
-For example, `py-bt` can be used to show the Python backtrace, but it won't
+For example, `maint pyext bt` can be used to show the Python backtrace, but it won't
 include any frames from native code. If native code is being run, the usual
 `backtrace` command can be used to see it.
 

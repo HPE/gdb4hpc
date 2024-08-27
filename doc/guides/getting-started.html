@@ -153,6 +153,7 @@
 <header id="title-block-header">
 <h1 class="title">Getting Started with Gdb4hpc</h1>
 </header>
+<h1 id="getting-started-with-gdb4hpc">Getting Started with Gdb4hpc</h1>
 <h2 id="the-help-system">The help system</h2>
 <p>In classic unix tradition, starting up gdb4hpc presents a prompt expecting the user to know what to type. In this case, <code>help</code> is a good choice, it will present you with a list of every available command, and <code>help &lt;command&gt;</code> gives you the full details.</p>
 <p>That is a reference manual, this user guide is intended to present what you need to get up and debugging.</p>
@@ -189,6 +190,20 @@ dbg all&gt;</code></pre>
 <p>The <code>$a{10}</code> is a <strong>process set</strong>, sometimes called a <strong>procset</strong> in gdb4hpc. Since you’ve done the launch, you can think of your application as an array of 10 processes. In this instance, it’s acting like an array declaration creating an array named <code>a</code> with 10 processes.</p>
 <p>To distinguish gdb and gdb4hpc variables from program variables, they prepended with a dollar sign, and it used the curly braces for the indexing.</p>
 <p>The choice <code>a</code> for the procset name is arbitrary. The reason it has a name is the gdb4hpc can control more than one application run at a time.</p>
+<h3 id="alternative-launch-commands">Alternative Launch Commands</h3>
+<p>For some WLMs, gdb4hpc supports using the same job launch syntax you would use on the command line outside of gdb4hpc.</p>
+<p>For example, on machines running Slurm, you could launch a job equivalent to the example above like this:</p>
+<pre><code>dbg all&gt; srun -n10 --exclusive ./hello_mpi_c
+Starting application, please wait...
+Launch application...
+0/10 ranks connected... (timeout in 300 seconds)
+10/10 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+hello_mpi_c{0..9}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.0.0/demos/mpi_example/hello_mpi.c:13
+dbg all&gt;</code></pre>
+<p>The alternative launch commands do not support all command line flags/options of the launchers they represent, but they support most commonly used flags/options. To see what options are supported, use the <code>help</code> command, e.g. <code>help srun</code>.</p>
 <h2 id="if-youve-never-used-a-debugger">If you’ve never used a debugger</h2>
 <p>If you were following along, at this point you are debugging an HPC program. There are 10 application processes being held at entry by ten instances of gdb which are communicating with one gdb4hpc.</p>
 <p>Use the <code>list</code> command to show source around the current location:</p>

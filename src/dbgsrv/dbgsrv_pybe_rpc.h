@@ -163,7 +163,7 @@ public:
     //
     // XXX: pybe does not verify that the passed arguments are valid. e.g. if a
     // file/function actually exists
-    pybe::Breakpoint set_breakpoint(c_thread_id_t tid, int feid, std::string_view filename, int line, std::string_view funcname);
+    pybe::Breakpoint set_breakpoint(c_thread_id_t tid, py_thread_id_t ptid, int feid, std::string_view filename, int line, std::string_view funcname);
 
     // use thread `tid` to call pybe and delete the breakpoint with id `feid`.
     void delete_breakpoint(c_thread_id_t tid, int feid);
@@ -187,8 +187,15 @@ public:
     // respectively).
     //
     // note that this function does not start any threads - that needs to be
-    // done seperately.
+    // done separately.
     void insert_step_trap(c_thread_id_t tid, py_thread_id_t ptid, bool step_in);
+
+    // use thread `tid` to call pybe and insert a trap that will be activated
+    // when python thread `ptid` returns from its current function.
+    //
+    // note that this function does not start any threads - that needs to be
+    // done separately.
+    void insert_finish_trap(c_thread_id_t tid, py_thread_id_t ptid);
 
 private:
     // this is private because RPC is supposed to be side-effect free, but some

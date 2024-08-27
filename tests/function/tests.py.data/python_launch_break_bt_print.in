@@ -10,10 +10,10 @@ Created network...
 Connected to application...
 Launch complete.
 a{0}: Initial breakpoint, %.*%
-0: break 9
-a{0}: Breakpoint 1: file , line 9.
+0: break scopes.py:9
+a{0}: Breakpoint 1: file scopes.py, line 9.
 0: c
-a{0}: Breakpoint 1,  at :9
+a{0}: Breakpoint 1,  at scopes.py:9
 0: bt
 a{0}: #2  <module> at /src/python/scopes.py:16
 a{0}: #1  main at /src/python/scopes.py:13

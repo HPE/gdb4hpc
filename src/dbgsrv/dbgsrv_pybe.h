@@ -121,6 +121,16 @@ public:
     // GILHolder must go out of scope).
     void insert_step_trap(bool step_in);
 
+    // set up pybe and the inferior for a finish (run until a return)
+    //
+    // this function has a funny name to try to make it clear that this function
+    // does not start the inferior. it only sets up the trap for the inferior to
+    // stop in *once something else starts it again*. this is because setting
+    // the step trap requires the GIL (which is implicitly held by the presence
+    // of the GILHolder) but advancing requires the GIL be released (the
+    // GILHolder must go out of scope).
+    void insert_finish_trap();
+
     // different scenarios require different actions to restore the inferior to
     // the state it was in before aquiring the GIL. GILHolder will decide on its
     // escape strategy at construction time and fill in m_escape if needed.

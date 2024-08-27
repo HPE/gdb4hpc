@@ -771,9 +771,19 @@ const char* RPC::get_GIL_releasing_function_name() {
     return "pybe::get_GIL_then_breakpoint";
 }
 
-pybe::Breakpoint RPC::set_breakpoint(c_thread_id_t tid, int feid, std::string_view filename, int line, std::string_view funcname) {
+pybe::Breakpoint RPC::set_breakpoint(c_thread_id_t tid, py_thread_id_t ptid, int feid, std::string_view filename, int line, std::string_view funcname) {
+    if (!m_pybe_channel) {
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "set_breakpoint: used before communication available");
+    }
+
+    auto& channel = *m_pybe_channel;
+    const auto seq = channel.generate_sequence_number();
+
     // TODO support spaces
     const auto fn = std::string{"pybe::set_breakpoint("} +
+        std::to_string(seq) + "," +
+        std::to_string(ptid) + "," +
         std::to_string(feid) + "," +
         "\"" + std::string{filename} + "\"," +
         std::to_string(line) + "," +
@@ -789,14 +799,19 @@ pybe::Breakpoint RPC::set_breakpoint(c_thread_id_t tid, int feid, std::string_vi
         // pybe failed or the user simply passed a bad breakpoint
     });
 
-    return pybe::Breakpoint {
-        .feid = feid,
-        .location = pybe::Frame {
-            .function_name = std::string{funcname},
-            .file_name = std::string{filename},
-            .line_number = line,
-        }
-    };
+    auto buf = channel.recv_with_timeout(seq);
+    if (buf == "") {
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "set_breakpoint: got nothing from pybe");
+    }
+
+    const auto* cursor = buf.c_str();
+    if (auto result = pybe::Breakpoint::deserialize(cursor, buf.size())) {
+        return *result;
+    }
+
+    // not much the user can do if this fails. just emit a bug report friendly error.
+    throw NewErrorEvent(DBGERR_INTERNAL, "set_breakpoint: failed to deserialize data");
 }
 
 void RPC::delete_breakpoint(c_thread_id_t tid, int feid) {
@@ -857,11 +872,42 @@ pybe::Breakpoint RPC::take_current_breakpoint(c_thread_id_t tid) {
 
 void RPC::insert_step_trap(c_thread_id_t tid, py_thread_id_t ptid, bool step_in) {
     const auto fn = std::string{"pybe::install_step_trap("} + std::to_string(ptid) + "," + std::to_string(step_in) + ")";
-    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+
+    auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
+
+    try_send_command(m_parent_session, *cmd, [](){
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to set up python step");
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to initiate python step (failed to communicate)");
         // TODO include error text from gdb
     });
+
+    const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+    if (result.get_view() != "true") {
+        // we have no real way to get any more context, but the most common time
+        // this happens is when the user tries to step right after the main
+        // breakpoint, before they're actually in a python frame.
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Python interpreter is not initialized yet");
+    }
+}
+
+void RPC::insert_finish_trap(c_thread_id_t tid, py_thread_id_t ptid) {
+    const auto fn = std::string{"pybe::install_finish_trap("} + std::to_string(ptid) + ")";
+
+    auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
+
+    try_send_command(m_parent_session, *cmd, [](){
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to initiate python finish (failed to communicate)");
+        // TODO include error text from gdb
+    });
+
+    const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+    if (result.get_view() != "true") {
+        // we have no real way to get any more context, but the most common time
+        // this happens is when the user tries to step right after the main
+        // breakpoint, before they're actually in a python frame.
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Python interpreter is not initialized yet");
+    }
 }
 
 RPC::RestoreCurrentThreadOnScopeExit::RestoreCurrentThreadOnScopeExit(RPC& rpc)

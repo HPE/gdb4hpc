@@ -80,8 +80,8 @@ bool init_trace() {
     return get_pybe().init_trace(trace);
 }
 
-bool set_breakpoint(int feid, const char* filename, int line, const char* funcname) {
-    return get_pybe().set_breakpoint(feid, filename, line, funcname);
+bool set_breakpoint(uint32_t seq, unsigned long ptid, int feid, const char* filename, int line, const char* funcname) {
+    return get_pybe().set_breakpoint(seq, ptid, feid, filename, line, funcname);
 }
 
 bool have_breakpoint() {
@@ -98,6 +98,10 @@ bool delete_breakpoint(int feid) {
 
 bool install_step_trap(unsigned long py_thread_id, bool step_in) {
     return get_pybe().install_step_trap(py_thread_id, step_in);
+}
+
+bool install_finish_trap(unsigned long py_thread_id) {
+    return get_pybe().install_finish_trap(py_thread_id);
 }
 
 } // namespace pybe

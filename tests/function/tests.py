@@ -1265,8 +1265,8 @@ class PythonTest(Gdb4hpcTest):
 
     # debugging the python interpreter doesn't work without special args on anything but slurm
     @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
-    def test_python_launch_stepnext(self):
-        self.base_name = "python_launch_stepnext"
+    def test_python_launch_step_next_finish(self):
+        self.base_name = "python_launch_step_next_finish"
         subs = (
             ("%.*python3.*%", self.python_path),
         )

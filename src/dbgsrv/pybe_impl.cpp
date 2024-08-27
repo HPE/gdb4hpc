@@ -251,17 +251,23 @@ void PybeImpl::init_GIL() {
 }
 
 void PybeImpl::stop_and_notify_gdb() {
-    m_step_in_progress.reset();
+    m_move_in_progress.reset();
     ::raise(get_gil_signal_number());
 }
 
 int PybeImpl::trace_call(PyFrameObject& pyframe) {
     auto frame = to_frame(pyframe);
-    // log("[CALL] %s in %s:%d\n", frame.funcname.c_str(), frame.filename.c_str(), frame.linenum);
+    // log("[CALL] %s in %s:%d\n", frame.function_name.c_str(), frame.file_name.c_str(), frame.line_number);
 
     auto matching_breakpoint = [&]() -> std::unique_ptr<Breakpoint> {
         for (const auto& bp : m_breakpoints) {
             if (bp.location.function_name == frame.function_name) {
+                return std::make_unique<Breakpoint>(bp);
+            }
+            // if a filename was set, assume that it was the basename.
+            // python gives us the full path so we need to basename it.
+            const auto basenm = String{::basename(frame.file_name.c_str())};
+            if (bp.location.file_name == basenm && bp.location.line_number == frame.line_number) {
                 return std::make_unique<Breakpoint>(bp);
             }
         }
@@ -271,9 +277,10 @@ int PybeImpl::trace_call(PyFrameObject& pyframe) {
     if (matching_breakpoint) {
         m_last_hit_breakpoint = std::move(matching_breakpoint);
         stop_and_notify_gdb();
-    } else if (m_step_in_progress) {
-        m_step_in_progress->depth_from_start++;
-        if (m_step_in_progress->step_into) {
+    } else if (m_move_in_progress) {
+        m_move_in_progress->current_depth++;
+        using enum PybeImpl::Move::Type;
+        if (m_move_in_progress->type == Step) {
             stop_and_notify_gdb();
         }
     }
@@ -281,42 +288,55 @@ int PybeImpl::trace_call(PyFrameObject& pyframe) {
     return 0;
 }
 
-int PybeImpl::trace_return(PyFrameObject& /* frame */, PyObject& /* return_value */) {
-    if (m_step_in_progress) {
-        m_step_in_progress->depth_from_start--;
+int PybeImpl::trace_return(PyFrameObject& frame, PyObject& /* return_value */) {
+    auto next_frame = to_frame(frame);
+    // log("[RETURN] %s in %s:%d\n", next_frame.function_name.c_str(), next_frame.file_name.c_str(), next_frame.line_number);
+
+    using enum PybeImpl::Move::Type;
+    if (m_move_in_progress) {
+        m_move_in_progress->current_depth--;
     }
 
     return 0;
 }
 
 int PybeImpl::trace_line(PyFrameObject& pyframe) {
-    auto frame = to_frame(pyframe);
-    // log("[LINE] %s in %s:%d\n", frame.funcname.c_str(), frame.filename.c_str(), frame.linenum);
+    auto next_frame = to_frame(pyframe);
+    // log("[LINE] %s in %s:%d\n", next_frame.function_name.c_str(), next_frame.file_name.c_str(), next_frame.line_number);
 
     auto matching_breakpoint = [&]() -> std::unique_ptr<Breakpoint> {
         for (const auto& bp : m_breakpoints) {
-            // the user might have set a breakpoint with only a line number and
-            // no file name, so only check the file name if it's not empty.
-            // if they did set a filename, assume that it was the basename.
+            // if a filename was set, assume that it was the basename.
             // python gives us the full path so we need to basename it.
-            frame.file_name = ::basename(frame.file_name.c_str());
-            if ((bp.location.file_name.empty() || bp.location.file_name == frame.file_name) &&
-                 bp.location.line_number == frame.line_number)
-            {
+            const auto basenm = String{::basename(next_frame.file_name.c_str())};
+            if (bp.location.file_name == basenm && bp.location.line_number == next_frame.line_number) {
                 return std::make_unique<Breakpoint>(bp);
             }
         }
         return nullptr;
     }();
 
+    using enum PybeImpl::Move::Type;
+
     if (matching_breakpoint) {
         m_last_hit_breakpoint = std::move(matching_breakpoint);
         stop_and_notify_gdb();
-    } else if (m_step_in_progress &&
-              (m_step_in_progress->step_into || m_step_in_progress->depth_from_start <= 0) &&
-               m_step_in_progress->start.line_number != frame.line_number)
-    {
-        stop_and_notify_gdb();
+    } else if (m_move_in_progress){
+        const auto& move = *m_move_in_progress;
+        switch (move.type) {
+            case Step: {
+                if (next_frame != move.start) stop_and_notify_gdb();
+                break;
+            }
+            case Next: {
+                if (next_frame != move.start && move.current_depth <= 0) stop_and_notify_gdb();
+                break;
+            }
+            case Finish: {
+                if (next_frame != move.start && move.current_depth < 0) stop_and_notify_gdb();
+                break;
+            }
+        }
     }
 
     return 0;
@@ -332,16 +352,75 @@ bool PybeImpl::init_trace(Py_tracefunc tracefunc) {
     return true;
 }
 
-bool PybeImpl::set_breakpoint(int feid, const char* filename, int line, const char* funcname) {
-    m_breakpoints.push_back({
-        .feid = feid,
-        .location = Frame {
-            .function_name = funcname,
-            .file_name = filename,
-            .line_number = line,
+Expected<Breakpoint, std::nullptr_t> make_breakpoint(unsigned long ptid, int feid, const char* filename, int line, const char* funcname) {
+    if (!filename || !funcname) [[ unlikely ]] {
+        log("null parameters\n");
+        return nullptr;
+    }
+
+    if (funcname[0] != '\0' || (filename[0] != '\0' && line != 0)) {
+        // enough info to be inserted as-is
+
+        return Breakpoint{
+            .feid = feid,
+            .location = Frame {
+                .function_name = funcname,
+                .file_name = ::basename(filename),
+                .line_number = line,
+            }
+        };
+    } else if (line && filename[0] == '\0') {
+        // get filename from current frame
+
+        auto* tstate = get_threadstate(ptid);
+        if (tstate == nullptr) {
+            log("couldn't find thread\n");
+            return nullptr;
         }
-    });
-    return true;
+
+        auto py_frame = StrongRef(PyThreadState_GetFrame(tstate));
+        if (!py_frame.ptr) [[ unlikely ]] {
+            log("couldn't get frame from thread\n");
+            return nullptr;
+        }
+        auto frame = to_frame(*py_frame.ptr);
+
+        return Breakpoint{
+            .feid = feid,
+            .location = Frame {
+                .function_name = "",
+                .file_name = ::basename(frame.file_name.c_str()),
+                .line_number = line,
+            }
+        };
+    }
+
+    log("invalid breakpoint parameter combo: %s in %s:%d\n",
+        funcname, filename, line);
+    return nullptr;
+}
+
+bool PybeImpl::set_breakpoint(uint32_t seq, unsigned long ptid, int feid, const char* filename, int line, const char* funcname) {
+    if (!PyGILState_Check()) [[ unlikely ]] {
+        log("need gil\n");
+        return false;
+    }
+
+    if (const auto maybe_breakpoint = make_breakpoint(ptid, feid, filename, line, funcname)) {
+        const auto& breakpoint = *maybe_breakpoint;
+        m_breakpoints.push_back(breakpoint);
+
+        auto wire = breakpoint.serialize();
+        log("serialized breakpoint: \"%s\"\n", wire.c_str());
+        if (m_connection->send_with_timeout(wire.c_str(), wire.size(), seq) == -1) [[ unlikely ]] {
+            log("failed to send breakpoint result\n");
+            return false;
+        }
+
+        return true;
+    } else {
+        return false;
+    }
 }
 
 bool PybeImpl::have_breakpoint() {
@@ -385,10 +464,28 @@ bool PybeImpl::install_step_trap(unsigned long py_thread_id, bool step_in) {
     auto frame = StrongRef(PyThreadState_GetFrame(tstate));
     if (!frame.ptr) return false;
 
-    m_step_in_progress = std::make_unique<Step>(Step{
+    using enum PybeImpl::Move::Type;
+    m_move_in_progress = std::make_unique<Move>(Move{
         .start = to_frame(*frame),
-        .depth_from_start = 0,
-        .step_into = step_in,
+        .current_depth = 0,
+        .type = step_in ? Step : Next,
+    });
+
+    return true;
+}
+
+bool PybeImpl::install_finish_trap(unsigned long py_thread_id) {
+    auto* tstate = get_threadstate(py_thread_id);
+    if (!tstate) return false;
+
+    auto frame = StrongRef(PyThreadState_GetFrame(tstate));
+    if (!frame.ptr) return false;
+
+    using enum PybeImpl::Move::Type;
+    m_move_in_progress = std::make_unique<Move>(Move{
+        .start = to_frame(*frame),
+        .current_depth = 0,
+        .type = Finish,
     });
 
     return true;

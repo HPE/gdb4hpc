@@ -230,6 +230,7 @@ dbgevent_t *DbgGo(bool all, const char* threads) {
 
 dbgevent_t *DbgFinishFunc(const char* threads) {
     DBG_READY();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBEFinish();
     return DbgBackendSW->finishFunc(threads);
 }
 

@@ -2246,9 +2246,8 @@ rep_set_t DbgFinishFunc(rec_set_t *set) {
     ResetForAsyncCmd(set);
 
     auto request = CommandToSocProto(DBGCMD_FINISH, set->getThreads());
-
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
-
+    auto at_least_one_finished = false;
 
     // Clear the list location state since this modified the frame only if there
     // was no error
@@ -2256,6 +2255,7 @@ rep_set_t DbgFinishFunc(rec_set_t *set) {
         for (auto&& recv_ptr : set) {
             recv_ptr->rec_di.clearFrontendGdb();
         }
+        at_least_one_finished = true;
     } else {
         // selectively clear the list
         for (auto&& recv_ptr : set) {
@@ -2275,13 +2275,16 @@ rep_set_t DbgFinishFunc(rec_set_t *set) {
             if (!has_err) {
                 recv_ptr->rec_di.clearFrontendGdb();
                 recv_ptr->rec_di.setAtInitialBreakpoint(false);
+                at_least_one_finished = true;
             }
         }
     }
 
-    // An async event is now pending
-    async_pending = 1;
-    observers::target_resumed.notify();
+    if (at_least_one_finished) {
+        // An async event is now pending
+        async_pending = 1;
+        observers::target_resumed.notify();
+    }
 
     return result;
 }
@@ -3385,8 +3388,8 @@ rep_set_t DbgStep(rec_set_t *set, int count, int in) {
     ResetForAsyncCmd(set);
 
     auto request = CommandToSocProto(DBGCMD_STEP, count, in, set->getThreads());
-
     auto result = DbgSendCmdAndRecvReply(set, request, DBGEV_OK);
+    auto at_least_one_stepped = false;
 
     // Clear the list location state since this modified the frame only if there
     // was no error
@@ -3395,6 +3398,7 @@ rep_set_t DbgStep(rec_set_t *set, int count, int in) {
             recv_ptr->rec_di.clearFrontendGdb();
             recv_ptr->rec_di.setAtInitialBreakpoint(false);
         }
+        at_least_one_stepped = true;
     } else {
         // selectively clear the list
         for (auto&& recv_ptr : set) {
@@ -3413,13 +3417,16 @@ rep_set_t DbgStep(rec_set_t *set, int count, int in) {
             if (!has_err) {
                 recv_ptr->rec_di.clearFrontendGdb();
                 recv_ptr->rec_di.setAtInitialBreakpoint(false);
+                at_least_one_stepped = true;
             }
         }
     }
 
-    // An async event is now pending
-    async_pending = 1;
-    observers::target_resumed.notify();
+    if (at_least_one_stepped) {
+        // An async event is now pending
+        async_pending = 1;
+        observers::target_resumed.notify();
+    }
 
     return result;
 }

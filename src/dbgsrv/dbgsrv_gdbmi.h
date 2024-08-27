@@ -128,6 +128,7 @@ public:
     dbgevent_t* pyBESetFuncBreakpoint(int feid, std::string_view filename, std::string_view func);
     dbgevent_t* pyBEDeleteBreakpoint(int feid);
     dbgevent_t* pyBEStep(bool step_in);
+    dbgevent_t* pyBEFinish();
 
     // pybe breakpoint callback
     dbgevent_t* pyBEHandleAsyncStop(MIEvent* event);

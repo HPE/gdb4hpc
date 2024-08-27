@@ -275,7 +275,7 @@ std::string Pybe::GILHolder::eval_py_expression(std::string_view expr) {
 }
 
 pybe::Breakpoint Pybe::GILHolder::set_breakpoint(int feid, std::string_view filename, int line, std::string_view funcname) {
-    return m_parent_rpc.set_breakpoint(m_gil_holding_thread_id, feid, filename, line, funcname);
+    return m_parent_rpc.set_breakpoint(m_gil_holding_thread_id, m_py_thread_id, feid, filename, line, funcname);
 }
 
 void Pybe::GILHolder::delete_breakpoint(int feid) {
@@ -290,6 +290,10 @@ std::optional<pybe::Breakpoint> Pybe::GILHolder::find_current_breakpoint() {
 
 void Pybe::GILHolder::insert_step_trap(bool step_in) {
     m_parent_rpc.insert_step_trap(m_gil_holding_thread_id, m_py_thread_id, step_in);
+}
+
+void Pybe::GILHolder::insert_finish_trap() {
+    m_parent_rpc.insert_finish_trap(m_gil_holding_thread_id, m_py_thread_id);
 }
 
 TEST_CASE("supported python versions are indeed supported") {

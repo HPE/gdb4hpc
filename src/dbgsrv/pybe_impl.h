@@ -28,11 +28,12 @@ public:
     int trace_call(PyFrameObject& frame);
     int trace_return(PyFrameObject& frame, PyObject& return_value);
     int trace_line(PyFrameObject& frame);
-    bool set_breakpoint(int feid, const char* filename, int line, const char* funcname);
+    bool set_breakpoint(uint32_t seq, unsigned long ptid, int feid, const char* filename, int line, const char* funcname);
     bool have_breakpoint();
     bool take_current_breakpoint(uint32_t seq);
     bool delete_breakpoint(int feid);
     bool install_step_trap(unsigned long py_thread_id, bool step_in);
+    bool install_finish_trap(unsigned long py_thread_id);
 
 private:
     void stop_and_notify_gdb();
@@ -49,13 +50,20 @@ private:
 
     std::unique_ptr<Breakpoint> m_last_hit_breakpoint = nullptr;
 
-    struct Step {
+    struct Move {
         Frame start;
-        int depth_from_start; // positive is deeper
-        bool step_into;
+        int current_depth; // relative to `start`, positive is deeper
+
+        enum class Type {
+            Step,
+            Next,
+            Finish,
+        };
+
+        Type type;
     };
 
-    std::unique_ptr<Step> m_step_in_progress = nullptr;
+    std::unique_ptr<Move> m_move_in_progress = nullptr;
 };
 
 } // namespace pybe

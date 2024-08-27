@@ -2747,6 +2747,9 @@ dbgevent_t* DbgGdbMI::pyBEDeleteBreakpoint(int feid) {
 }
 
 dbgevent_t* DbgGdbMI::pyBEStep(bool step_in) {
+    if (Status == DBGSTAT_EXIT) {
+        return NewErrorEvent(DBGERR_AT_EXIT, "");
+    }
     {
         auto& pybe = ensurePybe();
         auto gil = pybe.run_until_gil();
@@ -2761,6 +2764,34 @@ dbgevent_t* DbgGdbMI::pyBEStep(bool step_in) {
         auto cmd = make_MICmd(MIExecContinue());
         SendMICommand(GDBMISession, cmd.get());
         if (!MICommandResultOK(cmd.get())) return NewErrorEvent(DBGERR_DEBUGGER, "Failed to start step");
+
+        ThreadAsyncCheck(WaitEvent, nullptr);
+
+        Status = DBGSTAT_RUNNING;
+    }
+
+    // async step end event will be generated later, return OK now
+    return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t* DbgGdbMI::pyBEFinish() {
+    if (Status == DBGSTAT_EXIT) {
+        return NewErrorEvent(DBGERR_AT_EXIT, "");
+    }
+    {
+        auto& pybe = ensurePybe();
+        auto gil = pybe.run_until_gil();
+        gil.insert_finish_trap();
+        // we have to release the gil (scope exit) to allow python to run again!
+    }
+
+    {
+        // XXX: this should probably be merged with/just call ::go - leaving
+        // separate for now because ::go does its own thing with threads and pybe
+        // requires its own thread strategy
+        auto cmd = make_MICmd(MIExecContinue());
+        SendMICommand(GDBMISession, cmd.get());
+        if (!MICommandResultOK(cmd.get())) return NewErrorEvent(DBGERR_DEBUGGER, "Failed to finish");
 
         ThreadAsyncCheck(WaitEvent, nullptr);
 

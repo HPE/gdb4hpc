@@ -402,6 +402,15 @@ TEST_CASE("Parse LaunchOpts") {
                 REQUIRE(opts.job_opts.size() == 1);
                 CHECK(opts.job_opts.front().python == true);
             }
+            SUBCASE ("a python file with the executable bit set") {
+                const char* const argv[] = {
+                    "launch", "$a{1}", "app.py",
+                };
+                auto csi = test::MockClientSettings();
+                auto opts = LaunchOpts::parse_gdb4hpc(sizeof(argv)/sizeof(argv[0]), argv, csi);
+                REQUIRE(opts.job_opts.size() == 1);
+                CHECK(opts.job_opts.front().python == true);
+            }
         }
 
         SUBCASE("manual --python flag") {
@@ -866,6 +875,24 @@ static std::vector<CStrVector> get_mpmd_sections(int argc, const char* const arg
     return argv_sections;
 }
 
+static auto argv_is_python_app(const ArgvStream& argv) {
+    if (argv.argc() == 0) return false;
+
+    const auto binary = std::filesystem::path{argv[0]};
+
+    // need to bind a name for std::ranges to be happy
+    const auto& supported = SUPPORTED_PYTHON_VERSIONS;
+
+    return binary.filename() == "python3" ||
+           binary.filename() == "python" ||
+           binary.extension() == ".py" ||
+           // e.g. binary.filename == python3.11
+           std::ranges::any_of(supported, [&](auto&& vers) {
+               return binary.filename() == std::string{"python"} + vers;
+           })
+    ;
+}
+
 // Parse a section of MPMD arguments
 // Update `opts` with any parsed global flags,
 // Return a JobOpt object with parsed job options
@@ -1100,9 +1127,8 @@ static auto parse_gdb4hpc_argv_section(LaunchOpts& opts, int argc, char** argv) 
     }
 
     // auto detect python if a manual option wasn't specified
-    // TODO: make this better
     if (!manually_specified_python_flag && job_opt.app_argv.argc() > 0) {
-        job_opt.python = job_opt.app_argv[0].find("python3") != std::string::npos;
+        job_opt.python = argv_is_python_app(job_opt.app_argv);
     }
 
     // Update job options
@@ -1330,9 +1356,7 @@ static auto parse_srun_section(LaunchOpts& opts, int argc, char* argv[]) {
         throw std::runtime_error("Not enough arguments. Expected: srun ./program <args>");
     }
 
-    // auto detect python
-    // TODO: make this better
-    job_opts.python = job_opts.app_argv[0].find("python3") != std::string::npos;
+    job_opts.python = argv_is_python_app(job_opts.app_argv);
 
     // now create/update the procset string, which encodes the total ranks.
 

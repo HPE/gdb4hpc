@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ranges>
+#include <regex>
 
 #include "MI.h"
 #include "dbgclnt_debugfe.h"
@@ -614,25 +615,55 @@ TEST_CASE("strip_trailing_nested") {
     CHECK(strip_trailing_nested("array[5]", '[', ']') == "array");
 }
 
-static auto strip_leading_type(std::string_view line) {
+static auto strip_types(std::string_view line) {
     if (line.empty()) { return line; }
-    auto idx = line.length() - 1;
-    auto count = 0;
-    while (true) {
-        if (line.at(idx) == '(') { count++; }
-        else if (line.at(idx) == ')') { count--; }
-        else if ((line.at(idx) == ' ') && (count == 0)) { break; }
-        if (idx == 0) { return line; }
-        idx--;
-    }
-    return line.substr(idx + 1);
+
+    // Strip trailing attributes
+    line = [](std::string_view line) {
+        // GDB does not print dynamic exception specification with ptype (throw(<type)>)
+        static const auto attribute_pattern = std::regex{R"((\s*(const|volatile|&|&&))$)"};
+        auto match = std::cmatch{};
+
+        while (!line.empty()
+            && std::regex_search(line.data(), line.data() + line.size(), match, attribute_pattern)) {
+
+            if ((size_t)(match.position() + match.length()) != line.size()) {
+                // Done searching, not at end of line
+                break;
+            }
+
+            line.remove_suffix(match.length());
+        }
+
+        return line;
+    }(line);
+
+    // Strip leading types
+    line = [](std::string_view line) {
+        auto idx = line.length() - 1;
+        auto count = 0;
+        while (true) {
+            if (line.at(idx) == '(') { count++; }
+            else if (line.at(idx) == ')') { count--; }
+            else if ((line.at(idx) == ' ') && (count == 0)) { break; }
+            if (idx == 0) { return line; }
+            idx--;
+        }
+        return line.substr(idx + 1);
+     }(line);
+
+    return line;
 }
 
-TEST_CASE("strip_leading_type") {
-    CHECK(strip_leading_type("integer") == "integer");
-    CHECK(strip_leading_type("int integer") == "integer");
-    CHECK(strip_leading_type("int const integer") == "integer");
-    CHECK(strip_leading_type("int (*fp)(int, int)") == "(*fp)(int, int)");
+TEST_CASE("strip_types") {
+    CHECK(strip_types("integer") == "integer");
+    CHECK(strip_types("int integer") == "integer");
+    CHECK(strip_types("int const integer") == "integer");
+    CHECK(strip_types("int (*fp)(int, int)") == "(*fp)(int, int)");
+    CHECK(strip_types("size_t getLen(void) const") == "getLen(void)");
+    CHECK(strip_types("const size_t getLen(void, const int) const") == "getLen(void, const int)");
+    CHECK(strip_types("size_t getLen(void) const &") == "getLen(void)");
+    CHECK(strip_types("size_t getLen(void) const &&") == "getLen(void)");
 }
 
 } // namespace detail
@@ -645,7 +676,7 @@ static std::string extract_member_name(std::string_view line) {
     line = line.substr(0, line.length() - 1);
 
     // Strip type identifier
-    line = detail::strip_leading_type(line);
+    line = detail::strip_types(line);
 
     while (!line.empty() && (!::isalnum(line.front()) || !::isalnum(line.back()))) {
 
@@ -683,6 +714,7 @@ TEST_CASE("extract_member_name") {
     CHECK(extract_member_name("int (*fp)(int, int);") == "fp");
     CHECK(extract_member_name("int (*(*(*fp)(int, int))(int))(int);") == "fp");
     CHECK(extract_member_name("int (*fp[5][19])(int);") == "fp");
+    CHECK(extract_member_name("size_t getLen(void) const &;") == "getLen");
 }
 
 dbgevent_t* DbgFE::getVariableSymbolNames(std::string_view name) {

@@ -290,6 +290,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{external_build_dir}/share/doc/vscode-plugin.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/python-extension.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/python-extension.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
+%{__cp} -a %{external_build_dir}/share/doc/python-mode.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
+%{__cp} -a %{external_build_dir}/share/doc/python-mode.html ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 %{__cp} -a %{external_build_dir}/share/doc/help.md ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/doc
 
 # modulefile
@@ -770,6 +772,8 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/vscode-plugin.html
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/python-extension.md
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/python-extension.html
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/python-mode.md
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/python-mode.html
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/doc/help.md
 
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{set_default_command}_%{cray_product}_%{pkgversion}

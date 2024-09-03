@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Debugging Python Applications with Python Mode</title>
+  <style>
+    html {
+      line-height: 1.5;
+      font-family: Georgia, serif;
+      font-size: 20px;
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 1em;
+      }
+    }
+    @media print {
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, 'Lucida Console', Consolas, monospace;
+      font-size: 85%;
+      margin: 0;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Debugging Python Applications with Python Mode</h1>
+</header>
+<h1 id="debugging-python-applications-with-python-mode">Debugging Python Applications with Python Mode</h1>
+<p>In gdb4hpc 4.16.3, gdb4hpc gained initial beta support for debugging HPC Python applications via a new Python mode.</p>
+<p>In Python mode, common debugging commands automatically execute in the context of Python code (.py files) instead of the internals of the Python interpreter that you would normally get when attaching gdb to a Python interpreter.</p>
+<p>gdb4hpc Python mode can display Python backtraces, print Python expressions, set Python breakpoins, and step through Python code.</p>
+<h2 id="python-mode-is-in-beta">Python Mode is in Beta</h2>
+<p>Python mode is brand new and only a small portion of the possible debugging space has been explored. While its existing functionality has been thoroughly tested, it is inevitable that there are cases that haven’t been encountered yet. If you encounter a problem, check the troubleshooting section at the end of this document or submit a bug report.</p>
+<h2 id="supported-python-versions-and-gdb4hpc-workflows">Supported Python Versions and gdb4hpc Workflows</h2>
+<p>Python mode is supported when you are using the CPython Python interpreter for your HPC application. <a href="https://github.com/python/cpython">CPython</a> is the name of the reference implementation of Python maintained by the Python foundation. Most python interpreters you find in the wild are CPython. The Python interpreter provided by the cray-python module in the Cray Programming Environment is an instance of the CPython interpreter.</p>
+<p>The following Python versions and debugging workflows are supported:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Python Version</th>
+<th>3.6</th>
+<th>3.8</th>
+<th>3.9</th>
+<th>3.10</th>
+<th>3.11</th>
+<th>3.12</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Launch</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+</tr>
+<tr class="even">
+<td>Attach</td>
+<td>no*</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p>You can verify that your version of Python is supported by checking the version with <code>python3 --version</code>.</p>
+<blockquote>
+<p>Due to limitations in Python 3.6, attach is not supported. gdb4hpc can still attach to a Python 3.6 interpreter like any C binary, but will be debugging the Python interpreter rather than the Python script that the interpreter is running.</p>
+</blockquote>
+<blockquote>
+<p>If you are unfamiliar with gdb4hpc’s two workflows, launch and attach, see the <a href="./getting-started.md">gdb4hpc Getting Started Guide</a>.</p>
+</blockquote>
+<h2 id="using-python-mode">Using Python Mode</h2>
+<h3 id="launching-or-attaching-to-a-python-application">Launching or Attaching to a Python Application</h3>
+<p>To start debugging a Python application, launch or attach to a Python HPC application as you would any other. For more information on the launch and attach commands, see the <a href="./getting-started.md">gdb4hpc Getting Started Guide</a>.</p>
+<p>For example:</p>
+<p>Launching via the traditional gdb4hpc launch command:</p>
+<pre><code>dbg all&gt; launch $my_python_app{4} python3 ./src/python/my_python_app.py app_arg_1 app_arg_2
+Starting application, please wait...
+Launched application...
+Enabling python debugging. To disable, use `set python off`
+4/4 ranks connected
+Creating network... (timeout in 300 seconds)
+Created network...
+Connected to application...
+Launch complete.
+my_python_app{0..3}: Initial breakpoint, in pymain_init</code></pre>
+<p>Launching via the srun launch command:</p>
+<pre><code>dbg all&gt; srun -n4 python3 ./src/python/my_python_app.py app_arg_1 app_arg_2
+Starting application, please wait...
+Launched application...
+Enabling python debugging. To disable, use `set python off`
+4/4 ranks connected
+Creating network... (timeout in 300 seconds)
+Created network...
+Connected to application...
+Launch complete.
+python3{0..3}: Initial breakpoint, in pymain_init</code></pre>
+<p>Attaching to a running Python application (Python 3.8 and higher):</p>
+<pre><code>$ srun python3 ./src/python/my_python_app.py app_arg_1 app_arg_2 &amp;
+$ squeue
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+          11251488  allnodes  python3      cpe  R       0:01      1 n022
+$ gdb4hpc
+dbg all&gt; attach $my_python_app 11251488.0
+Attaching to application, please wait...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Attach complete.
+Current rank location:
+  (backtrace omitted)</code></pre>
+<blockquote>
+<p>Launching and attaching change depending on the WLM used on your system. See the <a href="./getting-started.md">Getting Started Guide</a> for more details on launching and attaching to jobs.</p>
+</blockquote>
+<h3 id="enabling-python-mode">Enabling Python Mode</h3>
+<p>gdb4hpc will automatically detect when you are debugging a Python application and enable Python mode. See the “Enabling python debugging…” messages in the above examples. However, the automatic detection is not perfect and will sometimes not detect a Python application. In those situations, enable Python mode manually with the <code>set python</code> command. For example, if you run the <code>backtrace</code> command and get a C backtrace (here showing the internals of the CPython interpreter):</p>
+<pre><code>dbg all&gt; backtrace
+my_python_app{0}: #15 _start
+my_python_app{0}: #14 __libc_start_main
+my_python_app{0}: #13 Py_BytesMain
+my_python_app{0}: #12 Py_RunMain
+my_python_app{0}: #11 _PyRun_AnyFileObject
+my_python_app{0}: #10 _PyRun_SimpleFileObject
+my_python_app{0}: #9  pyrun_file
+my_python_app{0}: #8  run_mod
+my_python_app{0}: #7  run_eval_code_obj
+my_python_app{0}: #6  PyEval_EvalCode
+my_python_app{0}: #5  _PyEval_Vector
+my_python_app{0}: #4  _PyEval_EvalFrameDefault
+my_python_app{0}: #3  PyObject_Vectorcall
+my_python_app{0}: #2  cfunction_vectorcall_O
+my_python_app{0}: #1  time_sleep
+my_python_app{0}: #0  clock_nanosleep@GLIBC_2.2.5</code></pre>
+<p>Check if Python mode is enabled with <code>show python</code>:</p>
+<pre><code>dbg all&gt; show python
+Python mode for future launches is off.
+For current procsets:
+my_python_app{0}: Python mode is off.</code></pre>
+<p>If it’s disabled, enable it with <code>set python on</code> and the <code>backtrace</code> command will display a Python backtrace.</p>
+<pre><code>dbg all&gt; set python on
+dbg all&gt; backtrace
+my_python_app{0}: #2  &lt;module&gt; at my_python_app.py:16
+my_python_app{0}: #1  main at my_python_app.py:13
+my_python_app{0}: #0  sleep at my_python_app.py:10</code></pre>
+<h3 id="available-commands">Available Commands</h3>
+<p>Any gdb4hpc command can be run in Python mode, but only specific commands have Python centric behavior. If there is no Python specific implementation of the command, behavior will fall back to the default C/C++/Fortran centric version of the command.</p>
+<p>The following examples use the following Python code which calculates the fibonacci sequence:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> sys</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fibonacci(n):</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>   <span class="cf">if</span> n <span class="op">&lt;=</span> <span class="dv">1</span>:</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>       <span class="cf">return</span> n</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>   <span class="cf">else</span>:</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>       <span class="cf">return</span>(fibonacci(n<span class="op">-</span><span class="dv">1</span>) <span class="op">+</span> fibonacci(n<span class="op">-</span><span class="dv">2</span>))</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>nterms <span class="op">=</span> <span class="bu">int</span>(sys.argv[<span class="dv">1</span>])</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;Fibonacci sequence:&quot;</span>)</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(nterms):</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>   <span class="bu">print</span>(fibonacci(i))</span></code></pre></div>
+<h4 id="break-delete---set-and-delete-breakpoints-in-python-code"><code>break</code>, <code>delete</code> - Set and Delete Breakpoints in Python Code</h4>
+<p>Use the <code>break</code> command in Python mode to set breakpoints in Python code just like you would set breakpoints in C/C++/Fortran. You can specify breakpoint locations as usual with a function name or a file name and line number combination. When the breakpoint is no longer needed, use the <code>delete</code> command and the breakpoint ID to delete it like any other breakpoint.</p>
+<p>For example, launch the example fibonacci Python application and set some breakpoints:</p>
+<pre><code>dbg all&gt; srun -n4 python3 ./fib.py 10
+...
+python3{3}: Initial breakpoint, in pymain_init
+dbg all&gt; break fib.py:9
+python3{0..3}: Breakpoint 1: file fib.py, line 9.
+dbg all&gt; break fibonacci
+python3{0..3}: Breakpoint 2: file , line 0 # see troubleshooting and limitations section</code></pre>
+<p>Use the usual <code>continue</code> command as usual to run the application until it gets to the breakpoints:</p>
+<pre><code>dbg all&gt; continue
+python3{0..3}: Breakpoint 1,  at fib.py:9
+dbg all&gt; continue
+python3{0..3}: Breakpoint 2, in fibonacci</code></pre>
+<p>Now that we are stopped in a Python source file, we can omit the file name portion when we set new breakpoints:</p>
+<pre><code>dbg all&gt; break 5
+python3{0..3}: Breakpoint 3: file fib.py, line 5.
+dbg all&gt; continue
+python3{0..3}: Breakpoint 3,  at fib.py:5</code></pre>
+<p>Delete breakpoints as you would any other breakpoint, by using the <code>delete</code> command and the breakpoint ID.</p>
+<pre><code>dbg all&gt; delete 1
+dbg all&gt; delete 2
+dbg all&gt; delete 3
+dbg all&gt; continue
+dbg all&gt; &lt;$python3&gt;: Fibonacci sequence:
+&lt;$python3&gt;: 0
+&lt;$python3&gt;: 1
+&lt;$python3&gt;: 1
+&lt;$python3&gt;: 2
+&lt;$python3&gt;: 3
+&lt;$python3&gt;: 5
+&lt;$python3&gt;: 8
+&lt;$python3&gt;: 13
+&lt;$python3&gt;: 21
+&lt;$python3&gt;: 34
+python3{0..3}: The application has reached an exit breakpoint.</code></pre>
+<h4 id="backtrace---generate-a-python-backtrace"><code>backtrace</code> - Generate a Python Backtrace</h4>
+<p>When stopped in a Python source file, use the usual <code>backtrace</code> command to generate a Python backtrace:</p>
+<pre><code>dbg all&gt; srun -n4 python3 ./fib.py 10
+...
+python3{3}: Initial breakpoint, in pymain_init
+dbg all&gt; break lib:py:5
+dbg all&gt; # get a few recursion levels deep
+dbg all&gt; continue
+python3{0..3}: Breakpoint 1,  at fib.py:5
+dbg all&gt; continue
+python3{0..3}: Breakpoint 1,  at fib.py:5
+dbg all&gt; continue
+python3{0..3}: Breakpoint 1,  at fib.py:5
+dbg all&gt; continue
+python3{0..3}: Breakpoint 1,  at fib.py:5
+dbg all&gt; continue
+python3{0..3}: Breakpoint 1,  at fib.py:5
+dbg all&gt; backtrace
+python3{0..3}: #3  &lt;module&gt; at fib.py:13
+python3{0..3}: #2  fibonacci at fib.py:7
+python3{0..3}: #1  fibonacci at fib.py:7
+python3{0..3}: #0  fibonacci at fib.py:5</code></pre>
+<p>In a backtrace, <code>&lt;module&gt;</code> is the “function name” of script level (i.e. code not contained in a function) Python code.</p>
+<h4 id="print---print-python-expressions"><code>print</code> - Print Python Expressions</h4>
+<p>When stopped in a Python source file, use the usual <code>print</code> command to print Python expressions. As usual with the <code>print</code> command, you can reference local or global variables, function arguments, or arbitrary constant expressions. Continuing from the location we stopped at in the backtrace example:</p>
+<pre><code>dbg all&gt; print n
+python3{0..3}: 1
+dbg all&gt; print locals()
+python3{0..3}: {&#39;n&#39;: 1}
+dbg all&gt; print fibonacci
+python3{0}: &lt;function fibonacci at 0x7faaa9298ae0&gt;
+python3{1}: &lt;function fibonacci at 0x7f9d4f8e4ae0&gt;
+python3{2}: &lt;function fibonacci at 0x7f9633d7cae0&gt;
+python3{3}: &lt;function fibonacci at 0x7fa073d38ae0&gt;
+dbg all&gt; print fibonacci(10)
+python3{0..3}: 55
+dbg all&gt; print fibonacci(10) * 10
+python3{0..3}: 550
+dbg all&gt; print sys
+python3{0..3}: &lt;module &#39;sys&#39; (built-in)&gt;</code></pre>
+<h4 id="step-next-finish---step-through-python-code-line-by-line"><code>step</code>, <code>next</code>, <code>finish</code> - Step Through Python Code Line-by-Line</h4>
+<p>When stopped in a Python source file, use the usual <code>step</code>, <code>next</code>, and <code>finish</code> commands to navigate through the Python code in a controlled fashion. Each command has its usual meaning:</p>
+<ul>
+<li><p><code>step</code>: Advance forward one line. If the current line contains a function call, enter the function and then stop.</p></li>
+<li><p><code>next</code>: Advance forward one line. If the current line contains any function calls, don’t enter them. Continue until the next line in the current scope is reached and then stop.</p></li>
+<li><p><code>finish</code>: Advance until the current function returns and then stop.</p></li>
+</ul>
+<pre><code>dbg all&gt; srun -n4 python3 ./fib.py 10
+...
+python3{3}: Initial breakpoint, in pymain_init
+dbg all&gt; break fib.py:13
+python3{0..3}: Breakpoint 1: file fib.py, line 13.
+dbg all&gt; continue
+python3{0..3}: Breakpoint 1,  at fib.py:13
+dbg all&gt; next # doesn&#39;t step into the fibonacci call
+python3{0..3}: &lt;module&gt; at fib.py:12
+dbg all&gt; next
+python3{0..3}: Breakpoint 1,  at fib.py:13
+dbg all&gt; step # steps into the fibonacci call
+python3{0..3}: fibonacci at fib.py:3
+dbg all&gt; finish # runs until the function returns
+python3{0..3}: &lt;module&gt; at fib.py:12</code></pre>
+<h3 id="temporarily-disabling-python-mode">Temporarily Disabling Python Mode</h3>
+<p>If you are debugging a Python application but want to see the native (C/C++/Fortran) backtrace or another native debugging item, Python mode can be disabled and normal gdb4hpc functionality will be restored.</p>
+<p>This is a common situation when debugging native modules that are called from Python code.</p>
+<pre><code>dbg all&gt; continue
+python3{0..3}: Breakpoint 1,  at fib.py:1
+dbg all&gt; backtrace
+python3{0..3}: #0  &lt;module&gt; at fib.py:1
+
+dbg all&gt; set python off
+dbg all&gt; backtrace
+python3{0..3}: #15 _start
+python3{0..3}: #14 __libc_start_main
+python3{0..3}: #13 Py_BytesMain
+python3{0..3}: #12 Py_RunMain
+python3{0..3}: #11 _PyRun_AnyFileObject
+python3{0..3}: #10 _PyRun_SimpleFileObject
+python3{0..3}: #9  pyrun_file
+python3{0..3}: #8  run_mod
+python3{0..3}: #7  run_eval_code_obj
+python3{0..3}: #6  PyEval_EvalCode
+python3{0..3}: #5  _PyEval_Vector
+python3{0..3}: #4  _PyEval_EvalFrameDefault
+python3{0..3}: #3  call_trace
+python3{0..3}: #2  pybe::trace
+python3{0..3}: #1  pybe::PybeImpl::trace_line
+python3{0..3}: #0  raise
+</code></pre>
+<p>Python mode can be re-enabled via <code>set python on</code>:</p>
+<pre><code>dbg all&gt; set python on
+dbg all&gt; backtrace
+python3{0..3}: #0  &lt;module&gt; at fib.py:1
+</code></pre>
+<h2 id="troubleshooting-and-known-limitations">Troubleshooting and Known Limitations</h2>
+<p>This section outlines some known limitations of gdb4hpc’s Python mode and offers some workarounds for the most common issues. If you encounter a problem that is not listed here, please file a bug!</p>
+<p>The issues listed here will be fixed in a future version of gdb4hpc.</p>
+<h3 id="breakpointsstepnextfinish-only-work-in-the-main-thread">Breakpoints/Step/Next/Finish Only Work in the Main Thread</h3>
+<p>Due to limitations in Python, breakpoints in Python code are only hit by the main python thread. The step, next, and finish commands are implemented with similar techniques to breakpoints and also do not work outside of the main python thread. If these commands are used on a non-main thread, the application will act as if a plain <code>continue</code> command was used.</p>
+<h4 id="workaround">Workaround</h4>
+<p>If you can get a non-main thread to stop in a position that you want to debug (e.g. using the <code>halt -a</code> command or setting a breakpoint in native code that it calls), the <code>print</code> command will still work. Python threads are selected as usual via the <code>thread</code> command.</p>
+<h3 id="breakpoints-are-sometimes-missing-file-names-and-line-numbers">Breakpoints are Sometimes Missing File Names and Line Numbers</h3>
+<p>Due to limitations in Python, setting a breakpoint using a function name will not show file names or line numbers.</p>
+<h4 id="workaround-1">Workaround</h4>
+<p>When setting a function name breakpoint, a “breakpoint set…” result is always returned. gdb4hpc is treating it like a pending breakpoint. The function name has not been verified to actually exist and gdb4hpc is only keeping an eye out for it. When it does encounter it, it will break as normal and generate a message with the actual location.</p>
+<p>This means that extra care should be taken when typing function names for breakpoints. If gdb4hpc doesn’t seem to hit the breakpoint, double check that the function name was spelled correctly.</p>
+<h3 id="some-features-dont-work-directly-after-a-launch">Some Features Don’t Work Directly After a Launch</h3>
+<p>After a launch, gdb4hpc stops the Python interpreter before it starts interpreting Python code to give you the chance to do debugging set up tasks like setting breakpoints. In fact, in this state, setting breakpoints is the only thing you can do. Other Python mode features require that the current thread be stopped in Python code. This requirement is not met directly after a launch since no Python code is executing yet.</p>
+<h4 id="workaround-2">Workaround</h4>
+<p>Setting line number breakpoints without a file name (e.g. <code>break 17</code>) will not work directly after launch because gdb4hpc does not know what the current Python file is (in fact, there is no current file at all). You can work around this by specifying the file name e.g. <code>break my_app.py:17</code>.</p>
+<p>Once you have stopped in the middle of Python code (e.g. via a breakpoint or <code>halt</code>), all Python mode features will work. To get access to all Python functionality before any code is interpreted, set a breakpoint at an early line of Python code before any meaningful code is executed. Import statements are good candidates.</p>
+<h3 id="stepnextfinish-can-skip-lines-in-higher-stack-frames-after-a-return">Step/Next/Finish can Skip Lines in Higher Stack Frames After a Return</h3>
+<p>Due to limitations in Python, gdb4hpc can only track Python code execution on the granularity of a line, and each line is only seen once. This has subtle consequences when stepping in and out of functions with <code>step</code>, <code>next</code>, and <code>finish</code>.</p>
+<p>Consider the following Python code:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo():</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">1</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> bar():</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">2</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> foo() <span class="op">+</span> bar()</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div>
+<p>If you are stopped at the <code>result = ...</code> line and <code>step</code>, gdb4hpc will step into <code>foo</code> as expected. If you then <code>finish</code>, you will suddenly find yourself in <code>bar</code>. The usual behavior for debuggers would be to stop at the <code>result = ...</code> line for a second time before diving into <code>bar</code>.</p>
+<h4 id="workaround-3">Workaround</h4>
+<p>Break expressions you are interested in into multiple lines.</p>
+</body>
+</html>

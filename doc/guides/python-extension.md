@@ -1,12 +1,13 @@
 ---
-title: "Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc"
+title: "(Deprecated) Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc"
 ---
 
-# Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc
+# (Deprecated) Debugging Python Applications with the gdb Python Debugging Extension in gdb4hpc
 
 > NOTE: These commands are deprecated in favor of python mode. Python mode has
-> more functionality and less requirements. See the "Debugging Python
-> Applications" document for more info.
+> more functionality and less requirements. See the
+> [Debugging Python Applications with Python Mode](./python-mode.md)
+> document for more info.
 
 ## Background
 

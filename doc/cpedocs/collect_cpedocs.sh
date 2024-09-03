@@ -17,6 +17,7 @@ echo "Creating output directory structure..."
 OUTPUT_DIR="gdb4hpc"
 mkdir -p "$OUTPUT_DIR/man"
 mkdir -p "$OUTPUT_DIR/guides"
+mkdir -p "$OUTPUT_DIR/whatsnew"
 
 # Collect index
 cp ./index.md "$OUTPUT_DIR"
@@ -30,6 +31,11 @@ cp -r ../guides/img "$OUTPUT_DIR/guides"
 # Collect guides
 for f in ../guides/*.md; do
   cp "$f" "$OUTPUT_DIR/guides"
+done
+
+# Collect updates
+for f in ../whatsnew/*.md; do
+  cp "$f" "$OUTPUT_DIR/whatsnew"
 done
 
 # We swap out some manpage headings like "NAME" to make the search experience in sphinx a little better.

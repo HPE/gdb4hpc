@@ -20,7 +20,7 @@
 #define YYDEBUG 1
 
 static const char* ExprStr = nullptr;
-static const char* ParseErr = nullptr;
+static char* ParseErr = nullptr;
 static gram::Expression* ParseResult = nullptr;
 %}
 
@@ -208,7 +208,7 @@ expr : expr "," expr { $$ = new gram::List($1, $3); }
 
 expr : expr "[" expr "]" { $$ = new gram::ArrayRef($1, $3); }
 
-expr : expr ATLOCATION STRING ":" INT %prec ATLOCATION { $$ = new gram::AssertExpr($1, *$3, $5); }
+expr : expr ATLOCATION STRING ":" INT %prec ATLOCATION { $$ = new gram::AssertExpr($1, *$3, $5); delete $3; }
 
 expr : "(" expr ")" expr %prec CAST { $$ = new gram::CastExpr($2->toString(), $4); delete $2; }
 
@@ -309,12 +309,13 @@ expr_lex(YYSTYPE *lv)
 }
 
 int
-expr_error(const char *fmt)
+expr_error(const char *err)
 {
-	//SetError((char*)fmt);
-    fprintf(stderr, fmt);
-    ParseErr = fmt;
-	return 0;
+    fprintf(stderr, "%s", err);
+    // bison might pass a stack-allocated address as err
+    if (ParseErr != nullptr) ::free(ParseErr);
+    ParseErr = ::strdup(err);
+    return 0;
 }
 
 std::unique_ptr<gram::Expression>

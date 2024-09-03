@@ -1069,7 +1069,7 @@ class PythonTest(Gdb4hpcTest):
     def setUp(self):
         super().setUp()
 
-        self.python_version = self.params.get("python_version", default="3.6")
+        self.python_version = self.params.get("python_version", default="3.11")
         self.extra_tag = self.python_version
 
         # try to find a version of python that matches
@@ -1225,15 +1225,6 @@ class PythonTest(Gdb4hpcTest):
 
         subs = ( ("%[0-9.]+%", app_id), )
 
-        runTest(self, substitutions = subs)
-
-    # debugging the python interpreter doesn't work without special args on anything but slurm
-    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
-    def test_python_print(self):
-        self.base_name = "python_print"
-        subs = (
-            ("%.*python3.*%", self.python_path),
-        )
         runTest(self, substitutions = subs)
 
     # debugging the python interpreter doesn't work without special args on anything but slurm

@@ -139,6 +139,7 @@ public:
     // it needs to be public so that it can be inherited from elsewhere though.
     class Escape {
     public:
+        virtual ~Escape() = default;
         virtual void escape() = 0;
     };
 

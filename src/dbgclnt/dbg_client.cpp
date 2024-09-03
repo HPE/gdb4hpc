@@ -3113,8 +3113,8 @@ rep_set_t DbgList(rec_set_t *set, const char *str) {
                     continue;
                 }
 
-                // process the frame -- note that we may be adding replies to tmp_result
-                // inside the loop.
+                auto list_results = rep_set_t();
+
                 for (auto* group_rep : tmp_result) {
                     // Point at the event frame
                     const dbgframe_t* fp0 = EVENT_FRAME(group_rep->rep_event);
@@ -3148,20 +3148,15 @@ rep_set_t DbgList(rec_set_t *set, const char *str) {
                             break; // for (fp)
                         }
 
-                        // Replace the event in the group_rep with this one
-                        FreeEvent(group_rep->rep_event);
-                        if (fp == fp0) {
-                            group_rep->rep_event = e;
-                        } else {
-                            auto newReply = NewGroupReply(group_rep->rep_di,
-                                                          group_rep->rep_group->clone(), e);
-                            tmp_result.addReply(newReply);
-                        }
+                        list_results.addReply(
+                            NewGroupReply(group_rep->rep_di,
+                                          group_rep->rep_group->clone(), e)
+                        );
                     }
                 }
 
                 // This has converted the SHOWFRAME result into a LIST result.
-                result.merge(std::move(tmp_result));
+                result.merge(std::move(list_results));
 
             } else if ((!str || isReverse) && dbg_fe->listIsPending()) {
                 // We will create the result by hand based on the saved list

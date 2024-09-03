@@ -159,6 +159,7 @@ TEST_CASE("dbgframe_t::clone") {
     auto* clone = frame0a->clone();
     sameFrame(*frame0a, *clone);
     delete clone;
+    delete frame0a;
 }
 
 dbgevent_t *NewEvent(dbgev stat) {

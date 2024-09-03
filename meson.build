@@ -12,7 +12,6 @@ project(
     'cpp_std=c++20',
     'warning_level=2', # equivalent to -Wall -Wextra
     'werror=true',
-    'b_ndebug=true', # disable assertions - we fail some C++ standard library assertions currently (CPE-5482)
   ],
 )
 

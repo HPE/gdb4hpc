@@ -2598,7 +2598,11 @@ mdspan ais::RajaView::spanFromTemplateArgs(const std::string_view& input) {
             auto cursor_end = int_seq.find(',', cursor);
 
             auto num =  int{0};
-            auto [_, error] = std::from_chars(&int_seq[cursor], &int_seq[cursor_end], num);
+            // when passing the end char* here, if cursor_end == int_seq.size(),
+            // then technically the [] has undefined behavior and will trip
+            // sanitizers/asserts. std::from_chars's inut range is [start, end), (not [start, end])
+            // so it's fine to pass the address of int_seq.size(), we just can't get it with [].
+            auto [_, error] = std::from_chars(&int_seq[cursor], int_seq.data() + cursor_end, num);
             // default constructed errc means "no error"
             if (error != std::errc())
                 return output;

@@ -806,10 +806,8 @@ const mdspan& CSubArray::getSpan() {
     }
 
     auto n = sizes.size();
-    auto strides = std::vector<size_t>{n, 1};
-    if (n) {
-        for (int i=n-1; i--; ) strides[i] = strides[i+1]*sizes[i+1];
-    }
+    auto strides = std::vector<size_t>(n, 1);
+    for (int i=n-2; i > 0; i--) strides[i] = strides[i+1]*sizes[i+1];
 
     m_span.reset(new mdspan{sizes, strides});
     return *m_span;

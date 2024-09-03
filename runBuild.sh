@@ -163,7 +163,12 @@ check_exit_status
 # baked into the meson build configuration and meson doesn't use whatever gcc/g++ is
 # in PATH on subsequent builds outside of runBuild.sh
 CC=$(which gcc) CXX=$(which g++) \
-  meson setup -Dprefix=$install_dir -Ddebug=true -Doptimization=2 build
+  meson setup \
+    -Dprefix=$install_dir \
+    -Ddebug=true \
+    -Doptimization=2 \
+    -Db_ndebug=true \
+    ./build
 check_exit_status
 
 meson compile --verbose -C build

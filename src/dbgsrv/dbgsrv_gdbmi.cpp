@@ -2350,8 +2350,6 @@ bool DbgGdbMI::initOmpdL() {
 dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
     DVPRINT("*** Dbg %s, %s \"%s\"\n", __FILE__, __func__, inOp);
 
-    if (auto e = initOmpd()) return e;  // initOmpd returns nullptr on success
-
     static std::regex verboseRE{R"(\s*-v\b)"};
     auto isVerbose = bool{false};
     auto op = std::string{inOp};
@@ -2375,23 +2373,16 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
         std::swap(cmd_args[i], cmd_args[i+1]);
     }
     auto argc = cmd_args.argc();
-    
-    MICommand* cmd = CLIBypass(argc, const_cast<char**>(cmd_args.c_strs().data()));
-    SendMICommand(GDBMISession, cmd);
 
-    bool isRunning = false;
+    auto cmd = make_MICmd(CLIBypass(argc, const_cast<char**>(cmd_args.c_strs().data())));
+    SendMICommand(GDBMISession, cmd.get());
 
-    dbgevent_t* e = nullptr;
-    if (MICommandResultClass(cmd) == MIResultRecordRUNNING) {
-        // ompd init runs aynchronously after it sets a temporary breakpoint
-        isRunning = true;
-        e = NewEvent(DBGEV_OK);
-    } else if (!MICommandResultOK(cmd)) {
-        const char* msg = MICommandResultErrorMessage(cmd);
+    if (!MICommandResultOK(cmd.get())) {
+        const char* msg = MICommandResultErrorMessage(cmd.get());
         if (!msg) msg = "cuda command failed.";
-        e = NewErrorEvent(DBGERR_DEBUGGER, "%s", msg);
-    } else if (char* result = MICommandConsoleOOBMessages(cmd)) {
-        e = NewEvent(DBGEV_THREADINFO);
+        return NewErrorEvent(DBGERR_DEBUGGER, "%s", msg);
+    } else if (char* result = MICommandConsoleOOBMessages(cmd.get())) {
+        auto e = NewEvent(DBGEV_THREADINFO);
 
         DVPRINT("--- CUDA result op = \"%s\"\n", op.c_str()); 
         if (isVerbose || op != "info threads") {
@@ -2402,18 +2393,10 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
             e->ev_string = strdup(cresult.c_str());
         }
 
+        return e;
     } else {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb cuda did not return a value.");
+        return NewErrorEvent(DBGERR_DEBUGGER, "Gdb cuda did not return a value.");
     }
-
-    MICommandFree(cmd);
-
-    if (isRunning) {
-        DVPRINT("RUNNING : calling ThreadAsyncCheck\n");
-        ThreadAsyncCheck(WaitOmpdEvent, nullptr);
-        Status = DBGSTAT_RUNNING;
-    }
-    return e;
 }
 
 dbgevent_t *DbgGdbMI::sleep(int seconds) {

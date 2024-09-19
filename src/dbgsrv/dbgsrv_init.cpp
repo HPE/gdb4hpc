@@ -1710,7 +1710,20 @@ DbgGdbMI::Initializer::continueToEvent(ContinueType ctype) {
     
     SendMICommand(m_session, cmd);
 
-    if (!MICommandResultOK(cmd)) {
+    //     sometimes MPI/GPU/libsci/etc runtimes start threads while we are trying
+    // to continue to the entry breakpoint. this can put us in weird situations
+    // where we called this fn after receiving an async event during the entry
+    // breakpoint sequence but all threads are already running. see CPE-5960.
+    //     if we are executing a continue --all, it's not a gdb error if all threads
+    // are already running. but in that case, gdb will emit ^done instead of
+    // ^running. MICommandResultOK doesn't like this as it *only* expects
+    // ^running, but it's fine for our purposes in this function. any actual
+    // errors will be emitted as ^error responses.
+    //     the MI docs say that ^running is a legacy item anyway and should be
+    // treated identically to ^done.
+    if (cmd->output->rr->resultClass == MIResultRecordDONE) {
+        // ok, fall through
+    } else if (!MICommandResultOK(cmd)) {
         auto e = NewErrorEvent(DBGERR_DEBUGGER, "%s", MICommandResultErrorMessage(cmd));
         MICommandFree(cmd);
         return std::make_pair(MIEventPtr{nullptr,MIEventFree},e);

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Gdb4hpc Tutorial</title>
+  <title>Gdb4hpc HPC Features Tutorial</title>
   <style>
     html {
       line-height: 1.5;
@@ -151,9 +151,9 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Gdb4hpc Tutorial</h1>
+<h1 class="title">Gdb4hpc HPC Features Tutorial</h1>
 </header>
-<h1 id="gdb4hpc-tutorial">Gdb4hpc Tutorial</h1>
+<h1 id="gdb4hpc-hpc-features-tutorial">Gdb4hpc HPC Features Tutorial</h1>
 <p>This expands on the <em>Getting Started with Gdb4hpc</em> to cover some gdb4hpc specific topics:</p>
 <ul>
 <li>Comparative debugging</li>
@@ -161,7 +161,7 @@
 <li>Array decompositions</li>
 <li>Hidden features, tips, tricks and work arounds</li>
 </ul>
-<h1 id="comparative-debugging">Comparative debugging</h1>
+<h2 id="comparative-debugging">Comparative debugging</h2>
 <p><em>I fixed a bug or added a great speed up but now I get a different result!</em></p>
 <p>This is a super common debugging situation, and these bugs have a tendency to be subtle: a missing negative sign, changes in round-off, etc. The good news is that you can really leverage having a working version to reference; you don’t have to track the entire process, you can just catch the point where the results change.</p>
 <p>This is why procsets have names. Here we launch two applications:</p>
@@ -215,7 +215,7 @@ dbg all&gt;</code></pre>
 <pre><code>if (argv[1]) {
     distributedVec1[size/2] = -100;
 }</code></pre>
-<h1 id="assertion-scripts">Assertion scripts</h1>
+<h2 id="assertion-scripts">Assertion scripts</h2>
 <p>The place where you want to check for divergence may be called hundreds, thousands or millions of times, so gdb4hpc lets us perform the check automatically, via an assertion script.</p>
 <p>We start by building a script.</p>
 <pre><code>dbg all&gt; build $check_distributed
@@ -265,11 +265,11 @@ dbg all&gt; </code></pre>
 <li>If you do want to put a check on a location that is called a lot, and you have the option, just building into you code can be hundreds of times faster. Your compiled in check can still call some <em>hook</em> function so you can just use a plain old breakpoint to stop when it happens.</li>
 <li>An even more potent form of comparative debugging is to build an application with both versions of the computation and compare the result each time.</li>
 </ul>
-<h1 id="ccdb">CCDB</h1>
+<h2 id="ccdb">CCDB</h2>
 <p>CCDB (Cray Comparative Debugger) is a GTK based GUI application built using gdb4hpc to make the comparative debugging easy to use. If your X or VNC connection is fast enough, it has a dialog window to launch two application, a comparison window, and interactive assertion script creation.</p>
 <p>It will not be confused with a full featured graphical debugger, but it is good at showing side by side debugging.</p>
 <p>See the <code>cray-ccdb</code> module for details.</p>
-<h1 id="decompositions">Decompositions</h1>
+<h2 id="decompositions">Decompositions</h2>
 <p>HPC programs will often distribute a data structure across multiple ranks by decomposing it into pieces. A simple-minded version might, for example, decompose a 10,000 x 10,000 elements array across 100 ranks by storing the first 100 rows on the first rank, the next hundred rows on the second rank, and so on.</p>
 <p>Gdb4hpc provides <code>decompositions</code> to let you work with the data in unified form. So, for the previous example, this would be the definition:</p>
 <pre><code>dbg all&gt; decomposition $block10k
@@ -314,11 +314,11 @@ end</code></pre>
 <li>The decomposition can be defined fully distributed. That is, the <code>distribute</code> line is all <code>*</code>’s. There is a potentially different result for each rank; the decomposition is just reshaping the array.</li>
 <li>A decomposition can let you interpret a scalar as array of length num_ranks. (This used to actually be required to compare scalars in assertion scripts).</li>
 </ul>
-<h1 id="other-debugging-features">Other debugging features</h1>
-<h2 id="breakpoint-hit-counts-and-conditions">Breakpoint hit counts and conditions</h2>
+<h2 id="other-debugging-features">Other debugging features</h2>
+<h3 id="breakpoint-hit-counts-and-conditions">Breakpoint hit counts and conditions</h3>
 <p>As of version 4.14.6, gdb4hpc prints the number(s) of times a breakpoint has been hit in <code>info breakpoints</code> and supports the <code>ignore</code> and <code>condition</code> commands to let you trigger a breakpoint only when there’s something worth looking at.</p>
 <p>There may be different hit counts on each rank because the ranks are running independently.</p>
-<h2 id="using-gdbmode-to-access-some-functionality-that-gdb4hpc-doesnt-currently-support-directly">Using gdbmode to access some functionality that gdb4hpc doesn’t <em>currently</em> support directly</h2>
+<h3 id="using-gdbmode-to-access-some-functionality-that-gdb4hpc-doesnt-currently-support-directly">Using gdbmode to access some functionality that gdb4hpc doesn’t <em>currently</em> support directly</h3>
 <p>You can use gdbmode to:</p>
 <ul>
 <li>Set a hardware watchpoint</li>
@@ -327,7 +327,7 @@ end</code></pre>
 </ul>
 <p>The command <code>gdbmode</code> puts gdb4hpc in a mode where all commands are sent directly to gdb until you enter the command <code>end</code></p>
 <p>Or, it can be used with arguments to execute a single gdb command: <code>gdb info registers</code>. We can use “gdb” insead of “gdbmode” because gdb4hpc lets you shorten any command as long as it’s unambiguous.</p>
-<h2 id="shell-shell--r-and-pipe">shell, shell -r, and pipe</h2>
+<h3 id="shell-shell--r-and-pipe">shell, shell -r, and pipe</h3>
 <p>The <code>shell</code> command lets you invoke shell commands without leaving gdb4hpc. By default, this is on the local host, but with the <code>-r</code> argument it runs the command on every rank and prints the results. For example, you can use <code>shell -r hostname</code> to determine where your job is running.</p>
 <p>Like <code>gdb</code>/<code>gdbmode</code>, if called with no arguments the command will drop you into a sub-shell and all commands will be sent to the shell until you exit the mode with either <code>end</code> or <code>suspend</code>.</p>
 <p>The <code>pipe</code> command sends the output of any gdb command into a shell pipeline, some examples:</p>
@@ -335,33 +335,33 @@ end</code></pre>
 <li>send a large array result to a file: <code>pipe p big_array | cat &gt; ~/log/big_array.txt</code></li>
 <li>search a long result for something: <code>pipe thread apply all bt | grep error_hook</code></li>
 </ul>
-<h2 id="array-slicing">Array slicing</h2>
+<h3 id="array-slicing">Array slicing</h3>
 <p>You can use <code>..</code> to print out a portion of an array</p>
 <pre><code>dbg all&gt; p distributedVec1
 a{0..2}: {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39}
 dbg all&gt; p distributedVec1[3..10]
 a{0..2}: {3,4,5,6,7,8,9,10}
 dbg all&gt;</code></pre>
-<h2 id="printformat">print/format</h2>
+<h3 id="printformat">print/format</h3>
 <p>The <code>print</code> command accepts the format strings <code>/x</code>, <code>/o</code>, <code>/t</code>, and <code>/z</code> to print integral values in hex, octal, binary, and zero padded binary respectively. For example: <code>p/x val</code></p>
 <p>gdb4hpc supports two additional formats</p>
 <ul>
 <li>/1 prints one value per one line, which is particularly useful when <code>pipe</code>-ing the result to <code>grep</code> or <code>wc</code>.</li>
 <li>/csv print array values as comma separated values, which can be useful to connect to other data tools.</li>
 </ul>
-<h2 id="modifying-program-variables">modifying program variables</h2>
+<h3 id="modifying-program-variables">Modifying program variables</h3>
 <p>You can change the value of a variable, via something like <code>assign $a::enable_debug 1</code> or <code>p i=10</code> or even (as of 4.14.8): <code>p --i</code>.</p>
 <p>In the first case, this could be used to turn on extra debugging code in the middle of a run. In the other cases, to rerun some iteration of a (reentrant) loop.</p>
-<h1 id="lesser-gdb4hpc-features">Lesser gdb4hpc features</h1>
+<h2 id="lesser-gdb4hpc-features">Lesser gdb4hpc features</h2>
 <p>These are some gdb4hpc features that aren’t obvious, but that can simplify your life.</p>
-<h2 id="history">History</h2>
+<h3 id="history">History</h3>
 <p>At the gdb4hpc prompt, the up and down arrows cycle through the command history and the common ‘!’ escapes are available. For example: <code>!launch</code> re-executes the last launch command, which could be from a previous session.</p>
-<h2 id="the-source-command-and-running-in-batch">The source command and running in batch</h2>
+<h3 id="the-source-command-and-running-in-batch">The source command and running in batch</h3>
 <p>The <code>source</code> command reads a text file and treats it as if each line was entered at the prompt. This can be handy for executing launch commands, setting up breakpoint lists, or defining decomposition and assertion scripts. This is similar to the <em>batch mode</em> command line option, but it leaves you in the normal interactive mode when it finishes.</p>
 <p>Both batch and the source command are not synchronized with the debugger. Thus, if a script continues to a breakpoint and prints a value, the print statement will execute before the breakpoint is hit. The command <code>maint set sync on</code> can be used to change that behavior, but should be used with some care.</p>
-<h2 id="output-logging">Output logging</h2>
+<h3 id="output-logging">Output logging</h3>
 <p>The output from gdb4hpc can be sent to a log file either in addition to or instead of being printed to the screen. See <code>help set logging</code> for details.</p>
-<h2 id="quote-escape">Quote escape</h2>
+<h3 id="quote-escape">Quote escape</h3>
 <p>Gdb4hpc understands most, but not all possible expressions you might want to print. Enclosing an expression in double quotes sends it directly to the gdb interpreter:</p>
 <pre><code>dbg all&gt; p distributedArray1[0]@4
 a{0..2}: {0,4,8,12}
@@ -373,11 +373,11 @@ a{0..2}: {0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,9
 <blockquote>
 <p>note that as of 4.14.7 the expression parser has gotten significantly smarter, so these examples work without quotes. This feature has been getting less important, but you may still encounter an expression gdb4hpc doesn’t understand.</p>
 </blockquote>
-<h2 id="procset-aliases">Procset aliases</h2>
+<h3 id="procset-aliases">Procset aliases</h3>
 <p>The defset command lets you define an alias for a set of processes. This can help when the application divides set of ranks into separate roles: e.g. “earth” and “sea” nodes for a weather simulation.</p>
-<h2 id="gdb4hpcgdb4hpc_init">~/.gdb4hpc/gdb4hpc_init</h2>
+<h3 id="gdb4hpcgdb4hpc_init">~/.gdb4hpc/gdb4hpc_init</h3>
 <p>If this file exists, <code>source ~/.gdb4hpc/gdb4hpc_init</code> is applied whenever gdb4hpc starts. Typically, this would be used for setting preferences.</p>
-<h2 id="debug">–debug</h2>
+<h3 id="debug">–debug</h3>
 <p>Launch and attach drop gdb4hpc logging files into the directory defined by the environment variable CRAY_DBG_LOG_DIR. If there are launch problems these files can give some insight. It will it at least show the work load manager commands that it is trying to call.</p>
 </body>
 </html>

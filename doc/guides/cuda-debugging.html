@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Debugging an MPI/CUDA GPU Application with gdb4hpc</title>
+  <style>
+    html {
+      line-height: 1.5;
+      font-family: Georgia, serif;
+      font-size: 20px;
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 1em;
+      }
+    }
+    @media print {
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, 'Lucida Console', Consolas, monospace;
+      font-size: 85%;
+      margin: 0;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Debugging an MPI/CUDA GPU Application with gdb4hpc</h1>
+</header>
+<h1 id="debugging-an-mpicuda-gpu-application-with-gdb4hpc">Debugging an MPI/CUDA GPU Application with gdb4hpc</h1>
+<p>In this tutorial, you will learn how to debug a multinode MPI/CUDA application with gdb4hpc in the HPE Cray Programming Environment. This tutorial uses a CUDA application and NVIDIA GPUs as examples, but the concepts are applicable to HIP applications on AMD GPUs as well.</p>
+<h2 id="setup">Setup</h2>
+<p>To set up the debugging session, you will need to obtain the sample application and compile it for your chosen GPU with debug information.</p>
+<h3 id="download-the-sample-code">Download The Sample Code</h3>
+<p>For this tutorial, we will use the <code>simpleMPI</code> example from <a href="https://github.com/NVIDIA/cuda-samples">NVIDIA’s cuda-samples repository</a>. <code>simpleMPI</code> does a simple distributed calculation involving square roots and averages:</p>
+<ol type="1">
+<li><code>simpleMPI</code> generates millions of random floats (2,560,000 per node)</li>
+<li><code>simpleMPI</code> uses MPI to distribute those numbers across multiple compute nodes</li>
+<li><code>simpleMPI</code> uses uses CUDA to calculate the square root of each number</li>
+<li><code>simpleMPI</code> uses MPI to collect the resulting square roots and average them</li>
+</ol>
+<p>Start by cloning the sample code repository.</p>
+<pre><code>$ git clone https://github.com/NVIDIA/cuda-samples.git
+Cloning into &#39;cuda-samples&#39;...
+remote: Enumerating objects: 19507, done.
+remote: Counting objects: 100% (4922/4922), done.
+remote: Compressing objects: 100% (658/658), done.
+remote: Total 19507 (delta 4565), reused 4336 (delta 4264), pack-reused 14585 (from 1)
+Receiving objects: 100% (19507/19507), 133.38 MiB | 13.62 MiB/s, done.
+Resolving deltas: 100% (17225/17225), done.
+Updating files: 100% (4026/4026), done.</code></pre>
+<p>Next, navigate to the directory containing the <code>simpleMPI</code> sample.</p>
+<pre><code>$ cd cuda-samples/Samples/0_Introduction/simpleMPI</code></pre>
+<p>The sample comes with some source files, some visual studio project files, a Makefile, and a README.</p>
+<pre><code>$ ls
+Makefile       simpleMPI.cu          simpleMPI_vs2017.vcxproj  simpleMPI_vs2022.sln
+README.md      simpleMPI.h           simpleMPI_vs2019.sln      simpleMPI_vs2022.vcxproj
+simpleMPI.cpp  simpleMPI_vs2017.sln  simpleMPI_vs2019.vcxproj</code></pre>
+<p>For this tutorial, we are only interested in the source files. Remove the other files if desired.</p>
+<pre><code>$ rm *.sln *.vcxproj README.md Makefile
+$ ls
+simpleMPI.cpp  simpleMPI.cu  simpleMPI.h</code></pre>
+<h3 id="build-the-application">Build The Application</h3>
+<p>To compile the application, load the appropriate compilers and compile the sample application for your chosen GPU architecture with debug information.</p>
+<h4 id="load-compilers">Load Compilers</h4>
+<p>In your terminal, use the <code>module</code> command to ensure that the Cray <code>CC</code> compiler and the NVIDIA <code>nvcc</code> compiler are available.</p>
+<p>The version of the <code>cce</code> and <code>cuda</code> modules that you should load depend on which GPU architecture you will be compiling for and the version of the CUDA drivers on your system. Find your GPU on the [NVIDIA GPU Compute Capability page] (https://developer.nvidia.com/cuda-gpus) and choose a version of CUDA that supports the required compute capability. Then load an appropriate CCE version. For information about which CCE versions support which versions of CUDA, see the HPE Cray Programming Environment release announcements. For this tutorial, we will use CCE 17 and CUDA 12 and run the application on NVIDIA A100 GPUs.</p>
+<pre><code>$ module load cce/17
+$ module load cuda/12</code></pre>
+<p>You can check that your environment is set up correctly by checking that <code>CC</code> (the Cray CCE C++ compiler) and <code>nvcc</code> (the NVIDIA CUDA application compiler) are available in the terminal.</p>
+<pre><code>$ CC --version
+Cray clang version 17.0.1  (5ec9405551a8c8845cf14e81dc28bff7aa3935cb)
+...
+
+$ nvcc --version
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Thu_Jun__6_02:18:23_PDT_2024
+Cuda compilation tools, release 12.5, V12.5.82
+...</code></pre>
+<h4 id="compile-the-application">Compile the Application</h4>
+<p>The sample application comes with a Makefile, but it’s not compatible with the HPE Cray Programming Environment. We will compile the application manually.</p>
+<h4 id="debug-info">Debug Info</h4>
+<p>When compiling code, compilers apply optimizations to make the resulting application faster and smaller. These optimizations often rearrange the order of code or completely remove it which makes reasoning about the original code at runtime difficult. When preparing to debug an application, you need to tell the compiler to disable these optimizations and include extra information that the debugger can use to reason about the original code.</p>
+<h4 id="compile-the-.cu-file">Compile the <code>.cu</code> File</h4>
+<p>The <code>simpleMPI.cu</code> file contains the code that will be run on the GPU. Use <code>nvcc</code> to compile it.</p>
+<pre><code>$ nvcc -g -G -O0 -c -ccbin=cc -gencode arch=... simpleMPI.cu -o simpleMPI_gpu.o</code></pre>
+<p>The <code>-g</code> flag tells <code>nvcc</code> to include debugging information for the host code (the code that will run on the CPU) and the <code>-G</code> flag tells <code>nvcc</code> to include debugging information for the device code (the code that will run on the GPU). <code>-O0</code> disables optimizations for the host code. <code>-G</code> implicitly disables optimizations for the device code.</p>
+<p><code>-c</code> tells the compiler to produce an object file instead of a executable. An object file is a mostly-compiled program that only needs to be linked to create an executable. After you compile the <code>.cpp</code> file in the next section, you will link the object files together to create the final executable.</p>
+<p><code>nvcc</code> does not actually fully compile C/C++. It actually processes the CUDA directives in the <code>.cu</code> file and produces a new C/C++ file where the CUDA directives are replaced with the proper C/C++ code that interacts with the CUDA API to do the work of loading the correct GPU driver etc. <code>-ccbin=cc</code> tells <code>nvcc</code> to use the <code>cc</code> compiler to do the actual compilation of the generated C/C++ code. When the Cray CCE module is loaded, <code>cc</code> is the C/C++ compiler.</p>
+<p><code>-gencode</code> tells <code>nvcc</code> which GPU architecture to target. The actual value for this argument will vary based on which GPU you are targeting. Refer to the <a href="https://developer.nvidia.com/cuda-gpus">NVIDIA compute capabilities table</a> to find the compute capability of your GPU. For example, the A100 GPU that we are targeting in this tutorial has a compute capability of 8.0. Take the compute capability of your GPU and pass it to <code>nvcc</code> via the <code>-gencode</code> flag by removing the decimal point and embedding it in a <code>arch=compute_XX,code=sm_XX</code> pair. For our A100 example, the complete option is <code>-gencode compute_80,code=sm_80</code>.</p>
+<p><code>simpleMI.cu</code> is the input file and <code>-o simpleMPI_gpu.o</code> tells <code>nvcc</code> to call the output file <code>simpleMPI_gpu.o</code>.</p>
+<p>The complete <code>nvcc</code> invocation for an A100 GPU looks like this:</p>
+<pre><code>$ nvcc -g -G -c -ccbin=cc -gencode arch=compute_80,code=sm_80 simpleMPI.cu -o simpleMPI_gpu.o</code></pre>
+<p>Refer to the <a href="https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html"><code>nvcc</code> user manual</a> and the <a href="https://docs.nvidia.com/cuda/cuda-gdb/index.html#compiling-the-application">compilation section of the cuda-gdb documentation</a> for more information.</p>
+<h4 id="compile-the-.cpp-file">Compile the <code>.cpp</code> File</h4>
+<p>The <code>simpleMPI.cpp</code> file contains code that will be run on the CPU. It is the entry point to the program and contains the MPI operations. Use <code>CC</code> to compile it.</p>
+<pre><code>$ CC -g -O0 -c simpleMPI.cpp -o simpleMPI_cpu.o</code></pre>
+<p>The flags have the same meanings as in the <code>nvcc</code> compilation. The Cray <code>CC</code> compiler will automatically include the files needed for MPI.</p>
+<h4 id="link-the-application-and-produce-an-executable">Link the Application and Produce an Executable</h4>
+<p>Finally, use <code>CC</code> to link the two object files into the final executable.</p>
+<pre><code>$ CC simpleMPI_gpu.o simpleMPI_cpu.o -o simpleMPI</code></pre>
+<h4 id="test-the-application">Test The Application</h4>
+<p>Test that the application was compiled correctly by running it on multiple nodes. For example, on a Slurm system:</p>
+<pre><code>$ srun -n8 -N2 --ntasks-per-node 4 --exclusive -p griz256 ./simpleMPI
+Running on 8 nodes
+Average of square roots is: 0.667337
+PASSED</code></pre>
+<p>Your <code>srun</code> command may vary depending on your system. You should launch the job on nodes with your targeted GPU with one rank per GPU. See <a href="https://slurm.schedmd.com/srun.html">the <code>srun</code> documentation</a> for how to achieve a correct job launch on your system.</p>
+<p>In our specific example:</p>
+<p><code>-n8 -N2 --ntasks-per-node 4</code> tells Slurm to run 8 ranks across 2 nodes, splitting the job evenly by running 4 ranks on each node. In this example we are using nodes with 4 A100s each.</p>
+<p><code>--exclusive</code> tells Slurm to run on nodes that aren’t being used by anyone else, and to not let anyone else use them while running the job. Only one application can use each GPU at a time, so we need to make sure that we aren’t given nodes that have GPUs that are already in use.</p>
+<p><code>-p griz256</code> tells Slurm to use the nodes in the <code>griz256</code> partition which are all the nodes with A100s.</p>
+<h2 id="debugging">Debugging</h2>
+<h3 id="load-gdb4hpc-and-cuda-gdb">Load gdb4hpc and cuda-gdb</h3>
+<p>You’re ready to start debugging. Load the gdb4hpc debugger.</p>
+<pre><code>$ module load gdb4hpc
+$ gdb4hpc --version
+gdb4hpc-4.16.3.</code></pre>
+<p>For this tutorial, we are using gdb4hpc 4.16.3, but any version above 4.13.1 will have the commands used in this tutorial.</p>
+<p>gdb4hpc will use the cuda-gdb debugger for GPU debugging. cuda-gdb is provided by the <code>cuda</code> module that is loaded for building the application. Check that cuda-gdb is available.</p>
+<pre><code>$ cuda-gdb --version
+NVIDIA (R) cuda-gdb 12.5
+Portions Copyright (C) 2007-2024 NVIDIA Corporation
+Based on GNU gdb 13.2
+Copyright (C) 2023 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later &lt;http://gnu.org/licenses/gpl.html&gt;
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.</code></pre>
+<h4 id="launch-the-application-in-gdb4hpc">Launch the Application in gdb4hpc</h4>
+<p>Start gdb4hpc and use the <code>launch</code> command to start the application in the debugger.</p>
+<pre><code>$ gdb4hpc
+gdb4hpc 4.16.3. - Cray Interactive Parallel Debugger
+With Cray Comparative Debugging Technology.
+Copyright 2007-2024 Hewlett Packard Enterprise Development LP.
+Copyright 1996-2016 University of Queensland. All Rights Reserved.
+
+Type &quot;help&quot; for a list of commands.
+Type &quot;help &lt;cmd&gt;&quot; for detailed help about a command.
+dbg all&gt; launch $simpleMPI{8} --launcher-args=&quot;-N2 --ntasks-per-node=4 --exclusive -p griz256&quot; --gpu ./simpleMPI
+Starting application, please wait...
+Launched application...
+0/8 ranks connected... (timeout in 300 seconds)
+..
+8/8 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+simpleMPI{0..7}: Initial breakpoint, main at simpleMPI.cpp:63</code></pre>
+<p><code>$simpleMPI{8}</code> tells gdb4hpc to launch a job with 8 ranks and give it a handle called <code>simpleMPI</code>.</p>
+<p><code>--launcher-args</code> tells gdb4hpc which WLM arguments to use to launch the job correctly. In this case, we use the same arguments we used in the “Test The Application” section.</p>
+<p>The <code>--gpu</code> flag tells gdb4hpc to use the appropriate GPU-aware debugger. In our case, it chooses cuda-gdb.</p>
+<p>The final argument, <code>./simpleMPI</code>, gives gdb4hpc the binary to launch.</p>
+<p>After the launch completes, gdb4hpc stops at <code>main</code> and gives you control.</p>
+<h4 id="hit-a-breakpoint-in-a-gpu-kernel">Hit a Breakpoint in a GPU Kernel</h4>
+<p>The sample application contains one CUDA Kernel called <code>simpleMPIKernel</code> defined in <code>simpleMPI.cu</code>. The source code for the kernel looks like this:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="dv">52</span>  <span class="co">// Device code</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="dv">53</span>  <span class="co">// Very simple GPU Kernel that computes square roots of input numbers</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="dv">54</span>  __global__ <span class="dt">void</span> simpleMPIKernel<span class="op">(</span><span class="dt">float</span> <span class="op">*</span>input<span class="op">,</span> <span class="dt">float</span> <span class="op">*</span>output<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="dv">55</span>    <span class="dt">int</span> tid <span class="op">=</span> blockIdx<span class="op">.</span>x <span class="op">*</span> blockDim<span class="op">.</span>x <span class="op">+</span> threadIdx<span class="op">.</span>x<span class="op">;</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="dv">56</span>    output<span class="op">[</span>tid<span class="op">]</span> <span class="op">=</span> sqrt<span class="op">(</span>input<span class="op">[</span>tid<span class="op">]);</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="dv">57</span>  <span class="op">}</span></span></code></pre></div>
+<p>Set a breakpoint at the first line of the kernel:</p>
+<pre><code>dbg all&gt; break simpleMPI.cu:55
+simpleMPI{0..7}: Breakpoint 1: file simpleMPI.cu, line 55.</code></pre>
+<blockquote>
+<p>You could have also set the breakpoint via the function name by typing <code>break simpleMPIKernel</code>.</p>
+</blockquote>
+<p>Now use the <code>continue</code> command to run the application until it hits the breakpoint in the kernel.</p>
+<pre><code>dbg all&gt; continue
+dbg all&gt; &lt;$simpleMPI&gt;: Running on 8 nodes
+simpleMPI{0..7}: Breakpoint 1,  at simpleMPI.cu:55</code></pre>
+<p>The application has stopped in a GPU kernel. From here you can use the usual debugger commands like <code>print</code>, <code>step</code>, <code>next</code>, etc. You can use <code>print</code> to inspect GPU memory as you would any other memory. Here we print the first 8 items of the <code>input</code> array. Since the program initializes the array with random data, the result is different for each rank, and your data might be different.</p>
+<pre><code>dbg all&gt; info locals
+simpleMPI{0..7}: Name:tid                       Type:@register int
+simpleMPI{0..7}: Name:input                     Type:@generic float * @parameter
+simpleMPI{0..7}: Name:output                    Type:@generic float * @parameter
+dbg all&gt; print input[0]@8 # print the first 8 items of the input array
+simpleMPI{0}: {0.840188,0.394383,0.783099,0.79844,0.911647,0.197551,0.335223,0.76823}
+simpleMPI{1}: {0.432718,0.407395,0.918358,0.348798,0.421943,0.527366,0.664573,0.899948}
+simpleMPI{2}: {0.490992,0.530234,0.736292,0.0698217,0.825561,0.719689,0.26409,0.439787}
+simpleMPI{3}: {0.404152,0.403803,0.990251,0.10481,0.267578,0.685576,0.794025,0.972998}
+simpleMPI{4}: {0.113738,0.293829,0.443866,0.706545,0.762252,0.451777,0.93063,0.569985}
+simpleMPI{5}: {0.386505,0.760585,0.354206,0.784775,0.329661,0.25768,0.0700815,0.955718}
+simpleMPI{6}: {0.959459,0.299068,0.889675,0.0221367,0.809361,0.0220988,0.373968,0.589243}
+simpleMPI{7}: {0.839492,0.778462,0.195212,0.832727,0.125331,0.211325,0.0624168,0.56848}</code></pre>
+<h4 id="cuda-threads-and-cuda-commands">CUDA Threads and CUDA Commands</h4>
+<p>gdb4hpc supports cuda-gdb’s <code>cuda</code> commands.</p>
+<p>To get info about currently running CUDA threads, use <code>info cuda threads</code>.</p>
+<pre><code>dbg all&gt; info cuda threads
+simpleMPI{0}: Showing one thread per location; use -v for full list.
+simpleMPI{0}:    BlockIdx ThreadIdx   Count    Location
+simpleMPI{0}: Kernel 0
+simpleMPI{0}:   (649,0,0)   (0,0,0)   7840 simpleMPI.cu    54
+simpleMPI{0}: *   (0,0,0)   (0,0,0) 213344 simpleMPI.cu    55
+simpleMPI{1}: Showing one thread per location; use -v for full list.
+simpleMPI{1}:    BlockIdx ThreadIdx   Count    Location
+simpleMPI{1}: Kernel 0
+simpleMPI{1}:   (649,0,0)   (0,0,0)   7936 simpleMPI.cu    54
+simpleMPI{1}: *   (0,0,0)   (0,0,0) 213248 simpleMPI.cu    55
+simpleMPI{2}: Showing one thread per location; use -v for full list.
+simpleMPI{2}:    BlockIdx ThreadIdx   Count    Location
+simpleMPI{2}: Kernel 0
+simpleMPI{2}:   (651,0,0)   (0,0,0)   8896 simpleMPI.cu    54
+simpleMPI{2}: *   (0,0,0)   (0,0,0) 212288 simpleMPI.cu    55
+...</code></pre>
+<p>You can see that each rank’s GPU threads are all stopped in the <code>simpleMPIKernel</code> in <code>simpleMPI.cu</code> lines 54 or 55. The ranks have different locations because gdb4hpc debugs CUDA applications in <a href="https://sourceware.org/gdb/current/onlinedocs/gdb.html/All_002dStop-Mode.html">all-stop mode</a>. All-stop mode means that once one thread stops, all other threads are stopped immediately. This means that every thread was stopped as soon as the first thread hit the breakpoint, resulting in all threads halting wherever they happened to be at the time. Because of this, your locations might be slightly different.</p>
+<p>The current thread (the rank that any gdb4hpc commands will apply to) is indicated with a <code>*</code>. You can switch the current block or thread (or warp or lane) by using the <code>cuda [block x] thread y</code> command. Since this application uses a one dimensional grid of one dimensional thread blocks, you can derive block and thread IDs by simply using the first number in the block’s/thread’s (x, 0, 0) tuple.</p>
+<p>The example above shows block 649 on rank 0 as being in a different location than block 0 thread 0. Your exact block and thread numbers might be different. Use <code>cuda block x thread y</code> to switch to a different block and thread. You can confirm the switch by printing the CUDA kernel built in variables <code>blockIdx</code> and <code>threadIdx</code>.</p>
+<pre><code>dbg all&gt; cuda block 649 thread 0
+simpleMPI{0}: [Switching focus to CUDA kernel 0, grid 1, block (649,0,0), thread (0,0,0), device 2, sm 0, warp 59, lane 0]
+simpleMPI{0}: 0x00007fcef725da10        54      in simpleMPI.cu
+simpleMPI{1}: [Switching focus to CUDA kernel 0, grid 1, block (649,0,0), thread (0,0,0), device 0, sm 0, warp 59, lane 0]
+simpleMPI{1}: 0x00007f282725da20        54      in simpleMPI.cu
+simpleMPI{2}: [Switching focus to CUDA kernel 0, grid 1, block (649,0,0), thread (0,0,0), device 3, sm 0, warp 59, lane 0]
+simpleMPI{2}: 55        in simpleMPI.cu
+simpleMPI{3}: [Switching focus to CUDA kernel 0, grid 1, block (649,0,0), thread (0,0,0), device 1, sm 0, warp 59, lane 0]
+simpleMPI{3}: 0x00007f9dc725da20        54      in simpleMPI.cu
+simpleMPI{4}: [Switching focus to CUDA kernel 0, grid 1, block (649,0,0), thread (0,0,0), device 2, sm 0, warp 59, lane 0]
+simpleMPI{4}: 0x00007ff3d725da20        54      in simpleMPI.cu
+simpleMPI{5}: [Switching focus to CUDA kernel 0, grid 1, block (649,0,0), thread (0,0,0), device 0, sm 0, warp 59, lane 0]
+simpleMPI{5}: 0x00007f79c325da20        54      in simpleMPI.cu
+simpleMPI{6}: [Switching focus to CUDA kernel 0, grid 1, block (649,0,0), thread (0,0,0), device 3, sm 0, warp 59, lane 0]
+simpleMPI{6}: 0x00007f410525da20        54      in simpleMPI.cu
+simpleMPI{7}: [Switching focus to CUDA kernel 0, grid 1, block (649,0,0), thread (0,0,0), device 1, sm 4, warp 50, lane 0]
+simpleMPI{7}: 55        in simpleMPI.cu
+dbg all&gt; print blockIdx
+simpleMPI{0..7}: {x = 649, y = 0, z = 0}
+dbg all&gt; print threadIdx
+simpleMPI{0..7}: {x = 0, y = 0, z = 0}</code></pre>
+<h4 id="more-cuda-commands">More CUDA Commands</h4>
+<p>To see what other <code>info</code> commands are available, use <code>cuda info help</code>:</p>
+<pre><code>dbg all&gt; cuda help info
+simpleMPI{0..7}: Print informations about the current CUDA activities. Available options:
+simpleMPI{0..7}:          devices : information about all the devices
+simpleMPI{0..7}:              sms : information about all the SMs in the current device
+simpleMPI{0..7}:            warps : information about all the warps in the current SM
+simpleMPI{0..7}:            lanes : information about all the lanes in the current warp
+simpleMPI{0..7}:          kernels : information about all the active kernels
+simpleMPI{0..7}:         contexts : information about all the contexts
+simpleMPI{0..7}:           blocks : information about all the active blocks in the current kernel
+simpleMPI{0..7}:          threads : information about all the active threads in the current kernel
+simpleMPI{0..7}:     launch trace : information about the parent kernels of the kernel in focus
+simpleMPI{0..7}:  launch children : information about the kernels launched by the kernels in focus
+simpleMPI{0..7}:          managed : information about global managed variables
+simpleMPI{0..7}:             line : information about the filename and linenumber for a given $pc
+simpleMPI{0..7}:</code></pre>
+<p>There are also other top level <code>cuda</code> commands other than <code>info</code>:</p>
+<pre><code>dbg all&gt; cuda help
+simpleMPI{0..7}: Print or select the CUDA focus.
+simpleMPI{0..7}:
+simpleMPI{0..7}: List of cuda subcommands:
+simpleMPI{0..7}:
+simpleMPI{0..7}: cuda block -- Print or select the current CUDA block.
+simpleMPI{0..7}: cuda device -- Print or select the current CUDA device.
+simpleMPI{0..7}: cuda grid -- Print or select the current CUDA grid.
+simpleMPI{0..7}: cuda kernel -- Print or select the current CUDA kernel.
+simpleMPI{0..7}: cuda lane -- Print or select the current CUDA lane.
+simpleMPI{0..7}: cuda sm -- Print or select the current CUDA SM.
+simpleMPI{0..7}: cuda thread -- Print or select the current CUDA thread.
+simpleMPI{0..7}: cuda warp -- Print or select the current CUDA warp.
+simpleMPI{0..7}:
+simpleMPI{0..7}: Type &quot;help cuda&quot; followed by cuda subcommand name for full documentation.
+simpleMPI{0..7}: Type &quot;apropos word&quot; to search for commands related to &quot;word&quot;.
+simpleMPI{0..7}: Type &quot;apropos -v word&quot; for full documentation of commands related to &quot;word&quot;.
+simpleMPI{0..7}: Command name abbreviations are allowed if unambiguous.</code></pre>
+<p>See <a href="https://docs.nvidia.com/cuda/cuda-gdb/index.html">the cuda-gdb documentation</a> for more information.</p>
+<h4 id="single-stepping">Single Stepping</h4>
+<p>The usual <code>step</code> and <code>next</code> commands are supported. In a GPU kernel, stepping has the granularity of a warp. A warp is a group of 32 GPU threads and is the granularity the GPU scheduler works at. See <a href="https://docs.nvidia.com/cuda/cuda-gdb/index.html#single-stepping">the cuda-gdb documentation</a> for more info.</p>
+<pre><code>simpleMPI{0..7}: Breakpoint 1,  at simpleMPI.cu:55
+dbg all&gt; list 55
+simpleMPI{0..7}: 50       }
+simpleMPI{0..7}: 51
+simpleMPI{0..7}: 52     // Device code
+simpleMPI{0..7}: 53     // Very simple GPU Kernel that computes square roots of input numbers
+simpleMPI{0..7}: 54     __global__ void simpleMPIKernel(float *input, float *output) {
+simpleMPI{0..7}: 55       int tid = blockIdx.x * blockDim.x + threadIdx.x;
+simpleMPI{0..7}: 56       output[tid] = sqrt(input[tid]);
+simpleMPI{0..7}: 57     }
+simpleMPI{0..7}: 58
+simpleMPI{0..7}: 59     // Initialize an array with random data (between 0 and 1)
+dbg all&gt; next # set tid
+simpleMPI{0..7}: 56       output[tid] = sqrt(input[tid]);
+dbg all&gt; p tid
+simpleMPI{0..7}: 64
+dbg all&gt; p output[tid]
+simpleMPI{0..7}: 0
+dbg all&gt; n
+simpleMPI{0..7}: 57     }
+dbg all&gt; p output[tid]
+simpleMPI{0}: 0.516397
+simpleMPI{1}: 0.392356
+simpleMPI{2}: 0.883166
+simpleMPI{3}: 0.806327
+simpleMPI{4}: 0.458106
+simpleMPI{5}: 0.999046
+simpleMPI{6}: 0.366925
+simpleMPI{7}: 0.646477</code></pre>
+<h2 id="next-steps">Next Steps</h2>
+<p>You now know how to start debugging a multinode MPI/CUDA application with gdb4hpc.</p>
+<p>In general, gdb4hpc’s debugging capabilities are that of the underlying GPU debugger. See the <a href="https://docs.nvidia.com/cuda/cuda-gdb/index.html">cuda-gdb documentation</a> for more capabilities.</p>
+</body>
+</html>

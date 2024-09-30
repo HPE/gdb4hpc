@@ -10,4 +10,5 @@ pandoc -s -t html raja-support.md -o raja-support.html
 pandoc -s -t html vscode-plugin.md -o vscode-plugin.html
 pandoc -s -t html python-extension.md -o python-extension.html
 pandoc -s -t html python-mode.md -o python-mode.html
+pandoc -s -t html cuda-debugging.md -o cuda-debugging.html
 pandoc -t html --self-contained --css=./doc.css multi-rank-arrays.md -o multi-rank-arrays.html

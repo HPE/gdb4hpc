@@ -1,8 +1,8 @@
 ---
-title: Gdb4hpc Tutorial
+title: Gdb4hpc HPC Features Tutorial
 ---
 
-# Gdb4hpc Tutorial
+# Gdb4hpc HPC Features Tutorial
 
 This expands on the *Getting Started with Gdb4hpc* to cover some gdb4hpc specific topics:
 
@@ -11,7 +11,7 @@ This expands on the *Getting Started with Gdb4hpc* to cover some gdb4hpc specifi
 - Array decompositions
 - Hidden features, tips, tricks and work arounds
 
-# Comparative debugging
+## Comparative debugging
 
 *I fixed a bug or added a great speed up but now I get a different result!*
 
@@ -87,7 +87,7 @@ if (argv[1]) {
 }
 ```
 
-# Assertion scripts
+## Assertion scripts
 
 The place where you want to check for divergence may be called hundreds, thousands or millions of times, so gdb4hpc lets us perform the check automatically, via an assertion script.
 
@@ -156,14 +156,15 @@ Some basic advice about comparative debugging:
 - If you do want to put a check on a location that is called a lot, and you have the option, just building into you code can be hundreds of times faster.   Your compiled in check can still call some *hook* function so you can just use a plain old breakpoint to stop when it happens.
 - An even more potent form of comparative debugging is to build an application with both versions of the computation and compare the result each time.
 
-# CCDB
+## CCDB
+
 CCDB (Cray Comparative Debugger) is a GTK based GUI application built using gdb4hpc to make the comparative debugging easy to use.   If your X or VNC connection is fast enough, it has a dialog window to launch two application, a comparison window, and interactive assertion script creation.
 
 It will not be confused with a full featured graphical debugger, but it is good at showing side by side debugging.
 
 See the `cray-ccdb` module for details.
 
-# Decompositions
+## Decompositions
 
 HPC programs will often distribute a data structure across multiple ranks by decomposing it into pieces.    A simple-minded version might, for example, decompose a 10,000 x 10,000 elements array across 100 ranks by storing the first 100 rows on the first rank, the next hundred rows on the second rank, and so on.    
 
@@ -220,14 +221,16 @@ For this document, we're trying to show the idea of a decomposition, and we'll b
 - The decomposition can be defined fully distributed.  That is, the `distribute` line is all `*`'s.  There is a potentially different result for each rank; the decomposition is just reshaping the array.
 - A decomposition can let you interpret a scalar as array of length num_ranks.    (This used to actually be required to compare scalars in assertion scripts).
 
-# Other debugging features
+## Other debugging features
 
-## Breakpoint hit counts and conditions
+### Breakpoint hit counts and conditions
+
 As of version 4.14.6, gdb4hpc prints the number(s) of times a breakpoint has been hit in `info breakpoints` and supports the `ignore` and `condition` commands to let you trigger a breakpoint only when there's something worth looking at.
 
 There may be different hit counts on each rank because the ranks are running independently.   
 
-## Using gdbmode to access some functionality that gdb4hpc doesn't *currently* support directly
+### Using gdbmode to access some functionality that gdb4hpc doesn't *currently* support directly
+
 You can use gdbmode to:
 
 - Set a hardware watchpoint
@@ -238,7 +241,8 @@ The command `gdbmode` puts gdb4hpc in a mode where all commands are sent directl
 
 Or, it can be used with arguments to execute a single gdb command: `gdb info registers`.    We can use "gdb" insead of "gdbmode" because gdb4hpc lets you shorten any command as long as it's unambiguous.
 
-## shell, shell -r, and pipe
+### shell, shell -r, and pipe
+
 The `shell` command lets you invoke shell commands without leaving gdb4hpc.   By default, this is on the local host, but with the `-r` argument it runs the command on every rank and prints the results.   For example, you can use `shell -r hostname` to determine where your job is running.
 
 Like `gdb`/`gdbmode`, if called with no arguments the command will drop you into a sub-shell and all commands will be sent to the shell until you exit the mode with either `end` or `suspend`.
@@ -248,7 +252,8 @@ The `pipe` command sends the output of any gdb command into a shell pipeline, so
 - send a large array result to a file: `pipe p big_array | cat > ~/log/big_array.txt`
 - search a long result for something: `pipe thread apply all bt | grep error_hook`
 
-## Array slicing
+### Array slicing
+
 You can use `..` to print out a portion of an array
 
 ```
@@ -259,7 +264,7 @@ a{0..2}: {3,4,5,6,7,8,9,10}
 dbg all>
 ```
 
-## print/format
+### print/format
 
 The `print` command accepts the format strings `/x`, `/o`, `/t`, and `/z` to print integral values in hex, octal, binary, and zero padded binary respectively.   For example: `p/x val`
 
@@ -268,28 +273,32 @@ gdb4hpc supports two additional formats
 - /1 prints one value per one line, which is particularly useful when `pipe`-ing the result to `grep` or `wc`.
 - /csv print array values as comma separated values, which can be useful to connect to other data tools.
 
-## modifying program variables
+### Modifying program variables
 
 You can change the value of a variable, via something like `assign $a::enable_debug 1` or `p i=10` or even (as of 4.14.8): `p --i`.
 
 In the first case, this could be used to turn on extra debugging code in the middle of a run.   In the other cases, to rerun some iteration of a (reentrant) loop.
 
-# Lesser gdb4hpc features
+## Lesser gdb4hpc features
 
 These are some gdb4hpc features that aren't obvious, but that can simplify your life.
 
-## History
+### History
+
 At the gdb4hpc prompt, the up and down arrows cycle through the command history and the common '!' escapes are available.  For example: `!launch` re-executes the last launch command, which could be from a previous session.
 
-## The source command and running in batch
+### The source command and running in batch
+
 The `source` command reads a text file and treats it as if each line was entered at the prompt.   This can be handy for executing launch commands, setting up breakpoint lists, or defining decomposition and assertion scripts.    This is similar to the *batch mode* command line option, but it leaves you in the normal interactive mode when it finishes.
 
 Both batch and the source command are not synchronized with the debugger.   Thus, if a script continues to a breakpoint and prints a value, the print statement will execute before the breakpoint is hit.   The command `maint set sync on` can be used to change that behavior, but should be used with some care.
 
-## Output logging
+### Output logging
+
 The output from gdb4hpc can be sent to a log file either in addition to or instead of being printed to the screen.   See `help set logging` for details.
 
-## Quote escape
+### Quote escape
+
 Gdb4hpc understands most, but not all possible expressions you might want to print.   Enclosing an expression in double quotes sends it directly to the gdb interpreter:
 ```
 dbg all> p distributedArray1[0]@4
@@ -303,12 +312,15 @@ Gdb4hpc won't fully understand these results, so the any comparisons would be do
 
 > note that as of 4.14.7 the expression parser has gotten significantly smarter, so these examples work without quotes.   This feature has been getting less important, but you may still encounter an expression gdb4hpc doesn't understand.
 
-## Procset aliases
+### Procset aliases
+
 The defset command lets you define an alias for a set of processes.  This can help when the application divides set of ranks into separate roles: e.g. "earth" and "sea" nodes for a weather simulation.
 
-## ~/.gdb4hpc/gdb4hpc_init
+### ~/.gdb4hpc/gdb4hpc_init
+
 If this file exists, `source ~/.gdb4hpc/gdb4hpc_init` is applied whenever gdb4hpc starts.  Typically, this would be used for setting preferences. 
 
-## --debug
+### --debug
+
 Launch and attach drop gdb4hpc logging files into the directory defined by the environment variable CRAY_DBG_LOG_DIR.   If there are launch problems these files can give some insight.   It will it at least show the work load manager commands that it is trying to call.   
 

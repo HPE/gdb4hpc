@@ -41,7 +41,7 @@ This tutorial shows how to use gdb4hpc to debug a multinode MPI application
 that uses CUDA compute kernels. The tutorial is written with CUDA/NVIDIA GPUs
 in mind, but the concepts apply to HIP/AMD GPUs as well.
 
-[Debugging an MPI/CUDA GPU Application Tutorial)(./guides/cuda-debugging.md)
+[Debugging an MPI/CUDA GPU Application Tutorial](./guides/cuda-debugging.md)
 
 #### Handling Arrays
 

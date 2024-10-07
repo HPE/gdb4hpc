@@ -60,7 +60,7 @@ gdb4hpc has extra support for some popular parallel programming libraries.
 
 A guide covering gdb4hpc's vscode extension.
 
-[VSCode Extension Guide](./guides/tutorial.md)
+[VSCode Extension Guide](./guides/vscode-plugin.md)
 
 #### Python Debugging
 

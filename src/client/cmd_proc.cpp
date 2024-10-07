@@ -840,12 +840,16 @@ static int DoAttach(dbgprocset_t *ps, const AttachOpts& opts) {
         ProcessErrorInRepSet(rep_set);
 
         for (const auto& rep : rep_set) {
-            if (rep->rep_event->ev_event == DBGEV_OK) {
+            if (rep->rep_event->ev_event == DBGEV_STRING) {
+                // we don't actually do anything with the
+                // string. we only use it to represent a trinary result (yes/no/error).
                 PrintMsgWithSetInfo(rep->rep_di.c_str(), rep->rep_group.get(),
                                     "Enabling python debugging. To disable, use `set python off`\n");
-            } else if (rep->rep_event->ev_event == DBGEV_STRING) {
-                // app isn't python, silently move on. we don't actually do anything with the
-                // string. we only use it to represent a trinary result.
+
+                // set python bits in di
+                rep->rep_di.lock()->setPython(*rep->rep_group);
+            } else if (rep->rep_event->ev_event == DBGEV_OK) {
+                // app isn't python, silently move on.
             }
         }
     }

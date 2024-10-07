@@ -612,6 +612,13 @@ dbgframe_t::~dbgframe_t() {
     free(m_threads);
 }
 
+void dbgframe_t::clearAddress() {
+    if (m_loc.loc_addr) {
+        ::free(m_loc.loc_addr);
+        m_loc.loc_addr = nullptr;
+    }
+}
+
 void dbgframe_t::setNext(dbgframe_t* next) {
     if (next != m_next) {
         std::swap(next, m_next);

@@ -117,9 +117,22 @@ std::string ConsoleInterpreter::get_prompt() const {
     const auto prompt = m_commands_stack.back().prompt;
     if (!prompt.empty()) return prompt;
 
-    // default to "dbg current_procset> "
+    const auto prefix = [&](){
+        bool any_python = false;
+        for (const auto* oset : CurrentProcSet()->s_over_sets) {
+            // being extra paranoid since this function runs after every single command
+            if (!oset || !oset->s_di_bs) continue;
+
+            // di.lock() might be null if current procset contains expired di
+            if (const auto* di = oset->s_di.lock()) {
+                any_python |= oset->s_di_bs->hasCommonBits(*di->getPythonBitset());
+            }
+        }
+        return std::string{any_python ? "python " : "dbg "};
+    }();
+
     if (const auto* current_procset = CurrentProcSet()) {
-        return "dbg " + current_procset->s_name + "> ";
+        return prefix + current_procset->s_name + "> ";
     }
 
     // should never get here because current_procset should never be null,

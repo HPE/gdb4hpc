@@ -26,6 +26,7 @@ public:
     bool can_interpret(std::string_view line) const override;
     bool interpret(std::string_view line) override;
     Interpreter::Printer& get_printer() override;
+    std::string get_prompt() const override;
 
     // mi specific:
 

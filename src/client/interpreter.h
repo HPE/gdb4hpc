@@ -43,7 +43,7 @@ public:
 
     // get_prompt returns a textual prompt that should go on the beginning of
     // each line in an interactive session with the interpreter.
-    virtual std::string get_prompt() const;
+    virtual std::string get_prompt() const = 0;
 
     // Given a `partial_word` in `buffer`, complete_text returns possible
     // Completions of the `partial_word`. If no completions are possible,

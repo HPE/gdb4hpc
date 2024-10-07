@@ -468,10 +468,6 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     //      worst case the user can manually unset python mode for the apps that aren't python.
     const auto any_python = std::ranges::any_of(opts.job_opts, [](const auto& jopts){ return jopts.python; });
 
-    if (any_python) {
-        PrintOutMsg("Enabling python debugging. To disable, use `set python off`\n");
-    }
-
     auto attachOpts = AttachOpts{.proto = "",
                                  .app_ident = "",
                                  .backend = opts.backend_name,
@@ -497,6 +493,14 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
         }
 
         return 1;
+    }
+
+    if (any_python) {
+        PrintOutMsg("Enabling python debugging. To disable, use `set python off`\n");
+        if (di->fullBitset()) {
+            // fullBitset gets set in internalAttach and should never actually be null
+            di->setPython(*di->fullBitset());
+        }
     }
 
     // tell CTI to release the application from the startup barrier

@@ -26,10 +26,6 @@ std::shared_ptr<Interpreter> Interpreter::make(std::string_view name, cli_stream
     return nullptr;
 }
 
-std::string Interpreter::get_prompt() const {
-    return "";
-}
-
 void Interpreter::Printer::print_message(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);

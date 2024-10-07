@@ -1,0 +1,31 @@
+0: # test python prompt detection after an attach
+0: attach $p %[0-9.]+%
+Attaching to application, please wait...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Attach complete.
+p{0..1}: Enabling python debugging. To disable, use `set python off`
+Current rank location:
+p{0..1}: #0  <module> at /src/python/spin.py:1%[0-3]%
+0: show prompt
+python all>
+0: set python off
+0: show prompt
+dbg all>
+0: focus $p{0}
+0: show prompt
+dbg p{0}>
+0: set python on
+0: show prompt
+python p{0}>
+0: focus $p{1}
+0: show prompt
+dbg p{1}>
+0: # if *any* rank is python, display a python prompt
+0: focus $all
+0: show prompt
+python all>
+0: q
+Shutting down debugger and resuming application for 'p'.

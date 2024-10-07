@@ -2625,7 +2625,10 @@ dbgevent_t* DbgGdbMI::pyBESetPython(PyMode setting) {
         throw NewErrorEvent(DBGERR_DEBUGGER, "Expected \"on\" or \"off\".");
     }
     setPython(setting == PyMode::On);
-    return NewEvent(DBGEV_OK);
+    // the string will not actually be printed
+    auto* e = NewEvent(DBGEV_STRING);
+    e->ev_u.ev_u_string = ::strdup("set python");
+    return e;
 };
 
 dbgevent_t* DbgGdbMI::pyBEInject() {
@@ -2655,12 +2658,13 @@ dbgevent_t* DbgGdbMI::pyBEAttach() {
         auto& pybe = ensurePybe();
         pybe.trivialize_gil();
         setPython(true);
-        return NewEvent(DBGEV_OK);
+        auto* e = NewEvent(DBGEV_STRING);
+        // the string will not actually be printed
+        e->ev_u.ev_u_string = ::strdup("python");
+        return e;
     } else {
         DVPRINT("not python\n");
-        // the string will not actually be printed
-        auto* e = NewEvent(DBGEV_STRING);
-        e->ev_u.ev_u_string = ::strdup("Not a python interpreter");
+        auto* e = NewEvent(DBGEV_OK);
         return e;
     }
 }

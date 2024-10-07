@@ -2762,7 +2762,7 @@ rep_set_t DbgPyBESetPython(rec_set_t* rec, PyMode setting) {
     using enum PyMode;
     if (setting == Auto) return rep_set_t(); // auto is only meaningful on the client
     auto req = CommandToSocProto(DBGCMD_PYBESETPYTHON, static_cast<int>(setting));
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
     return result;
 }
 
@@ -2780,7 +2780,7 @@ rep_set_t DbgPyBEGetGIL(rec_set_t* rec) {
 
 rep_set_t DbgPyBEAttach(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEATTACH);
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK, DBGEV_STRING);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING, DBGEV_OK);
     return result;
 }
 

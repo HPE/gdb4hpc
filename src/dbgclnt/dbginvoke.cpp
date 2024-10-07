@@ -369,6 +369,8 @@ void DbgInvoke::initializeEventFds() {
 const Bitset* DbgInvoke::fullBitset() const { return m_bitset_full.get(); }
 void DbgInvoke::setFullBitset(std::unique_ptr<Bitset>&& bitset) {
     m_bitset_full = std::move(bitset);
+    m_currently_python = m_bitset_full->clone();
+    m_currently_python->clear();
 }
 
 const Bitset* DbgInvoke::launchedBitset() const { return m_bitset_launched.get(); }
@@ -378,6 +380,20 @@ void DbgInvoke::setLaunchedBitset(std::unique_ptr<Bitset>&& bitset) {
 void DbgInvoke::orLaunchedBitset(const Bitset& rhs) {
     if (!m_bitset_launched) return;
     *m_bitset_launched |= rhs;
+}
+
+const Bitset* DbgInvoke::getPythonBitset() const {
+    return m_currently_python.get();
+}
+
+void DbgInvoke::setPython(const Bitset& bitset) {
+    if (!m_currently_python || m_currently_python->sizeInBits() != bitset.sizeInBits()) return;
+    *m_currently_python |= bitset;
+}
+
+void DbgInvoke::unsetPython(const Bitset& bitset) {
+    if (!m_currently_python || m_currently_python->sizeInBits() != bitset.sizeInBits()) return;
+    *m_currently_python -= bitset;
 }
 
 g_progoutp_t* DbgInvoke::protoOutput() { return m_proto_outp; }

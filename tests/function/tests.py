@@ -1263,6 +1263,46 @@ class PythonTest(Gdb4hpcTest):
         )
         runTest(self, substitutions = subs)
 
+    # debugging the python interpreter doesn't work without special args on anything but slurm
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    def test_python_launch_prompt(self):
+        self.base_name = "python_launch_prompt"
+        subs = (
+            ("%.*python3.*%", self.python_path),
+        )
+        runTest(self, substitutions = subs)
+
+    @avocado.skipIf(detect_wlm() != "SLURM", "Not slurm")
+    @avocado.skipUnless(os.path.isfile("./bin/CRAY/cti_launch.x"), "Missing cti_launch.x")
+    def test_python_attach_prompt(self):
+        self.base_name = "python_attach_prompt"
+
+        if self.python_version == "3.6":
+            # the only version <= 3.6 we test *is* 3.6 so we can get
+            # away with simple string equality testing instead of fancy
+            # version number range extraction etc.
+            self.cancel("Attach is not supported <= 3.6")
+
+        # launch job
+        job = subprocess.Popen(
+            [f"./bin/CRAY/cti_launch.x", "-n2", self.python_path, "./src/python/spin.py", "300"],
+            stderr=subprocess.PIPE
+        )
+
+        app_id = None
+        # wait for job to start and report app id
+        for line in iter(job.stderr.readline, b''):
+            # first line printed will be the app id, and it will come back in bytes
+            app_id = line.decode("utf-8").rstrip()
+            break
+
+        # wait a few seconds to make sure spin.py gets into its loop
+        time.sleep(3)
+
+        subs = ( ("%[0-9.]+%", app_id), )
+
+        runTest(self, substitutions = subs)
+
 class c_commnode_fanout(Gdb4hpcTest):
     def getLogDir(self):
         return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"

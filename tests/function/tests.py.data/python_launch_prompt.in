@@ -1,0 +1,25 @@
+0: # test python prompt detection
+0: maint set sync on
+0: launch $p{2} %.*python3.*% ./src/python/scopes.py 90
+Launch complete.
+p{0..1}: Initial breakpoint, %.*%
+0: show prompt
+python all>
+0: set python off
+0: show prompt
+dbg all>
+0: focus $p{0}
+0: show prompt
+dbg p{0}>
+0: set python on
+0: show prompt
+python p{0}>
+0: focus $p{1}
+0: show prompt
+dbg p{1}>
+0: # if *any* rank is python, display a python prompt
+0: focus $all
+0: show prompt
+python all>
+0: q
+Shutting down debugger and killing application for 'p'.

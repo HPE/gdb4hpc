@@ -435,6 +435,10 @@ Interpreter::Printer& MiInterpreter::get_printer() {
     return m_printer;
 }
 
+std::string MiInterpreter::get_prompt() const {
+    return "(gdb) ";
+}
+
 bool MiInterpreter::print_help() {
     // this is not meant to be a user friendly help command, it's for developers/debugging
     for (auto scmd : m_mi_commands->getSubCmds()) {

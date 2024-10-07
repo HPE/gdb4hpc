@@ -215,6 +215,21 @@ public:
     // Bitwise OR the `rhs` with the bitset that is returned by launchedBitset().
     void orLaunchedBitset(const Bitset& rhs);
 
+    // Information about which ranks are currently in python mode.
+    //
+    // Returns nullptr until `setFullBitset` has been called.
+    const Bitset* getPythonBitset() const;
+
+    // OR `bitset` with the internal python mode bitset. If `setFullBitset`
+    // hasn't been called yet or `bitset` is a different size than the bitset
+    // returned by `fullBitset`, silently does nothing.
+    void setPython(const Bitset& bitset);
+
+    // !AND `bitset` with the internal python mode bitset. If `setFullBitset`
+    // hasn't been called yet or `bitset` is a different size than the bitset
+    // returned by `fullBitset`, silently does nothing.
+    void unsetPython(const Bitset& bitset);
+
     // Returns a data structure used to deliver application output from ranks to terminal.
     //
     // XXX: Also something that might make sense to be owned by the proto() object.
@@ -367,6 +382,9 @@ private:
     std::list<EventSet> m_eventset_list; // partial async event responses
 
     std::unique_ptr<BitsetMRUCache<dbgloc_t>> m_recent_frames;
+
+    // which ranks are currently in python mode
+    std::unique_ptr<Bitset> m_currently_python;
 
     // activate() will set up the di's internal m_handle
     Handle m_handle = nullptr;

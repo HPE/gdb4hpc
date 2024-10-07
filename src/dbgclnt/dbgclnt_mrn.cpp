@@ -951,15 +951,6 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     DPERFLOG(SetTimerStopAndLog("application launch"));
     PrintOutMsg("Launched application...\n");
 
-    // XXX: we have no way to individually change the args of each dbgsrv launched
-    //      for a MPMD job. for now just assume if any job is python, they all are.
-    //      worst case the user can manually unset python mode for the apps that aren't python.
-    any_python = std::ranges::any_of(opts.job_opts, [](const auto& jopts){ return jopts.python; });
-
-    if (any_python) {
-        PrintOutMsg("Enabling python debugging. To disable, use `set python off`\n");
-    }
-
     // ship over the binaries to the compute nodes
 
     // Create a new session based on the appid. We need to remember this for
@@ -1131,6 +1122,11 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     DPRINT("MRNet network initialized.\n");
     DPRINT("Launching debug servers onto compute nodes.\n");
 
+    // XXX: we have no way to individually change the args of each dbgsrv launched
+    //      for a MPMD job. for now just assume if any job is python, they all are.
+    //      worst case the user can manually unset python mode for the apps that aren't python.
+    any_python = std::ranges::any_of(opts.job_opts, [](const auto& jopts){ return jopts.python; });
+
     // Transfer and execute dbgsrv_alps with call line info:
     // dbgsrv_alps -h <cbhost> -c <cbport> -p <proto> -e <backend>
     // prog first create the argv for dbgsrv_alps This now also depends on
@@ -1244,6 +1240,11 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
     di->setFullBitset(std::make_unique<DenseBitset>(num_be, DenseBitset::InitialState::Full));
     di->setLaunchedBitset(std::make_unique<DenseBitset>(num_be));
     di->initCachedFrames();
+
+    if (any_python) {
+        PrintOutMsg("Enabling python debugging. To disable, use `set python off`\n");
+        di->setPython(*di->fullBitset());
+    }
 
     DPRINT("DbgMRNInvoke: MRNet initialization succeded! network:[%p]\n",
            network.get());

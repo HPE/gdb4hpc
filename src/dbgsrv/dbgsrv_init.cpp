@@ -348,22 +348,27 @@ dbgevent_t *DbgGdbMI::Initializer::startup() {
         MICommandFree(cmd);
     }
 
+    // call the showframe function to ask for the innermost frame
+    auto frame =  m_dbg.showElfFrames(1, nullptr);
+
     if (m_dbg.isPython()) {
         // initialize python internals
         m_dbg.ensurePybe();
         // the first call to ensurePybe will implicitly trvialize the gil,
         // no need to explicitly do it here
-    }
 
-    // call the showframe function to ask for the innermost frame
-    auto frame =  m_dbg.showElfFrames(1, nullptr);
-
-    // Workaround for PE-48149 (cce 16 no fortran line numbers on attach) based
-    // on findings from PE-47129 (working around the same issue in ATP)
-    if (frame && frame->ev_event == DBGEV_FRAME && frame->ev_u.ev_u_frame->getLoc().loc_line == 0
+        // clear address so it aggregates.
+        // XXX: but why don't we have to do this in C? Maybe there is a bit of
+        // random slippage in python that's not caught?
+        if (frame && frame->ev_event == DBGEV_FRAME && frame->ev_u.ev_u_frame) {
+            frame->ev_u.ev_u_frame->clearAddress();
+        }
+    } else if (frame && frame->ev_event == DBGEV_FRAME && frame->ev_u.ev_u_frame->getLoc().loc_line == 0
         && (::getenv(GDB4HPC_REFRESH_DWARF_INFO) != nullptr)
         && (::getenv(GDB4HPC_REFRESH_DWARF_INFO)[0] == '1')
     ) {
+        // Workaround for PE-48149 (cce 16 no fortran line numbers on attach) based
+        // on findings from PE-47129 (working around the same issue in ATP)
         DVPRINT("Missing line number (PE-48149) in initial frame, trying workaround\n");
 
         // PE-48149: fortran binaries compiled with cce 16 have line number

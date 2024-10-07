@@ -228,9 +228,15 @@ static int set_python(rec_set_t* rec_set, int argc, const char* const argv[]) {
     if (rec_set) {
         auto rep_set = DbgPyBESetPython(rec_set, setting);
         had_error = ProcessErrorInRepSet(rep_set);
-        for (const auto* rep : rep_set) {
-            const auto message = (setting == On) ? "Set python mode.\n" : "Unset python mode.\n";
-            PrintMsgWithSetInfo(rep->rep_di.c_str(), rep->rep_group.get(), message);
+
+        for (const auto& rep : rep_set) {
+            auto* di = rep->rep_di.lock();
+            if (!di) continue;
+            switch (setting) {
+                case On: di->setPython(*rep->rep_group); break;
+                case Off: di->unsetPython(*rep->rep_group); break;
+                case Auto: break; // we never made a network request in the first place
+            }
         }
     }
 
@@ -256,8 +262,15 @@ static int show_python(rec_set_t* rec_set) {
     auto rep_set = DbgPyBEGetPython(rec_set);
     had_error = ProcessErrorInRepSet(rep_set);
     for (const auto* rep : rep_set) {
-        const auto message = std::string{"Python mode is "} + rep->rep_event->ev_string + ".";
+        const auto value = std::string{rep->rep_event->ev_string};
+        const auto message = std::string{"Python mode is "} + value + ".";
         PrintMsgWithSetInfo(rep->rep_di.c_str(), rep->rep_group.get(), "%s\n", message.c_str());
+        // XXX: encoding the return value as an untyped string is unfortunate...
+        if (value == "on") {
+            rep->rep_di.lock()->setPython(*rep->rep_group);
+        } else {
+            rep->rep_di.lock()->unsetPython(*rep->rep_group);
+        }
     }
 
     return had_error ? Command::Failure : Command::Success;

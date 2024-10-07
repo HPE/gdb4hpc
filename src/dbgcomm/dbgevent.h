@@ -172,6 +172,7 @@ private:
 public:
     int getLevel() const { return m_level; }
     const dbgloc_t& getLoc() const { return m_loc; }
+    void clearAddress();
     const char* getThreads() const { return m_threads; }
 
     const dbgframe_t* getNext() const { return m_next; }

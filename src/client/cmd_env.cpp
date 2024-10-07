@@ -679,15 +679,13 @@ static int cmd_show_version_cmd() {
     return 1;
 }
 
-// TODO delegate these show prompt commands to the interpreter
-
-static int cmd_show_prompt_console() {
-    PrintOutMsg("dbg all>\n");
+static int cmd_show_prompt_console(ConsoleInterpreter& console) {
+    PrintOutMsg("%s\n", console.get_prompt().c_str());
     return Command::Success;
 }
 
 static int cmd_show_prompt_mi(MiInterpreter& mi) {
-    mi.set_result("value=\"(gdb) \"");
+    mi.set_result("value=\"%s\"", mi.get_prompt().c_str());
     return Command::Success;
 }
 

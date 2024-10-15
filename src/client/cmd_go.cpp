@@ -63,5 +63,5 @@ void ConsoleCommandsFactory::insert_go_commands(CommandNode& root) {
 
 void MiCommandsFactory::insert_go_commands(CommandNode& root) {
     root.addSubCmd({ .name = "-exec-continue", .ptype = proc_required, .fn = cmd_continue_console });
-    root.addSubCmd({ .name = "-exec-return", .ptype = proc_required, .fn = cmd_finish_console });
+    root.addSubCmd({ .name = "-exec-finish", .ptype = proc_required, .fn = cmd_finish_console });
 }

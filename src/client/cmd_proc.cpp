@@ -1346,6 +1346,7 @@ void MiCommandsFactory::insert_proc_commands(CommandNode& root) {
     insert_setshow_commands(root, "-gdb-set", "-gdb-show");
 
     root.addSubCmd({ .name = "-exec-run", .ptype = proc_optional, .fn = cmd_run_cmd });
+    root.addSubCmd({ .name = "-exec-interrupt", .ptype = proc_optional, .fn = cmd_halt_cmd });
     root.addSubCmd({
         .name = "-file-exec-and-symbols", .ptype = proc_ignore, .fn = file_exec_and_sym_mi});
 }

@@ -48,6 +48,9 @@ struct dbgloc {
         free(loc_func);
     }
 
+    // returns true if all fields match
+    bool operator==(const dbgloc& other) const;
+
     char* loc_file;
     char* loc_func;
     char* loc_addr;

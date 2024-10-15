@@ -421,7 +421,7 @@ rep_set_t DbgRestoreCheckpoint(rec_set_t* recSet, unsigned int id);
 // returns empty set on success, otherwise reply will contain error
 rep_set_t DbgDeleteCheckpoint(rec_set_t* recSet, unsigned int id);
 rep_set_t DbgSetThread(rec_set_t *, const char *);
-rep_set_t DbgGetThreadInfo(rec_set_t*, const char *);
+rep_set_t DbgGetThreadInfo(rec_set_t*, std::string_view threads_expr, bool anonymize, bool collect);
 rep_set_t DbgSetThreadName(rec_set_t *, const char *);
 rep_set_t DbgFindThread(rec_set_t *, const char*);
 rep_set_t DbgThreadApply(rec_set_t *,const char* op);

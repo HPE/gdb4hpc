@@ -23,6 +23,8 @@
 #include <regex>
 
 #include "client.h"
+#include "dbgevent.h"
+#include "procset.h"
 #include "useful.h"
 
 #include "interpreter_mi.h"
@@ -113,87 +115,153 @@ static int cmd_taas_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) 
     return cmd_thread_cmd(rec_set, newArgs.size(), newArgs.data());
 }
 
-static void PrintMIThread(const std::string& line,
-                          std::ostringstream& ss, std::string& current_thread_id) {
+static std::string PrintMIThreads(const dbgthreadinfo_t& tinfo) {
+    auto result = std::ostringstream{};
+    auto first = true;
+    result << "[";
 
-    auto stoppedRE = std::regex{R"((\*)?\s+([- 0-9]*\d)\s[^"]*["]([^"]*)["]\s*(\w+).*\sat\s([^:]*):(\d+))"};
-    auto runningRE = std::regex{R"((\*)?\s+([- 0-9]*\d)\s[^"]*["]([^"]*)["]\s*\(running\))"};
-    // ccdb uses the frame address to match the backtrace to the current thread,
-    // create a dummy frame address tag is this the current thread and set
-    // current_thread_id
-    auto frameAddr = [&current_thread_id] (const std::smatch& match) {
-        if (!match[1].length()) return "";
-        current_thread_id += match[2].str();
-        return mi_dummyFrameAddr;
-    };
+    for (const auto& th : tinfo.threads) {
+        if (!first) result << ",";
+        result << "{"
+               << "id=" << std::quoted(std::to_string(th.id));
+        ;
 
-    std::string word;
-    std::string id="id=\"";
-    std::string target_id="target-id=\"";
-    std::string addr="";
-    std::string func="func=\"";
-    std::string file="file=\"";
-    std::string atLine="line=\"";
-    std::string thread_state="state=\"";
+        if (!th.target_id.empty()) result << ",target-id=" << std::quoted(th.target_id);
+        if (!th.name.empty()) result << ",name=" << std::quoted(th.name);
 
-    auto match = std::smatch{};
-    if (std::regex_match(line, match, stoppedRE)) {
-        id += match[2];
-        target_id += match[3];
-        func += match[4];
-        file += match[5];
-        atLine += match[6];
-        addr = frameAddr(match);
-        thread_state += "break";
-    } else if (std::regex_match(line, match, runningRE)) {
-        id += match[2];
-        target_id += match[3];
-        thread_state += "running";
-        frameAddr(match); // just setting current thread
-    } else {
-        // I hope this was the header
-        return;
+        if (th.frame) {
+            const auto& loc = th.frame->getLoc();
+            if (loc.loc_addr) result << ",addr=" << std::quoted(loc.loc_addr);
+            if (loc.loc_func) result << ",func=" << std::quoted(loc.loc_func);
+            if (loc.loc_file) result << ",file=" << std::quoted(loc.loc_file);
+            if (loc.loc_line) result << ",line=" << std::quoted(std::to_string(loc.loc_line));
+        }
+
+        using State = dbgthreadinfo_t::Thread::State;
+        const auto state_to_str = [](State state) {
+            switch (state) {
+                case State::Running: return "running";
+                case State::Stopped: return "stopped";
+                default: return "unspecified";
+            }
+        };
+
+        if (th.state != State::Unspecified) {
+            result << ",state=" << std::quoted(state_to_str(th.state));
+        }
+
+        result << "}";
+        first = false;
     }
 
-    if (ss.tellp() == std::streampos()) ss << "[";
-    else ss << ",";
+    result << "]";
+    return result.str();
+}
 
-    ss << "{"<<id << "\","
-       << target_id
-       << "\",frame={"
-       << addr
-       << func << "\","
-       << file << "\","
-       << atLine << "\"},"
-       << thread_state<<"\"}";
+struct InfoThreadsArgs {
+    // gdb4hpc has an extended thread list expression. in addition to the usual
+    // gdb format, it supports using .. for ranges (e.g. 1..3), matching thread
+    // names with regex, etc. see getThreadSet in dbgsrv.
+    std::string thread_expr;
+    bool anonymize = true;
+    bool collect = true;
+};
+
+static std::optional<InfoThreadsArgs> parse_info_thread_args(int argc, const char* const argv[]) {
+    auto result = InfoThreadsArgs{};
+
+    for (int i = 0; i < argc; i++) {
+        auto arg = std::string_view{argv[i]};
+        if (arg == "-v") {
+            result.anonymize = false;
+            result.collect = false;
+        } else if (arg == "-l") {
+            result.collect = false;
+        } else {
+            // assume it's the thread expression. we support space separated lists
+            // but pack them all together for sending to dbgsrv
+            if (!result.thread_expr.empty()) {
+                result.thread_expr += " ";
+            }
+            result.thread_expr += arg;
+        }
+    }
+
+    return result;
 }
 
 static int cmd_info_threads_cmd_console(rec_set_t *rec_set, int argc, const char* const argv[]) {
-    // info threads if typically called with no arguments but it
-    // does take an optional list of thread ids
-    std::string arg = ArgsToString(&argv[1], argc - 1);
-    auto rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
+    auto maybe_args = parse_info_thread_args(argc - 1, &argv[1]);
+    if (!maybe_args) {
+        // error already emitted
+        return Command::Failure;
+    }
+    const auto& args = *maybe_args;
 
-    ProcessErrorInRepSet(rep_set);
+    auto rep_set = DbgGetThreadInfo(rec_set, args.thread_expr, args.anonymize, args.collect);
 
-    // process replies
-    for (auto&& reply : rep_set) {
-        auto handle = reply->rep_di.c_str();
-        const auto group = reply->rep_group.get();
+    auto had_error = ProcessErrorInRepSet(rep_set);
 
-        const char* str = reply->rep_event->ev_u.ev_u_string;
-
-        std::istringstream is(str);
-        std::string line;
-
-        while (std::getline(is,line)) {
-            PrintMsgWithSetInfo(handle, group, "%s\n", line.c_str());
+    for (const auto* reply : rep_set) {
+        if (reply->rep_event == nullptr) {
+            continue;
         }
-        // add a blank line to make the output more understandable
-        PrintMsgWithSetInfo(handle, group, "\n");
+
+        PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "  Id    Frame\n");
+
+        if (reply->rep_event->ev_event == DBGEV_THREADINFO && reply->rep_event->ev_u.ev_u_threadinfo) {
+            const auto& tinfo = *reply->rep_event->ev_u.ev_u_threadinfo;
+
+            for (const auto& thr : tinfo.threads) {
+                const auto frame = [&]() -> std::string {
+                    using State = dbgthreadinfo_t::Thread::State;
+                    if (thr.state == State::Running) {
+                        return "(running)";
+                    } else if (thr.frame) {
+                        return thr.frame->getLocationString(/*with_args=*/ true);
+                    } else {
+                        // can happen when frame pointers get optimized out
+                        return "??";
+                    }
+                }();
+
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                    "%c %-5d \"%s\" %s\n",
+                    thr.id == tinfo.current_thread ? '*' : ' ',
+                    thr.id,
+                    thr.getDisplayName().c_str(),
+                    frame.c_str()
+                );
+            }
+
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "\n");
+        } else if (reply->rep_event->ev_event == DBGEV_PACKEDTHREADINFO && reply->rep_event->ev_u.ev_u_packedthreadinfo) {
+            const auto& tinfo = *reply->rep_event->ev_u.ev_u_packedthreadinfo;
+
+            for (const auto& thr : tinfo.threads) {
+                const auto frame = [&]() -> std::string {
+                    if (thr.frame) {
+                        return thr.frame->getLocationString(/*with_args=*/ true);
+                    } else {
+                        // running threads don't have any frames
+                        return "(running)";
+                    }
+                }();
+
+                PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                    "%c %-5s \"%s\" %s\n",
+                    thr.ids.test(tinfo.current_thread) ? '*' : ' ',
+                    thr.ids.toRangeString().c_str(),
+                    thr.name.c_str(),
+                    frame.c_str()
+                );
+            }
+
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "\n");
+        }
     }
 
-    return Command::Success;
+    return had_error ? Command::Failure : Command::Success;
 }
 
 static int cmd_info_threads_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {
@@ -201,47 +269,52 @@ static int cmd_info_threads_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int ar
         return Command::Success;
     }
 
-    // info threads if typically called with no arguments but it
-    // does take an optional list of thread ids
-    std::string arg = ArgsToString(&argv[1], argc - 1);
-    auto rep_set = DbgGetThreadInfo(rec_set, arg.c_str());
+    auto maybe_args = parse_info_thread_args(argc - 1, &argv[1]);
+    if (!maybe_args) {
+        // error already emitted
+        return Command::Failure;
+    }
+    const auto& args = *maybe_args;
 
-    ProcessErrorInRepSet(rep_set);
+    // always get the verbose output, assume the frontend will clean it up
+    auto rep_set = DbgGetThreadInfo(rec_set, args.thread_expr, /*anonymize=*/ false, /*collect=*/ false);
+
+    auto had_error = ProcessErrorInRepSet(rep_set);
+
     std::ostringstream abc;
 
     // process replies
     for (auto&& reply : rep_set) {
+        // since we always disable collection above, we will never get packed info
+        if (reply->rep_event->ev_event != DBGEV_THREADINFO || !reply->rep_event->ev_u.ev_u_threadinfo) {
+            continue;
+        }
+
         if (!abc.str().empty()){
             abc<<",";
         }else{
             abc<<"msgs=[";
         }
-        
+
         auto handle = reply->rep_di.c_str();
         const auto group = reply->rep_group.get();
+        const auto& tinfo = *reply->rep_event->ev_u.ev_u_threadinfo;
 
-        const char* str = reply->rep_event->ev_u.ev_u_string;
+        // we assume PrintMIThreads will enclose the info in [] so we don't quote it below
+        const auto threads = PrintMIThreads(tinfo);
 
-        std::istringstream is(str);
-        std::string line;
-
-        std::string current_thread_id="current-thread-id=\"";
-        std::ostringstream ss;
-
-        while (std::getline(is,line)) {
-            PrintMIThread(line, ss, current_thread_id);
-        }
-
-        if (!ss.str().empty()){
-            ss<<"]";
-        }
-
-        abc << "{proc_set=\""<<handle<<"\",group=\""<<group->toSetString().c_str()<<"\","<<current_thread_id<<"\", threads="<<ss.str().c_str()<<"}";
+        abc << "{"
+            << "proc_set=" << std::quoted(handle) << ","
+            << "group=" << std::quoted(group->toSetString().c_str()) << ","
+            << "current-thread-id=" << std::quoted(std::to_string(tinfo.current_thread)) << ","
+            << "threads=" << threads
+            << "}"
+        ;
     }
-    
+
     abc<<"]";
     mi.set_result("%s",abc.str().c_str());
-    return Command::Success;
+    return had_error ? Command::Failure : Command::Success;
 }
 
 static int cmd_set_scheduler_locking_cmd(rec_set_t *rec_set, int argc, const char* const argv[])
@@ -357,7 +430,7 @@ static int cmd_ompd_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) 
         auto handle = reply->rep_di.c_str();
         const auto group = reply->rep_group.get();
 
-        if (reply->rep_event->ev_event == DBGEV_THREADINFO) {
+        if (reply->rep_event->ev_event == DBGEV_STRING) {
             const char* str = reply->rep_event->ev_u.ev_u_string;
             std::istringstream is(str);
             std::string line;
@@ -382,7 +455,7 @@ static int cmd_cuda_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) 
         auto handle = reply->rep_di.c_str();
         const auto group = reply->rep_group.get();
 
-        if (reply->rep_event->ev_event == DBGEV_THREADINFO) {
+        if (reply->rep_event->ev_event == DBGEV_STRING) {
             const char* str = reply->rep_event->ev_u.ev_u_string;
             std::istringstream is(str);
             std::string line;

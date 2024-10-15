@@ -89,6 +89,10 @@ public:
     SetBitsIterator getSetBitsIterator() const { return SetBitsIterator(*this); }
 
     SparseBitset(size_t nbits);
+    SparseBitset(SparseBitset&& other) = default;
+    explicit SparseBitset(const SparseBitset& other) = default;
+    // e.g. ::fromBits({1, 2, 3, 4, 12, 13, 14, 15})
+    static SparseBitset fromBits(std::initializer_list<size_t> bits);
     SparseBitset(SerializedPtr serialized);
 
     virtual std::unique_ptr<Bitset> clone() const override;
@@ -115,6 +119,9 @@ public:
     // virtual std::string toString() const override;
     
     // virtual std::string toSetString(int offset = 0, int len = -1) const override;
+
+    // returns the bitset in the form of a comma separated list of disjoint ranges, e.g. "1-3,5,9-1000"
+    std::string toRangeString() const;
 
     virtual Serialized serialize() const override;
 

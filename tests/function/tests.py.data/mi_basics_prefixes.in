@@ -12,17 +12,17 @@
 (gdb)
 5: show prompt
 &"show prompt\n"
-~"dbg all>\n"
+~"dbg all> \n"
 ^done
 (gdb)
 6: 517show prompt
 &"show prompt\n"
-~"dbg all>\n"
+~"dbg all> \n"
 517^done
 (gdb)
 7: show prompt
 &"show prompt\n"
-~"dbg all>\n"
+~"dbg all> \n"
 ^done
 (gdb)
 8: # and error messages
@@ -45,7 +45,7 @@
 (gdb)
 12: show prompt
 &"show prompt\n"
-~"dbg all>\n"
+~"dbg all> \n"
 ^done
 (gdb)
 13: -gdb-show prompt

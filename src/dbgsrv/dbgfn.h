@@ -77,7 +77,7 @@ extern dbgevent_t *DbgGetEvent(void);
 extern dbgevent_t *DbgQuit(bool);
 extern dbgevent_t *DbgInterrupt(bool all);
 extern dbgevent_t *DbgSetThread(const char* threadId);
-extern dbgevent_t *DbgGetThreadInfo(const char* threadId);
+extern dbgevent_t *DbgGetThreadInfo(const char* threadId, bool anonymize, bool collect);
 extern dbgevent_t *DbgSetThreadName(const char* name);
 extern dbgevent_t *DbgFindThread(const char* pattern);
 extern dbgevent_t *DbgThreadApply(const char* op);

@@ -70,7 +70,6 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
         SUBCASE("DBGEV_SOURCEPATH") {test(DBGEV_SOURCEPATH, "source path");}
         SUBCASE("DBGEV_TYPE") {test(DBGEV_TYPE, "type");}
         SUBCASE("DBGEV_CMD") {test(DBGEV_CMD, "cmd");}
-        SUBCASE("DBGEV_THREADINFO") {test(DBGEV_THREADINFO, "thread info");}
         SUBCASE("DBGEV_STRING") {test(DBGEV_STRING, "string");}
     }
 
@@ -157,8 +156,16 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
         auto loc2b = dbgloc(strdup("dbgevent.cpp"), strdup("EventToSocProto"), strdup("0xffff"), 90);
 
         auto frame2b = new dbgframe_t(2, loc2b, nullptr, "thread b", nullptr);
+        frame2b->addArg({.name = "argc", .value = "3"});
+        frame2b->addArg({.name = "argv", .value = "0x1111"});
+
         auto frame1b = new dbgframe_t(1, loc1b, frame2b, "thread b", nullptr);
+        frame1b->addArg({.name = "i", .value = "3"});
+        frame1b->addArg({.name = "name", .value = "scooby doo"});
+
         auto frame0b = new dbgframe_t(0, loc0b, frame1b, "thread b", nullptr);
+        frame0b->addArg({.name = "f", .value = "3.14"});
+        frame0b->addArg({.name = "list", .value = "{1, 2, 3, 4}"});
 
         auto frame2a = new dbgframe_t(2, loc2a, nullptr, "thread a", nullptr);
         auto frame1a = new dbgframe_t(1, loc1a, frame2a, "thread a", nullptr);
@@ -188,6 +195,9 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
                     CHECK(lfunc == rfunc);
                     CHECK(laddr == raddr);
                     CHECK(lthreads == rthreads);
+
+                    CHECK_MESSAGE(lf->getArgs().size() == rf->getArgs().size(), "Check that frame have same number of arguments");
+                    CHECK(lf->getArgs() == rf->getArgs());
                 }
                 CHECK_MESSAGE(lf == nullptr, "Check that backtraces have same number of frames");
                 CHECK_MESSAGE(rf == nullptr, "Check that backtraces have same number of frames");
@@ -196,7 +206,20 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
             CHECK_MESSAGE(rthf == nullptr, "Check that frames have same number of threads");
         };
 
-        SUBCASE("DBGEV_FRAME") {
+        SUBCASE("DBGEV_FRAME - one level") {
+            auto e = NewEvent(DBGEV_FRAME);
+            e->ev_u.ev_u_frame = frame2b->clone();
+            auto* soc = EventToSocProto(e); // frees e and frame
+            CAPTURE(std::string{soc});
+            auto* e2 = SocProtoToEvent(soc);
+
+            sameFrame(*frame2b, *e2->ev_u.ev_u_frame);
+
+            FreeEvent(e2);
+            free(soc);
+        }
+
+        SUBCASE("DBGEV_FRAME - multiple levels/threads") {
             auto e = NewEvent(DBGEV_FRAME);
             e->ev_u.ev_u_frame = frame0a->clone();
             auto* soc = EventToSocProto(e); // frees e and frame
@@ -540,6 +563,107 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
         FreeEvent(e2);
         free(soc);
     }
+
+    SUBCASE("DBGEV_THREADINFO") {
+        const auto thread1 = dbgthreadinfo_t::Thread {
+            .id = 1,
+            .target_id = "target_id_1",
+            .details = "",
+            .name = "test_thread_1",
+            .state = dbgthreadinfo_t::Thread::State::Stopped,
+            .core = 9,
+            .frame = std::make_unique<dbgframe_t>(
+                3,
+                dbgloc(
+                    strdup("dbgformat.cpp"),
+                    strdup("EventToSocProto"),
+                    strdup("0xcccc"),
+                    60),
+                nullptr,
+                "thread a",
+                nullptr),
+        };
+
+        const auto thread2 = dbgthreadinfo_t::Thread {
+            .id = 2,
+            .target_id = "",
+            .details = "2, this is thread 2",
+            .name = "test_thread_1",
+            .state = dbgthreadinfo_t::Thread::State::Running,
+            .core = 3,
+            .frame = nullptr,
+        };
+
+        auto* threads = new dbgthreadinfo_t{
+            .current_thread = 1,
+            .threads = {},
+        };
+        threads->threads.emplace_back(thread1.clone());
+        threads->threads.emplace_back(thread2.clone());
+
+        auto* e = NewEvent(DBGEV_THREADINFO);
+        e->ev_u.ev_u_threadinfo = threads;
+        threads = nullptr; // now owned by e
+
+        auto* soc = EventToSocProto(e); // frees e
+        CAPTURE(std::string{soc});
+        auto* e2 = SocProtoToEvent(soc);
+
+        CHECK(e2->ev_u.ev_u_threadinfo->current_thread == 1);
+        CHECK(e2->ev_u.ev_u_threadinfo->threads.size() == 2);
+        CHECK(e2->ev_u.ev_u_threadinfo->threads[0] == thread1);
+        CHECK(e2->ev_u.ev_u_threadinfo->threads[1] == thread2);
+
+        FreeEvent(e2);
+        free(soc);
+    }
+
+    SUBCASE("DBGEV_PACKEDTHREADINFO") {
+        const auto thread1 = dbgpackedthreadinfo_t::PackedThread {
+            .ids = SparseBitset::fromBits({1, 3}),
+            .name = "AMDGPU",
+            .frame = std::make_unique<dbgframe_t>(
+                3,
+                dbgloc(
+                    strdup("dbgformat.cpp"),
+                    strdup("EventToSocProto"),
+                    strdup("0xcccc"),
+                    60),
+                nullptr,
+                "thread a",
+                nullptr),
+        };
+
+        const auto thread2 = dbgpackedthreadinfo_t::PackedThread {
+            .ids = SparseBitset::fromBits({2, 4}),
+            .name = "gdb4hpc",
+            .frame = nullptr,
+        };
+
+        auto* threads = new dbgpackedthreadinfo_t{
+            .current_thread = 4,
+            .threads = {},
+        };
+        threads->threads.emplace_back(thread1.clone());
+        threads->threads.emplace_back(thread2.clone());
+
+        auto* e = NewEvent(DBGEV_PACKEDTHREADINFO);
+        e->ev_u.ev_u_packedthreadinfo = threads;
+        threads = nullptr; // now owned by e
+
+        auto* soc = EventToSocProto(e); // frees e
+        CAPTURE(std::string{soc});
+        auto* e2 = SocProtoToEvent(soc);
+
+        CHECK(e2->ev_u.ev_u_packedthreadinfo->current_thread == 4);
+        CHECK(e2->ev_u.ev_u_packedthreadinfo->threads.size() == 2);
+        CHECK(e2->ev_u.ev_u_packedthreadinfo->threads[0] == thread1);
+        CHECK(e2->ev_u.ev_u_packedthreadinfo->threads[1] == thread2);
+        CHECK(e2->ev_u.ev_u_packedthreadinfo->threads[1].ids.test(e2->ev_u.ev_u_packedthreadinfo->current_thread));
+
+        FreeEvent(e2);
+        free(soc);
+    }
 }
 
 TEST_CASE("CommandToSocProto") {
@@ -821,7 +945,14 @@ static char *EventFrameToSocProtoL(const dbgframe_t *fe) {
             // append the next frame
             os << f->getLevel() << s << strlen(file) << s << file << s
                << strlen(func) << s << func << s << strlen(addr) << s << addr << s
-               << loc.loc_line << s << newThread << s << strlen(threads) << s << threads;
+               << loc.loc_line << s << newThread << s << strlen(threads) << s << threads << s;
+
+            os << f->getArgs().size() << ' ';
+            for (const auto& [name, value] : f->getArgs()) {
+                os << name.size() << ' ' << name << ' '
+                   << value.size() << ' ' << value << ' '
+                ;
+            }
 
             newThread = 0;
         }
@@ -964,6 +1095,63 @@ static char* EventSymbolsToSocProto(dbgev ev, const dbgsymbols_t* syms) {
     return MakeSocStr(ev, data.str().c_str());
 }
 
+static std::string ThreadToSocProto(const dbgthreadinfo_t::Thread& thread) {
+    auto data = std::ostringstream{};
+    data << thread.id << ' '
+         << thread.target_id.size() << ' ' << thread.target_id << ' '
+         << thread.details.size() << ' ' << thread.details << ' '
+         << thread.name.size() << ' ' << thread.name << ' '
+         << static_cast<int>(thread.state) << ' '
+         << thread.core << ' '
+    ;
+
+    auto* frame = thread.frame ? EventFrameToSocProtoL(thread.frame.get()) : ::strdup("");
+    data << ::strlen(frame) << ' ' << frame;
+    ::free(frame);
+
+    return data.str();
+}
+
+static char* EventThreadInfoToSocProto(dbgev ev, const dbgthreadinfo_t& tinfo) {
+    auto data = std::ostringstream{};
+
+    data << tinfo.current_thread << ' ';
+
+    data << tinfo.threads.size() << ' ';
+    for (const auto& thread : tinfo.threads) {
+        data << ThreadToSocProto(thread) << ' ';
+    }
+
+    return MakeSocStr(ev, data.str().c_str());
+}
+
+static std::string PackedThreadToSocProto(const dbgpackedthreadinfo_t::PackedThread& thread) {
+    auto data = std::ostringstream{};
+    const auto ids = thread.ids.serialize();
+    data << ::strlen(ids.get()) << ' ' << ids.get() << ' ';
+
+    data << thread.name.size() << ' ' << thread.name << ' ';
+
+    auto* frame = thread.frame ? EventFrameToSocProtoL(thread.frame.get()) : ::strdup("");
+    data << ::strlen(frame) << ' ' << frame;
+    ::free(frame);
+
+    return data.str();
+}
+
+static char* EventPackedThreadInfoToSocProto(dbgev ev, const dbgpackedthreadinfo_t& tinfo) {
+    auto data = std::ostringstream{};
+
+    data << tinfo.current_thread << ' ';
+
+    data << tinfo.threads.size() << ' ';
+    for (const auto& thread : tinfo.threads) {
+        data << PackedThreadToSocProto(thread) << ' ';
+    }
+
+    return MakeSocStr(ev, data.str().c_str());
+}
+
 /*
 ** This is the main function that converts an event to network protocol
 */
@@ -988,7 +1176,6 @@ char* EventToSocProto(dbgevent_t *e)
     case DBGEV_SOURCEPATH:
     case DBGEV_TYPE:
     case DBGEV_CMD:
-    case DBGEV_THREADINFO:
     case DBGEV_STRING:
         res = EventStringToSocProto(ev, e->ev_string);
         break;
@@ -1064,6 +1251,13 @@ char* EventToSocProto(dbgevent_t *e)
         res = EventSymbolsToSocProto(ev, e->ev_u.ev_u_symbols);
         break;
 
+    case DBGEV_THREADINFO:
+        res = EventThreadInfoToSocProto(ev, *e->ev_u.ev_u_threadinfo);
+        break;
+
+    case DBGEV_PACKEDTHREADINFO:
+        res = EventPackedThreadInfoToSocProto(ev, *e->ev_u.ev_u_packedthreadinfo);
+        break;
     }
 
     FreeEvent(e);
@@ -1351,6 +1545,11 @@ static dbgframe_t *SocProtoToFrame(const char *s) {
             tail->setNext(frame);
             tail = frame;
         }
+
+        const auto args_len = static_cast<size_t>(getint(s));
+        for (auto i = size_t{0}; i < args_len; i++) {
+            frame->addArg({.name = getStdString(s), .value = getStdString(s)});
+        }
     }
 
     return res;
@@ -1480,6 +1679,74 @@ static dbgsymbols_t* SocProtoToSymbols(const char* s) {
     return result;
 }
 
+static dbgthreadinfo_t::Thread SocProtoToThread(const char*& s) {
+    auto result = dbgthreadinfo_t::Thread{
+        .id = getint(s),
+        .target_id = getStdString(s),
+        .details = getStdString(s),
+        .name = getStdString(s),
+        .state = static_cast<dbgthreadinfo_t::Thread::State>(getint(s)),
+        .core = getint(s),
+        .frame = nullptr,
+    };
+
+    const auto frame_str = getstring(s);
+    if (::strlen(frame_str) > 0) {
+        // a null frame is valid and is encoded as a zero length string
+        result.frame = std::unique_ptr<dbgframe_t>(SocProtoToFrame(frame_str));
+    }
+    ::free(frame_str);
+
+    return result;
+}
+
+static dbgthreadinfo_t* SocProtoToThreadInfo(const char* s) {
+    auto result = new dbgthreadinfo_t{};
+
+    result->current_thread = getint(s);
+
+    auto len_threads = getint(s);
+    if (len_threads < 0) return result;
+    for (auto i = size_t{0}; i < static_cast<size_t>(len_threads); i++) {
+        result->threads.emplace_back(SocProtoToThread(s));
+    }
+
+    return result;
+}
+
+static dbgpackedthreadinfo_t::PackedThread SocProtoToPackedThread(const char*& s) {
+    const auto bitset_string = getstring(s);
+    auto result = dbgpackedthreadinfo_t::PackedThread{
+        .ids = SparseBitset(bitset_string),
+        .name = getStdString(s),
+        .frame = nullptr,
+    };
+    ::free(bitset_string);
+
+    const auto frame_str = getstring(s);
+    if (::strlen(frame_str) > 0) {
+        // a null frame is valid and is encoded as a zero length string
+        result.frame = std::unique_ptr<dbgframe_t>(SocProtoToFrame(frame_str));
+    }
+    ::free(frame_str);
+
+    return result;
+}
+
+static dbgpackedthreadinfo_t* SocProtoToPackedThreadInfo(const char* s) {
+    auto result = new dbgpackedthreadinfo_t{};
+
+    result->current_thread = getint(s);
+
+    auto len_threads = getint(s);
+    if (len_threads < 0) return result;
+    for (auto i = size_t{0}; i < static_cast<size_t>(len_threads); i++) {
+        result->threads.emplace_back(SocProtoToPackedThread(s));
+    }
+
+    return result;
+}
+
 /*
 ** This is the main function that converts a network protocol string back into
 ** an event.
@@ -1535,7 +1802,6 @@ dbgevent_t *SocProtoToEvent(const char *s) {
         case DBGEV_SOURCEPATH:
         case DBGEV_TYPE:
         case DBGEV_CMD:
-        case DBGEV_THREADINFO:
         case DBGEV_STRING:
             // Get the string and convert to char * and set directly
             evdata = getstring(s);
@@ -1650,6 +1916,18 @@ dbgevent_t *SocProtoToEvent(const char *s) {
         case DBGEV_SYMBOLS:
             evdata = getstring(s);
             e->ev_u.ev_u_symbols = SocProtoToSymbols(evdata);
+            ::free(evdata);
+            break;
+
+        case DBGEV_THREADINFO:
+            evdata = getstring(s);
+            e->ev_u.ev_u_threadinfo = SocProtoToThreadInfo(evdata);
+            ::free(evdata);
+            break;
+
+        case DBGEV_PACKEDTHREADINFO:
+            evdata = getstring(s);
+            e->ev_u.ev_u_packedthreadinfo = SocProtoToPackedThreadInfo(evdata);
             ::free(evdata);
             break;
     }

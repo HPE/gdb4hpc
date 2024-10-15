@@ -27,15 +27,17 @@ Assertion script reached a point where every rank is stopped and no assertions c
 Assertion script $earlyexit stopped.
 No assertions were evaluated.
 13: frame
-a{1}: #0  exit
+a{1}: #0  exit from %.*%
 a{2..3}: #0  main at /src/c/c_half_exit.c:22
 a{0}: #0  main at /src/c/c_half_exit.c:23
 14: info break
 Procset         Num Type           Disp Enb What
 a{0..3}         1   breakpoint     keep y   in main at /src/c/c_half_exit.c:22
     already hit 1 time
+0: focus $a{2}
 16: break 6
-a{0..3}: Breakpoint 4: file /src/c/c_half_exit.c, line 6.
+a{2}: Breakpoint 4: file /src/c/c_half_exit.c, line 6.
+0: focus $all
 17: build $unknbp
 18:     # true, but $a{2} will hit an unexpected breakpoint before the assert
 19:     assert $a{2}::myRank@"c_half_exit.c":26 != $a{3}::myRank@"c_half_exit.c":26
@@ -47,7 +49,7 @@ Assertion script error: A breakpoint unrelated to the assertion script was hit.
 Assertion script $unknbp stopped.
 No assertions were evaluated.
 22: frame
-a{1}: #0  exit
+a{1}: #0  exit from %.*%
 a{2}: #0  foo at /src/c/c_half_exit.c:6
 a{0}: #0  main at /src/c/c_half_exit.c:23
 a{3}: #0  main at /src/c/c_half_exit.c:26
@@ -55,8 +57,7 @@ a{3}: #0  main at /src/c/c_half_exit.c:26
 Procset         Num Type           Disp Enb What
 a{0..3}         1   breakpoint     keep y   in main at /src/c/c_half_exit.c:22
     already hit 1 time
-a{0..3}         4   breakpoint     keep y   in foo at /src/c/c_half_exit.c:6
-    a{0..1,3}:    already hit 0 times
-    a{2}:    already hit 1 time
+a{2}            4   breakpoint     keep y   in foo at /src/c/c_half_exit.c:6
+    already hit 1 time
 24: q
 Shutting down debugger and killing application for 'a'.

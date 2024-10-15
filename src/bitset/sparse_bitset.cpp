@@ -1,19 +1,4 @@
-/*********************************************************************************\
- * <sparse_bitset.c>
- *
- * Copyright 2012-2013,2020 Hewlett Packard Enterprise Development LP.
- *
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * $HeadURL$
- * $Date$
- * $Rev$
- * $Author$
- *
- *********************************************************************************/
+ // Copyright 2012-2024 Hewlett Packard Enterprise Development LP.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +18,14 @@ SparseBitset::SparseBitset(size_t num_bits)
 	: m_sb_num_bits{num_bits}
 {}
 
+SparseBitset SparseBitset::fromBits(std::initializer_list<size_t> bits) {
+	auto result = SparseBitset(std::numeric_limits<size_t>::max());
+	for (const auto bit : bits) {
+		result.set(bit);
+	}
+	return result;
+}
+
 SparseBitset::SparseBitset(SerializedPtr serialized) {
 	if (serialized == nullptr) {
 		throw std::runtime_error("nullptr passed to SparseBitset constructor");
@@ -40,7 +33,7 @@ SparseBitset::SparseBitset(SerializedPtr serialized) {
 
 	std::istringstream stream(serialized);
 
-	int nbits;
+	size_t nbits;
 	stream >> std::hex >> nbits;
 
 	m_sb_num_bits = nbits;
@@ -242,6 +235,20 @@ size_t SparseBitset::sizeInRanges() const {
 	return m_sb_ranges.size();
 }
 
+std::string SparseBitset::toRangeString() const {
+	auto result = std::ostringstream{};
+	for (auto i = size_t{0}; i < m_sb_ranges.size(); i++) {
+		if (i > 0) result << ",";
+		const auto& range = m_sb_ranges[i];
+		result << range.sr_start;
+		// ranges are inclusive, hence >= 1
+		if (range.sr_end - range.sr_start >= 1) {
+			result << "-" << range.sr_end;
+		}
+	}
+	return result.str();
+}
+
 Bitset::Serialized SparseBitset::serialize() const {
 	std::stringstream ss;
 
@@ -337,4 +344,26 @@ using SetBitsIterator = SparseBitset::SetBitsIterator;
 
 std::unique_ptr<Bitset::SetBitsIterator> SparseBitset::iterator() const {
 	return std::make_unique<SetBitsIterator>(*this);
+}
+
+TEST_CASE("Large max bits") {
+	// fromBits will specify the bitset size as SIZE_T_MAX.
+	// this is just stored as a size_t. this test makes sure the
+	// stored size never gets truncated during serialization.
+	auto in = SparseBitset::fromBits({1});
+	auto in_serialized = in.serialize();
+	auto out = SparseBitset(in_serialized.get());
+	CHECK(in == out);
+}
+
+TEST_CASE("toRangeString") {
+	CHECK(SparseBitset::fromBits({}).toRangeString() == "");
+	CHECK(SparseBitset::fromBits({1}).toRangeString() == "1");
+	CHECK(SparseBitset::fromBits({1,2}).toRangeString() == "1-2");
+	CHECK(SparseBitset::fromBits({1,2,4}).toRangeString() == "1-2,4");
+	CHECK(SparseBitset::fromBits({4,2,1}).toRangeString() == "1-2,4");
+	CHECK(SparseBitset::fromBits({1,2,4,5,6}).toRangeString() == "1-2,4-6");
+	CHECK(SparseBitset::fromBits({1,2,4,5,6,8,9,10,11}).toRangeString() == "1-2,4-6,8-11");
+	CHECK(SparseBitset::fromBits({11,10,9,8,6,5,4,2,1}).toRangeString() == "1-2,4-6,8-11");
+	CHECK(SparseBitset::fromBits({1,2,4,5,6,8,9,10,11,100000}).toRangeString() == "1-2,4-6,8-11,100000");
 }

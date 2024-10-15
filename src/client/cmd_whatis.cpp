@@ -67,7 +67,7 @@ static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, const char* const argv[]
         if (ev == DBGEV_TYPE) {
             type_str = EVENT_TYPE(reply->rep_event);
                 PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s\n", type_str);
-        } else if (ev == DBGEV_THREADINFO) {
+        } else if (ev == DBGEV_STRING) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
@@ -101,7 +101,7 @@ static int cmd_ptype_cmd(rec_set_t *rec_set, int argc, const char* const argv[])
             // the result ends with a newline
             PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(), "%s",
                                 type_str);
-        } else if (ev == DBGEV_THREADINFO) {
+        } else if (ev == DBGEV_STRING) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
@@ -128,7 +128,7 @@ static int cmd_info_locals_cmd_console(rec_set_t *rec_set) {
                                 "Name:%-25s\tType:%s\n", v->var_name,
                                 v->var_type);
             }
-        } else if (ev == DBGEV_THREADINFO) {
+        } else if (ev == DBGEV_STRING) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
@@ -163,7 +163,7 @@ static int cmd_info_locals_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set) {
             std::string group = reply->rep_group.get()->toSetString();
             mi.set_result("proc_set=\"%s\",group=\"%s\",variables=%s", reply->rep_di.c_str(),
                                 group.substr(1,group.length()-2).c_str(),ss.str().c_str());
-        } else if (ev == DBGEV_THREADINFO) {
+        } else if (ev == DBGEV_STRING) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
                                 reply->rep_event->ev_u.ev_u_string);
         } else {
@@ -222,7 +222,7 @@ static int cmd_info_args_cmd(rec_set_t *rec_set) {
     // Process the replies
     for (auto&& reply : rep_set) {
         auto ev = reply->rep_event->ev_event;
-        if (ev != DBGEV_THREADINFO && ev != DBGEV_STRING) {
+        if (ev != DBGEV_STRING) {
             PrintOutError("unexpected result type.\n");
             continue;
         }

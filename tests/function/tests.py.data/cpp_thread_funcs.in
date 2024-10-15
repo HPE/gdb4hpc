@@ -41,7 +41,7 @@ b{0}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_t
 a{0}: non-stop mode is off
 b{0}: non-stop mode is on
 24: # run until the threads are running
-25: b 71
+25: b cpp_threads.cpp:71
 a{0}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 71.
 b{0}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 71.
 26: c
@@ -49,11 +49,11 @@ b{0}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C+
 a{0}: Breakpoint 1, main(int, char**) at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:71
 28: info threads???
 a{0}:   Id    Frame
-a{0}: * 1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%src/C++/cpp_threads.cpp:71
+a{0}: * 1     "cpp_threads.x" main (argc=1, argv=<ptr>) at /src/C++/cpp_threads.cpp:71
 a{0}:   2-11  "cpp_threads.x" %.*sleep.*%
 a{0}:
 b{0}:   Id    Frame
-b{0}: * 1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%src/C++/cpp_threads.cpp:71
+b{0}: * 1     "cpp_threads.x" main (argc=1, argv=<ptr>) at /src/C++/cpp_threads.cpp:71
 b{0}:   2-11  "cpp_threads.x" (running)
 b{0}:
 30: b cpp_threads.cpp:60 thread 5
@@ -64,12 +64,12 @@ b{0}: Breakpoint 2, main::$_0::operator()() const at /lus/scratch/jvogt/tests/gd
 a{0}: Breakpoint 2, main::$_0::operator()() const at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:60 thread 5
 33: info threads 1 5
 a{0}:   Id    Frame
-a{0}:   1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%src/C++/cpp_threads.cpp:80
-a{0}: * 5     "cpp_threads.x" main::$_0::operator() (this=) at %.*/?%src/C++/cpp_threads.cpp:60
+a{0}:   1     "cpp_threads.x" main (argc=1, argv=<ptr>) at /src/C++/cpp_threads.cpp:80
+a{0}:   5     "cpp_threads.x" main::$_0::operator() (this=<ptr>) at /src/C++/cpp_threads.cpp:60
 a{0}:
 b{0}:   Id    Frame
-b{0}: * 1     "cpp_threads.x" (running)
-b{0}:   5     "cpp_threads.x" main::$_0::operator() (this=) at %.*/?%src/C++/cpp_threads.cpp:60
+b{0}:   1     "cpp_threads.x" (running)
+b{0}:   5     "cpp_threads.x" main::$_0::operator() (this=<ptr>) at /src/C++/cpp_threads.cpp:60
 b{0}:
 34: info breakpoints
 Procset         Num Type           Disp Enb What
@@ -99,9 +99,9 @@ b{0}            1   breakpoint     keep y   in main(int, char**) at /lus/scratch
 b{0}            3   watchpoint     keep y   sum thread 5
 44: c
 b{0}: Watchpoint 3, variable expression: sum
-b{0}: In main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:61
+b{0}: In main::$_0::operator() at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:61
 a{0}: Watchpoint 3, variable expression: sum
-a{0}: In main::$_0::operator at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:61
+a{0}: In main::$_0::operator() at /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp:61
 46: del 3
 48: thread 8
 49: thread name hunka-hunka-burning-love
@@ -111,9 +111,9 @@ b{0}: Thread 8 has name 'hunka-hunka-burning-love'
 51: focus $b
 50: thread info
 b{0}:   Id    Frame
-b{0}:   %.*% "cpp_threads.x" (running)
-b{0}:   5     "cpp_threads.x" main::$_0::operator() (this=) at src/C++/cpp_threads.cpp:61
 b{0}: * 8     "hunka-hunka-burning-love" (running)
+b{0}:   1-4,6-7,9-11 "cpp_threads.x" (running)
+b{0}:   5     "cpp_threads.x" main::$_0::operator() (this=<ptr>) at /src/C++/cpp_threads.cpp:61
 b{0}:
 55: # XXX: ddt_gdb 10 has a regression where thread apply will fail if any thread is running. 
 55: thread apply 1-3 5 bt 2
@@ -124,7 +124,7 @@ b{0}: #0  main::$_0::operator() (this=) at %.*/?%src/C++/cpp_threads.cpp:61
 b{0}: #1   in %.*invoke.*%
 b{0}: (More stack frames follow...)
 61: focus $all
-63: b 75
+63: b cpp_threads.cpp:75
 a{0}: Breakpoint 4: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 75.
 b{0}: Breakpoint 4: file /lus/scratch/jvogt/tests/gdb4hpc/src/C++/cpp_threads.cpp, line 75.
 64: c -a
@@ -138,11 +138,11 @@ a{0}: Mode for locking scheduler during execution is "replay".
 69: set scheduler-locking on
 70: n
 a{0}: 76	            valAvail = true;
-71: info threads 1 8???
+71: info threads 1 8
 a{0}:   Id    Frame
-a{0}: * 1     "cpp_threads.x" main (argc=1, argv=) at %.*/?%src/C++/cpp_threads.cpp:76
-a{0}:   8     "hunka-hunka-burning-love" __lll_lock_wait () from /lib64/libpthread.so.0
-a{0}: 
+a{0}:   1     "cpp_threads.x" main (argc=1, argv=<ptr>) at /src/C++/cpp_threads.cpp:76
+a{0}:   8     "hunka-hunka-burning-love" %.*%
+a{0}:
 72: set scheduler-locking off
 73: show scheduler-locking
 a{0}: Mode for locking scheduler during execution is "off".

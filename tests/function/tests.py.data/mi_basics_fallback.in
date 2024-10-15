@@ -11,7 +11,7 @@
 (gdb)
 0: show prompt
 &"show prompt\n"
-~"dbg all>\n"
+~"dbg all> \n"
 ^done
 (gdb)
 0: # but console commands might emit out of band results

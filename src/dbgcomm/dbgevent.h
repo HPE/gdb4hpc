@@ -40,6 +40,7 @@
 #include "AIFStream.h"
 #include "dbgbp.h"
 #include "dbgloc.h"
+#include "sparse_bitset.h"
 #include <optional>
 #include <string>
 
@@ -142,6 +143,7 @@ enum dbgev {
     DBGEV_ERROR,
     DBGEV_DATA_CHUNK,
     DBGEV_THREADINFO,
+    DBGEV_PACKEDTHREADINFO,
     DBGEV_STRING,
     DBGEV_SYMBOLS,
 };
@@ -169,6 +171,16 @@ private:
     dbgframe_t* m_next;         // frame of the calling function
     char* m_threads;            // threads (only if called during thread focus, and only top initial frame)
     dbgframe_t* m_nextThreadFrame;  // (initial frame only) - frame list for the next thread set
+
+    struct Arg {
+        std::string name;
+        // Maybe one day `value` can be an AIFStream
+        std::string value;
+
+        bool operator==(const Arg&) const = default;
+    };
+
+    std::vector<Arg> m_args;
 public:
     int getLevel() const { return m_level; }
     const dbgloc_t& getLoc() const { return m_loc; }
@@ -178,8 +190,26 @@ public:
     const dbgframe_t* getNext() const { return m_next; }
     const dbgframe_t* getNextThreadFrame() const { return m_nextThreadFrame; }
 
+    // access the frame's list of function arguments
+    const std::vector<Arg>& getArgs() const;
+    void addArg(Arg&& arg);
+
+    // replace the value field of all hexdecimal integer arguments (determined by regex)
+    // with "<ptr>" for easier network aggregation
+    void anonymizePointerArgs();
+
+    // replace the value field of all decimal integer arguments (determined by regex)
+    // with "<int>" for easier network aggregation
+    void anonymizeIntArgs();
+
     void setNext(dbgframe_t* next);
     void setNextThreadFrame(dbgframe_t* next);
+
+    // get a human readable string describing the location of the frame, e.g.
+    // "in fn (x=2,y=4) at filename:XX", or other forms depending on what
+    // information is available in the frame. set `with_args` to false to omit
+    // function arguments. (see CPE-6427 for why you might want to do that)
+    std::string getLocationString(bool with_args) const;
 
     dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
                const char* threads, dbgframe_t* nextThreadFrame);
@@ -244,6 +274,103 @@ struct dbgsymbols_t {
     std::vector<Symbol> nondebug;
 };
 
+struct dbgpackedthreadinfo_t;
+
+struct dbgthreadinfo_t {
+    // a collection of threads and an indicator of the current thread.
+    // i.e. the results of "info thread" command.
+    //
+    // all fields here might be omitted by gdbmi for arbitrary reasons. this even
+    // applies to `current_thread` - e.g. when the current thread in a cuda program
+    // is on a GPU (since "info threads" only returns CPU threads in a cuda program)
+    // or when specific threads are queried e.g. "info thread 1-3".
+
+    // has the same semantics as a copy ctor. (if we added an actual copy ctor, this
+    // type would cease to be an aggregate type and we would lose the ability to
+    // initialize it via aggregate initialization).
+    dbgthreadinfo_t clone() const;
+
+    struct Thread {
+        // each field maps to the value returned by gdbmi.
+        // see the "GDB/MI Thread Informtation" of gdbmi docs.
+        // same arbitary omission warnings as dbgthreadinfo_t apply here.
+
+        // has the same semantics as a copy ctor. (if we added an actual copy ctor, this
+        // type would cease to be an aggregate type and we would lose the ability to
+        // initialize it via aggregate initialization).
+        Thread clone() const;
+
+        int id;
+        std::string target_id; // might be empty
+        std::string details; // might be empty
+        std::string name; // might be empty
+
+        enum class State {
+            Unspecified,
+            Running,
+            Stopped,
+        };
+        State state; // might be Unspecified
+
+        int core; // might be < 0
+        std::unique_ptr<dbgframe_t> frame; // might be nullptr
+
+        // return a name appropriate for labeling this thread in a user interface.
+        // since threads can have multiple names (.name, .details, .target_id, or none),
+        // this function picks the "best" name and returns it. if none are present, it
+        // will generate one.
+        std::string getDisplayName() const;
+
+        // remove some rank-specific information from the thread to make it
+        // easier to aggregate with other ranks' threads in the network tree.
+        void anonymize();
+
+        // returns true if all fields match and the lowest level frames match.
+        // i.e. this function doesn't consider the full backtrace of the .frame members.
+        bool operator==(const Thread& other) const;
+    };
+
+    int current_thread; // might be <= 0
+    std::vector<Thread> threads; // might be empty
+
+    // pack threads into dbgpackedthreadinfo.
+    // threads are merged based on thread names and frames.
+    dbgpackedthreadinfo_t pack() const;
+};
+
+struct dbgpackedthreadinfo_t {
+    // like dbgthreadinfo_t, but in a packed form with a smaller set of information.
+    //
+    // same arbitrary omission warnings as dbgthreadinfo_t apply here.
+
+    // has the same semantics as a copy ctor. (if we added an actual copy ctor, this
+    // type would cease to be an aggregate type and we would lose the ability to
+    // initialize it via aggregate initialization).
+    dbgpackedthreadinfo_t clone() const;
+
+    struct PackedThread {
+        // a PackedThread necessarily has less information than a Thread since
+        // information was lost with packing.
+
+        // has the same semantics as a copy ctor. (if we added an actual copy ctor, this
+        // type would cease to be an aggregate type and we would lose the ability to
+        // initialize it via aggregate initialization).
+        PackedThread clone() const;
+
+        // all ids with matching names and frames from the full thread set
+        SparseBitset ids;
+        std::string name; // might be empty
+        std::unique_ptr<dbgframe_t> frame; // might be nullptr
+
+        // returns true if all fields match and the lowest level frames match.
+        // i.e. this function doesn't consider the full backtrace of the .frame members.
+        bool operator==(const PackedThread& other) const;
+    };
+
+    int current_thread; // might be <= 0
+    std::vector<PackedThread> threads;
+};
+
 struct dbgevent_t {
     dbgev ev_event;
 
@@ -270,6 +397,8 @@ struct dbgevent_t {
         dbgvers_t ev_u_vers;
         dbgsources_t *ev_u_sources;
         dbgsymbols_t *ev_u_symbols;
+        dbgpackedthreadinfo_t *ev_u_packedthreadinfo;
+        dbgthreadinfo_t *ev_u_threadinfo;
     } ev_u;
 // These are generic and should not be used outside the format/event functions.
 #define ev_string ev_u.ev_u_string
@@ -329,7 +458,6 @@ extern const char *DbgEventErrorStr(dbgevent_t *);
 
 // Used for debug
 extern dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...);
-extern void PrintDbgEvent(dbgevent_t *);
 extern const char *EventToStr(const dbgevent_t *);
 extern const char *DbgevToStr(dbgev);
 extern void PrintDbgError(dbgerr);

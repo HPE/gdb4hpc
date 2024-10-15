@@ -33,6 +33,7 @@
 #include <future>
 #include <functional>
 #include <map>
+#include <set>
 #include <vector>
 #include <regex>
 #include <iomanip>
@@ -1060,11 +1061,29 @@ dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
 }
 
 static dbgframe_t* MakeFrameFromMIFrame(MIFrame* mi, bool keepAddr) {
-    dbgloc resLoc{StrdupOpt(mi->file), StrdupOpt(mi->func),
-        keepAddr ? StrdupOpt(mi->addr) : nullptr, mi->line};
-    return new dbgframe_t{mi->level, resLoc, nullptr, nullptr, nullptr};
-}
+    // gdbmi might put the filename in three different fields:
+    // - file: short file name. but sometimes is the full path anyway
+    // - fullname: full path fo file name, never short
+    // - from: filename if in lib w/o debug info (e.g. stopped in libc)
+    //         seems to always be full path?
+    auto* file = [&]() -> char* {
+        if (mi->file) return ::strdup(mi->file);
+        if (mi->fullname) return ::strdup(mi->fullname);
+        if (mi->from) return ::strdup(mi->from);
+        return nullptr;
+    }();
 
+    dbgloc resLoc{file, StrdupOpt(mi->func),
+        keepAddr ? StrdupOpt(mi->addr) : nullptr, mi->line};
+    auto* result = new dbgframe_t{mi->level, resLoc, nullptr, nullptr, nullptr};
+
+    MIListSet(mi->args);
+    for (auto* arg = (MIArg*)MIListGet(mi->args); arg != nullptr; arg = (MIArg*)MIListGet(mi->args)) {
+        result->addArg({.name = arg->name, .value = arg->value});
+    }
+
+    return result;
+}
 
 /*
 ** Move up or down count stack frames.
@@ -1467,43 +1486,6 @@ dbgevent_t *DbgGdbMI::setThread(const char *threadId) {
     return e;
 }
 
-// remove process specific addresses and LWP ids from the thread ouput that would
-// prevent them being reduced in MRNet
-static std::string anonymizeThreadInfo(const std::string& val) {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    static std::regex hexValRE(R"(0x[0-9a-f]+( in )?)");  // the extra ( in ) is for the proc counter
-    static std::regex lwpRE(R"(Thread.*\(LWP \d+\))");
-    static std::regex amdGpuRE(R"(AMDGPU ((Thread)|(Wave)) [0-9:.,() ]+/[0-9]+)");
-    static std::regex multispaceRE(R"(\s\s+)");  // gdb format alignment can stymie aggregation
-    static std::regex intArgRE(R"(=\d+)");
-    
-    std::istringstream is(val);
-    std::ostringstream os;
-
-    std::string line;
-    for (int lineNo = 0; std::getline(is,line); ++lineNo) {
-        if (!lineNo) {
-            // heading line
-            os << "  Id    Frame\n";
-            continue;
-        }
-
-        line = std::regex_replace(line, lwpRE, "");
-        line = std::regex_replace(line, hexValRE, "");
-        if (std::smatch match; std::regex_search(line, match, amdGpuRE)) {
-            // On AMDGPU's remove integral arguments too.  The motiviation is that openMP is
-            // now adding an integer argument that is *different* for every single thread.
-            line.replace(match[0].first, match[0].second, "AMDGPU");
-            line = std::regex_replace(line, intArgRE, "=");
-        }
-        line = std::regex_replace(line, multispaceRE, " ");
-
-        os << line << "\n";
-    }
-
-    return os.str();
-}
-
 static std::string anonymizeCudaThreadInfo(const std::string& val) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
@@ -1664,53 +1646,6 @@ bool ThreadCollector::getNextResult(std::string& ids, std::string& val) {
 }
 }
 
-// identify threads with equivalent frame information to present the information more
-// compactly.   Similar threads will be identified by an id list at is:
-// id1 id2 id3-id4
-static std::string collectThreadInfo(const std::string& val) {
-    //DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__); //called too frequently
-    std::regex re(R"(^( *\*? *\d+)\s+(.*))");
-
-    ThreadCollector collector;
-
-    std::istringstream is(val);
-    std::string line, header;
-    for (int lineNo = 0; std::getline(is,line); ++lineNo) {
-        if (!lineNo) {
-            // heading line
-            header = line;
-            continue;
-        }
-
-        // get the thread-id and location for this line
-        std::smatch match;
-        if (!std::regex_match(line, match, re)) {
-            DVPRINT("did not match line on %d:%s\n", lineNo, line.c_str());;
-            // can't parse the line - luckily we can just *not* collect
-            return val;
-        }
-
-        const std::string& loc = match[2];
-        std::string id = match[1];
-
-        try {
-            collector.add(id, loc);
-        } catch (std::exception&) {
-            return val;  // couldn't resolve an id, guess we're not collecting
-        }
-    }
-
-    // and assemble the result
-    std::ostringstream os;
-    os << header << "\n";
-
-    for (std::string id, loc; collector.getNextResult(id,loc); ) {
-        if (!id.empty() && id[0] != '*') id = " " + id;
-        os << std::setw(7) << std::left << id << " " << loc << "\n";
-    }
-    return os.str();
-}
-
 // translate an extended format thread list into the set of actual thread ids.
 // \param threadId the thread list, it recognizes: 1 2 3-4 5..6 "regex" 'regex' in a list
 //    using either spaces or commas as a separator
@@ -1759,7 +1694,7 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
             if (pattern == "*") pattern = ".*"; // match every thread
             auto ev = findThread(pattern.c_str());
 
-            if (ev->ev_event == DBGEV_THREADINFO && ev->ev_string) {
+            if (ev->ev_event == DBGEV_STRING && ev->ev_string) {
                 const char* findRes = ev->ev_string, *findEnd = findRes + strlen(findRes);
                 for (std::cregex_iterator it(findRes,findEnd,threadFindRE), end;
                      it != end; ++it) {
@@ -1795,76 +1730,93 @@ std::vector<int> DbgGdbMI::getThreadSet(const std::string& threadId, std::string
     return ids;
 }
 
+dbgthreadinfo_t EventThreadInfoFromMIThreadInfo(const MIThreadInfoResult& mi_thread_info) {
+    auto result = dbgthreadinfo_t{};
+
+    result.current_thread = mi_thread_info.current_thread;
+
+    MIListSet(mi_thread_info.threads);
+    for (auto* thr_it = (MIThread*)MIListGet(mi_thread_info.threads);
+         thr_it != nullptr;
+         thr_it = (MIThread*)MIListGet(mi_thread_info.threads)
+    ) {
+        const auto optStr = [](const char* s) -> std::string { return s ? s : ""; };
+        result.threads.emplace_back(dbgthreadinfo_t::Thread{
+            .id = thr_it->id,
+            .target_id = optStr(thr_it->target_id),
+            .details = optStr(thr_it->details),
+            .name = optStr(thr_it->name),
+            .state = [&](){
+                using State = dbgthreadinfo_t::Thread::State;
+                switch (thr_it->state) {
+                    case THREADSTATE_RUNNING: return State::Running;
+                    case THREADSTATE_STOPPED: return State::Stopped;
+                    default: return State::Unspecified;
+                }
+            }(),
+            .core = thr_it->core,
+            .frame = std::unique_ptr<dbgframe_t>(
+                thr_it->frame ? MakeFrameFromMIFrame(thr_it->frame, /* keepAddr=*/ false) : nullptr),
+        });
+    }
+
+    return result;
+}
 
 // get a listing of either all available threads or a subset depending on the arguments
 // in \a threadId
-dbgevent_t *DbgGdbMI::getThreadInfo(const char *threadId) {
-    DVPRINT("*** Dbg %s, %s, threadId(%s)\n", __FILE__, __func__, threadId);
+dbgevent_t *DbgGdbMI::getThreadInfo(const char *thread_expr, bool anonymize, bool collect) {
+    DVPRINT("*** Dbg %s, %s, threadId(%s), anonymize(%d), collect(%d)\n", __FILE__, __func__, thread_expr, anonymize, collect);
 
-    dbgevent_t* e = nullptr;
-
-    bool doAnonymize = true;
-    bool doCollect = true;
-
-    // process the flags first
-    static std::regex flagRE{R"(^\s*(-[a-z]+)($|(\s+)))"};
-    std::string threadArgs{threadId};
-
-    for (std::smatch match; std::regex_search(threadArgs, match, flagRE); threadArgs=match.suffix().str()) {
-        auto f = match[1].str();
-        if (f == "-v") {
-            doAnonymize = doCollect = false;
-        } else if (f == "-l") {
-            doCollect = false;
-        } else {
-            EVENT_ERROR(e, DBGERR_DEBUGGER, "unrecognized flag %s", f.c_str());
-            DVPRINT("unrecognized flag %s\n", f.c_str());
-        }
+    if (!thread_expr) {
+        // should never happen...?
+        return NewErrorEvent(DBGERR_DEBUGGER, "Missing thread list\n");
     }
 
     // parse the thread list to get the real thread ids
     std::string error;
-    auto ids = getThreadSet(threadArgs.c_str(), nullptr, error);
-
+    auto ids = getThreadSet(thread_expr, nullptr, error);
     if (!error.empty()) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, error.c_str());
-        return e;
+        return NewErrorEvent(DBGERR_DEBUGGER, error.c_str());
     }
+    auto ids_str = threadIdsToString(ids);
 
-    // get the arguments ready
-    std::vector<std::string> args{"info", "threads"};
-    std::transform(ids.begin(), ids.end(), std::back_inserter(args),
-                   [](int i) { return std::to_string(i); });
-
-    std::vector<const char*> cargs;
-    std::transform(args.begin(), args.end(), std::back_inserter(cargs),
-                   [](const std::string& s) { return s.c_str(); });
-
-    // get the result from gdb
-    MICommand* cmd = CLIBypassc(cargs.size(), &cargs[0]);
-    SendMICommand(GDBMISession, cmd);
-    if (!MICommandResultOK(cmd)) {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get thread info failed.");
-        MICommandFree(cmd);
-        return e;
+    // get the result from gdb. gdbmi documentation states that the
+    // `-thread-info` command will omit the current-thread-id field if any
+    // thread expression is given. this applies to an empty string expression
+    // too, so we pass nullptr if `threadIdsToString` returns an empty string.
+    auto cmd = make_MICmd(MIThreadInfo(ids_str.empty() ? nullptr : ids_str.c_str()));
+    SendMICommand(GDBMISession, cmd.get());
+    if (!MICommandResultOK(cmd.get())) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Gdb get thread info failed.");
     }
 
     // reformat the return to be reduced
-    if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
-        std::string info(threadInfo);
-        free(threadInfo);
+    if (auto mi_thread_info = std::unique_ptr<MIThreadInfoResult, decltype(&MIThreadInfoResultFree)>
+            (MIGetThreadInfoResult(cmd.get()), MIThreadInfoResultFree)
+    ) {
+        auto event_tinfo = EventThreadInfoFromMIThreadInfo(*mi_thread_info);
+        if (event_tinfo.threads.empty()) {
+            return NewErrorEvent(DBGERR_DEBUGGER, "Gdb get thread info failed.");
+        }
 
-        if (doAnonymize) info = anonymizeThreadInfo(info);
-        if (doCollect) info = collectThreadInfo(info);
+        if (anonymize) for (auto& th : event_tinfo.threads) th.anonymize();
 
-        e = NewEvent(DBGEV_THREADINFO);
-        e->ev_string = strdup(info.c_str());
+        if (collect) {
+            auto packed = new dbgpackedthreadinfo_t{event_tinfo.pack()};
+            auto result = NewEvent(DBGEV_PACKEDTHREADINFO);
+            result->ev_u.ev_u_packedthreadinfo = packed;
+            return result;
+        } else {
+            // need to move it on to the heap to satisfy dbgevent's requirements
+            auto thread_info_heap = new dbgthreadinfo_t{std::move(event_tinfo)};
+            auto result = NewEvent(DBGEV_THREADINFO);
+            result->ev_u.ev_u_threadinfo = thread_info_heap;
+            return result;
+        }
     } else {
-        EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get thread info failed.");
+        return NewErrorEvent(DBGERR_DEBUGGER, "Gdb get thread info failed.");
     }
-
-    MICommandFree(cmd);
-    return e;
 }
 
 dbgevent_t *DbgGdbMI::setThreadName(const char* name) {
@@ -1901,7 +1853,7 @@ dbgevent_t *DbgGdbMI::findThread(const char* pattern) {
     }
 
     if (char* threadInfo = MICommandConsoleOOBMessages(cmd)) {
-        e = NewEvent(DBGEV_THREADINFO);
+        e = NewEvent(DBGEV_STRING);
         e->ev_string = threadInfo;
     } else {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread find failed to get a result.");
@@ -2105,7 +2057,7 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
         // The command will not contain the actual result yet.
         numBackgroundThreads = numThreads;
         MICommandFree(cmd);
-        e = NewEvent(DBGEV_THREADINFO);
+        e = NewEvent(DBGEV_STRING);
         e->ev_string = strdup("applied in background");
         return e;
     }
@@ -2127,7 +2079,7 @@ dbgevent_t *DbgGdbMI::threadApply(const char* inOp) {
         free(threadInfo);
 
         info = processThreadApplyOutput(info, isSilent, isQuiet, isVerbose);
-        e = NewEvent(DBGEV_THREADINFO);
+        e = NewEvent(DBGEV_STRING);
         e->ev_string = strdup(info.c_str());
     } else {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb thread apply failed to get a result.");
@@ -2166,7 +2118,7 @@ dbgevent_t *DbgGdbMI::getSchedulerLocking() {
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get scheduler-locking failed.");
     } else if (char* mode = MICommandConsoleOOBMessages(cmd)) {
-        e = NewEvent(DBGEV_THREADINFO);
+        e = NewEvent(DBGEV_STRING);
         e->ev_string = mode;
     } else {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get scheduler-locking did not return a value.");
@@ -2208,7 +2160,7 @@ dbgevent_t *DbgGdbMI::getNonStop() {
     if (!MICommandResultOK(cmd)) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get non-stop failed.");
     } else if (char* mode = MICommandOutputString(cmd)) {
-        e = NewEvent(DBGEV_THREADINFO);
+        e = NewEvent(DBGEV_STRING);
         e->ev_string = mode;
     } else {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Gdb get non-stop did not get a string");
@@ -2276,7 +2228,7 @@ dbgevent_t *DbgGdbMI::ompd(const char* inOpp) {
         if (!msg) msg = "ompd failed.";
         EVENT_ERROR(e, DBGERR_DEBUGGER, "%s", msg);
     } else if (char* result = MICommandConsoleOOBMessages(cmd)) {
-        e = NewEvent(DBGEV_THREADINFO);
+        e = NewEvent(DBGEV_STRING);
 
         if (isVerbose || opp != "threads") {
             e->ev_string = result;
@@ -2382,7 +2334,7 @@ dbgevent_t *DbgGdbMI::cuda(const char* inOp) {
         if (!msg) msg = "cuda command failed.";
         return NewErrorEvent(DBGERR_DEBUGGER, "%s", msg);
     } else if (char* result = MICommandConsoleOOBMessages(cmd.get())) {
-        auto e = NewEvent(DBGEV_THREADINFO);
+        auto e = NewEvent(DBGEV_STRING);
 
         DVPRINT("--- CUDA result op = \"%s\"\n", op.c_str()); 
         if (isVerbose || op != "info threads") {
@@ -3332,9 +3284,11 @@ dbgevent_t *DbgGdbMI::getStatus(bool getLocation) {
     }
 
     // there's potentially more work to do if we're in non-stop mode
-    if (dbgevent_t* threadEvent = getThreadInfo("")) {
+    if (dbgevent_t* threadEvent = getThreadInfo("", false, false)) {
         if (threadEvent->ev_event == DBGEV_THREADINFO &&
-            strstr(threadEvent->ev_string, "(running)")) {
+            std::ranges::any_of(threadEvent->ev_u.ev_u_threadinfo->threads, [](const auto& th)
+                { return th.state == dbgthreadinfo_t::Thread::State::Running; })
+        ) {
             s->stat = DBGSTAT_STOPPED_IN_THREAD;
         }
         FreeEvent(threadEvent);
@@ -4233,7 +4187,7 @@ dbgevent_t* DbgGdbMI::evalExprWithThreads(const char* exp, const char* threads)
         // just return a string, but in this case there are possible multiple values
         std::string op = threadStr + " p " + exp;
         auto applyEvent = threadApply(op.c_str());
-        if (applyEvent->ev_event != DBGEV_THREADINFO) {
+        if (applyEvent->ev_event != DBGEV_STRING) {
             return applyEvent;
         }
 
@@ -4310,7 +4264,7 @@ static std::string threadIdsToString(const std::vector<int>& ids) {
 // gives a more efficient means to get frames from multiple threads, the approach could
 // be changed to take advantage of it. ---
 static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
-    if (threadEvent->ev_event != DBGEV_THREADINFO) {
+    if (threadEvent->ev_event != DBGEV_STRING) {
         return threadEvent;
     }
 

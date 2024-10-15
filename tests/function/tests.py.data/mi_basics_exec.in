@@ -2,7 +2,7 @@
 ^done
 (gdb)
 0: -interpreter-exec console show prompt
-~"dbg all>\n"
+~"dbg all> \n"
 ^done
 (gdb)
 0: -interpreter-exec console show foobar

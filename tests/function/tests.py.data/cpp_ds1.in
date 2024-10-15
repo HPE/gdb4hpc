@@ -522,7 +522,7 @@ b{0..1}: {[1] = 16, [2] = -12.25, [3] = {first = -8, second = 14.4}, [4] = 120 '
 214: c
 b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
 215: up
-b{0..1}: #1  %((operator)|(refs))% at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  refs()::$_0::operator()() const at /src/C++/cpp_ds_test1.cpp:%\d+%
 215: whatis s
 b{0..1}: Struct1 &
 215: p s
@@ -556,7 +556,7 @@ b{0..1}: {"lorem ipsum","dolor sit a"}
 215: c
 b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
 215: up
-b{0..1}: #1  %((operator)|(refs))% at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  refs()::$_1::operator()(Struct1&&, Classy&&, Moderne<Struct1>&&, int (&&) [4], char (&&) [12], int (&&) [2][4], char (&&) [2][12]) const at /src/C++/cpp_ds_test1.cpp:%\d+%
 215: whatis s
 b{0..1}: Struct1 &&
 215: p s

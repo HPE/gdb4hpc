@@ -163,6 +163,18 @@ dbgloc& dbgloc::operator=(const dbgloc &other) {
     return *this;
 }
 
+bool dbgloc::operator==(const dbgloc &other) const {
+    const auto sameCStr = [](const char* lhs, const char* rhs) {
+        if (!lhs && !rhs) return true;
+        if (!lhs || !rhs) return false;
+        return ::strcmp(lhs, rhs) == 0;
+    };
 
-
+    return
+        this->loc_line == other.loc_line &&
+        sameCStr(this->loc_file, other.loc_file) &&
+        sameCStr(this->loc_func, other.loc_func) &&
+        sameCStr(this->loc_addr, other.loc_addr)
+    ;
+}
 

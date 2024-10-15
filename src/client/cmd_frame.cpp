@@ -30,21 +30,12 @@
 #include "bttree.h"
 
 void PrintFrameSet(const char *setname, Bitset *group, const dbgframe_t *frame) {
-
     for (auto f = frame; f ; f = f->getNextThreadFrame()) {
-
         PrintMsgWithSetAndThreadInfo(setname, group, f->getThreads(), "#%-2d ", f->getLevel());
-
-        const auto &loc = f->getLoc();
-        if (*loc.loc_addr != '\0')
-            PrintOutMsg("%s in ", loc.loc_addr);
-
-        PrintOutMsg("%s", loc.loc_func);
-
-        if (*loc.loc_file != '\0')
-            PrintOutMsg(" at %s:%d", loc.loc_file, loc.loc_line);
-
-        PrintOutMsg("\n");
+        // we omit args because they are not included in the output of the gdbmi
+        // -stack-info-frame command and trying to print them would incorrectly
+        // label the function as one that takes 0 arguments. see CPE-6427
+        PrintOutMsg("%s\n", f->getLocationString(/*with_args=*/ false).c_str());
     }
 }
 

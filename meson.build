@@ -230,6 +230,7 @@ libgdb4_dbg_a = static_library(
   ],
   include_directories: [
     './src',
+    './src/bitset',
     './src/useful',
   ],
   dependencies: [

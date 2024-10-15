@@ -2179,7 +2179,7 @@ rep_set_t DbgSetVar(rec_set_t *set, const char *var, const char* val) {
 */
 rep_set_t DbgGetType(rec_set_t *set, const char *var, int isType) {
     auto request = CommandToSocProto(DBGCMD_GETTYPE, var, isType, set->getThreads());
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_TYPE, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_TYPE, DBGEV_STRING);
     return result;
 }
 
@@ -2635,23 +2635,23 @@ rep_set_t DbgSetThreadName(rec_set_t* set, const char* name)
 rep_set_t DbgFindThread(rec_set_t* set, const char* pattern)
 {
     auto request = CommandToSocProto(DBGCMD_FINDTHREAD,pattern);
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING);
     return result;
 }
 
 rep_set_t DbgThreadApply(rec_set_t* set, const char* op)
 {
     auto request = CommandToSocProto(DBGCMD_THREADAPPLY,op);
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING);
     return result;
 }
 
 // Set the current thread for subsequent commands
-rep_set_t DbgGetThreadInfo(rec_set_t* set, const char* threadList)
+rep_set_t DbgGetThreadInfo(rec_set_t* set, std::string_view threads_expr, bool anonymize, bool collect)
 {
-    auto request = CommandToSocProto(DBGCMD_GETTHREADINFO, threadList);
+    auto request = CommandToSocProto(DBGCMD_GETTHREADINFO, threads_expr, anonymize, collect);
 
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO, DBGEV_PACKEDTHREADINFO);
 
     return result;
 }
@@ -2666,7 +2666,7 @@ rep_set_t DbgSetSchedulerLocking(rec_set_t* set, const char* mode)
 rep_set_t DbgGetSchedulerLocking(rec_set_t* set)
 {
     auto request = CommandToSocProto(DBGCMD_GETSCHEDULERLOCKING);
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING);
     return result;
 }
 
@@ -2680,21 +2680,21 @@ rep_set_t DbgSetNonStop(rec_set_t* set, const char* mode)
 rep_set_t DbgGetNonStop(rec_set_t* set)
 {
     auto request = CommandToSocProto(DBGCMD_GETNONSTOP);
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING);
     return result;
 }
 
 rep_set_t DbgOmpd(rec_set_t* set, const char* op)
 {
     auto request = CommandToSocProto(DBGCMD_OMPD,op);
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING, DBGEV_OK);
     return result;
 }
 
 rep_set_t DbgCuda(rec_set_t* set, const char* op)
 {
     auto request = CommandToSocProto(DBGCMD_CUDA,op);
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_THREADINFO, DBGEV_OK);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING, DBGEV_OK);
     return result;
 }
 
@@ -3512,14 +3512,14 @@ rep_set_t DbgGetFrame(rec_set_t *set, bool verbose) {
 */
 rep_set_t DbgGetVars(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_GETVARS, set->getThreads());
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_VARS, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_VARS, DBGEV_STRING);
     return result;
 }
 
 // Return arguments of current frame
 rep_set_t DbgGetArgs(rec_set_t *set) {
     auto request = CommandToSocProto(DBGCMD_GETARGS, set->getThreads());
-    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING, DBGEV_THREADINFO);
+    rep_set_t result = DbgSendCmdAndRecvReply(set, request, DBGEV_STRING);
     return result;
 }
 

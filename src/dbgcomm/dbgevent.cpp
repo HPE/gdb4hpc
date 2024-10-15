@@ -189,7 +189,6 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
         case DBGEV_SOURCEPATH:
         case DBGEV_TYPE:
         case DBGEV_CMD:
-        case DBGEV_THREADINFO:
         case DBGEV_STRING:
             e->ev_string = strdup(event->ev_string);
             break;
@@ -265,11 +264,19 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
             break;
 
         case DBGEV_SYMBOLS:
-            e->ev_u.ev_u_symbols = event->ev_u.ev_u_symbols;
+            e->ev_u.ev_u_symbols = new dbgsymbols_t{*event->ev_u.ev_u_symbols};
             break;
 
         case DBGEV_OK:
         case DBGEV_NONE:
+            break;
+
+        case DBGEV_THREADINFO:
+            e->ev_u.ev_u_threadinfo = new dbgthreadinfo_t{event->ev_u.ev_u_threadinfo->clone()};;
+            break;
+
+        case DBGEV_PACKEDTHREADINFO:
+            e->ev_u.ev_u_packedthreadinfo = new dbgpackedthreadinfo_t{event->ev_u.ev_u_packedthreadinfo->clone()};;
             break;
     }
 
@@ -475,7 +482,6 @@ void FreeEvent(dbgevent_t *event) {
         case DBGEV_SOURCEPATH:
         case DBGEV_TYPE:
         case DBGEV_CMD:
-        case DBGEV_THREADINFO:
         case DBGEV_STRING:
             Free(event->ev_string);
             break;
@@ -544,6 +550,14 @@ void FreeEvent(dbgevent_t *event) {
             delete event->ev_u.ev_u_symbols;
             break;
 
+        case DBGEV_THREADINFO:
+            delete event->ev_u.ev_u_threadinfo;
+            break;
+
+        case DBGEV_PACKEDTHREADINFO:
+            delete event->ev_u.ev_u_packedthreadinfo;
+            break;
+
         // Anything that doesn't alloc should go here
         case DBGEV_EXIT:
         case DBGEV_OK:
@@ -577,7 +591,11 @@ dbgframe_t::dbgframe_t(const dbgframe_t& other)
 {}
 
 dbgframe_t *dbgframe_t::clone() const {
-    return new dbgframe_t(*this);
+    auto* result = new dbgframe_t(*this);
+    for (const auto& arg : m_args) {
+        result->addArg(Arg{arg});
+    }
+    return result;
 }
 
 dbgframe_t::dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
@@ -630,6 +648,67 @@ void dbgframe_t::setNextThreadFrame(dbgframe_t* next) {
     if (next != m_nextThreadFrame) {
         std::swap(next, m_nextThreadFrame);
         delete next;
+    }
+}
+
+std::string dbgframe_t::getLocationString(bool with_args) const {
+    auto result = std::ostringstream{};
+
+    if (m_loc.loc_func && m_loc.loc_file && m_loc.loc_line > 0) {
+        // fn (arg1=1,arg2=1) at file:line
+        result << m_loc.loc_func;
+
+        if (with_args) {
+            // XXX: we should always include args, but sometimes gdbmi doesn't give them to us.
+            // with_args should be removed when CPE-6427 is closed
+
+            result << " (";
+            auto first = true;
+
+            for (const auto& [name, value] : m_args) {
+                if (!first) {
+                    result << ", ";
+                }
+                result << name << "=" << value;
+                first = false;
+            }
+
+            result << ")";
+        }
+
+        result << " at " << m_loc.loc_file << ":" << m_loc.loc_line;
+
+    } else if (m_loc.loc_file) {
+        // fn from file.so
+        const auto fn = std::string{m_loc.loc_func ? m_loc.loc_func : "??"};
+        return fn + " from " + m_loc.loc_file;
+
+    } else {
+        return "??";
+    }
+
+    return result.str();
+}
+
+const std::vector<dbgframe_t::Arg>& dbgframe_t::getArgs() const {
+    return m_args;
+}
+
+void dbgframe_t::addArg(dbgframe_t::Arg&& arg) {
+    m_args.emplace_back(std::move(arg));
+}
+
+void dbgframe_t::anonymizePointerArgs() {
+    static std::regex ptrArgRE(R"(0x[[:xdigit:]]+)");
+    for (auto& [name, value] : m_args) {
+        value = std::regex_replace(value, ptrArgRE, "<ptr>");
+    }
+}
+
+void dbgframe_t::anonymizeIntArgs() {
+    static std::regex intArgRE(R"(\d+)");
+    for (auto& [name, value] : m_args) {
+        value = std::regex_replace(value, intArgRE, "<int>");
     }
 }
 
@@ -902,92 +981,6 @@ void PrintDbgError(dbgerr dbg_errno) {
     }
 }
 
-void PrintDbgEvent(dbgevent_t *event) {
-    switch (event->ev_event) {
-        case DBGEV_OK:
-            PrintOutMsg("DBGEV_OK");
-            break;
-        case DBGEV_BPHIT:
-            PrintOutMsg("DBGEV_BPHIT");
-            break;
-        case DBGEV_SIGNAL:
-            PrintOutMsg("DBGEV_SIGNAL");
-            break;
-        case DBGEV_HALT:
-            PrintOutMsg("DBGEV_HALT");
-            break;
-        case DBGEV_EXIT:
-            PrintOutMsg("DBGEV_EXIT");
-            break;
-        case DBGEV_STEP:
-            PrintOutMsg("DBGEV_STEP");
-            break;
-        case DBGEV_BPINFO:
-            PrintOutMsg("DBGEV_BPINFO");
-            break;
-        case DBGEV_BPSET:
-            PrintOutMsg("DBGEV_BPSET");
-            break;
-        case DBGEV_BPDEL:
-            PrintOutMsg("DBGEV_BPDEL");
-            break;
-        case DBGEV_CHECKPOINT:
-            PrintOutMsg("DBGEV_CHECKPOINT");
-            break;
-        case DBGEV_FRAME:
-            PrintOutMsg("DBGEV_FRAME");
-            break;
-        case DBGEV_LOC:
-            PrintOutMsg("DBGEV_LOC");
-            break;
-        case DBGEV_VARS:
-            PrintOutMsg("DBGEV_VARS");
-            break;
-        case DBGEV_TYPE:
-            PrintOutMsg("DBGEV_TYPE");
-            break;
-        case DBGEV_THREADINFO:
-            PrintOutMsg("DBGEV_THREADINFO");
-            break;
-        case DBGEV_STRING:
-            PrintOutMsg("DBGEV_STRING");
-            break;
-        case DBGEV_LIST:
-            PrintOutMsg("DBGEV_LIST");
-            break;
-        case DBGEV_SOURCEPATH:
-            PrintOutMsg("DBGEV_SOURCEPATH");
-            break;
-        case DBGEV_DATA:
-            PrintOutMsg("DBGEV_DATA");
-            break;
-        case DBGEV_DATA_CHUNK:
-            PrintOutMsg("DBGEV_CHUNK");
-            break;
-        case DBGEV_STAT:
-            PrintOutMsg("DBGEV_STAT");
-            break;
-        case DBGEV_VERS:
-            PrintOutMsg("DBGEV_VERS");
-            break;
-        case DBGEV_SOURCES:
-            PrintOutMsg("DBGEV_SOURCES");
-            break;
-        case DBGEV_CMD:
-            PrintOutMsg("DBGEV_CMD");
-            break;
-        case DBGEV_SYMBOLS:
-            PrintOutMsg("DBGEV_SYMBOLS");
-            break;
-        case DBGEV_NONE:
-            PrintOutMsg("DBGEV_NONE");
-            break;
-        case DBGEV_ERROR:
-            PrintOutMsg("DBGEV_ERROR");
-            break;
-    }
-}
-
 const char *EventToStr(const dbgevent_t *event) {
     return DbgevToStr(event->ev_event);
 }
@@ -1024,6 +1017,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_TYPE";
         case DBGEV_THREADINFO:
             return "DBGEV_THREADINFO";
+        case DBGEV_PACKEDTHREADINFO:
+            return "DBGEV_PACKEDTHREADINFO";
         case DBGEV_STRING:
             return "DBGEV_STRING";
         case DBGEV_LIST:
@@ -1093,4 +1088,183 @@ std::optional<std::pair<std::string,std::string>> ThreadMsgParser::nextResult() 
     res = std::make_pair(m_thread, m_str);
     m_str.clear();
     return res;
+}
+
+std::string dbgthreadinfo_t::Thread::getDisplayName() const {
+    if (!this->name.empty()) return this->name;
+    if (!this->target_id.empty()) return this->target_id;
+    return std::string{"thread "} + std::to_string(this->id);
+}
+
+dbgthreadinfo_t::Thread dbgthreadinfo_t::Thread::clone() const {
+    return Thread {
+        .id = this->id,
+        .target_id = this->target_id,
+        .details = this->details,
+        .name = this->name,
+        .state = this->state,
+        .core = this->core,
+        .frame = std::unique_ptr<dbgframe_t>(this->frame ? this->frame->clone() : nullptr),
+    };
+}
+
+bool dbgthreadinfo_t::Thread::operator==(const dbgthreadinfo_t::Thread& other) const {
+    // both null, or both non-null with same level and location
+    const auto equal_frames = (!this->frame && !other.frame) ||
+               (this->frame && other.frame &&
+                this->frame->getLevel() == other.frame->getLevel() &&
+                this->frame->getLoc() == other.frame->getLoc());
+
+    return
+        equal_frames &&
+        this->id == other.id &&
+        this->target_id == other.target_id &&
+        this->details == other.details &&
+        this->name == other.name &&
+        this->state == other.state &&
+        this->core == other.core
+    ;
+}
+
+void dbgthreadinfo_t::Thread::anonymize() {
+    // some of the fields cleared here aren't actually displayed on the client yet,
+    // but they are still transported and contribute to the network aggregation.
+
+    // addresses don't aggregate very well
+    if (this->frame) this->frame->clearAddress();
+
+    // this field is not usually set anyway
+    this->details = "";
+
+    // this field is never shown in the output anyway
+    this->core = -1;
+
+    // smooth over ptr arguments
+    if (this->frame) this->frame->anonymizePointerArgs();
+
+    // "AMDGPU Wave 1:1:1:1 (0,0,0)/0"
+    static std::regex amdGpuRE(R"(AMDGPU ((Thread)|(Wave)) [0-9:.,() ]+/[0-9]+)");
+
+    if (std::smatch match; std::regex_search(this->target_id, match, amdGpuRE)) {
+        // fix up the thread name. the Wave 1:1... portion is in target_id, but
+        // we also set the `name` field so "AMDGPU" gets shown to the user to
+        // differentiate gpu threads from cpu threads.
+        this->target_id = "AMDGPU";
+        this->name = this->name.empty() ? "AMDGPU" : "AMDGPU: " + this->name;
+
+        // On AMDGPU's remove integral arguments too.  The motiviation is that openMP is
+        // now adding an integer argument that is *different* for every single thread.
+        if (this->frame) this->frame->anonymizeIntArgs();
+
+    } else {
+        // otherwise target_id is where gdb puts "Thread 0xabcd01234 (LWP 12345)" and
+        // we don't need any of it
+        this->target_id = "";
+    }
+}
+
+dbgthreadinfo_t dbgthreadinfo_t::clone() const {
+    auto result = dbgthreadinfo_t{
+        .current_thread = this->current_thread,
+        .threads = {},
+    };
+
+    for (const auto &th : this->threads) {
+        result.threads.emplace_back(th.clone());
+    }
+
+    return result;
+}
+
+dbgpackedthreadinfo_t dbgthreadinfo_t::pack() const {
+    auto result = dbgpackedthreadinfo_t{
+        .current_thread = this->current_thread,
+        .threads = {},
+    };
+
+    // threads are id'd by their thread name and stringified frame. as new
+    // thread ids are discovered, this map will grow and point to the packed
+    // thread with the corresponding id in result.threads.
+    auto id_to_threadidx = std::map<std::string, size_t>{};
+
+    // bin by id
+    for (const auto& th : this->threads) {
+        // the current thread is special and will always get its own entry
+        if (th.id == this->current_thread) {
+            result.threads.emplace_back(dbgpackedthreadinfo_t::PackedThread{
+                .ids = SparseBitset::fromBits({static_cast<size_t>(th.id)}),
+                .name = th.getDisplayName(),
+                .frame = std::unique_ptr<dbgframe_t>(
+                    th.frame ? th.frame->clone() : nullptr)
+            });
+            continue;
+        }
+
+        // XXX: technically a thread with name "abc" and frame "xyz" would
+        // collide with a thread with name "ab" and frame "cxyz"
+        auto id =
+            th.getDisplayName() +
+            // running threads naturally don't have a location.
+            // we include args and assume that if we wanted to exclude them,
+            // .anonymize() would have already been called before .pack().
+            (th.frame ? th.frame->getLocationString(/*with_args=*/ true) : "");
+
+        if (auto it = id_to_threadidx.find(id); it != id_to_threadidx.end()) {
+            result.threads[it->second].ids.set(th.id);
+        } else {
+            id_to_threadidx.insert({id, result.threads.size()});
+
+            result.threads.emplace_back(dbgpackedthreadinfo_t::PackedThread{
+                .ids = SparseBitset::fromBits({ static_cast<size_t>(th.id) }),
+                .name = th.getDisplayName(),
+                .frame = std::unique_ptr<dbgframe_t>(
+                    th.frame ? th.frame->clone() : nullptr)
+            });
+        }
+    }
+
+    // sort by thread id, prioritizing the current thread
+    std::ranges::sort(result.threads, [&](const auto& l, const auto& r){
+        return
+            // assuming that the set with the current thread will only have one id
+            l.ids.firstSet() == static_cast<size_t>(this->current_thread) ||
+            l.ids.firstSet() < r.ids.firstSet()
+        ;
+    });
+
+    return result;
+}
+
+dbgpackedthreadinfo_t dbgpackedthreadinfo_t::clone() const {
+    auto result = dbgpackedthreadinfo_t{
+        .current_thread = this->current_thread,
+        .threads = {},
+    };
+
+    for (const auto &th : this->threads) {
+        result.threads.emplace_back(th.clone());
+    }
+
+    return result;
+}
+
+dbgpackedthreadinfo_t::PackedThread dbgpackedthreadinfo_t::PackedThread::clone() const {
+    return PackedThread {
+        .ids = SparseBitset{this->ids},
+        .name = this->name,
+        .frame = std::unique_ptr<dbgframe_t>(this->frame ? this->frame->clone() : nullptr),
+    };
+}
+
+bool dbgpackedthreadinfo_t::PackedThread::operator==(const dbgpackedthreadinfo_t::PackedThread& other) const {
+    // both null, or both non-null with same level and location
+    const auto equal_frames = (!this->frame && !other.frame) ||
+               (this->frame && other.frame &&
+                this->frame->getLevel() == other.frame->getLevel() &&
+                this->frame->getLoc() == other.frame->getLoc());
+
+    return
+        this->ids == other.ids &&
+        equal_frames
+    ;
 }

@@ -92,7 +92,7 @@ public:
     dbgevent_t *openSocket(const char *opset_name, int opset_size);
     dbgevent_t *closeSocket();
     dbgevent_t *setThread(const char* threadId);
-    dbgevent_t *getThreadInfo(const char* threadId);
+    dbgevent_t *getThreadInfo(const char* threadId, bool anonymize, bool collect);
     dbgevent_t *setThreadName(const char* name);
     dbgevent_t *findThread(const char* pattern);
     dbgevent_t *threadApply(const char* op);

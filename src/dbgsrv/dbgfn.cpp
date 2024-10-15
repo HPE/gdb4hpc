@@ -348,9 +348,9 @@ dbgevent_t* DbgSetThread(const char* threadId) {
     return DbgBackendSW->setThread(threadId);
 }
 
-dbgevent_t* DbgGetThreadInfo(const char* threadId) {
+dbgevent_t* DbgGetThreadInfo(const char* threadId, bool anonymize, bool collect) {
     DBG_READY();
-    return DbgBackendSW->getThreadInfo(threadId);
+    return DbgBackendSW->getThreadInfo(threadId, anonymize, collect);
 }
 
 dbgevent_t *DbgSetThreadName(const char* name) {

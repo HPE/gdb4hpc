@@ -351,8 +351,11 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
 
             case DBGCMD_GETTHREADINFO: {
                 std::string threadId;
+                bool anonymize, collect;
                 is.get(threadId);
-                e = DbgGetThreadInfo(threadId.c_str());
+                is.get(anonymize);
+                is.get(collect);
+                e = DbgGetThreadInfo(threadId.c_str(), anonymize, collect);
                 break;
             }
 

@@ -5,7 +5,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2024 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -27,7 +27,6 @@ public:
     dbgevent_t *init(int *dfd, int *iofd, char **env);
     dbgevent_t *startup();
     int read(int);
-    bool bufferReady();
     int progioHook(int);   //!!! careful - potentially unimplemented
     dbgevent_t *setLineBreak(int id, const int allowPending, const char *file, int lno, const char* threadId, const dbgcomm_info *commInfo);
     dbgevent_t *setFuncBreak(int id, const int allowPending, const char *file, const char *func, const char* threadId, const dbgcomm_info *commInfo);
@@ -143,13 +142,32 @@ public:
     MIEvent* waitForAsyncEvent();
     dbgevent_t* waitAndProcessAsyncEvent();
     int flushAsyncEvents();
-    static void setAsyncEvent(MIEvent* e);
+
+    // sets the internally cached MIEvent. not really part of the DbgGdbMI user
+    // API - typically only called by libmi as a callback as the initial
+    // communication that an async event happened.
+    void setAsyncEvent(MIEvent* e);
+
+    // set the internal function that will be used when releaseAsyncEvent is called.
+    void asyncCheck(std::function<dbgevent_t*()>);
+    void threadAsyncCheck(std::function<dbgevent_t*()>);
+
+    // process the internally cached MIEvent with the function previously
+    // supplied via [Thread]AsyncCheck and return the result. frees the
+    // internally cached MIEvent and installed callback.
+    //
+    // the caller of this function owns the returned dbgevent_t*.
+    //
+    // if there is no cached MIEvent to process and/or no installed callback, do
+    // nothing and return nullptr.
+    dbgevent_t* releaseAsyncEvent();
+
     bool isRunning() const;
     bool isAtExit() const;
     
     void setIsInNonStopMode(bool inNonStop);
     void setSourceOpen(bool doOpen);
-    dbgevent_t* waitEvent(dbgevent_t *e);
+    dbgevent_t* waitEvent();
 
 private:
     class Initializer;
@@ -193,6 +211,12 @@ private:
 
     // prefer ensurePybe instead of accessing this directly
     std::unique_ptr<Pybe> m_pybe;
+
+    // set by the callback fn given to MI
+    MIEvent* m_pending_event = nullptr;
+
+    // set by [Thread]AsyncCheck
+    std::function<dbgevent_t*()> m_async_event_callback = nullptr;
 };
 
 class DbgGdbMI::Initializer {

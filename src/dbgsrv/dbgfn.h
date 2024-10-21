@@ -21,8 +21,6 @@
 
 class dbgcomm_info;
 
-extern void AsyncCheck(dbgevent_t *(*)(dbgevent_t *), dbgevent_t *);
-
 extern int DbgSetBackend(const char *);
 extern dbgevent_t *DbgInit(int *, int *, char **);
 extern dbgevent_t *DbgAttach(int, const char *, const char*, char **, const char *);
@@ -32,7 +30,6 @@ extern dbgevent_t *DbgTargetRemote(const char *);
 extern void DbgFinalize(void);
 extern int DbgProgIOHook(int);
 extern int DbgRead(int);
-extern int DbgBufferReady(void);
 extern dbgevent_t *DbgStartup(void);
 extern dbgevent_t *DbgSetLineBreak(int id, int, const char *, int, const char*, const dbgcomm_info *);
 extern dbgevent_t *DbgSetFuncBreak(int id, int, const char *, const char *, const char*, const dbgcomm_info *);
@@ -104,5 +101,7 @@ extern dbgevent_t *DbgPyBESetPython(PyMode setting);
 extern dbgevent_t *DbgPyBEInject();
 extern dbgevent_t *DbgPyBEGetGIL();
 extern dbgevent_t *DbgPyBEAttach();
+
+dbgevent_t* DbgReleaseAsyncEvent();
 
 #endif /* !_DBGFN_H */

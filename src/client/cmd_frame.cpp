@@ -35,7 +35,10 @@ void PrintFrameSet(const char *setname, Bitset *group, const dbgframe_t *frame) 
         // we omit args because they are not included in the output of the gdbmi
         // -stack-info-frame command and trying to print them would incorrectly
         // label the function as one that takes 0 arguments. see CPE-6427
-        PrintOutMsg("%s\n", f->getLocationString(/*with_args=*/ false).c_str());
+        //
+        // we can always set with_addr to true since the address will be absent
+        // unless the user uses the -v option in the frame command.
+        PrintOutMsg("%s\n", f->getLocationString(/*with_args=*/ false, /*with_addr=*/ true).c_str());
     }
 }
 

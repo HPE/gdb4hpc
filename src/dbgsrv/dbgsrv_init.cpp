@@ -98,7 +98,7 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
         MISessionSetDebug(0);
     }
 
-    MISessionRegisterEventCallback(m_session, event_callback, nullptr);
+    MISessionRegisterEventCallback(m_session, event_callback, &m_dbg);
     MISessionRegisterConsoleCallback(m_session, console_callback);
     MISessionRegisterLogCallback(m_session, log_callback);
     MISessionRegisterTargetCallback(m_session, target_callback);
@@ -612,9 +612,13 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 }
 
 /* GDBMI callback functions */
-static void event_callback(void* /*ctx*/, MIEvent *e) {
+static void event_callback(void* /* actually a DbgGdbMI* */ gdbmi, MIEvent *e) {
     DVPRINT("*** Dbg %s, %s, e->type %d\n", __FILE__, __func__, e->type);
-    DbgGdbMI::setAsyncEvent(e);
+    if (gdbmi) {
+        static_cast<DbgGdbMI*>(gdbmi)->setAsyncEvent(e);
+    } else {
+        DVPRINT("Error in event_callback, no DbgGdbMI*?\n");
+    }
 }
 
 static void console_callback(char *str) {

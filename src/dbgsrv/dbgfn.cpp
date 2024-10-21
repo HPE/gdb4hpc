@@ -99,10 +99,6 @@ int DbgRead(int fd) {
     return DbgBackendSW->read(fd);
 }
 
-int DbgBufferReady(void) {
-    return DbgBackendSW->bufferReady();
-}
-
 /*
 ** The following macros are used below - note that the debug backend needs to be
 ** started and init'ed before calling these.
@@ -470,6 +466,12 @@ dbgevent_t *DbgPyBEGetGIL() {
 dbgevent_t *DbgPyBEAttach() {
     DBG_READY();
     return DbgBackendSW->pyBEAttach();
+}
+
+dbgevent_t* DbgReleaseAsyncEvent() {
+    // we don't need to check DBG_READY or DBG_CHECK here since it's okay
+    // to do this even if gdb is not ready for a command or the app is running
+    return DbgBackendSW->releaseAsyncEvent();
 }
 
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {

@@ -206,10 +206,12 @@ public:
     void setNextThreadFrame(dbgframe_t* next);
 
     // get a human readable string describing the location of the frame, e.g.
-    // "in fn (x=2,y=4) at filename:XX", or other forms depending on what
-    // information is available in the frame. set `with_args` to false to omit
-    // function arguments. (see CPE-6427 for why you might want to do that)
-    std::string getLocationString(bool with_args) const;
+    // "[0xaaaa] in fn [(x=2,y=4)] at filename:XX", or other forms depending on what
+    // information is available in the frame.
+    //
+    // set `with_args` to false to omit function arguments. (see CPE-6427 for why you might want to do that)
+    // set `with_addr` to true to include the frame's address.
+    std::string getLocationString(bool with_args, bool with_addr) const;
 
     dbgframe_t(int level, const dbgloc_t& loc, dbgframe_t* next,
                const char* threads, dbgframe_t* nextThreadFrame);

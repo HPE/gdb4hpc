@@ -81,8 +81,6 @@ const struct option long_opts[] = {
 int Shutdown = 0;
 int my_rank;
 int sock_fd;
-dbgevent_t *(*AsyncRtn)(dbgevent_t *) = NULL;
-dbgevent_t *AsyncEvent;
 int DbgFD;
 int IOBackendFD = -1;
 int IOClientFD;
@@ -451,22 +449,20 @@ void Server(void) {
     DVPRINT("dbgsrv: Server() main loop has started!\n");
 
     for (;;) {
-        // DVPRINT("dbgsrv: Main loop\n");
-        
-        // Wait for an asynchronous event if a asynch handler has been
-        // installed
-        if (AsyncRtn && (DbgBufferReady() > 0)) {
-            auto e = (*AsyncRtn)(AsyncEvent);
-            if (e->ev_event != DBGEV_NONE) {
+        if (auto* ev = DbgReleaseAsyncEvent()) {
+            if (ev && ev->ev_event != DBGEV_NONE) {
                 DVPRINT("Handle asynch callback.\n");
-                DbgEventCB(e);
+                // assuming DbgEventCB will free ev
+                DbgEventCB(ev);
                 DVPRINT("Asynch callback finished.\n");
-                AsyncRtn = NULL;
             } else {
+                // XXX: emulating legacy behavior. surely it would be better to just pass the
+                // DBGEV_NONE to DbgEventCB and let it be handled there...
                 DVPRINT("Ignoring null asynch event\n");
+                FreeEvent(ev); // nullptr is safe here
             }
         }
-        
+
         // get common and backend protocol file descriptors
         auto readfds = DbgGetFdSet(DbgFD, IOClientFD, IOBackendFD);
 
@@ -589,17 +585,6 @@ char *MakeStr(int argc, char *argv[]) {
     }
 
     return s;
-}
-
-/*
-** Enable async reading from debugger.
-*/
-void AsyncCheck(dbgevent_t *(*rtn)(dbgevent_t *), dbgevent_t *event) {
-    if (AsyncRtn != NULL) /* XXX */
-        return;
-
-    AsyncRtn = rtn;
-    AsyncEvent = event;
 }
 
 /*

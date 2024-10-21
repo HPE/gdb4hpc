@@ -69,9 +69,6 @@ static dbgstat Status;
 static dbgbp_t *CurrBP = (dbgbp_t *)NULL;
 static std::vector<dbgbp_t*> BP;
 
-static int AsynchEventWaiting = 0;
-static MIEvent *PendingEvent = NULL;
-
 // true if the debugger is actually in non-stop mode, the variable non_stop_mode
 // just indicates it was *requested*
 static bool isInNonStopMode = false;
@@ -91,15 +88,14 @@ static int dbgsrv_fd;
 
 extern appInfo_t other_app;
 
-static dbgevent_t *WaitEvent(dbgevent_t *e);
-static dbgevent_t *WaitOmpdEvent(dbgevent_t *e);
+static dbgevent_t *WaitEvent();
+static dbgevent_t *WaitOmpdEvent();
 static dbgevent_t *CheckBreak(int feId, MICommand *, const dbgcomm_info *, int& beId);
 
 static dbgevent_t *threadEventToFrame(dbgevent_t* threadEvent);
 static dbgframe_t *MakeFrameFromMIFrame(MIFrame* miFrame, bool keepAddr=false);
 
 static std::string threadIdsToString(const std::vector<int>& ids);
-static void ThreadAsyncCheck(dbgevent_t *(*)(dbgevent_t *) , dbgevent_t *);
 
 enum free_cmd_type { NO_FREE_CMD, FREE_CMD };
 static dbgevent_t *NewMIErrorEvent(MICommand* cmd, free_cmd_type = NO_FREE_CMD, dbgerr=DBGERR_DEBUGGER);
@@ -191,24 +187,10 @@ int DbgGdbMI::read(int) {
     }
 
     if (error) {
-        // Trigger the AsynchEventWaiting condition. WaitEvent will detect that
-        // MIErrorNum is set and will return an error event.
-        AsynchEventWaiting = 1;
-        PendingEvent = NULL;
-
         return 0;
     }
 
     return 1;
-}
-
-/*
-** The main Server loop of dbgsrv.c calls this function to check whether we
-** are ready to process the registered asynch event or not.
-*/
-bool DbgGdbMI::bufferReady(void) {
-    // DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    return AsynchEventWaiting; /* Modified by event_callback(). */
 }
 
 /*
@@ -963,7 +945,7 @@ dbgevent_t *DbgGdbMI::go(bool all, const char* threads) {
     }
 
     // set up catch for the async response.
-    ThreadAsyncCheck(WaitEvent, nullptr);
+    threadAsyncCheck(WaitEvent);
 
     Status = DBGSTAT_RUNNING;
 
@@ -997,7 +979,7 @@ dbgevent_t *DbgGdbMI::finishFunc(const char* threads) {
         MICommandFree(cmd);
     }
 
-    ThreadAsyncCheck(WaitEvent, nullptr);
+    threadAsyncCheck(WaitEvent);
 
     Status = DBGSTAT_RUNNING;
 
@@ -1051,7 +1033,7 @@ dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
     }
 
     // register the method for catching the response when it comes back
-    ThreadAsyncCheck(WaitEvent, nullptr);
+    threadAsyncCheck(WaitEvent);
 
     Status = DBGSTAT_RUNNING;
 
@@ -2246,15 +2228,15 @@ dbgevent_t *DbgGdbMI::ompd(const char* inOpp) {
 
     if (isRunning) {
         DVPRINT("RUNNING : calling ThreadAsyncCheck\n");
-        ThreadAsyncCheck(WaitOmpdEvent, nullptr);
+        threadAsyncCheck(WaitOmpdEvent);
         Status = DBGSTAT_RUNNING;
     }
     return e;
 }
 
-static dbgevent_t *WaitOmpdEvent(dbgevent_t* inEvent) {
+static dbgevent_t *WaitOmpdEvent() {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    auto e = WaitEvent(inEvent);
+    auto* e = WaitEvent();
 
     // ompd init set an internal breakpoint and runs to it, so gdb4hpc is going to get
     // an event on a breakpoint is doesn't know anything about.
@@ -2704,7 +2686,7 @@ dbgevent_t* DbgGdbMI::pyBEStep(bool step_in) {
         SendMICommand(GDBMISession, cmd.get());
         if (!MICommandResultOK(cmd.get())) return NewErrorEvent(DBGERR_DEBUGGER, "Failed to start step");
 
-        ThreadAsyncCheck(WaitEvent, nullptr);
+        threadAsyncCheck(WaitEvent);
 
         Status = DBGSTAT_RUNNING;
     }
@@ -2732,7 +2714,7 @@ dbgevent_t* DbgGdbMI::pyBEFinish() {
         SendMICommand(GDBMISession, cmd.get());
         if (!MICommandResultOK(cmd.get())) return NewErrorEvent(DBGERR_DEBUGGER, "Failed to finish");
 
-        ThreadAsyncCheck(WaitEvent, nullptr);
+        threadAsyncCheck(WaitEvent);
 
         Status = DBGSTAT_RUNNING;
     }
@@ -3324,7 +3306,7 @@ dbgevent_t *DbgGdbMI::launch(const char *, int, const char *,
 
     Status = DBGSTAT_STOPPED;
 
-    AsyncCheck(WaitEvent, nullptr);
+    asyncCheck(WaitEvent);
 
     return e;
 }
@@ -3645,7 +3627,7 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
 
         case MIResultRecordRUNNING:
             // FIXME: Use a custom WaitEvent
-            AsyncCheck(WaitEvent, nullptr);
+            asyncCheck(WaitEvent);
             break;
 
         case MIResultRecordERROR:
@@ -3687,11 +3669,11 @@ dbgevent_t *DbgGdbMI::directCmd(int cmd_argc, char **cmd_argv) {
 ** a non-terminating command (eg. run, step, etc.).
 ** Checks to see what caused the termination.
 */
-static dbgevent_t *WaitEvent(dbgevent_t *e) {
-    return DbgBackendGDBMI.waitEvent(e);
+static dbgevent_t *WaitEvent() {
+    return DbgBackendGDBMI.waitEvent();
 }
 
-dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
+dbgevent_t* DbgGdbMI::waitEvent() {
 
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
@@ -3699,16 +3681,14 @@ dbgevent_t* DbgGdbMI::waitEvent(dbgevent_t* e) {
     numBackgroundThreads = 0;
 
     dbgbp_t *bp = NULL;
-    MIEvent *evt = PendingEvent;
-    
+    MIEvent *evt = m_pending_event;
+    m_pending_event = NULL;
+
     static auto lastKnownFrame = std::make_unique<dbgframe_t>(
         0, dbgloc_t{nullptr, nullptr, nullptr, 0}, nullptr, nullptr, nullptr
     );
 
-    if (e == (dbgevent_t *)NULL) e = NewEvent(DBGEV_NONE);
-
-    AsynchEventWaiting = 0;
-    PendingEvent = NULL;
+    auto* e = NewEvent(DBGEV_NONE);
 
     // check for MI error condition
     if (MIGetError()) {
@@ -4383,10 +4363,19 @@ static int thread_stopped_callback(int) {
 // gdb as those threads stop.  (i.e they've completed their "next" or "step").
 // Once we've gotten the single response, or the expected multiple responses from gdb, the
 // server look will call \a rtn with the event \a event.
-static void ThreadAsyncCheck(dbgevent_t *(*rtn)(dbgevent_t *), dbgevent_t *event) {
+void DbgGdbMI::threadAsyncCheck(std::function<dbgevent_t*()> rtn) {
     auto cb = numBackgroundThreads ? thread_stopped_callback : nullptr;
     MISessionRegisterThreadStoppedCallback(GDBMISession, cb);
-    AsyncCheck(rtn, event);
+    asyncCheck(rtn);
+}
+
+void DbgGdbMI::asyncCheck(std::function<dbgevent_t*()> rtn) {
+    // XXX: seems like a huge footgun... but just porting legacy behavior for now
+    if (m_async_event_callback != nullptr) {
+        return;
+    }
+
+    m_async_event_callback = rtn;
 }
 
 MIEvent* DbgGdbMI::waitForAsyncEvent()
@@ -4395,16 +4384,15 @@ MIEvent* DbgGdbMI::waitForAsyncEvent()
     Status = DBGSTAT_RUNNING;
 
     // wait for the asynch command to complete
-    while (!bufferReady()) {
+    while (m_pending_event == nullptr) {
         MISessionProgress(GDBMISession);
     }
 
     // grab the pending asynch
     MIEvent* evt = nullptr;
-    std::swap(PendingEvent, evt);
+    std::swap(m_pending_event, evt);
 
     // set the state back to default
-    AsynchEventWaiting = 0;
     Status = DBGSTAT_STOPPED;
 
     return evt;
@@ -4412,8 +4400,8 @@ MIEvent* DbgGdbMI::waitForAsyncEvent()
 
 dbgevent_t* DbgGdbMI::waitAndProcessAsyncEvent()
 {
-    while (!bufferReady()) MISessionProgress(GDBMISession);
-    return WaitEvent(nullptr);
+    while (m_pending_event == nullptr) MISessionProgress(GDBMISession);
+    return WaitEvent();
 }
 
 // keep taking async events from MI until none are waiting.
@@ -4424,27 +4412,39 @@ int DbgGdbMI::flushAsyncEvents() {
 
     int flushed = 0;
 
-    while (bufferReady()) {
+    while (m_pending_event != nullptr) {
         flushed++;
-        DVPRINT("Flushed event with type %d\n", PendingEvent->type);
-        MIEventFree(PendingEvent);
-        PendingEvent = nullptr;
-        AsynchEventWaiting = 0;
+        DVPRINT("Flushed event with type %d\n", m_pending_event->type);
+        MIEventFree(m_pending_event);
+        m_pending_event = nullptr;
 
         // see if we get another
         MISessionProgress(GDBMISession);
     }
 
-    AsynchEventWaiting = 0;
     Status = DBGSTAT_STOPPED;
 
     return flushed;
 }
 
 void DbgGdbMI::setAsyncEvent(MIEvent* e) {
-    AsynchEventWaiting = 1;
-    std::swap(PendingEvent, e);
+    std::swap(m_pending_event, e);
     if (e) MIEventFree(e);
+}
+
+dbgevent_t* DbgGdbMI::releaseAsyncEvent() {
+    if (m_pending_event && m_async_event_callback) {
+        // XXX: legacy behavior is that m_async_event_callback (always set to WaitEvent)
+        // consumes m_pending_event via member access rather than receiving it as an argument
+        auto* result = m_async_event_callback();
+        // XXX: resetting the callback after a single use seems wrong, but just
+        // emulating legacy behavior for now
+        m_async_event_callback = nullptr;
+        return result;
+    }
+
+    // no event to report
+    return nullptr;
 }
 
 bool DbgGdbMI::isRunning() const { return Status == DBGSTAT_RUNNING; }

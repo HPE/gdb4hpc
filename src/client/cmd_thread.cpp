@@ -218,7 +218,7 @@ static int cmd_info_threads_cmd_console(rec_set_t *rec_set, int argc, const char
                     if (thr.state == State::Running) {
                         return "(running)";
                     } else if (thr.frame) {
-                        return thr.frame->getLocationString(/*with_args=*/ true);
+                        return thr.frame->getLocationString(/*with_args=*/ true, /*with_addr=*/ false);
                     } else {
                         // can happen when frame pointers get optimized out
                         return "??";
@@ -241,7 +241,7 @@ static int cmd_info_threads_cmd_console(rec_set_t *rec_set, int argc, const char
             for (const auto& thr : tinfo.threads) {
                 const auto frame = [&]() -> std::string {
                     if (thr.frame) {
-                        return thr.frame->getLocationString(/*with_args=*/ true);
+                        return thr.frame->getLocationString(/*with_args=*/ true, /*with_addr=*/ false);
                     } else {
                         // running threads don't have any frames
                         return "(running)";

@@ -651,8 +651,12 @@ void dbgframe_t::setNextThreadFrame(dbgframe_t* next) {
     }
 }
 
-std::string dbgframe_t::getLocationString(bool with_args) const {
+std::string dbgframe_t::getLocationString(bool with_args, bool with_addr) const {
     auto result = std::ostringstream{};
+
+    if (with_addr && m_loc.loc_addr && m_loc.loc_addr[0] != '\0') {
+        result << m_loc.loc_addr << " in ";
+    }
 
     if (m_loc.loc_func && m_loc.loc_file && m_loc.loc_line > 0) {
         // fn (arg1=1,arg2=1) at file:line
@@ -1207,7 +1211,7 @@ dbgpackedthreadinfo_t dbgthreadinfo_t::pack() const {
             // running threads naturally don't have a location.
             // we include args and assume that if we wanted to exclude them,
             // .anonymize() would have already been called before .pack().
-            (th.frame ? th.frame->getLocationString(/*with_args=*/ true) : "");
+            (th.frame ? th.frame->getLocationString(/*with_args=*/ true, /*with_addr=*/ false) : "");
 
         if (auto it = id_to_threadidx.find(id); it != id_to_threadidx.end()) {
             result.threads[it->second].ids.set(th.id);

@@ -528,6 +528,7 @@ dbgsrv = executable(
     libgdb4_bitset_a,
   ],
   install: true,
+  install_rpath: '$ORIGIN/../lib',
   install_dir: './libexec',
 )
 

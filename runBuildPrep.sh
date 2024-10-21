@@ -107,6 +107,7 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
         libarchive \
         libtool \
         libuuid-devel \
+        libzstd-devel \
         m4 \
         make \
         mksh \

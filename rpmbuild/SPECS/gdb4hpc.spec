@@ -338,6 +338,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/fortran
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python
+%{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda
@@ -452,6 +453,13 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/src/python/sleep.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/sleep.py
 %{__cp} -a %{tests_source_dir}/function/src/python/spin.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/spin.py
 
+%{__cp} -a %{tests_source_dir}/function/src/cuda/simpleMPI.cpp       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.cpp
+%{__cp} -a %{tests_source_dir}/function/src/cuda/simpleMPI.h         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.h
+%{__cp} -a %{tests_source_dir}/function/src/cuda/simpleMPI.cu        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.cu
+%{__cp} -a %{tests_source_dir}/function/src/cuda/simpleMPI_error.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI_error.cpp
+%{__cp} -a %{tests_source_dir}/function/src/cuda/simpleMPI_error.h   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI_error.h
+%{__cp} -a %{tests_source_dir}/function/src/cuda/simpleMPI_error.cu  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI_error.cu
+
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_scalars.in       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_expressions.in   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/assert_arrays.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_arrays.in
@@ -531,6 +539,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cudaGpu.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/qsub.template           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/rocm/pinoak-login1.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda/pinoak-login1.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pinoak-login1.sh
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda/simpleMPI_pinoak-login1.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/simpleMPI_pinoak-login1.sh
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/rocm/pea2k.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pea2k.sh
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda/pegasus.sh         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pegasus.sh
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/raja_views.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_views.in
@@ -569,6 +579,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_step_next_finish.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_step_next_finish.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_prompt.in                  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_prompt.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_prompt.in                  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_prompt.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda_warnings.in                         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_warnings.in
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %{__cp} -a %{tests_source_dir}/function/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
@@ -796,6 +807,7 @@ fi
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/raja
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python
+%dir %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm
 %dir %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda
@@ -907,6 +919,13 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/sleep.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/spin.py
 
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.h
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.cu
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI_error.cpp
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI_error.h
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI_error.cu
+
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_scalars.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_expressions.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/assert_arrays.in
@@ -986,6 +1005,8 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pinoak-login1.sh
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/simpleMPI_pinoak-login1.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pea2k.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pegasus.sh
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/raja_views.in
@@ -1023,6 +1044,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_step_next_finish.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_prompt.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_prompt.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_warnings.in
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/team_vector_loop.cpp

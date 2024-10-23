@@ -1715,6 +1715,14 @@ Description:\
 Set debugger to bypass certain internal checks. This mode should only
 be modified by maintainers.
 
+## maint sync `cmd_maint_sync_help`
+Summary: Wait for an async response from each rank.\
+Usage: maint sync\
+
+Description:\
+If synchronous event mode is set (maint set sync on), wait for an async
+response from all ranks. No-op if maint set sync is off.
+
 ## maint set sync `cmd_maint_set_sync_help`
 Summary: Set synchronous event mode.\
 Usage: maint set sync [on|off]\

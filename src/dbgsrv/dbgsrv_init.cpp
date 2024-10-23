@@ -33,9 +33,9 @@
 extern std::function<void(void)> AtServerExit;
 
 static void event_callback(void*, MIEvent *);
-static void console_callback(char *);
-static void log_callback(char *);
-static void target_callback(char *);
+static void console_callback(void*, char *);
+static void log_callback(void*, char *);
+static void target_callback(void*, char *);
 static void notification_callback(void*, char *, MIList *);
 static void Finish(int);
 static dbgbp_t *get_dbgbp(MICommand *);
@@ -99,9 +99,9 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
     }
 
     MISessionRegisterEventCallback(m_session, event_callback, &m_dbg);
-    MISessionRegisterConsoleCallback(m_session, console_callback);
-    MISessionRegisterLogCallback(m_session, log_callback);
-    MISessionRegisterTargetCallback(m_session, target_callback);
+    MISessionRegisterConsoleCallback(m_session, console_callback, nullptr);
+    MISessionRegisterLogCallback(m_session, log_callback, &m_dbg);
+    MISessionRegisterTargetCallback(m_session, target_callback, nullptr);
     MISessionRegisterNotifyCallback(m_session, notification_callback, nullptr);
 
     // set the gdb path to use standard or gpu specific gdb
@@ -621,15 +621,28 @@ static void event_callback(void* /* actually a DbgGdbMI* */ gdbmi, MIEvent *e) {
     }
 }
 
-static void console_callback(char *str) {
+static void console_callback(void* /*ctx*/, char *str) {
     DVPRINT("*** Dbg %s, %s, str %s\n", __FILE__, __func__, str);
 }
 
-static void log_callback(char *str) {
-    DVPRINT("*** Dbg %s, %s, str %s\n", __FILE__, __func__, str);
+static void log_callback(void* /*actually a DbgGdbMI* */ gdbmi, char *str) {
+    DVPRINT("*** Dbg %s, %s, gdbmi %p, str %s\n", __FILE__, __func__, gdbmi, str);
+
+    constexpr auto cuda_api_error = std::string_view{"warning: Cuda API error detected:"};
+
+    if (gdbmi && str && ::strncmp(cuda_api_error.data(), str, cuda_api_error.size()) == 0) {
+        auto e = NewEvent(DBGEV_STRING);
+        auto str_len = ::strlen(str);
+        // libmi will include a two character newline {'\', 'n'} on the end of the message,
+        // so omit the last two characters
+        e->ev_u.ev_u_string = ::strndup(str, str_len - 2);
+        static_cast<DbgGdbMI*>(gdbmi)->injectAsyncEvent(e);
+    } else {
+        DVPRINT("Error in event_callback, nullptr input\n");
+    }
 }
 
-static void target_callback(char *str) {
+static void target_callback(void* /*ctx*/, char *str) {
     DVPRINT("*** Dbg %s, %s, str %s\n", __FILE__, __func__, str);
 }
 

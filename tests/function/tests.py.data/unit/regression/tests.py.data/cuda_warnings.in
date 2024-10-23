@@ -1,0 +1,11 @@
+0: maint set sync on
+0: launch $a{2} --gpu --launcher-args="<LAUNCH_ARGS>" ./bin/CRAY/cuda/simpleMPI_with_error.x
+Launch complete.
+a{0..1}: Initial breakpoint%.*%
+3: continue
+<$a>: Running on 2 nodes
+a{0..1}: warning: Cuda API error detected: cudaMalloc returned (0x1)
+<$a>: Average of square roots is: 0.5
+a{0..1}: The application has reached an exit breakpoint.
+5: q
+Shutting down debugger and killing application for 'a'.

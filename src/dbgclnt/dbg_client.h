@@ -375,6 +375,10 @@ extern void DbgResetStatusChange(void);
 extern void DbgSetSyncCommandTimeout(std::chrono::seconds seconds);
 extern std::chrono::seconds DbgGetSyncCommandTimeout();
 
+// if in batch sync mode (`maint set sync on`), wait for an async response from all ranks in `rec_set`.
+// no-op if not in batch or sync mode.
+void DbgSync(rec_set_t* rec_set);
+
 // Used by higher layers to check if we are currently waiting on an asynchronous
 // event
 extern int DbgCheckForAsyncPending(void);

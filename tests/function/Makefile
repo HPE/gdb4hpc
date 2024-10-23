@@ -52,6 +52,11 @@ RAJA_TESTS = \
 	./bin/CRAY/raja/reductions_solution.x \
 	./bin/CRAY/raja/view-layout-decomp_solution.x
 
+# simpleMPI will also build simpleMPI_error.x
+CUDA_TESTS = \
+	./bin/CRAY/cuda/$(HOSTNAME)_simpleMPI.x \
+	./bin/CRAY/c/simple_gpu-cuda.x
+
 # OpenMP OMPD tests
 OMPD_TESTS = \
    ./bin/CRAY/c/c_ompd.x
@@ -102,16 +107,20 @@ CFLAGS = -g -O0 -I./include $(MPI_INC)
 CXXFLAGS = -g -O0 -I./include $(MPI_INC)
 FFLAGS = -g -O0 $(MPI_INC)
 
+# programming environments
 gnu: all
 amd: all
 nvidia: all
 intel: all
+
+cuda: $(CUDA_TESTS)
 
 dirs:
 	mkdir -p ./bin/${PE_ENV}/c
 	mkdir -p ./bin/${PE_ENV}/C++
 	mkdir -p ./bin/${PE_ENV}/fortran
 	mkdir -p ./bin/${PE_ENV}/kokkos
+	mkdir -p ./bin/${PE_ENV}/cuda
 
 clean:
 	rm -rf ./bin
@@ -283,6 +292,12 @@ CUDA_SCRIPT = ./tests.py.data/cuda/$(HOSTNAME).sh
 		$(ROCM_SCRIPT) make $< $@; \
 	fi
 
+CUDA_SIMPLEMPI_SCRIPT = ./tests.py.data/cuda/simpleMPI_$(HOSTNAME).sh
+
+./bin/CRAY/cuda/$(HOSTNAME)_simpleMPI.x : dirs ./src/cuda/simpleMPI.cpp ./src/cuda/simpleMPI.h ./src/cuda/simpleMPI.cu
+	if [ -f $(CUDA_SIMPLEMPI_SCRIPT) ] ; then \
+		$(CUDA_SIMPLEMPI_SCRIPT) make $< $@; \
+	fi
 
 raja: $(RAJA_TESTS)
 

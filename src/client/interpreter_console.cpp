@@ -572,6 +572,11 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
                                   "%s\n", DbgEventErrorStr(ev_set.event()));
             break;
 
+        case DBGEV_STRING:
+            m_printer.print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
+                                  "%s\n", ev_set.event()->ev_u.ev_u_string);
+            break;
+
         case DBGEV_OK:
             break;
 

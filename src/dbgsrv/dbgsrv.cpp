@@ -449,7 +449,7 @@ void Server(void) {
     DVPRINT("dbgsrv: Server() main loop has started!\n");
 
     for (;;) {
-        if (auto* ev = DbgReleaseAsyncEvent()) {
+        for (auto* ev : DbgReleaseAsyncEvents()) {
             if (ev && ev->ev_event != DBGEV_NONE) {
                 DVPRINT("Handle asynch callback.\n");
                 // assuming DbgEventCB will free ev

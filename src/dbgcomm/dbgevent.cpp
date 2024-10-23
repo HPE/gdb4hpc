@@ -428,6 +428,12 @@ static event_equiv CompareEvErr(dbgerr_t e1, dbgerr_t e2) {
     return EV_EQUAL;
 }
 
+static event_equiv CompareEvString(const char* s1, const char* s2) {
+    if (!s1 && !s2) return EV_EQUAL;
+    if (!s1 || !s2) return EV_DIFF;
+    return (::strcmp(s1, s2) == 0) ? EV_EQUAL : EV_DIFF;
+}
+
 event_equiv CompareEvents(const dbgevent_t *ev1, const dbgevent_t *ev2) {
     // First ensure the two events have the same type
     if (ev1->ev_event != ev2->ev_event) {
@@ -451,6 +457,9 @@ event_equiv CompareEvents(const dbgevent_t *ev1, const dbgevent_t *ev2) {
 
         case DBGEV_ERROR:
             return CompareEvErr(ev1->ev_err, ev2->ev_err);
+
+        case DBGEV_STRING:
+            return CompareEvString(ev1->ev_u.ev_u_string, ev2->ev_u.ev_u_string);
 
         case DBGEV_OK:
             // always match

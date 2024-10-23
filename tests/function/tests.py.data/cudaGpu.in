@@ -1,15 +1,8 @@
 1: #
-2: # rocm gpu tests script
-3: # 
-4: # Unpublished Proprietary Information.
-5: # This unpublished work is protected to trade secret, copyright and other laws.
-6: # Except as permitted by contract or express written permission of Hewlett Packard Enterprise Development LP.,
-7: # no part of this work or its content may be used, reproduced or disclosed
-8: # in any form.
-9: #
+2: # cuda gpu test script
+3: #
 15: maint set sync on
-16: # launch an instances of the application -- only one node has the right gpu on pegasus
-17: launch $a{1} --gpu bin/CRAY/c/simple_gpu-cuda.x
+17: launch $a{1} --gpu --launcher-args="<LAUNCH_ARGS>" ./bin/CRAY/cuda/simple_gpu-cuda.x
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -19,15 +12,17 @@ Number of dbgsrvs connected: [1];  Timeout Counter: [1]
 Number of dbgsrvs connected: [3];  Timeout Counter: [0]
 Finalizing setup...
 Launch complete.
-a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/function/src/c/simple_gpu.c:15
+a{0}: Initial breakpoint%.*%
+0: # some api errors pop up, but this test isn't about that
+0: gdb set cuda api_failures hide
 13: b 78
 a{0}: Breakpoint 1: file /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/simple_gpu.c, line 78.
 14: c
 <$a>: max number of threads 48
-a{0}: Breakpoint 1, .omp_outlined._debug__.7 at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/simple_gpu.c:78
+a{0}: Breakpoint 1, %.*% at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/simple_gpu.c:78
 16: info cuda threads???
 18: p sum1
-a{0}: 0.996321172062538
+a{0}: 0.9963211%.*%
 19: #exit lgdb
 20: q
 Shutting down debugger and killing application for 'a'.

@@ -629,6 +629,9 @@ class TestLibTest(unittest.TestCase):
     def test_regression_lgdb_ftn_t3(self):
         self.regression_test("lgdb_ftn_t3")
 
+    def test_regression_cuda_warnings(self):
+        self.regression_test("cuda_warnings")
+
     def test_convert_slurm_launcher_args(self):
         self.assertEqual(convert_slurm_launcher_args(4, "-N1", "SLURM"), "-N1")
 

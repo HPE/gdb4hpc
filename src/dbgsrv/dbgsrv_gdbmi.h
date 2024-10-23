@@ -148,9 +148,12 @@ public:
     // communication that an async event happened.
     void setAsyncEvent(MIEvent* e);
 
-    // set the internal function that will be used when releaseAsyncEvent is called.
+    // set the internal function that will be used when releaseAsyncEvents is called.
     void asyncCheck(std::function<dbgevent_t*()>);
     void threadAsyncCheck(std::function<dbgevent_t*()>);
+
+    // inject an event to be sent to the frontend on the next call to releaseAsyncEvents.
+    void injectAsyncEvent(dbgevent_t* evt);
 
     // process the internally cached MIEvent with the function previously
     // supplied via [Thread]AsyncCheck and return the result. frees the
@@ -160,7 +163,7 @@ public:
     //
     // if there is no cached MIEvent to process and/or no installed callback, do
     // nothing and return nullptr.
-    dbgevent_t* releaseAsyncEvent();
+    std::vector<dbgevent_t*> releaseAsyncEvents();
 
     bool isRunning() const;
     bool isAtExit() const;
@@ -212,11 +215,21 @@ private:
     // prefer ensurePybe instead of accessing this directly
     std::unique_ptr<Pybe> m_pybe;
 
-    // set by the callback fn given to MI
+    // latest MIEvent* waiting to be converted to dbgevent_t*. set by callback
+    // installed in libmi at startup.
+    //
+    // XXX: this should be a *list* of events, not just one. if libmi generates
+    // two events in quick succession, the old one will be replaced and never
+    // get to the frontend. but since it's been this way for so long, gdb4hpc's
+    // output has been inadvertently designed around it. see CPE-6535.
     MIEvent* m_pending_event = nullptr;
 
-    // set by [Thread]AsyncCheck
+    // set by [Thread]AsyncCheck, called (and removed) by releaseAsyncEvents.
     std::function<dbgevent_t*()> m_async_event_callback = nullptr;
+
+    // events waiting to be sent to the frontend, injected by other processes than libmi.
+    // processed by releaseAsyncEvents.
+    std::vector<dbgevent_t*> m_injected_events = {};
 };
 
 class DbgGdbMI::Initializer {

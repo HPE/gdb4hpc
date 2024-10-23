@@ -3677,7 +3677,7 @@ dbgevent_t* DbgGdbMI::waitEvent() {
 
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
-    MISessionRegisterThreadStoppedCallback(GDBMISession, nullptr);
+    MISessionRegisterThreadStoppedCallback(GDBMISession, nullptr, nullptr);
     numBackgroundThreads = 0;
 
     dbgbp_t *bp = NULL;
@@ -3868,6 +3868,11 @@ dbgevent_t* DbgGdbMI::waitEvent() {
 
             if (evt->frame) {
                 e->ev_step.step_frame = MakeFrameFromMIFrame(evt->frame, false);
+
+                // showing arguments in frames on the frontend isn't implemented
+                // yet, so anonymize them so they aggregate better
+                e->ev_u.ev_u_step.step_frame->anonymizePointerArgs();
+                e->ev_u.ev_u_step.step_frame->anonymizeIntArgs();
 
                 auto oldFunc = lastKnownFrame->getLoc().loc_func;
                 auto newFunc = e->ev_step.step_frame->getLoc().loc_func;
@@ -4348,7 +4353,7 @@ static dbgevent_t* threadEventToFrame(dbgevent_t* threadEvent) {
 // are still running.
 // As per the libMI interface, returning non-zero indicates that libMI can stop waiting for
 // more responses.
-static int thread_stopped_callback(int) {
+static int thread_stopped_callback(void* /*ctx*/, int) {
     if (numBackgroundThreads && !--numBackgroundThreads) {
         return 1;  // we've heard back from all threads
     }
@@ -4365,7 +4370,7 @@ static int thread_stopped_callback(int) {
 // server look will call \a rtn with the event \a event.
 void DbgGdbMI::threadAsyncCheck(std::function<dbgevent_t*()> rtn) {
     auto cb = numBackgroundThreads ? thread_stopped_callback : nullptr;
-    MISessionRegisterThreadStoppedCallback(GDBMISession, cb);
+    MISessionRegisterThreadStoppedCallback(GDBMISession, cb, nullptr);
     asyncCheck(rtn);
 }
 
@@ -4432,19 +4437,29 @@ void DbgGdbMI::setAsyncEvent(MIEvent* e) {
     if (e) MIEventFree(e);
 }
 
-dbgevent_t* DbgGdbMI::releaseAsyncEvent() {
+void DbgGdbMI::injectAsyncEvent(dbgevent_t* evt) {
+    m_injected_events.push_back(evt);
+}
+
+std::vector<dbgevent_t*> DbgGdbMI::releaseAsyncEvents() {
+    auto result = std::vector<dbgevent_t*>{};
+    std::swap(m_injected_events, result);
+
     if (m_pending_event && m_async_event_callback) {
         // XXX: legacy behavior is that m_async_event_callback (always set to WaitEvent)
         // consumes m_pending_event via member access rather than receiving it as an argument
-        auto* result = m_async_event_callback();
-        // XXX: resetting the callback after a single use seems wrong, but just
-        // emulating legacy behavior for now
+        if (auto* dbgev = m_async_event_callback()) {
+            result.push_back(dbgev);
+        } else {
+            DVPRINT("async event callback returned nullptr. dropping.\n");
+        }
+        // XXX: resetting the callback after a single use is wrong (info is lost
+        // if there are multiple events in quick succession), but gdb4hpc relies
+        // on this side effect in certain cases. see CPE-6535.
         m_async_event_callback = nullptr;
-        return result;
     }
 
-    // no event to report
-    return nullptr;
+    return result;
 }
 
 bool DbgGdbMI::isRunning() const { return Status == DBGSTAT_RUNNING; }

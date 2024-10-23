@@ -237,9 +237,10 @@ RPC::c_thread_id_t RPC::spawn_pybe_gil_thread(c_thread_id_t tid) {
     int pybe_thread_id = -1;
 
     {
-        auto old_callback = m_parent_session.notify_callback;
+        const auto old_callback = m_parent_session.notify_callback;
+        const auto old_callback_ctx = m_parent_session.notify_callback_ctx;
         auto restore_callback_on_exit = OnScopeExit([&](){
-            MISessionRegisterNotifyCallback(&m_parent_session, old_callback, nullptr);
+            MISessionRegisterNotifyCallback(&m_parent_session, old_callback, old_callback_ctx);
         });
 
         MISessionRegisterNotifyCallback(&m_parent_session, [](void* tid, char *class_name, MIList *notif) {

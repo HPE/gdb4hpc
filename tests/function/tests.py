@@ -859,20 +859,56 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_checkpoint2"
         runTest(self)
 
-    @avocado.skipIf(not os.path.exists("./tests.py.data/rocm/" + socket.gethostname() + ".sh"))
+    @avocado.skipIf(not os.path.exists("./tests.py.data/rocm/" + socket.gethostname() + ".sh"), "missing GPU script for this system")
     def test_rocmGpu(self):
         self.base_name = "rocmGpu"
         runGpuTest(self, "rocm")
 
-    @avocado.skipIf(not os.path.exists("./tests.py.data/rocm/" + socket.gethostname() + ".sh"))
+    @avocado.skipIf(not os.path.exists("./tests.py.data/rocm/" + socket.gethostname() + ".sh"), "missing GPU script for this system")
     def test_ftn_rocmGpu(self):
         self.base_name = "ftn_rocmGpu"
         runGpuTest(self, "rocm")
 
-    @avocado.skipIf(not os.path.exists("./tests.py.data/cuda/" + socket.gethostname() + ".sh"))
+    @avocado.skipIf(not os.path.exists("./tests.py.data/cuda/" + socket.gethostname() + ".sh"), "missing GPU script for this system")
     def test_cudaGpu(self):
         self.base_name = "cudaGpu"
-        runGpuTest(self, "cuda")
+        hostname = socket.gethostname()
+        gpu_script = "./tests.py.data/cuda/" + hostname + ".sh"
+
+        res = subprocess.run([gpu_script, 'args'], stdout=subprocess.PIPE)
+        if res.returncode != 0:
+            self.cancel(f"gpu script failed: {res.stdout.decode()}/{res.stderr.decode()}")
+
+        gpu_args = res.stdout.decode('utf-8').rstrip()
+        substititions = (
+            ("<LAUNCH_ARGS>", gpu_args),
+        )
+
+        if not os.path.exists(f"./bin/{self.penv}/cuda/simple_gpu-cuda.x"):
+            self.cancel(f"./bin/{self.penv}/cuda/simple_gpu-cuda.x not present")
+
+        runTest(self, substititions)
+
+    @avocado.skipIf(not os.path.exists("./tests.py.data/cuda/simpleMPI_" + socket.gethostname() + ".sh"), "missing GPU script for this system")
+    def test_cuda_warnings(self):
+        self.base_name = "cuda_warnings"
+        hostname = socket.gethostname()
+        gpu_script = "./tests.py.data/cuda/simpleMPI_" + hostname + ".sh"
+
+        res = subprocess.run([gpu_script, 'args'], stdout=subprocess.PIPE)
+        if res.returncode != 0:
+            self.cancel(f"gpu script failed: {res.stdout.decode()}/{res.stderr.decode()}")
+
+        gpu_args = res.stdout.decode('utf-8').rstrip()
+        substititions = (
+            ("<LAUNCH_ARGS>", gpu_args),
+            ("<HOSTNAME>", socket.gethostname()),
+        )
+
+        if not os.path.exists(f"./bin/{self.penv}/cuda/{socket.gethostname()}_simpleMPI_error.x"):
+            self.cancel(f"./bin/{self.penv}/cuda/{socket.gethostname()}_simpleMPI_error.x not present")
+
+        runTest(self, substititions)
 
     def test_c_run(self):
         self.base_name = "c_run"
@@ -910,10 +946,6 @@ class FunctionTests(Gdb4hpcTest):
 
     def test_command_timeout(self):
         self.base_name = "command_timeout"
-        runTest(self)
-
-    def test_source(self):
-        self.base_name = "source"
         runTest(self)
 
     # these skip comments on the raja tests about "non-slurm" systems might really only

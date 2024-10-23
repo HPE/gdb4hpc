@@ -3794,6 +3794,11 @@ std::chrono::seconds DbgGetSyncCommandTimeout() {
     return sync_command_timeout;
 }
 
+void DbgSync(rec_set_t* set) {
+    ResetForAsyncCmd(set);
+    async_pending = true;
+}
+
 bool DbgSetLogDir(const std::string& logdir) {
     // while filesystem lets you check the permissions of a directory, the
     // only real way to check that a user can write to it is to

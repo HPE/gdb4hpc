@@ -6,7 +6,7 @@ see /doc/help/README.md.
 # gdb4hpc Command Reference
 
 This document contains the help text for each gdb4hpc command in gdb4hpc
-4.16.3. It is the same material you could read when using the `help`
+4.16.4. It is the same material you could read when using the `help`
 command within gdb4hpc itself.
 
 ## attach
@@ -1719,6 +1719,14 @@ Example command: maint set unsafe on
 Description:\
 Set debugger to bypass certain internal checks. This mode should only
 be modified by maintainers.
+
+## maint sync
+Summary: Wait for an async response from each rank.\
+Usage: maint sync\
+
+Description:\
+If synchronous event mode is set (maint set sync on), wait for an async
+response from all ranks. No-op if maint set sync is off.
 
 ## maint set sync
 Summary: Set synchronous event mode.\

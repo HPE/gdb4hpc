@@ -510,6 +510,17 @@ static int cmd_maint_show_unsafe_cmd() {
     return 1;
 }
 
+static int cmd_maint_sync_cmd(rec_set_t* rec) {
+    if (Client.sync_wait == false) {
+        PrintOutError("Sync mode is currently off. Enable via `maint set sync on` first.\n");
+        return Command::Failure;
+    }
+
+    DbgSync(rec);
+
+    return Command::Success;
+}
+
 static int cmd_maint_set_sync_cmd(int argc, const char* const argv[]) {
     if (argc < 2) {
         PrintOutError("Not enough command arguments.\n");
@@ -1190,6 +1201,10 @@ void ConsoleCommandsFactory::insert_env_commands(CommandNode& root) {
     root.addSubCmd(
         "maint set unsafe", nullptr, proc_ignore, cmd_maint_set_unsafe_cmd,
         cmd_maint_set_unsafe_help, "Enable unsafe functionality.");
+
+    root.addSubCmd(
+        "maint sync", nullptr, proc_required, cmd_maint_sync_cmd,
+        cmd_maint_sync_help, "Wait for an async response from all ranks");
 
     root.addSubCmd(
         "maint set sync", nullptr, proc_ignore, cmd_maint_set_sync_cmd,

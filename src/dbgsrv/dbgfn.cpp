@@ -468,10 +468,11 @@ dbgevent_t *DbgPyBEAttach() {
     return DbgBackendSW->pyBEAttach();
 }
 
-dbgevent_t* DbgReleaseAsyncEvent() {
-    // we don't need to check DBG_READY or DBG_CHECK here since it's okay
-    // to do this even if gdb is not ready for a command or the app is running
-    return DbgBackendSW->releaseAsyncEvent();
+std::vector<dbgevent_t*> DbgReleaseAsyncEvents() {
+    // we don't need to check DBG_READY or DBG_CHECK here. if the backend needs to
+    // use libmi to process its async events, it is its responsibility to handle
+    // if the app is running etc.
+    return DbgBackendSW->releaseAsyncEvents();
 }
 
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {

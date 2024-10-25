@@ -292,6 +292,19 @@ private:
         m_in >> val;
         return val;
     }
+
+    template<typename  T>
+    inline T readReal() {
+        auto c = m_in.peek();
+        if (c == EOF) {
+            getMore();
+        }
+        checkForError();
+        std::string s;
+        m_in >> s;
+        return ::strtod(s.c_str(), nullptr);
+    }
+
     
     std::shared_ptr<AIFStream::Chunks> m_chunks;
     bool m_final;
@@ -328,9 +341,9 @@ void AIFStreamReadBuffer::checkForError() {
 int AIFStreamReadBuffer::readInt() { return read<int>(); }
 long AIFStreamReadBuffer::readLong() { return read<long>(); }
 long long AIFStreamReadBuffer::readLongLong() { return read<long long>(); }
-float AIFStreamReadBuffer::readFloat() { return read<float>(); }
-double AIFStreamReadBuffer::readDouble() { return read<double>(); }
-long double AIFStreamReadBuffer::readLongDouble() { return read<long double>(); }
+float AIFStreamReadBuffer::readFloat() { return readReal<float>(); }
+double AIFStreamReadBuffer::readDouble() { return readReal<double>(); }
+long double AIFStreamReadBuffer::readLongDouble() { return readReal<long double>(); }
 std::string AIFStreamReadBuffer::readString() {
     checkForError();
     

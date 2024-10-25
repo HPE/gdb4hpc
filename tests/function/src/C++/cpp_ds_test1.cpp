@@ -27,7 +27,7 @@ static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
 static void obscureDataTypes(), virtualFuncTest();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
-static void anonymousNamespace(), mapsTest(), vectorOfSmartPtr(), lists(), functionPointers();
+static void anonymousNamespace(), mapsTest(), vectorOfSmartPtr(), lists(), functionPointers(), nans();
 static float refs();
 
 static void trap() {
@@ -145,7 +145,7 @@ int main(int argc, char ** argv){
     anonymousNamespace();
     mapsTest();
     vectorOfSmartPtr();
-    refs(); lists(); functionPointers();
+    refs(); lists(); functionPointers(); nans();
     
     delete ll;
     MPI_Finalize();
@@ -630,6 +630,18 @@ static void functionPointers() {
 
     auto& fr = refs;
     auto* fp = refs;
+
+    trap();
+}
+
+#include <cmath>
+static void nans() {
+    double ddiv = 1.0 / 0.0, dndiv = -1.0 / 0.0, di = std::sqrt(-1.0),
+        dlogz = std::log(0.0), dlogneg = std::sqrt(-1.0);
+
+    double darr[] = { ddiv, dndiv, di, dlogz, dlogneg };
+
+    float fdiv = 1.0f / 0.0f, fndiv = -1.0f / 0.0f;
 
     trap();
 }

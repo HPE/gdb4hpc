@@ -103,9 +103,9 @@ ifeq (${CTI_INSTALL_DIR}no,no)
 	@echo -ne "$(NO_COLOR)"
 endif
 
-CFLAGS = -g -O0 -I./include $(MPI_INC)
-CXXFLAGS = -g -O0 -I./include $(MPI_INC)
-FFLAGS = -g -O0 $(MPI_INC)
+CFLAGS = -g -O0 -I./include $(MPI_INC) -fPIC
+CXXFLAGS = -g -O0 -I./include $(MPI_INC) -fPIC
+FFLAGS = -g -O0 $(MPI_INC) -fPIC
 
 # programming environments
 gnu: all

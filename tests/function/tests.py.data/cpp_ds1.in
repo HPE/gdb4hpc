@@ -522,7 +522,7 @@ b{0..1}: {[1] = 16, [2] = -12.25, [3] = {first = -8, second = 14.4}, [4] = 120 '
 214: c
 b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
 215: up
-b{0..1}: #1  refs()::$_0::operator()() const at /src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  %.*operator.*% at /src/C++/cpp_ds_test1.cpp:%\d+%
 215: whatis s
 b{0..1}: Struct1 &
 215: p s
@@ -556,7 +556,7 @@ b{0..1}: {"lorem ipsum","dolor sit a"}
 215: c
 b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
 215: up
-b{0..1}: #1  refs()::$_1::operator()(Struct1&&, Classy&&, Moderne<Struct1>&&, int (&&) [4], char (&&) [12], int (&&) [2][4], char (&&) [2][12]) const at /src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  %.*operator.*% at /src/C++/cpp_ds_test1.cpp:%\d+%
 215: whatis s
 b{0..1}: Struct1 &&
 215: p s
@@ -679,8 +679,6 @@ b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/
 b{0..1}: #1  functionPointers at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
 218: whatis vr
 b{0..1}: void (&)(void)
-218: p vr
-b{0..1}: void (void) <functionPointers()>
 218: whatis vp
 b{0..1}: void (*)(void)
 218: p vp
@@ -712,5 +710,33 @@ b{0..1}: float (*)(void)
 218: p fp
 b{0..1}: (float (void)*) <1>
   <1>:float (void) <refs()>
-223: q
+223: c
+b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
+225: up
+b{0..1}: #1  nans at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:646
+305: p ddiv
+b{0..1}: inf
+306: p dndiv
+b{0..1}: -inf
+307: p di
+b{0..1}: -nan
+308: p dlogz
+b{0..1}: -inf
+309: p dlogneg
+b{0..1}: -nan
+310: p darr
+b{0..1}: {inf,-inf,-nan,-inf,-nan}
+311: p fdiv
+b{0..1}: inf
+312: p fndiv
+b{0..1}: -inf
+313: compare $b{0}::darr == $b{1}::darr
+{0}: Comparison is true.
+314: p $b{1}::darr[1] = 1.0
+b{1}: 1
+315: compare $b{0}::darr == $b{1}::darr
+{0}: Comparison is false.
+The difference delta is:
+{0}: [1]:inf
+316: q
 Shutting down debugger and killing application for 'b'.

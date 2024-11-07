@@ -18,13 +18,13 @@
 19: # 3.  Work with defset, print var, compare newset
 22: maint set sync on
 24: # launch 3 instances of the application
-25: launch $a{3}   bin/CRAY/c/c_type_test.x -g "-N2"
+25: launch $a{3}   bin/CRAY/c/c_type_test.x -g "-N1"
 Starting application, please wait...
 Launch complete.
 a{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:58
 28: break c_type_test.c:232
 a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c, line 232.
-31: launch $b{3}   bin/CRAY/c/c_cmp_diff.x -g "-N2"
+31: launch $b{3}   bin/CRAY/c/c_cmp_diff.x -g "-N1"
 Starting application, please wait...
 Launch complete.
 b{0..2}: Initial breakpoint, main at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_cmp_diff.c:55

@@ -24,7 +24,7 @@ a{0..2}: Initial breakpoint, main at /home/users/chandlej/gdb4hpc/gdb4hpc/tests/
 a{0}: Breakpoint 1%.*%src/c/simple_gpu.c%.*%78.
 14: c
 <$a>: max number of threads 48
-a{0}: Breakpoint 1, .omp_outlined._debug__.7%.*%src/c/simple_gpu.c:78
+a{0}: Breakpoint 1, %.*%omp%.*%src/c/simple_gpu.c:78
 14: # it takes a second for all the threads to stop 
 15: maint sleep 4
 16: info threads

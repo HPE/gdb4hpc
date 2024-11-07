@@ -95,6 +95,7 @@ pyext
 set
 show
 sleep
+sync
 system
 0: maint complete maint set <>
 earlyentry

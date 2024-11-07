@@ -40,7 +40,7 @@ build:
 test:
   modules:
     - gdb4hpc
-  parallel-jobs: 16
+  parallel-jobs: 1
 
 # launcher config
 launch:

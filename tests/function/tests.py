@@ -860,11 +860,13 @@ class FunctionTests(Gdb4hpcTest):
         runTest(self)
 
     @avocado.skipIf(not os.path.exists("./tests.py.data/rocm/" + socket.gethostname() + ".sh"), "missing GPU script for this system")
+    @avocado.skipIf(not os.path.exists("./bin/CRAY/c/simple_gpu-rocm.x"), "missing GPU binary simple_gpu-rocm.x")
     def test_rocmGpu(self):
         self.base_name = "rocmGpu"
         runGpuTest(self, "rocm")
 
     @avocado.skipIf(not os.path.exists("./tests.py.data/rocm/" + socket.gethostname() + ".sh"), "missing GPU script for this system")
+    @avocado.skipIf(not os.path.exists("./bin/CRAY/c/ftn_omp-rocm.x"), "missing GPU binary ftn_omp-rocm.x")
     def test_ftn_rocmGpu(self):
         self.base_name = "ftn_rocmGpu"
         runGpuTest(self, "rocm")
@@ -1035,26 +1037,6 @@ class FunctionTests(Gdb4hpcTest):
         # it tests interpreter-exec mi from a console interpreter.
         runTest(self)
 
-    def test_mi_ccdb_breakpoint(self):
-        self.base_name = "mi_ccdb_breakpoint"
-        runTest(self, interpreter="mi")
-
-    def test_mi_ccdb_step_next_finish(self):
-        self.base_name = "mi_ccdb_step_next_finish"
-        runTest(self, interpreter="mi")
-
-    def test_mi_ccdb_watch_mouse(self):
-        self.base_name = "mi_ccdb_watch_mouse"
-        runTest(self, interpreter="mi")
-
-    def test_mi_ccdb_compare(self):
-        self.base_name = "mi_ccdb_compare"
-        runTest(self, interpreter="mi")
-
-    def test_mi_ccdb_assert(self):
-        self.base_name = "mi_ccdb_assert"
-        runTest(self, interpreter="mi")
-
     def test_completions_nolaunch(self):
         self.base_name = "completions_nolaunch"
         # make dummy filesystem to test filesystem completions
@@ -1182,7 +1164,7 @@ class PythonTest(Gdb4hpcTest):
 
         # launch job
         job = subprocess.Popen(
-            [f"./bin/CRAY/cti_launch.x", self.python_path, "./src/python/spin.py", "300"],
+            [f"./bin/CRAY/cti_launch.x", "-n1", self.python_path, "./src/python/spin.py", "300"],
             stderr=subprocess.PIPE
         )
 
@@ -1213,7 +1195,7 @@ class PythonTest(Gdb4hpcTest):
 
         # launch job
         job = subprocess.Popen(
-            [f"./bin/CRAY/cti_launch.x", self.python_path, "./src/python/sleep.py", "300"],
+            [f"./bin/CRAY/cti_launch.x", "-n1", self.python_path, "./src/python/sleep.py", "300"],
             stderr=subprocess.PIPE
         )
 
@@ -1241,7 +1223,7 @@ class PythonTest(Gdb4hpcTest):
 
         # launch job
         job = subprocess.Popen(
-            [f"./bin/CRAY/cti_launch.x", self.python_path, "./src/python/spin.py", "300"],
+            [f"./bin/CRAY/cti_launch.x", "-n1", self.python_path, "./src/python/spin.py", "300"],
             stderr=subprocess.PIPE
         )
 

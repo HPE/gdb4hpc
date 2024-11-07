@@ -1,8 +1,8 @@
 10: maint set sync on
-12: launch $a{3}  --args="0" bin/CRAY/C++/cpp_decomp.x -g "-N2"
+12: launch $a{3}  --args="0" bin/CRAY/C++/cpp_decomp.x -g "-N1"
 Launch complete.
 a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:18
-13: launch $b{4} --args="1" bin/CRAY/C++/cpp_decomp.x -g "-N2"
+13: launch $b{4} --args="1" bin/CRAY/C++/cpp_decomp.x -g "-N1"
 Launch complete.
 b{0..3}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.13.6.0/tests/src/C++/cpp_decomp.cpp:18
 14: # run until the arrays are initialized

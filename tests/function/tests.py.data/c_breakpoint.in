@@ -1,6 +1,6 @@
 1: maint set sync on
 2: # launch 3 instances of the application
-3: launch $a{3}   bin/CRAY/c/c_type_test.x
+3: launch $a{3} -g "-N2" bin/CRAY/c/c_type_test.x
 Starting application, please wait...
 Launched application...
 0/3 ranks connected... (timeout in 299 seconds)

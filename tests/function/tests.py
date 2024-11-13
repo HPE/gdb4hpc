@@ -913,6 +913,27 @@ class FunctionTests(Gdb4hpcTest):
         runTest(self, substititions)
 
     @avocado.skipIf(not os.path.exists("./tests.py.data/cuda/simpleMPI_" + socket.gethostname() + ".sh"), "missing GPU script for this system")
+    def test_cuda_errors(self):
+        self.base_name = "cuda_errors"
+        hostname = socket.gethostname()
+        gpu_script = "./tests.py.data/cuda/simpleMPI_" + hostname + ".sh"
+
+        res = subprocess.run([gpu_script, 'args'], stdout=subprocess.PIPE)
+        if res.returncode != 0:
+            self.cancel(f"gpu script failed: {res.stdout.decode()}/{res.stderr.decode()}")
+
+        gpu_args = res.stdout.decode('utf-8').rstrip()
+        substititions = (
+            ("<LAUNCH_ARGS>", gpu_args),
+            ("<HOSTNAME>", socket.gethostname()),
+        )
+
+        if not os.path.exists(f"./bin/{self.penv}/cuda/{socket.gethostname()}_simpleMPI_error.x"):
+            self.cancel(f"./bin/{self.penv}/cuda/{socket.gethostname()}_simpleMPI_error.x not present")
+
+        runTest(self, substititions)
+
+    @avocado.skipIf(not os.path.exists("./tests.py.data/cuda/simpleMPI_" + socket.gethostname() + ".sh"), "missing GPU script for this system")
     def test_cuda_break_on_launch(self):
         self.base_name = "cuda_break_on_launch"
         hostname = socket.gethostname()

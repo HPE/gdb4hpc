@@ -517,9 +517,11 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
         }
 
         case DBGEV_SIGNAL: {
+            auto is_cuda_error = (::strncmp(ev_set.event()->ev_sig_type,
+                "Cuda API error detected: ", 24) == 0);
             m_printer.print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
-                                "Program received signal %s.\n",
-                                ev_set.event()->ev_sig_type);
+                (is_cuda_error) ? "%s.\n" : "Program received signal %s.\n",
+                ev_set.event()->ev_sig_type);
 
             if (ev_set.event()->ev_sig_frame != (dbgframe_t *)NULL) {
                 const auto &frameLoc = ev_set.event()->ev_sig_frame->getLoc();

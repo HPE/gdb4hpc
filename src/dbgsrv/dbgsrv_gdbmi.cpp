@@ -3920,9 +3920,18 @@ dbgevent_t* DbgGdbMI::waitEvent() {
                 if (went) return e; // still DBGEV_NONE
             }
 
+            // Add extended CUDA error information from meaning
+            if ((strcmp(evt->sigName, "CUDA API ERROR") == 0) && (evt->sigMeaning != nullptr)) {
+
+                // Already has prefix "Cuda API error detected: "
+                e->ev_sig_type = strdup(evt->sigMeaning);
+
+            } else {
+                e->ev_sig_type =
+                    (evt->sigName == NULL ? NULL : strdup(evt->sigName));
+            }
+
             e->ev_event = DBGEV_SIGNAL;
-            e->ev_sig_type =
-                (evt->sigName == NULL ? NULL : strdup(evt->sigName));
             e->ev_sig_line = NULL;
             e->ev_sig_frame = (dbgframe_t *)NULL;
 

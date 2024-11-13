@@ -3738,42 +3738,53 @@ dbgevent_t* DbgGdbMI::waitEvent() {
             }
 
             Status = DBGSTAT_STOPPED;
-
-            bp = FindBPByID(BP, 0, idNumber); 
             auto exitBPs = m_initializer->getExitBPs();
 
-            DVPRINT("BPMgr: Looking for BP be:%d\n", idNumber);
+            if (idNumber > 0) {
 
-            // We want to check for an exit breakpoint if we didn't find it in
-            // the normal BP list.
-            if (bp == nullptr) {
-                bp = FindBPByID(exitBPs, 0, idNumber);
-                // set the status to exit if we are at an exit breakpoint
-                if (bp != nullptr) {
-                    Status = DBGSTAT_EXIT;
+                bp = FindBPByID(BP, 0, idNumber);
+
+                DVPRINT("BPMgr: Looking for BP be:%d\n", idNumber);
+
+                // We want to check for an exit breakpoint if we didn't find it in
+                // the normal BP list.
+                if (bp == nullptr) {
+                    bp = FindBPByID(exitBPs, 0, idNumber);
+                    // set the status to exit if we are at an exit breakpoint
+                    if (bp != nullptr) {
+                        Status = DBGSTAT_EXIT;
+                    }
                 }
+
+                // If bp is still null, we have a problem.
+                if (bp == nullptr) {
+                    DVPRINT("BPMgr: Could not find be breakpoint %d\n", idNumber);
+                    e = ChangeEvent(e, DBGEV_ERROR);
+                    e->ev_errno = DBGERR_DEBUGGER;
+                    EventErrStr(e, unknownBPErrorMsg);
+                    return e;
+                }
+
+                DVPRINT("BPMgr: Got BP fe:%d\n", bp->bp_fe_id);
+
+                bp->bp_hits++;
+                CurrBP = bp;
+
+            // Anonymous breakpoint without `bkptno` found by libmi
+            } else {
+                bp = new dbgbp_t(0, idNumber);
+                e->ev_event = DBGEV_BPHIT;
+                e->ev_bp = bp;
             }
-
-            // If bp is still null, we have a problem.
-            if (bp == nullptr) {
-                DVPRINT("BPMgr: Could not find be breakpoint %d\n", idNumber);
-                e = ChangeEvent(e, DBGEV_ERROR);
-                e->ev_errno = DBGERR_DEBUGGER;
-                EventErrStr(e, unknownBPErrorMsg);
-                return e;
-            }
-
-            DVPRINT("BPMgr: Got BP fe:%d\n", bp->bp_fe_id);
-
-            bp->bp_hits++;
-            CurrBP = bp;
 
             // In the case of pending breakpoints, watchpoints, and catchpoints,
             // we need to update the breakpoint information with the evt frame.
             // This will change every time the breakpoint is hit.
-            if (bp->bp_pending || bp->bp_type == DBGBP_WATCH_TYPE || bp->bp_type == DBGBP_CATCH_TYPE) {
-                // First free the old information if present
+            // Anonymous breakpoint also needs its location information updated
+            if (bp->bp_pending || bp->bp_type == DBGBP_WATCH_TYPE || bp->bp_type == DBGBP_CATCH_TYPE
+                || idNumber == 0) {
 
+                // First free the old information if present
                 // XXX: the dbgloc_t in dbgbp_t manages its own memory and we
                 // really shouldn't be reaching in like this...
                 free(bp->bp_loc.loc_file);

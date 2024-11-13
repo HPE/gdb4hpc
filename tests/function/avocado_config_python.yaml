@@ -8,8 +8,12 @@
 #
 # see the constructor of PythonTest in tests.py.
 python: !mux
+  3.5:
+    python_version: "3.5"
   3.6:
     python_version: "3.6"
+  3.7:
+    python_version: "3.7"
   3.8:
     python_version: "3.8"
   3.9:
@@ -20,3 +24,5 @@ python: !mux
     python_version: "3.11"
   3.12:
     python_version: "3.12"
+  3.13:
+    python_version: "3.13"

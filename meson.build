@@ -419,7 +419,7 @@ libgdb4_pybe_deps = [
   tinystl_dep,
 ]
 
-supported_python_versions = ['3.6', '3.8', '3.9', '3.10', '3.11', '3.12']
+supported_python_versions = ['3.5', '3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
 conf.set('SUPPORTED_PYTHON_VERSIONS', '{"' + '", "'.join(supported_python_versions) + '"}', description: 'Initializer list of supported python versions')
 conf.set_quoted('SUPPORTED_PYTHON_VERSIONS_STR', ', '.join(supported_python_versions), description: 'String of supported python versions')
 

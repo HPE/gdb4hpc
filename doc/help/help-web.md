@@ -763,7 +763,7 @@ and then use the backtrace command. Setting python mode to auto has no effect\
 on running procsets.
 
 gdb4hpc supports the following python versions:\
-3.6, 3.8, 3.9, 3.10, 3.11, 3.12
+3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13
 
 ## quit
 Summary: Quit command.\

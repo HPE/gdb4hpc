@@ -25,9 +25,6 @@ a{0}: <module 'time' (built-in)>
 a{0}: <module 'sys' (built-in)>
 0: print globl
 a{0}: 'your grumpy global string'
-0: # it hasn't been set yet
-0: print local
-a{0}: <nil>
 0: print seconds
 a{0}: 90
 0: print seconds * 2 / 2

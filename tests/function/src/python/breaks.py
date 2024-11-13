@@ -4,11 +4,11 @@ def calc(lhs, rhs):
     answer = lhs + rhs
     return answer
 
-def main():
+def breaks_main():
     lhs = calc(1, 2)
     rhs = calc(3, lib.magic())
     answer = calc(lhs, rhs)
     print(answer)
 
 if __name__ == "__main__":
-    main()
+    breaks_main()

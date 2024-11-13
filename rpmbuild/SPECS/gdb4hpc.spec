@@ -188,12 +188,15 @@ Tests for Cray gdb4hpc parallel debugger
 # The pybe libraries require debug info to work - the rpm packaging process will strip them
 # by default. We could disable *all* stripping in the package, but another way to disable
 # stripping for only select files is to disguise them as non-binary files.
+%{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.5.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.5.gz
 %{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.6.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.gz
+%{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.7.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.7.gz
 %{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.8.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.gz
 %{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.9.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.gz
 %{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.10.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.gz
 %{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.11.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.gz
 %{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.12.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.gz
+%{__gzip} -c %{external_build_dir}/lib/libgdb4_pybe_3.13.so > ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.13.gz
 
 # Libraries static
 # pkg-config
@@ -618,12 +621,15 @@ else
     %{__sed} -i "/^prepend-path[[:space:]]*LD_LIBRARY_PATH.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 fi
 
+%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.5.gz
 %{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.gz
+%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.7.gz
 %{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.gz
 %{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.gz
 %{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.gz
 %{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.gz
 %{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.gz
+%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.13.gz
 
 %preun
 default_link="${RPM_INSTALL_PREFIX}/%{cray_product}/default"
@@ -696,8 +702,12 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{release_notes_file}
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/%{attributions_name}
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_unittest.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.5.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.5.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.gz
 %ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.7.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.7.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.gz
 %ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.gz
@@ -708,6 +718,8 @@ fi
 %ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.gz
 %ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.so
+%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.13.gz
+%ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.13.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_dbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_zmqnetagg.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile

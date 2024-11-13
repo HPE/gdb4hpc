@@ -1198,8 +1198,8 @@ class PythonTest(Gdb4hpcTest):
     def test_python_attach_halt_bt_active_allstop(self):
         self.base_name = "python_attach_halt_bt_active_allstop"
 
-        if self.python_version == "3.6":
-            # the only version <= 3.6 we test *is* 3.6 so we can get
+        if self.python_version == "3.5" or self.python_version == "3.6":
+            # the only versions <= 3.6 we test are 3.5 and 3.6 so we can get
             # away with simple string equality testing instead of fancy
             # version number range extraction etc.
             self.cancel("Attach is not supported <= 3.6")
@@ -1229,8 +1229,8 @@ class PythonTest(Gdb4hpcTest):
     def test_python_attach_halt_bt_dormant_allstop(self):
         self.base_name = "python_attach_halt_bt_dormant_allstop"
 
-        if self.python_version == "3.6":
-            # the only version <= 3.6 we test *is* 3.6 so we can get
+        if self.python_version == "3.5" or self.python_version == "3.6":
+            # the only versions <= 3.6 we test are 3.5 and 3.6 so we can get
             # away with simple string equality testing instead of fancy
             # version number range extraction etc.
             self.cancel("Attach is not supported <= 3.6")
@@ -1260,8 +1260,8 @@ class PythonTest(Gdb4hpcTest):
     def test_python_attach_detect_36(self):
         self.base_name = "python_attach_detect_36"
 
-        if self.python_version != "3.6":
-            self.cancel("This test is only relevant to 3.6")
+        if self.python_version != "3.5" and self.python_version != "3.6":
+            self.cancel("This test is only relevant to 3.5 and 3.6")
 
         # launch job
         job = subprocess.Popen(
@@ -1333,8 +1333,8 @@ class PythonTest(Gdb4hpcTest):
     def test_python_attach_prompt(self):
         self.base_name = "python_attach_prompt"
 
-        if self.python_version == "3.6":
-            # the only version <= 3.6 we test *is* 3.6 so we can get
+        if self.python_version == "3.5" or self.python_version == "3.6":
+            # the only versions <= 3.6 we test are 3.5 and 3.6 so we can get
             # away with simple string equality testing instead of fancy
             # version number range extraction etc.
             self.cancel("Attach is not supported <= 3.6")

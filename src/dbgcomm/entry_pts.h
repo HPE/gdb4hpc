@@ -29,8 +29,10 @@ static const auto parallel_entry_pt_strs = std::array
     "*&(start_pes)",
     "*&(shmem_init)",
 
+    // see "Getting the GIL after Launch..." in python.md
     "Py_Initialize", // python 3.6
     "Py_InitializeEx", // 3.6
+    "_Py_InitializeCore", // 3.7
     "Py_InitializeFromConfig", // 3.8+
 };
 

@@ -59,7 +59,7 @@ Pybe::Pybe(MISession& mi)
 
     // initialize GIL
     // this must be called on the main python thread.
-    // (technically this is only needed in python 3.6 and is a no-op otherwise)
+    // (technically this is only needed in python <= 3.6 and is a no-op otherwise)
     m_rpc.thread_interrupt(current_thread);
     m_rpc.init_GIL(current_thread);
 

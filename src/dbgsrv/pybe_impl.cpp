@@ -242,9 +242,10 @@ bool PybeImpl::spawn_GIL_grabbing_thread() {
 }
 
 void PybeImpl::init_GIL() {
-    Py_Initialize(); // no-op when called for a 2nd time, so safe to call without any check
-#if PY_VERSION_HEX < 0x03070000
+#if PY_VERSION_HEX < 0x03090000
     // this is required in 3.6 and below. it is a no-op in 3.7 and above.
+    // despite being a no-op in 3.7 and above, we still wrap it in a version check
+    // because the function is deprecated in 3.9 and will emit a compiler warning.
     // in 3.6, this MUST be called in python's main thread.
     PyEval_InitThreads();
 #endif

@@ -29,7 +29,12 @@ a{0}: magic at /src/python/lib.py:1
 a{0}: breaks_main at /src/python/breaks.py:10
 0: next
 a{0}: breaks_main at /src/python/breaks.py:11
-0: step
+0: # stepping past the last line of the script into some internal python stuff we don't care about.
+0: # but we still expect the stepping mechanism to successfully stop there.
+0: step???
+a{0}: _shutdown at threading.py:1518
+0: # now actually hit the exit breakpoint so we can make sure step/next/finish behave when we are stopped there
+0: continue
 a{0}: The application has reached an exit breakpoint.
 0: step
 a{0}: *** The application is at an exit breakpoint.

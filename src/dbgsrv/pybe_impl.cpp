@@ -29,6 +29,50 @@ void* wait_for_grab_request(void*) {
     return nullptr;
 }
 
+void set_trace_all_threads(Py_tracefunc tracefunc) {
+#if PY_VERSION_HEX >= 0x030c0000
+    PyEval_SetTraceAllThreads(tracefunc, nullptr);
+#else
+    // PyEval_SetTraceAllThreads was added in 3.12. pythoncapi_compat doesn't help us with
+    // this one, so we need to implement it ourselves.
+
+    // set current thread
+    PyEval_SetTrace(tracefunc, nullptr);
+
+    // set other threads
+    auto* intr = PyInterpreterState_Head();
+    auto* thr = PyInterpreterState_ThreadHead(intr);
+
+    while (thr) {
+        // todo store old ones?
+        // XXX: this is a pretty ugly hack, there is probably a better way...
+        thr->c_tracefunc = tracefunc;
+        thr->c_traceobj = nullptr;
+#if PY_VERSION_HEX >= 0x030a0000 && PY_VERSION_HEX < 0x030c0000
+        if (thr->cframe) {
+            thr->cframe->use_tracing = 255;
+        }
+#endif
+        thr = PyThreadState_Next(thr);
+    }
+
+    // note, from the python docs:
+    //
+    // > For more fine-grained usage, it’s possible to set a trace function by
+    // > assigning frame.f_trace = tracefunc explicitly, rather than relying on it
+    // > being set indirectly via the return value from an already installed trace
+    // > function. This is also required for activating the trace function on the
+    // > current frame, which settrace() doesn’t do. Note that in order for this
+    // > to work, a global tracing function must have been installed with
+    // > settrace() in order to enable the runtime tracing machinery, but it
+    // > doesn’t need to be the same tracing function (e.g. it could be a low
+    // > overhead tracing function that simply returns None to disable itself
+    // > immediately on each frame).
+    //
+    // so should we set frame.f_trace here too?
+#endif
+}
+
 } // anon namespace
 
 namespace pybe {
@@ -248,6 +292,9 @@ void PybeImpl::init_GIL() {
     // because the function is deprecated in 3.9 and will emit a compiler warning.
     // in 3.6, this MUST be called in python's main thread.
     PyEval_InitThreads();
+
+    // XXX: I think importing threading in init_trace will implicitly call PyEval_InitThreads
+    // for us so we don't have to do this?
 #endif
 }
 
@@ -343,13 +390,54 @@ int PybeImpl::trace_line(PyFrameObject& pyframe) {
     return 0;
 }
 
-bool PybeImpl::init_trace(Py_tracefunc tracefunc) {
+bool PybeImpl::init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc) {
+    log("pybe: init_trace\n");
+
     if (!PyGILState_Check()) [[ unlikely ]] {
         log("need gil\n");
         return false;
     }
 
-    PyEval_SetTrace(tracefunc, nullptr);
+    // install trace on currently running threads
+    set_trace_all_threads(tracefunc);
+
+    // the python C API doesn't give us access to threading.settrace directly. threading.settrace
+    // tells the python interpreter to attach a tracing function to every new thread.
+    //
+    // so we wrap a C function as a python callable object and call threading.settrace from
+    // python. the wrapped function will install the faster C API tracing method the first time
+    // it's called.
+
+    {
+        // tell python to install it on any threads spawned in the future
+
+        // FIXME: this import might fail. technically in python <= 3.6, the threading module
+        // is optional and doesn't always come with python
+        auto module_threading = StrongRef<PyObject>{nullptr};
+        if (module_threading = PyImport_ImportModule("threading"); !module_threading) {
+            log("failed to import threading\n");
+            return false;
+        }
+
+        static auto gdb4hpc_trace_method = PyMethodDef{
+            .ml_name = "gdb4hpc_trace",
+            .ml_meth = wrapped_tracefunc,
+            .ml_flags = METH_VARARGS,
+            .ml_doc = "gdb4hpc python trace function",
+        };
+
+        auto wrapped_tracefunc = StrongRef<PyObject>(PyCFunction_New(&gdb4hpc_trace_method, nullptr));
+
+        // note that the "O" fmt string tells python to increment the refcount
+        // of wrapped_tracefunc so it's okay to let our handle to it drop when
+        // this scope ends
+        if (PyObject_CallMethod(module_threading.ptr, "settrace", "O", wrapped_tracefunc.ptr) == nullptr) {
+            log("failed to threading.settrace\n");
+            // TODO PyObject_CallMethod also sets an exception on failure, handle it (CPE-5688)
+            return false;
+        }
+    }
+
     return true;
 }
 

@@ -50,9 +50,6 @@ static GdbVersion gdb_vers = GdbVersion::GDB;
 static std::vector<dbgbp_t*> main_entry_BP;
 static std::vector<dbgbp_t*> parallel_entry_BP;
 
-static MICommand *_MIGDBSet(const char *var, const char *val) {
-    return MIGDBSet(const_cast<char *>(var), const_cast<char *>(val));
-}
 static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
 }
@@ -564,7 +561,7 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
     DVPRINT("Flushed %d events.\n", flushed);
 
     // We want to set MPIR_debug_gate=1. This is an old MPIR standard.
-    MICommand* cmd = _MIGDBSet("lang", "c");
+    MICommand* cmd = MIGDBSet("lang", "c");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -575,12 +572,12 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 
     // This can fail if the symbol doesn't exist. We want to silently
     // fail.
-    cmd = _MIGDBSet("MPIR_debug_gate=1", NULL);
+    cmd = MIGDBSet("MPIR_debug_gate=1", NULL);
     SendMICommand(m_session, cmd);
     MICommandFree(cmd);
 
     // set the lang back to auto.
-    cmd = _MIGDBSet("lang", "auto");
+    cmd = MIGDBSet("lang", "auto");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -597,11 +594,11 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
 
     if (finish) {
         // now we want to issue the finish command to get back to main.
+        // sometimes gdb doesn't give us a reason= item on the stopped event here for whatever reason
         DVPRINT("calling finish on initial frame\n");
         if (auto [evt, e] = continueToEvent(FINISH); e) {
             return e;
-        } else if (evt->type != MIEventTypeFunctionFinished &&
-                 evt->type != MIEventTypeSuspended) {
+        } else if (evt->type != MIEventTypeFunctionFinished && evt->type != MIEventTypeNoReason) {
             // we didn't finish the function
             return NewErrorEvent(DBGERR_DEBUGGER,
                                  "Failed to finish the entry function.");
@@ -682,7 +679,7 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
     }
 
     // set the lang to c. We always want to do this!!
-    auto cmd = _MIGDBSet("lang", "c");
+    auto cmd = MIGDBSet("lang", "c");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -741,7 +738,7 @@ std::pair<bool, dbgevent_t *> DbgGdbMI::Initializer::setEntryBPsL() {
     }
 
     // set the lang back to auto. We always want to do this!!
-    cmd = _MIGDBSet("lang", "auto");
+    cmd = MIGDBSet("lang", "auto");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1051,7 +1048,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     dbgevent_t *e;
     MICommand *cmd;
 
-    cmd = _MIGDBSet("confirm", "off");
+    cmd = MIGDBSet("confirm", "off");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1061,7 +1058,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     MICommandFree(cmd);
 
     // turn history off
-    cmd = _MIGDBSet("history size", "0");
+    cmd = MIGDBSet("history size", "0");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1076,7 +1073,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     // we need gdb to set print elements and print repeats to 0 so
     // that when we resolve the data it gives us the entire contents
     // of the data type.
-    cmd = _MIGDBSet("print elements", "0");
+    cmd = MIGDBSet("print elements", "0");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1086,7 +1083,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     }
     MICommandFree(cmd);
 
-    cmd = _MIGDBSet("print repeats", "0");
+    cmd = MIGDBSet("print repeats", "0");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1097,7 +1094,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     MICommandFree(cmd);
 
     // stop printing strings on the first null character
-    cmd = _MIGDBSet("print null-stop", "on");
+    cmd = MIGDBSet("print null-stop", "on");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1108,7 +1105,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     MICommandFree(cmd);
 
     // demangle c++ names
-    cmd = _MIGDBSet("print demangle", "on");
+    cmd = MIGDBSet("print demangle", "on");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1118,7 +1115,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     }
     MICommandFree(cmd);
 
-    cmd = _MIGDBSet("print asm-demangle", "on");
+    cmd = MIGDBSet("print asm-demangle", "on");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1129,7 +1126,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     MICommandFree(cmd);
 
     // print derived types from the vtable
-    cmd = _MIGDBSet("print object", "on");
+    cmd = MIGDBSet("print object", "on");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1140,7 +1137,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
 
     if (gdb_vers != GdbVersion::ROC_GDB && gdb_vers != GdbVersion::CUSTOM) {
         // limit strings to 200 characters
-        cmd = _MIGDBSet("print characters", "200");
+        cmd = MIGDBSet("print characters", "200");
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
             // support depends on the version of the debugger, but we don't
@@ -1151,7 +1148,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     }
 
     // don't allow pending breakpoints
-    cmd = _MIGDBSet("breakpoint pending", "off");
+    cmd = MIGDBSet("breakpoint pending", "off");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1162,7 +1159,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     MICommandFree(cmd);
 
     // limit backtrace size to 1000
-    cmd = _MIGDBSet("backtrace limit", "1000");
+    cmd = MIGDBSet("backtrace limit", "1000");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1173,7 +1170,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     MICommandFree(cmd);
 
     // unwind signals triggered by gdb
-    cmd = _MIGDBSet("unwindonsignal", "on");
+    cmd = MIGDBSet("unwindonsignal", "on");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1184,7 +1181,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     MICommandFree(cmd);
 
     // set can-use-hw-watchpoints to 1
-    cmd = _MIGDBSet("can-use-hw-watchpoints", "1");
+    cmd = MIGDBSet("can-use-hw-watchpoints", "1");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         MICommandFree(cmd);
@@ -1200,7 +1197,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
 
     if (stat("/dsl", &st) == 0) {
         // The directory exists
-        cmd = _MIGDBSet("solib-absolute-prefix", "/dsl");
+        cmd = MIGDBSet("solib-absolute-prefix", "/dsl");
         SendMICommand(m_session, cmd);
         if (!MICommandResultOK(cmd)) {
             MICommandFree(cmd);
@@ -1216,7 +1213,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
         // break, but it is not supported on rocgdb, so it's just a ddt-cuda-gdb thing.
         // Other version of cuda-gdb don't support it so don't quit if the call fails
         if (gpu_flag) {
-            cmd = _MIGDBSet("upcsingle", "1");
+            cmd = MIGDBSet("upcsingle", "1");
             SendMICommand(m_session, cmd);
             if (!MICommandResultOK(cmd)) {
                 DVPRINT("Gdb set upcsingle command failed.\n");
@@ -1226,7 +1223,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     }
 
     // Set maximum variable size to unlimited to allow gdb to print large values
-    cmd = _MIGDBSet("max-value-size", "unlimited");
+    cmd = MIGDBSet("max-value-size", "unlimited");
     SendMICommand(m_session, cmd);
     MICommandFree(cmd);
 
@@ -1251,7 +1248,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     auto isInNonStopMode = false;
     if (non_stop_flag && gdb_vers != GdbVersion::CUDA &&
         (!custom_gdb || !strstr(custom_gdb,"cuda")) ) {
-        cmd = _MIGDBSet("non-stop", "on");
+        cmd = MIGDBSet("non-stop", "on");
         SendMICommand(m_session, cmd);
         if (MICommandResultOK(cmd)) {
             isInNonStopMode = true;
@@ -1269,7 +1266,7 @@ dbgevent_t *DbgGdbMI::Initializer::setup_gdbmi_environment() {
     // be carefull when using CLIBypass versions of these commands - they don't
     // respect this setting. e.g. to run CLIBypass "continue" in the background,
     // you must specify "continue&".
-    cmd = _MIGDBSet("mi-async", "on");
+    cmd = MIGDBSet("mi-async", "on");
     SendMICommand(m_session, cmd);
     if (!MICommandResultOK(cmd)) {
         DVPRINT("setting mi-async mode failed\n");
@@ -1374,7 +1371,7 @@ void DbgGdbMI::Initializer::setSourceOpen(bool doOpen) {
     if (gdb_vers == GdbVersion::ROC_GDB || gdb_vers == GdbVersion::CUSTOM) return;
 
     const char* mode = (doOpen ? "on" : "off");
-    auto cmd = _MIGDBSet("source open", mode);
+    auto cmd = MIGDBSet("source open", mode);
     SendMICommand(m_session, cmd);
 
     if (!MICommandResultOK(cmd)) {

@@ -280,7 +280,8 @@ void ConsoleInterpreter::Printer::print_event_location(const DbgInvoke::EventSet
             );
         }
     } else {
-        // Got a null frame? This should never happen
+        // Got a null frame. Can happen in rare cases where
+        // gdb doesn't give us any info about why the application stopped
         print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
             "Step finished with no location information.\n"
         );

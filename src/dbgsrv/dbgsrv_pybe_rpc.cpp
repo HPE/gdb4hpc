@@ -74,7 +74,7 @@ void RPC::init_GIL(c_thread_id_t tid) {
         throw NewErrorEvent(DBGERR_DEBUGGER,
             "Failed to set up python debugging.\n"
             "This is a bug. Please report it and include the following info:\n"
-            "failure: failed to initialze python");
+            "failure: failed to initialize python");
         // TODO include error text from gdb
     });
 }
@@ -404,14 +404,7 @@ void RPC::thread_set_name(c_thread_id_t tid, std::string_view name) {
 }
 
 void RPC::thread_select(c_thread_id_t tid) {
-    // MIThreadSelect is broken and will hang forever if we select a running thread
-    // so we use CLIBypass
-    auto argv = std::vector<const char*>{};
-    argv.push_back("thread");
-    auto id_buf = std::to_string(tid);
-    argv.push_back(id_buf.c_str());
-
-    auto cmd = make_MICmd(CLIBypass(argv.size(), const_cast<char**>(argv.data())));
+    auto cmd = make_MICmd(MIThreadSelect(tid));
     try_send_command(m_parent_session, *cmd, [](){
         // not much the user can do if the select failed. just emit a bug report friendly error.
         throw NewErrorEvent(DBGERR_INTERNAL, "failed to select thread.");
@@ -509,6 +502,10 @@ std::optional<RPC::c_thread_id_t> RPC::get_GIL_holding_thread() {
             throw NewErrorEvent(DBGERR_INTERNAL, "get_GIL_holding_thread: failed to interrupt thread");
             // TODO include error text from gdb
         });
+
+        // FIXME: -exec-interrupt --all is an async command and there is no guarantee that
+        // anything has actually stopped yet! the proper way would be to count *stopped events.
+        // see CPE-7133.
     }
 
     c_thread_id_t gil_thread = 0;

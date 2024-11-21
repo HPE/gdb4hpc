@@ -18,3 +18,4 @@ a{0}: Python mode is off.
 0: halt???
 0: kill $a
 Shutting down debugger and killing application for 'a'.
+0: q

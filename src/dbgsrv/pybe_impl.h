@@ -24,7 +24,7 @@ public:
     PyGILState_STATE get_GIL_then_breakpoint();
     bool spawn_GIL_grabbing_thread();
     void init_GIL();
-    bool init_trace(Py_tracefunc tracefunc);
+    bool init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc);
     int trace_call(PyFrameObject& frame);
     int trace_return(PyFrameObject& frame, PyObject& return_value);
     int trace_line(PyFrameObject& frame);

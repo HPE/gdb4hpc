@@ -27,5 +27,6 @@ dbg p{1}>
 0: focus $all
 0: show prompt
 python all>
+0: kill $p
+Shutting down debugger and killing application for 'p'.
 0: q
-Shutting down debugger and resuming application for 'p'.

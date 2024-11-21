@@ -1,0 +1,40 @@
+0: maint set sync on
+0: launch $a{1} %.*python3.*% ./src/python/threads_active.py 1 5
+Starting application, please wait...
+Launched application...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Enabling python debugging. To disable, use `set python off`
+Launch complete.
+a{0}: Initial breakpoint, %.*%
+0: break threads_active.py:16
+a{0}: Breakpoint 1: file threads_active.py, line 16.
+0: c -a
+a{0}: Breakpoint 1,  at threads_active.py:16
+0: info thread
+a{0}:   Id    Frame
+a{0}: * 1     "%.*%python%.*%" (running)
+a{0}:   2     "gdb4hpc python" (running)
+a{0}:   3     "%.*%python%.*%" %.*%
+a{0}:
+0: thread 3
+0: p num
+a{0}: 100000
+0: c -a
+a{0}: Breakpoint 1,  at threads_active.py:16
+0: info thread
+a{0}:   Id    Frame
+a{0}:   1     "%.*%python%.*%" (running)
+a{0}:   2     "gdb4hpc python" (running)
+a{0}: * 3     "%.*%python%.*%" %.*%
+a{0}:
+0: p num
+a{0}: 200000
+0: next
+a{0}: inc_num at /src/python/threads_active.py:12
+0: p num
+a{0}: 200000
+0: q
+Shutting down debugger and killing application for 'a'.

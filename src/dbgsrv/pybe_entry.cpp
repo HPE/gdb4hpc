@@ -76,8 +76,65 @@ int trace(PyObject* /* ctx */, PyFrameObject* frame, int what, PyObject* arg) {
     return 0;
 }
 
+// the python C api does not give us access to threading.settrace which gives python a
+// tracing function to install on every new thread. we need to call threading.settrace
+// it from python (done elsewhere). python_wrapped_trace is the function we pass
+// when setting the tracing function this way.
+//
+// a trace function installed via python has more overhead than one installed via the C
+// API, so this function will swap itself out for the C API tracing function when it is
+// called for the first time.
+PyObject* python_wrapped_trace(PyObject* /*self*/, PyObject* args) {
+    log("pybe: wrapped trace\n");
+
+    PyFrameObject* frame = nullptr;
+    const char* event = nullptr;
+    PyObject* trace_arg = nullptr;
+
+    if (!PyArg_ParseTuple(args, "OsO", &frame, &event, &trace_arg)) {
+        log("python_wrapped_trace: failed to unpack tuple\n");
+        // TODO not sure how to handle this failure correctly
+    }
+
+    // swap this thread's trace function from the wrapped python function to
+    // the native C function for speed in the future
+    PyEval_SetTrace(trace, nullptr);
+
+    // now manually call the trace function so we don't miss any line
+
+    int what = 0;
+
+    if (strcmp(event, "call") == 0) {
+      what = PyTrace_CALL;
+    } else if (strcmp(event, "line") == 0) {
+      what = PyTrace_LINE;
+    } else if (strcmp(event, "return") == 0) {
+      what = PyTrace_RETURN;
+    } else if (strcmp(event, "exception") == 0) {
+      what = PyTrace_EXCEPTION;
+    } else if (strcmp(event, "c_call") == 0) {
+      what = PyTrace_C_CALL;
+    } else if (strcmp(event, "c_return") == 0) {
+      what = PyTrace_C_RETURN;
+    } else if (strcmp(event, "c_exception") == 0) {
+      what = PyTrace_C_EXCEPTION;
+#if PY_VERSION_HEX >= 0x03070000
+    // PyTrace_OPCODE introduced in python 3.7
+    } else if (strcmp(event, "opcode") == 0) {
+      what = PyTrace_OPCODE;
+#endif
+    } else {
+        Py_RETURN_NONE;
+    }
+
+    trace(nullptr, frame, what, trace_arg);
+
+    // todo convert the integer that trace returns to a python object?
+    Py_RETURN_NONE;
+}
+
 bool init_trace() {
-    return get_pybe().init_trace(trace);
+    return get_pybe().init_trace(trace, python_wrapped_trace);
 }
 
 bool set_breakpoint(uint32_t seq, unsigned long ptid, int feid, const char* filename, int line, const char* funcname) {

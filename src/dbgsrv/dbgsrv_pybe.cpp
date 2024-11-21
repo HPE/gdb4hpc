@@ -9,6 +9,7 @@
 
 #include "dbgevent.h"
 #include "dbgsrv_defs.h"
+#include "entry_pts.h"
 
 #include "dbgsrv_pybe.h"
 
@@ -79,10 +80,9 @@ Pybe::Pybe(MISession& mi)
     // this is a low priority but still valid usecase - tracked in PE-55412
 }
 
-Pybe::GILHolder Pybe::run_until_gil() {
+Pybe::GILHolder Pybe::run_until_gil(pybe::RPC::c_thread_id_t tid) {
     // throws if not a python thread
-    auto main_thread_id = m_rpc.current_thread_get_id();
-    auto py_thread_id = m_rpc.thread_get_python_id(main_thread_id);
+    auto py_thread_id = m_rpc.thread_get_python_id(tid);
 
     // there are three scenarios for getting the GIL:
     // 1. we have just stopped after the entry breakpoint. the main thread
@@ -103,16 +103,9 @@ Pybe::GILHolder Pybe::run_until_gil() {
     // it the right thread to use.
 
     auto chosen_thread = [&](){
-        auto bt = m_rpc.get_elf_backtrace(main_thread_id);
+        auto bt = m_rpc.get_elf_backtrace(tid);
 
         // check for scenario 1
-        constexpr auto py_main_fns = std::array{
-            // note that these are different from the python entry point fns.
-            // the entry point fns will be hit on launch, a finish will be
-            // executed, and we will end up in one of these.
-            "Py_Main",
-            "pymain_init",
-        };
         // note that we are in scenario 1 only if the Py_Main function is the
         // bottom (deepest) of the stack. Py_Main will always be *somewhere* in
         // the stack at any point in the python interpreter. a pybe backtrace
@@ -121,7 +114,7 @@ Pybe::GILHolder Pybe::run_until_gil() {
             return fn == bt.frames.front().function_name;
         })) {
             DVPRINT("gil scenario 1 (at main)\n");
-            return main_thread_id;
+            return tid;
         }
 
         // check for scenario 2
@@ -129,7 +122,7 @@ Pybe::GILHolder Pybe::run_until_gil() {
             return fr.function_name == m_rpc.get_tracing_function_name();
         })) {
             DVPRINT("gil scenario 2 (at trace)\n");
-            return main_thread_id;
+            return tid;
         }
 
         // must be scneario 3
@@ -144,7 +137,7 @@ Pybe::GILHolder Pybe::run_until_gil() {
 
 void Pybe::trivialize_gil() {
     // get the gil and then immediately drop it
-    [[ maybe_unused ]] auto gil = run_until_gil();
+    [[ maybe_unused ]] auto gil = run_until_gil(m_rpc.current_thread_get_id());
 }
 
 namespace {
@@ -283,9 +276,8 @@ void Pybe::GILHolder::delete_breakpoint(int feid) {
 }
 
 std::optional<pybe::Breakpoint> Pybe::GILHolder::find_current_breakpoint() {
-    const auto current_thread = m_parent_rpc.current_thread_get_id();
-    if (!m_parent_rpc.at_breakpoint(current_thread)) return {};
-    return m_parent_rpc.take_current_breakpoint(current_thread);
+    if (!m_parent_rpc.at_breakpoint(m_gil_holding_thread_id)) return {};
+    return m_parent_rpc.take_current_breakpoint(m_gil_holding_thread_id);
 }
 
 void Pybe::GILHolder::insert_step_trap(bool step_in) {

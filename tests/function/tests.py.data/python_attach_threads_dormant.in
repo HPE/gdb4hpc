@@ -1,0 +1,34 @@
+0: maint set sync on
+0: set print entry-frame false
+0: attach $py %[0-9.]+%
+Attaching to application, please wait...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Attach complete.
+py{0}: Enabling python debugging. To disable, use `set python off`
+0: break threads_dormant.py:15
+py{0}: Breakpoint 1: file threads_dormant.py, line 15.
+0: c -a
+py{0}: Breakpoint 1,  at threads_dormant.py:15
+0: info thread -v
+py{0}:   Id    Frame
+py{0}:   1     "%.*%python%.*%" %.*%
+py{0}: %[\* ]% 2     "%.*%python%.*%" %.*%
+py{0}: %[\* ]% 3     "%.*%python%.*%" %.*%
+py{0}: %[\* ]% 4     "%.*%python%.*%" %.*%
+py{0}: %[\* ]% 5     "%.*%python%.*%" %.*%
+py{0}: %[\* ]% 6     "%.*%python%.*%" %.*%
+py{0}: %[\* ]% 7     "%.*%python%.*%" %.*%
+py{0}:   8     "gdb4hpc python" %.*%
+py{0}:
+0: bt
+py{0}: #3  %.*%
+py{0}: #2  %.*%
+py{0}: #1  run at %.*%
+py{0}: #0  inc_num at /src/python/threads_dormant.py:15
+
+0: kill $py
+Shutting down debugger and killing application for 'py'.
+0: q

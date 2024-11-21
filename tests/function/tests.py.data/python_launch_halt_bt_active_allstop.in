@@ -1,5 +1,5 @@
 0: set non-stop off
-0: launch $a{1} %.*python3.*% ./src/python/spin.py 90
+0: launch $a{1} %.*python3.*% ./src/python/spin.py 300
 Starting application, please wait...
 Launched application...
 Enabling python debugging. To disable, use `set python off`

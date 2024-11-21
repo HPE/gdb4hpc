@@ -453,8 +453,13 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/src/kokkos/team_vector_loop.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/team_vector_loop.cpp
 %{__cp} -a %{tests_source_dir}/function/src/kokkos/Makefile ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile
 
-%{__cp} -a %{tests_source_dir}/function/src/python/sleep.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/sleep.py
-%{__cp} -a %{tests_source_dir}/function/src/python/spin.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/spin.py
+%{__cp} -a %{tests_source_dir}/function/src/python/sleep.py           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/sleep.py
+%{__cp} -a %{tests_source_dir}/function/src/python/spin.py            ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/spin.py
+%{__cp} -a %{tests_source_dir}/function/src/python/lib.py             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/lib.py
+%{__cp} -a %{tests_source_dir}/function/src/python/breaks.py          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/breaks.py
+%{__cp} -a %{tests_source_dir}/function/src/python/scopes.py          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/scopes.py
+%{__cp} -a %{tests_source_dir}/function/src/python/threads_dormant.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/threads_dormant.py
+%{__cp} -a %{tests_source_dir}/function/src/python/threads_active.py  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/threads_active.py
 
 %{__cp} -a %{tests_source_dir}/function/src/cuda/simpleMPI.cpp       ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.cpp
 %{__cp} -a %{tests_source_dir}/function/src/cuda/simpleMPI.h         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.h
@@ -576,6 +581,10 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_print.in                   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_print.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_step_next_finish.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_step_next_finish.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_prompt.in                  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_prompt.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_threads_dormant.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_threads_dormant.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_launch_threads_active.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_threads_active.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_threads_dormant.in         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_threads_dormant.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_threads_active.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_threads_active.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/python_attach_prompt.in                  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_prompt.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda_warnings.in                         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_warnings.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda_errors.in                           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_errors.in
@@ -927,6 +936,11 @@ fi
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/sleep.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/spin.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/lib.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/breaks.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/scopes.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/threads_dormant.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/python/threads_active.py
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/cuda/simpleMPI.h
@@ -1047,6 +1061,10 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_print.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_step_next_finish.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_prompt.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_threads_dormant.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_launch_threads_active.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_threads_dormant.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_threads_active.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/python_attach_prompt.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_warnings.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_errors.in

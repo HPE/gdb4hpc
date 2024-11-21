@@ -1061,7 +1061,10 @@ static dbgframe_t* MakeFrameFromMIFrame(MIFrame* mi, bool keepAddr) {
 
     MIListSet(mi->args);
     for (auto* arg = (MIArg*)MIListGet(mi->args); arg != nullptr; arg = (MIArg*)MIListGet(mi->args)) {
-        result->addArg({.name = arg->name, .value = arg->value});
+        result->addArg({
+            .name = arg->name ? arg->name : "",
+            .value = arg->value ? arg->value : "",
+        });
     }
 
     return result;
@@ -2611,10 +2614,30 @@ void DbgGdbMI::setPython(bool isPython) {
     m_isPython = isPython;
 }
 
+static int get_current_thread_id() {
+    auto cmd = make_MICmd(MIThreadInfo(nullptr));
+    SendMICommand(GDBMISession, cmd.get());
+    if (!MICommandResultOK(cmd.get())) {
+        DVPRINT("MIThreadInfo failed\n");
+        // let it fail in the level above us
+        return 0;
+    }
+
+    if (auto mi_thread_info = std::unique_ptr<MIThreadInfoResult, decltype(&MIThreadInfoResultFree)>
+            (MIGetThreadInfoResult(cmd.get()), MIThreadInfoResultFree))
+    {
+        return mi_thread_info->current_thread;
+    } else {
+        DVPRINT("Failed to parse thread info\n");
+        // let it fail in the level above us
+        return 0;
+    }
+}
+
 dbgevent_t* DbgGdbMI::pyBEBacktrace() {
     DVPRINT("pythonBEBacktrace\n");
 
-    auto gil = ensurePybe().run_until_gil();
+    auto gil = ensurePybe().run_until_gil(get_current_thread_id());
     auto bt = gil.get_backtrace();
 
     auto* e = NewEvent(DBGEV_FRAME);
@@ -2625,7 +2648,7 @@ dbgevent_t* DbgGdbMI::pyBEBacktrace() {
 
 dbgevent_t* DbgGdbMI::pyBEEvalExpr(std::string_view expr) {
     DVPRINT("pythonBEEvalExpr [%*s]\n", (int)expr.size(), expr.data());
-    auto gil = ensurePybe().run_until_gil();
+    auto gil = ensurePybe().run_until_gil(get_current_thread_id());
 
     // if expr involves quotes, gdb4hpc will send them in escaped
     auto escaped = std::string{expr};
@@ -2639,7 +2662,7 @@ dbgevent_t* DbgGdbMI::pyBEEvalExpr(std::string_view expr) {
 
 dbgevent_t* DbgGdbMI::pyBESetLineBreakpoint(int feid, std::string_view filename, int line) {
     auto& pybe = ensurePybe();
-    auto gil = pybe.run_until_gil();
+    auto gil = pybe.run_until_gil(get_current_thread_id());
 
     auto bp = gil.set_breakpoint(feid, filename, line, /* func */ "");
 
@@ -2650,7 +2673,7 @@ dbgevent_t* DbgGdbMI::pyBESetLineBreakpoint(int feid, std::string_view filename,
 
 dbgevent_t* DbgGdbMI::pyBESetFuncBreakpoint(int feid, std::string_view file, std::string_view func) {
     auto& pybe = ensurePybe();
-    auto gil = pybe.run_until_gil();
+    auto gil = pybe.run_until_gil(get_current_thread_id());
 
     auto bp = gil.set_breakpoint(feid, file, /* line */ 0, func);
 
@@ -2661,7 +2684,7 @@ dbgevent_t* DbgGdbMI::pyBESetFuncBreakpoint(int feid, std::string_view file, std
 
 dbgevent_t* DbgGdbMI::pyBEDeleteBreakpoint(int feid) {
     auto& pybe = ensurePybe();
-    auto gil = pybe.run_until_gil();
+    auto gil = pybe.run_until_gil(get_current_thread_id());
 
     gil.delete_breakpoint(feid);
     return NewEvent(DBGEV_OK);
@@ -2673,7 +2696,7 @@ dbgevent_t* DbgGdbMI::pyBEStep(bool step_in) {
     }
     {
         auto& pybe = ensurePybe();
-        auto gil = pybe.run_until_gil();
+        auto gil = pybe.run_until_gil(get_current_thread_id());
         gil.insert_step_trap(step_in);
         // we have to release the gil (scope exit) to allow python to run again!
     }
@@ -2701,7 +2724,7 @@ dbgevent_t* DbgGdbMI::pyBEFinish() {
     }
     {
         auto& pybe = ensurePybe();
-        auto gil = pybe.run_until_gil();
+        auto gil = pybe.run_until_gil(get_current_thread_id());
         gil.insert_finish_trap();
         // we have to release the gil (scope exit) to allow python to run again!
     }
@@ -2726,31 +2749,41 @@ dbgevent_t* DbgGdbMI::pyBEFinish() {
 dbgevent_t* DbgGdbMI::pyBEHandleAsyncStop(MIEvent* event) {
     DVPRINT("Handling python async stop\n");
 
-    auto& pybe = ensurePybe();
+    // XXX: not a very user friendly message... but what else can we say?
+    if (!event || event->threadId == 0) {
+        return NewErrorEvent(DBGERR_DEBUGGER, "Malformed python event");
+    }
 
-    // boldly assuming pybe is in the trace function and this won't cause slippage in all-stop
-    auto gil = pybe.run_until_gil();
+    try {
+        auto& pybe = ensurePybe();
 
-    // figure out why we stopped
-    if (auto maybe_bp = gil.find_current_breakpoint()) {
-        // pybe breakpoint hit
+        // boldly assuming pybe is in the trace function and this won't cause slippage in all-stop
+        auto gil = pybe.run_until_gil(event->threadId);
 
-        auto result = NewEvent(DBGEV_BPHIT);
-        result->ev_u.ev_u_bp = to_dbgbp(*maybe_bp).release();
-        return result;
-    } else {
-        // must be the end of a step
+        // figure out why we stopped
+        if (auto maybe_bp = gil.find_current_breakpoint()) {
+            // pybe breakpoint hit
 
-        auto result = NewEvent(DBGEV_STEP);
+            auto result = NewEvent(DBGEV_BPHIT);
+            result->ev_u.ev_u_bp = to_dbgbp(*maybe_bp).release();
+            return result;
+        } else {
+            // must be the end of a step
 
-        // we have no way to print python source for each step yet,
-        // so tell the frontend to always print the frame
-        result->ev_step.step_frame_changed = true;
+            auto result = NewEvent(DBGEV_STEP);
 
-        result->ev_step.step_frame = to_dbgframe(gil.get_frame(), 0).release();
-        result->ev_step.step_threadId = event->threadId;
+            // we have no way to print python source for each step yet,
+            // so tell the frontend to always print the frame
+            result->ev_step.step_frame_changed = true;
 
-        return result;
+            result->ev_step.step_frame = to_dbgframe(gil.get_frame(), 0).release();
+            result->ev_step.step_threadId = event->threadId;
+
+            return result;
+        }
+    } catch (dbgevent_t* error) {
+        DVPRINT("Caught error when handling pybe async event: %s\n", DbgEventErrorStr(error));
+        return error;
     }
 }
 
@@ -3864,8 +3897,13 @@ dbgevent_t* DbgGdbMI::waitEvent() {
             Status = DBGSTAT_STOPPED;
             return e;
 
-        case MIEventTypeSuspended:
-            DVPRINT("MIEventTypeSuspended, falling through to FunctionFinished, then SteppingRange\n");
+        case MIEventTypeNoReason:
+            // A stopped event with no reason happens after a -target-attach command, but
+            // also sometimes randomly
+            DVPRINT("MIEventTypeNoReason, falling through to MIEventTypeLocationReached\n");
+            [[fallthrough]];
+        case MIEventTypeLocationReached:
+            DVPRINT("MIEventTypeLocationReached, falling through to MIEventTypeFunctionFinished\n");
             [[fallthrough]];
         case MIEventTypeFunctionFinished:
             DVPRINT("MIEventTypeFunctionFinished, falling through to SteppingRange\n");
@@ -3953,15 +3991,14 @@ dbgevent_t* DbgGdbMI::waitEvent() {
             Status = DBGSTAT_WAITING;
             m_initializer->resetPId();
             return e;
-
-        default:
-            DVPRINT("MIEventTypeDefault\n");
-            e = ChangeEvent(e, DBGEV_ERROR);
-            e->ev_errno = DBGERR_DEBUGGER;
-            EventErrStr(e, "unknown event");
-            return e;
     }
-    /* NOT REACHED */
+
+    // shouldn't be reachable
+    DVPRINT("MIEventTypeDefault\n");
+    e = ChangeEvent(e, DBGEV_ERROR);
+    e->ev_errno = DBGERR_DEBUGGER;
+    EventErrStr(e, "unknown event");
+    return e;
 }
 
 /*

@@ -36,7 +36,7 @@ public:
     //
     // throws dbgevent_t* error on failure.
     [[ nodiscard ]]
-    GILHolder run_until_gil();
+    GILHolder run_until_gil(pybe::RPC::c_thread_id_t tid);
 
     // coerce the inferior into a state where calling run_until_gil would not
     // require any user threads to run.
@@ -146,7 +146,7 @@ public:
 private:
     friend Pybe::Pybe(MISession&); // XXX: pybe ctor needs the gil to initialize tracing/breakpoints.
                                    //      would be nice if it didn't!
-    friend GILHolder Pybe::run_until_gil();
+    friend GILHolder Pybe::run_until_gil(pybe::RPC::c_thread_id_t);
     GILHolder(pybe::RPC& rpc, int gil_thread_id, long py_thread_id);
 
     pybe::RPC& m_parent_rpc;

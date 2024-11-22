@@ -66,7 +66,6 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
 
 static MISession *GDBMISession;
 static dbgstat Status;
-static dbgbp_t *CurrBP = (dbgbp_t *)NULL;
 static std::vector<dbgbp_t*> BP;
 
 // true if the debugger is actually in non-stop mode, the variable non_stop_mode
@@ -89,7 +88,6 @@ static int dbgsrv_fd;
 extern appInfo_t other_app;
 
 static dbgevent_t *WaitEvent();
-static dbgevent_t *WaitOmpdEvent();
 static dbgevent_t *CheckBreak(int feId, MICommand *, const dbgcomm_info *, int& beId);
 
 static dbgevent_t *threadEventToFrame(dbgevent_t* threadEvent);
@@ -99,8 +97,6 @@ static std::string threadIdsToString(const std::vector<int>& ids);
 
 enum free_cmd_type { NO_FREE_CMD, FREE_CMD };
 static dbgevent_t *NewMIErrorEvent(MICommand* cmd, free_cmd_type = NO_FREE_CMD, dbgerr=DBGERR_DEBUGGER);
-
-static const char* unknownBPErrorMsg = "Hit unknown breakpoint!";
 
 /* debugger definition */
 static DbgGdbMI DbgBackendGDBMI;
@@ -2231,23 +2227,9 @@ dbgevent_t *DbgGdbMI::ompd(const char* inOpp) {
 
     if (isRunning) {
         DVPRINT("RUNNING : calling ThreadAsyncCheck\n");
-        threadAsyncCheck(WaitOmpdEvent);
+        threadAsyncCheck(WaitEvent);
         Status = DBGSTAT_RUNNING;
     }
-    return e;
-}
-
-static dbgevent_t *WaitOmpdEvent() {
-    DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
-    auto* e = WaitEvent();
-
-    // ompd init set an internal breakpoint and runs to it, so gdb4hpc is going to get
-    // an event on a breakpoint is doesn't know anything about.
-    if (e && e->ev_event == DBGEV_ERROR && strcmp(e->ev_errstr, unknownBPErrorMsg) == 0) {
-        FreeEvent(e);
-        e = NewEvent(DBGEV_OK);
-    }
-
     return e;
 }
 
@@ -3788,34 +3770,30 @@ dbgevent_t* DbgGdbMI::waitEvent() {
                         Status = DBGSTAT_EXIT;
                     }
                 }
-
-                // If bp is still null, we have a problem.
-                if (bp == nullptr) {
-                    DVPRINT("BPMgr: Could not find be breakpoint %d\n", idNumber);
-                    e = ChangeEvent(e, DBGEV_ERROR);
-                    e->ev_errno = DBGERR_DEBUGGER;
-                    EventErrStr(e, unknownBPErrorMsg);
-                    return e;
-                }
-
-                DVPRINT("BPMgr: Got BP fe:%d\n", bp->bp_fe_id);
-
-                bp->bp_hits++;
-                CurrBP = bp;
+            }
 
             // Anonymous breakpoint without `bkptno` found by libmi
-            } else {
+            // or breakpoint that wasn't yet registered with GDB4hpc
+            if (bp == nullptr) {
+                DVPRINT("BPMgr: Got anonymous / unregistered BP\n");
+
                 bp = new dbgbp_t(0, idNumber);
                 e->ev_event = DBGEV_BPHIT;
                 e->ev_bp = bp;
+
+            } else {
+                DVPRINT("BPMgr: Got BP fe:%d\n", bp->bp_fe_id);
+
+                bp->bp_hits++;
             }
 
             // In the case of pending breakpoints, watchpoints, and catchpoints,
             // we need to update the breakpoint information with the evt frame.
             // This will change every time the breakpoint is hit.
-            // Anonymous breakpoint also needs its location information updated
+            // Anonymous breakpoint also needs its location information updated manually
+            // from the backend
             if (bp->bp_pending || bp->bp_type == DBGBP_WATCH_TYPE || bp->bp_type == DBGBP_CATCH_TYPE
-                || idNumber == 0) {
+                || bp->bp_fe_id == 0) {
 
                 // First free the old information if present
                 // XXX: the dbgloc_t in dbgbp_t manages its own memory and we
@@ -3862,7 +3840,6 @@ dbgevent_t* DbgGdbMI::waitEvent() {
                     //       try to remove from both. Its okay to do this.
                     RemoveBP(BP, 0, evt->bkptno);
                     RemoveBP(exitBPs, 0, evt->bkptno);
-                    CurrBP = NULL;
                     break;
                 case DBGBP_DISABLE_DISP:
                     // disable the breakpoint
@@ -3882,17 +3859,16 @@ dbgevent_t* DbgGdbMI::waitEvent() {
 
             bp = FindBPByID(BP, 0, evt->number);
 
-            // If bp is null, we have a problem.
-            if (bp == NULL) {
-                e = ChangeEvent(e, DBGEV_ERROR);
-                e->ev_errno = DBGERR_DEBUGGER;
-                EventErrStr(e, "Hit unknown watchpoint!");
-                return e;
-            }
+            // If bp is null, was an unregistered watchpoint
+            if (bp == nullptr) {
+                DVPRINT("Watchpoint %d was unregistered, nothing to remove\n", evt->number);
+                e->ev_event = DBGEV_OK;
 
-            // event type: breakpoint deleted
-            e->ev_event = DBGEV_BPDEL;
-            e->ev_bp = bp->clone();
+            // event type: watchpoint out of scope
+            } else {
+                e->ev_event = DBGEV_BPDEL;
+                e->ev_bp = bp->clone();
+            }
 
             Status = DBGSTAT_STOPPED;
             return e;

@@ -589,6 +589,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda_warnings.in                         ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_warnings.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda_errors.in                           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_errors.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda_break_on_launch.in                  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_break_on_launch.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/unregistered_breakpoint.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/unregistered_breakpoint.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/unregistered_watchpoint.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/unregistered_watchpoint.in
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %{__cp} -a %{tests_source_dir}/function/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
@@ -1069,6 +1071,8 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_warnings.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_errors.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_break_on_launch.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/unregistered_breakpoint.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/unregistered_watchpoint.in
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/team_vector_loop.cpp

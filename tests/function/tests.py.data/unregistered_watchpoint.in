@@ -1,0 +1,26 @@
+1: maint set sync on
+2: launch $a{2} --launcher-args="-N2" ./bin/CRAY/c/c_inc.x
+Starting application, please wait...
+Launched application...
+2/2 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..1}: Initial breakpoint, main at /src/c/c_inc.c:9
+3: gdb watch inc
+a{0..1}: Hardware watchpoint %.*%: inc
+4: c
+a{0..1}: In do_inc at /src/c/c_inc.c:6
+5: c
+a{0..1}: In do_inc at /src/c/c_inc.c:6
+6: c
+a{0..1}: In do_inc at /src/c/c_inc.c:6
+7: c
+a{0..1}: In do_inc at /src/c/c_inc.c:6
+8: c
+a{0..1}: In do_inc at /src/c/c_inc.c:6
+9: c
+10: c
+a{0..1}: The application has reached an exit breakpoint.
+11: q
+Shutting down debugger and killing application for 'a'.

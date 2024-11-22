@@ -1120,6 +1120,14 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "srun_twice"
         runTest(self)
 
+    def test_unregistered_breakpoint(self):
+        self.base_name = "unregistered_breakpoint"
+        runTest(self)
+
+    def test_unregistered_watchpoint(self):
+        self.base_name = "unregistered_watchpoint"
+        runTest(self)
+
 # given "Python 3.11.3" return "3.11"
 def parse_python_minor_version(full_vers: str) -> str:
     # if caller's `which python3` failed

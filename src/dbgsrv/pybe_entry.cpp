@@ -23,6 +23,10 @@ bool get_frame(uint32_t seq, unsigned long py_thread_id) {
     return get_pybe().get_frame(seq, py_thread_id);
 }
 
+bool move_frame_level(unsigned long py_thread_id, int count, int dir) {
+    return get_pybe().move_frame_level(py_thread_id, count, static_cast<FrameDirection>(dir));
+}
+
 bool eval_expr(uint32_t seq, unsigned long py_thread_id, const char* expr) {
     return get_pybe().eval_expr(seq, py_thread_id, expr);
 }

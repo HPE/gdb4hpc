@@ -17,6 +17,7 @@ public:
 
     bool get_backtrace(uint32_t seq, unsigned long py_thread_id);
     bool get_frame(uint32_t seq, unsigned long py_thread_id);
+    bool move_frame_level(unsigned long py_thread_id, int count, pybe::FrameDirection dir);
     bool eval_expr(uint32_t seq, unsigned long py_thread_id, const char* expr);
     bool is_python_thread();
     unsigned long get_python_thread_id();
@@ -37,6 +38,28 @@ public:
 
 private:
     void stop_and_notify_gdb();
+
+    // find the python backtrace associated with `py_thread_id` and find the
+    // frame at level m_level. the deepest frame is level 0.
+    //
+    // it is easy for a user to set m_level to an invalid value, e.g.
+    // 1. > up 10
+    // 2. > thread 2 (thread 2 only has 5 frames in its stack)
+    //
+    // if the current m_level is found to be invalid when compared to the stack
+    // associated with `py_thread_id`, this function will set (fall back)
+    // m_level to 0 and return the deepest frame.
+    //
+    // also note that a StrongRef that holds a null ptr is a valid return value.
+    // this most commonly happens when the user tries to get frame/backtrace
+    // data when the python interpreter is stopped at the entry breakpoint. the
+    // interpreter hasn't started interpreting yet, so there are indeed no
+    // frames available.
+    //
+    // on success, returns a StrongRef containing the found frame (or nullptr).
+    // on failure, returns a raw nullptr.
+    Expected<StrongRef<PyFrameObject>, std::nullptr_t>
+    get_current_frame_with_fallback(unsigned long py_thread_id);
 
     std::unique_ptr<pybe::Channel> m_connection = nullptr;
 
@@ -64,6 +87,9 @@ private:
     };
 
     std::unique_ptr<Move> m_move_in_progress = nullptr;
+
+    // current stack level being inspected. changed via move_frame_level
+    int m_level = 0;
 };
 
 } // namespace pybe

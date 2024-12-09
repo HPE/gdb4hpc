@@ -111,7 +111,7 @@ Pybe::GILHolder Pybe::run_until_gil(pybe::RPC::c_thread_id_t tid) {
         // the stack at any point in the python interpreter. a pybe backtrace
         // lists the deepest frame first.
         if (std::ranges::any_of(py_main_fns, [&](const auto& fn){
-            return fn == bt.frames.front().function_name;
+            return fn == bt.frames.front().location.function_name;
         })) {
             DVPRINT("gil scenario 1 (at main)\n");
             return tid;
@@ -119,7 +119,7 @@ Pybe::GILHolder Pybe::run_until_gil(pybe::RPC::c_thread_id_t tid) {
 
         // check for scenario 2
         if (std::ranges::any_of(bt.frames, [&](const auto& fr){
-            return fr.function_name == m_rpc.get_tracing_function_name();
+            return fr.location.function_name == m_rpc.get_tracing_function_name();
         })) {
             DVPRINT("gil scenario 2 (at trace)\n");
             return tid;
@@ -162,7 +162,7 @@ public:
             // in our favor here since that's also how gdb numbers frames
             // (deepest is frame 0, its caller is frame 1, etc).
             for (int i = 0; i < static_cast<int>(bt.frames.size()); i++) {
-                if (bt.frames[i].function_name == m_rpc.get_GIL_holding_function_name()) {
+                if (bt.frames[i].location.function_name == m_rpc.get_GIL_holding_function_name()) {
                     return i;
                 }
             }
@@ -173,7 +173,7 @@ public:
             for (int i = 0; i < static_cast<int>(bt.frames.size()); i++) {
                 // I can't think of a scenario where we would find the releasing frame
                 // under (called by) the holding frame, but it can't hurt to check
-                if (bt.frames[i].function_name == m_rpc.get_GIL_releasing_function_name() && i >= gil_hold_frame) {
+                if (bt.frames[i].location.function_name == m_rpc.get_GIL_releasing_function_name() && i >= gil_hold_frame) {
                     return i;
                 }
             }
@@ -256,6 +256,22 @@ Pybe::GILHolder::~GILHolder() {
 }
 
 pybe::Frame Pybe::GILHolder::get_frame() {
+    return m_parent_rpc.get_python_frame(m_gil_holding_thread_id, m_py_thread_id);
+}
+
+pybe::Frame Pybe::GILHolder::move_frame_level(int count, DbgFrameDir dir) {
+    const auto pydir = [&](){
+        switch (dir) {
+            case DbgFrameDir::UP: return pybe::FrameDirection::Up;
+            case DbgFrameDir::DOWN: return pybe::FrameDirection::Down;
+            case DbgFrameDir::ABSOLUTE: return pybe::FrameDirection::Absolute;
+        }
+        // unreachable
+        throw NewErrorEvent(DBGERR_DEBUGGER, "move_frame_level: Corrupted input");
+    }();
+
+    m_parent_rpc.move_python_frame_level(m_gil_holding_thread_id, m_py_thread_id, count, pydir);
+
     return m_parent_rpc.get_python_frame(m_gil_holding_thread_id, m_py_thread_id);
 }
 

@@ -38,6 +38,6 @@ namespace pybe {
     using Breakpoint = detail::Breakpoint_T<detail::DbgsrvLowLevels>;
 };
 
-std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Frame& frame, int level);
+std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Frame& frame);
 std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Backtrace& bt);
 std::unique_ptr<dbgbp_t> to_dbgbp(const pybe::Breakpoint& bp);

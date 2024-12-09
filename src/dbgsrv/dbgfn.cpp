@@ -243,17 +243,20 @@ dbgevent_t *DbgStep(int count, int in, const char* threads) {
 
 dbgevent_t *DbgMoveFrame(int count, DbgFrameDir dir, const char* threads) {
     DBG_READY();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBEMoveFrame(count, dir);
     return DbgBackendSW->moveFrame(count, dir, threads);
 }
 
 // If count is 0, then an unlimited number of frames should be displayed.
 dbgevent_t *DbgShowFrame(int count, const char* threads) {
     DBG_READY();
-    return DbgBackendSW->showFrame(count, threads);
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBEBacktrace();
+    return DbgBackendSW->showElfFrames(count, threads);
 }
 
 dbgevent_t *DbgGetFrame(bool verbose, const char* threads) {
     DBG_READY();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBEGetFrame();
     return DbgBackendSW->getFrame(verbose, threads);
 }
 

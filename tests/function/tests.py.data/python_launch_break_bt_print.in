@@ -15,8 +15,8 @@ a{0}: Breakpoint 1: file scopes.py, line 9.
 0: c
 a{0}: Breakpoint 1,  at scopes.py:9
 0: bt
-a{0}: #2  <module> at /src/python/scopes.py:16
-a{0}: #1  main at /src/python/scopes.py:13
+a{0}: #2  <module> at /src/python/scopes.py:19
+a{0}: #1  main at /src/python/scopes.py:14
 a{0}: #0  sleep at /src/python/scopes.py:9
 
 0: print time
@@ -37,6 +37,14 @@ a{0}: <function sleep at 0x7fa11161df28>
 a{0}: '__main__'
 0: print "string literal"
 a{0}: 'string literal'
+0: up
+a{0}: #1  main at /src/python/scopes.py:14
+0: p pi
+a{0}: 3.14159
+0: up
+a{0}: #2  <module> at /src/python/scopes.py:19
+0: p e
+a{0}: 2.718
 0: # continue for a few seconds to make sure pybe didn't segfault python
 0: maint set sync off
 0: continue

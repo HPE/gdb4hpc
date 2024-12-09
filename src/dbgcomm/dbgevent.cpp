@@ -663,11 +663,15 @@ void dbgframe_t::setNextThreadFrame(dbgframe_t* next) {
 std::string dbgframe_t::getLocationString(bool with_args, bool with_addr) const {
     auto result = std::ostringstream{};
 
-    if (with_addr && m_loc.loc_addr && m_loc.loc_addr[0] != '\0') {
+    const auto has_data = [](const char* str) {
+        return str && str[0] != '\0';
+    };
+
+    if (with_addr && has_data(m_loc.loc_addr)) {
         result << m_loc.loc_addr << " in ";
     }
 
-    if (m_loc.loc_func && m_loc.loc_file && m_loc.loc_line > 0) {
+    if (has_data(m_loc.loc_func) && has_data(m_loc.loc_file) && m_loc.loc_line > 0) {
         // fn (arg1=1,arg2=1) at file:line
         result << m_loc.loc_func;
 
@@ -690,17 +694,16 @@ std::string dbgframe_t::getLocationString(bool with_args, bool with_addr) const 
         }
 
         result << " at " << m_loc.loc_file << ":" << m_loc.loc_line;
-
-    } else if (m_loc.loc_file) {
+        return result.str();
+    } else if (has_data(m_loc.loc_file)) {
         // fn from file.so
-        const auto fn = std::string{m_loc.loc_func ? m_loc.loc_func : "??"};
+        const auto fn = std::string{has_data(m_loc.loc_func) ? m_loc.loc_func : "??"};
         return fn + " from " + m_loc.loc_file;
-
+    } else if (has_data(m_loc.loc_func)) {
+        return m_loc.loc_func;
     } else {
         return "??";
     }
-
-    return result.str();
 }
 
 const std::vector<dbgframe_t::Arg>& dbgframe_t::getArgs() const {

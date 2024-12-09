@@ -42,11 +42,13 @@ namespace doctest {
 
     pybe::String pybe_convert(const pybe::Frame& frame) {
         auto result = pybe::String{};
-        result.append(frame.function_name.c_str());
+        result.append("# ");
+        result.append(std::to_string(frame.level).c_str());
+        result.append(frame.location.function_name.c_str());
         result.append(" in ");
-        result.append(frame.file_name.c_str());
+        result.append(frame.location.file_name.c_str());
         result.append(":");
-        result.append(std::to_string(frame.line_number).c_str());
+        result.append(std::to_string(frame.location.line_number).c_str());
         return result.c_str();
     }
 
@@ -201,14 +203,20 @@ TEST_CASE("pybe::Expected: Destructors") {
 
 TEST_CASE("frame serialization") {
     const auto frame_in = pybe::Frame{
-        .function_name = "pybe::Frame::serialize",
-        .file_name = "", // to test empty string serialization
-        .line_number = 17,
+        .level = 3,
+        .location = {
+            .function_name = "pybe::Frame::serialize",
+            .file_name = "", // to test empty string serialization
+            .line_number = 17,
+        },
     };
     const auto frame_different = pybe::Frame{
-        .function_name = "pybe::Frame::not_serialize",
-        .file_name = "not_pybe_comms.cpp",
-        .line_number = 71,
+        .level = 4,
+        .location = {
+            .function_name = "pybe::Frame::not_serialize",
+            .file_name = "not_pybe_comms.cpp",
+            .line_number = 71,
+        },
     };
 
     auto frame_wire = frame_in.serialize();
@@ -226,19 +234,28 @@ TEST_CASE("frame serialization") {
 
 TEST_CASE("backtrace serialization") {
     const auto frame_a = pybe::Frame{
-        .function_name = "pybe::Frame::serialize",
-        .file_name = "", // test empty string
-        .line_number = 17,
+        .level = 2,
+        .location = {
+            .function_name = "pybe::Frame::serialize",
+            .file_name = "", // test empty string
+            .line_number = 17,
+        },
     };
     const auto frame_b = pybe::Frame{
-        .function_name = "pybe::Backtrace::serialize",
-        .file_name = "pybe_unittest.cpp",
-        .line_number = 21,
+        .level = 3,
+        .location = {
+            .function_name = "pybe::Backtrace::serialize",
+            .file_name = "pybe_unittest.cpp",
+            .line_number = 21,
+        },
     };
     const auto frame_c = pybe::Frame{
-        .function_name = "pybe::Backtrace::deserialize",
-        .file_name = "pybe_comms.cpp",
-        .line_number = 13,
+        .level = 4,
+        .location = {
+            .function_name = "pybe::Backtrace::deserialize",
+            .file_name = "pybe_comms.cpp",
+            .line_number = 13,
+        },
     };
 
     auto bt_in = pybe::Backtrace{};
@@ -281,7 +298,7 @@ TEST_CASE("empty backtrace serialization") {
 TEST_CASE("breakpoint serialization") {
     auto bp_in = pybe::Breakpoint{
         .feid = 8,
-        .location = pybe::Frame{
+        .location = {
             .function_name = "bar",
             .file_name = "foo.py",
             .line_number = 4,

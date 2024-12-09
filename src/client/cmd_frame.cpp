@@ -154,7 +154,7 @@ static int cmd_frame_console(rec_set_t *rec_set, int argc, const char* const arg
     auto rep_set = DbgGetFrame(rec_set, frame_args.verbose);
 
     // process error - even on error, continue and print what we can
-    (void)ProcessErrorInRepSet(rep_set);
+    auto had_error = ProcessErrorInRepSet(rep_set);
 
     // process frame
     for (auto&& reply : rep_set) {
@@ -163,7 +163,7 @@ static int cmd_frame_console(rec_set_t *rec_set, int argc, const char* const arg
         PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), fp);
     }
 
-    return Command::Success;
+    return had_error ? Command::Failure : Command::Success;
 }
 
 static int cmd_frame_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {

@@ -26,6 +26,6 @@ using Frame = detail::Frame_T<detail::LowLevels>;
 using Backtrace = detail::Backtrace_T<detail::LowLevels>;
 using Breakpoint = detail::Breakpoint_T<detail::LowLevels>;
 
-Frame to_frame(PyFrameObject& pyframe);
+Frame to_frame(PyFrameObject& pyframe, int level);
 
 } // namespace pybe;

@@ -59,6 +59,19 @@ void try_pybe_fn_check_true_impl(MISession& sess, const char* expr, pybe::RPC::c
 // this is a macro so __file__ and __line__ reflect the callsite
 #define todo_write_better_error_message() (NewErrorEvent(DBGERR_DEBUGGER, "unknown python error: %s:%d", __FILE__, __LINE__))
 
+static void assert_thread_is_python_thread(pybe::RPC::c_thread_id_t tid, MISession& session) {
+    auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(bool)pybe::is_python_thread()", tid));
+
+    try_send_command(session, *cmd, [=](){
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Thread %u is not a python thread.", tid);
+    });
+
+    auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+    if (result.get_view() != "true") {
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Thread %u is not a python thread.", tid);
+    }
+}
+
 } // anon namespace
 
 namespace pybe {
@@ -301,37 +314,24 @@ RPC::c_thread_id_t RPC::current_thread_get_id() {
 }
 
 RPC::py_thread_id_t RPC::thread_get_python_id(c_thread_id_t tid) {
-    {
-        auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(bool)pybe::is_python_thread()", tid));
+    assert_thread_is_python_thread(tid, m_parent_session);
 
-        try_send_command(m_parent_session, *cmd, [=](){
-            throw NewErrorEvent(DBGERR_DEBUGGER, "Thread %u is not a python thread.", tid);
-        });
+    auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(long)pybe::get_python_thread_id()", tid));
 
-        auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
-        if (result.get_view() != "true") {
-            throw NewErrorEvent(DBGERR_DEBUGGER, "Thread %u is not a python thread.", tid);
-        }
+    try_send_command(m_parent_session, *cmd, [](){
+        // not much the user can do if this fails. we already verified that we are on a python
+        // thread above so something internal must be wrong. just emit a bug report friendly error message.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to get python thread id (failed to communicate)");
+    });
+
+    auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+    const auto ptid = ::strtol(result.get(), nullptr, 10);
+    if (ptid == 0) {
+        // not much the user can do if this fails. we already verified that we are on a python
+        // thread above so something internal must be wrong. just emit a bug report friendly error message.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to get python thread id (failed to parse id)");
     }
-
-    {
-        auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(long)pybe::get_python_thread_id()", tid));
-
-        try_send_command(m_parent_session, *cmd, [](){
-            // not much the user can do if this fails. we already verified that we are on a python
-            // thread above so something internal must be wrong. just emit a bug report friendly error message.
-            throw NewErrorEvent(DBGERR_INTERNAL, "failed to get python thread id (failed to communicate)");
-        });
-
-        auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
-        const auto ptid = ::strtol(result.get(), nullptr, 10);
-        if (ptid == 0) {
-            // not much the user can do if this fails. we already verified that we are on a python
-            // thread above so something internal must be wrong. just emit a bug report friendly error message.
-            throw NewErrorEvent(DBGERR_INTERNAL, "failed to get python thread id (failed to parse id)");
-        }
-        return ptid;
-    }
+    return ptid;
 }
 
 void RPC::thread_interrupt(c_thread_id_t tid) {
@@ -625,16 +625,20 @@ pybe::Backtrace RPC::get_elf_backtrace(c_thread_id_t tid) {
 
     auto result = Backtrace{};
 
+    auto level = 0;
     MIListSet(miframes);
     for (
         MIFrame* frame = (MIFrame*)MIListGet(miframes);
         frame != nullptr;
-        frame = (MIFrame*)MIListGet(miframes)
+        frame = (MIFrame*)MIListGet(miframes), level++
     ) {
         result.frames.emplace_back(Frame{
-            .function_name = frame->func ? frame->func : "",
-            .file_name = frame->file ? frame->file : "",
-            .line_number = frame->line,
+            .level = level,
+            .location = {
+                .function_name = frame->func ? frame->func : "",
+                .file_name = frame->file ? frame->file : "",
+                .line_number = frame->line,
+            },
         });
     }
 
@@ -708,6 +712,18 @@ pybe::Frame RPC::get_python_frame(c_thread_id_t tid, py_thread_id_t py_thread_id
 
     // not much the user can do if this fails. just emit a bug report friendly error.
     throw NewErrorEvent(DBGERR_INTERNAL, "get_python_frame: failed to deserialize data");
+}
+
+void RPC::move_python_frame_level(c_thread_id_t tid, py_thread_id_t ptid, int count, pybe::FrameDirection dir) {
+    const auto fn = std::string{"pybe::move_frame_level("} +
+        std::to_string(ptid) + "," +
+        std::to_string(count) + "," +
+        std::to_string(static_cast<int>(dir)) + ")";
+
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "move_python_frame_level: pybe fn failed");
+    });
 }
 
 std::string RPC::eval_elf_expression(c_thread_id_t tid, size_t frame, std::string_view expr) {

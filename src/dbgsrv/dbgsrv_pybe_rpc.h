@@ -125,6 +125,14 @@ public:
     // use thread `tid` to call pybe and get the current frame of python thread `ptid`.
     pybe::Frame get_python_frame(c_thread_id_t tid, py_thread_id_t ptid);
 
+    // use thread `tid` to call pybe and change the current python frame level.
+    //
+    // if `dir` is Up or Down and `count` exceeds the end of the stack, the
+    // operation will stop at the end of the stack. if `dir` is Absolute and `count`
+    // is invalid, no change will take place. The python stack on `ptid` will be used
+    // for the checks.
+    void move_python_frame_level(c_thread_id_t tid, py_thread_id_t ptid, int count, pybe::FrameDirection dir);
+
     // evaluate expression `expr` in frame `frame` on thread `tid` and return the result.
     std::string eval_elf_expression(c_thread_id_t tid, size_t frame, std::string_view expr);
 

@@ -77,6 +77,63 @@ void set_trace_all_threads(Py_tracefunc tracefunc) {
 
 namespace pybe {
 
+Expected<StrongRef<PyFrameObject>, std::nullptr_t>
+PybeImpl::get_current_frame_with_fallback(unsigned long py_thread_id) {
+    auto* tstate = get_threadstate(py_thread_id);
+    if (tstate == nullptr) [[ unlikely ]] {
+        log("couldn't find thread\n");
+        return nullptr;
+    }
+    if (m_level < 0) [[ unlikely ]] {
+        log("level < 0 (%d)\n", m_level);
+        return nullptr;
+    }
+
+    auto iter_frame = StrongRef<PyFrameObject>(nullptr);
+    int iter_level = 0;
+    for (
+        iter_frame = StrongRef(PyThreadState_GetFrame(tstate));
+        iter_frame && iter_level < m_level;
+        iter_frame = StrongRef(PyFrame_GetBack(iter_frame.ptr)), iter_level++)
+    {}
+
+    if (!iter_frame) {
+        if (iter_level == 0) {
+            // no python frames were found. this is a correct result when this function
+            // is called before python has started interpreting code or after it's done.
+            // fall through.
+        } else {
+            // we iterated at least 1 frame but overshot the top of the stack. this
+            // is a programmer error.
+            log("error: failed to get frame at level %d\n", m_level);
+            return nullptr;
+        }
+    }
+
+    return iter_frame;
+}
+
+static Expected<Backtrace, std::nullptr_t> get_backtrace_data(unsigned long py_thread_id) {
+    auto* tstate = get_threadstate(py_thread_id);
+    if (tstate == nullptr) {
+        log("couldn't find thread\n");
+        return nullptr;
+    }
+
+    auto result = Backtrace{};
+
+    int level = 0;
+    for (
+        auto frame = StrongRef(PyThreadState_GetFrame(tstate));
+        frame;
+        frame = StrongRef(PyFrame_GetBack(frame.ptr)), level++)
+    {
+        result.frames.emplace_back(to_frame(*frame, level));
+    }
+
+    return result;
+}
+
 bool PybeImpl::get_backtrace(uint32_t seq, unsigned long py_thread_id) {
     log("get_backtrace\n");
     if (!m_connection) [[ unlikely ]] {
@@ -88,21 +145,12 @@ bool PybeImpl::get_backtrace(uint32_t seq, unsigned long py_thread_id) {
         return false;
     }
 
-    auto* tstate = get_threadstate(py_thread_id);
-    if (tstate == nullptr) {
-        log("couldn't find thread\n");
+    auto maybe_result = get_backtrace_data(py_thread_id);
+    if (!maybe_result) {
+        // error message already logged
         return false;
     }
-
-    auto result = Backtrace{};
-
-    for (
-        auto frame = StrongRef(PyThreadState_GetFrame(tstate));
-        frame;
-        frame = StrongRef(PyFrame_GetBack(frame.ptr)))
-    {
-        result.frames.emplace_back(to_frame(*frame));
-    }
+    auto& result = *maybe_result;
 
     auto wire = result.serialize();
     log("serialized backtrace: \"%s\"\n", wire.c_str());
@@ -125,20 +173,37 @@ bool PybeImpl::get_frame(uint32_t seq, unsigned long py_thread_id) {
         return false;
     }
 
-    auto* tstate = get_threadstate(py_thread_id);
-    if (tstate == nullptr) {
-        log("couldn't find thread\n");
+    auto maybe_py_frame = get_current_frame_with_fallback(py_thread_id);
+    if (!maybe_py_frame) {
+        log("get_frame_at_level_with_fallback(%lu) failed\n", py_thread_id);
         return false;
     }
+    auto& py_frame = *maybe_py_frame;
 
-    auto pyframe = StrongRef(PyThreadState_GetFrame(tstate));
-    if (!pyframe) {
-        log("no frame?\n");
-        return false;
-    }
+    // convert to pybe::Frame
+    auto result = [&]() {
+        if (py_frame) {
+            return to_frame(*py_frame, m_level);
+        } else {
+            // if the user requests a frame at the entry breakpoint, python is still initializing
+            // and hasn't started interpreting code yet and there is legitimately no python frame
+            // available.
+            return pybe::Frame{
+                .level = 0,
+                .location = {
+                    .function_name = "No python frame",
+                    .file_name = "",
+                    .line_number = 0,
+                }
+            };
+        }
+    }();
 
-    auto result = to_frame(*pyframe);
-    log("%s in %s:%d\n", result.function_name.c_str(), result.file_name.c_str(), result.line_number);
+    // send the result
+    log("%s in %s:%d\n",
+        result.location.function_name.c_str(),
+        result.location.file_name.c_str(),
+        result.location.line_number);
 
     auto wire = result.serialize();
     log("serialized frame: \"%s\"\n", wire.c_str());
@@ -148,21 +213,70 @@ bool PybeImpl::get_frame(uint32_t seq, unsigned long py_thread_id) {
     }
 
     return true;
+
+}
+
+bool PybeImpl::move_frame_level(unsigned long py_thread_id, int count, pybe::FrameDirection dir) {
+    log("move_frame_level\n");
+    if (!PyGILState_Check()) [[ unlikely ]] {
+        log("need gil\n");
+        return false;
+    }
+    if (count < 0) [[ unlikely ]] {
+        log("negative count (%d)\n", count);
+        return false;
+    }
+
+    auto maybe_backtrace = get_backtrace_data(py_thread_id);
+    if (!maybe_backtrace) {
+        // error message already logged
+        return false;
+    }
+    auto& backtrace = *maybe_backtrace;
+
+    if (backtrace.frames.empty()) {
+        // this is not necessarily an error - if the backtrace is fetched right
+        // at python startup, there will legitimately not be any python backtrace.
+        // just set the level to 0 and move on
+        log("warning: move_frame_level: no python backtrace, setting level to 0\n");
+        m_level = 0;
+        return true;
+    }
+
+    m_level = [&](){
+        using enum FrameDirection;
+        switch(dir) {
+            case Up: {
+                return std::min(backtrace.frames.back().level, m_level + count);
+            }
+            case Down: {
+                return std::max(0, m_level - count);
+            }
+            case Absolute: {
+                return count;
+            }
+        }
+        // unreachable
+        log("warning: corrupted direction input\n");
+        return count;
+    }();
+    log("new level: %d\n", m_level);
+
+    return true;
 }
 
 bool PybeImpl::eval_expr(uint32_t seq, unsigned long py_thread_id, const char* expr) {
-    auto* tstate = get_threadstate(py_thread_id);
-    if (tstate == nullptr) {
-        log("couldn't find thread\n");
-        return false;
-    }
-    log("tstate: %p\n", tstate);
-
-    auto frame = StrongRef(PyThreadState_GetFrame(tstate));
-    if (!frame.ptr) {
+    auto maybe_frame = get_current_frame_with_fallback(py_thread_id);
+    // this check is a little confusing. first we check if get_frame had an
+    // error (the optional it returned was empty), then we check if we are in an
+    // edge case where get_frame correctly returns and optional containing a
+    // null ptr because there is no python frame yet (e.g. we're at the entry
+    // breakpoint and python hasn't started running yet)
+    if (!maybe_frame || !(*maybe_frame)) {
         log("missing frame\n");
         return false;
     }
+    auto& frame = *maybe_frame;
     log("frame: %p\n", frame.ptr);
 
     auto globals = StrongRef(PyFrame_GetGlobals(frame.ptr));
@@ -299,23 +413,24 @@ void PybeImpl::init_GIL() {
 }
 
 void PybeImpl::stop_and_notify_gdb() {
+    m_level = 0;
     m_move_in_progress.reset();
     ::raise(get_gil_signal_number());
 }
 
 int PybeImpl::trace_call(PyFrameObject& pyframe) {
-    auto frame = to_frame(pyframe);
-    // log("[CALL] %s in %s:%d\n", frame.function_name.c_str(), frame.file_name.c_str(), frame.line_number);
+    auto frame = to_frame(pyframe, 0);
+    // log("[CALL] %s in %s:%d\n", frame.location.function_name.c_str(), frame.location.file_name.c_str(), frame.location.line_number);
 
     auto matching_breakpoint = [&]() -> std::unique_ptr<Breakpoint> {
         for (const auto& bp : m_breakpoints) {
-            if (bp.location.function_name == frame.function_name) {
+            if (bp.location.function_name == frame.location.function_name) {
                 return std::make_unique<Breakpoint>(bp);
             }
             // if a filename was set, assume that it was the basename.
             // python gives us the full path so we need to basename it.
-            const auto basenm = String{::basename(frame.file_name.c_str())};
-            if (bp.location.file_name == basenm && bp.location.line_number == frame.line_number) {
+            const auto basenm = String{::basename(frame.location.file_name.c_str())};
+            if (bp.location.file_name == basenm && bp.location.line_number == frame.location.line_number) {
                 return std::make_unique<Breakpoint>(bp);
             }
         }
@@ -337,8 +452,8 @@ int PybeImpl::trace_call(PyFrameObject& pyframe) {
 }
 
 int PybeImpl::trace_return(PyFrameObject& frame, PyObject& /* return_value */) {
-    auto next_frame = to_frame(frame);
-    // log("[RETURN] %s in %s:%d\n", next_frame.function_name.c_str(), next_frame.file_name.c_str(), next_frame.line_number);
+    auto next_frame = to_frame(frame, 0);
+    // log("[RETURN] %s in %s:%d\n", next_frame.location.function_name.c_str(), next_frame.location.file_name.c_str(), next_frame.location.line_number);
 
     using enum PybeImpl::Move::Type;
     if (m_move_in_progress) {
@@ -349,15 +464,15 @@ int PybeImpl::trace_return(PyFrameObject& frame, PyObject& /* return_value */) {
 }
 
 int PybeImpl::trace_line(PyFrameObject& pyframe) {
-    auto next_frame = to_frame(pyframe);
-    // log("[LINE] %s in %s:%d\n", next_frame.function_name.c_str(), next_frame.file_name.c_str(), next_frame.line_number);
+    auto next_frame = to_frame(pyframe, 0);
+    // log("[LINE] %s in %s:%d\n", next_frame.location.function_name.c_str(), next_frame.location.file_name.c_str(), next_frame.location.line_number);
 
     auto matching_breakpoint = [&]() -> std::unique_ptr<Breakpoint> {
         for (const auto& bp : m_breakpoints) {
             // if a filename was set, assume that it was the basename.
             // python gives us the full path so we need to basename it.
-            const auto basenm = String{::basename(next_frame.file_name.c_str())};
-            if (bp.location.file_name == basenm && bp.location.line_number == next_frame.line_number) {
+            const auto basenm = String{::basename(next_frame.location.file_name.c_str())};
+            if (bp.location.file_name == basenm && bp.location.line_number == next_frame.location.line_number) {
                 return std::make_unique<Breakpoint>(bp);
             }
         }
@@ -452,7 +567,7 @@ Expected<Breakpoint, std::nullptr_t> make_breakpoint(unsigned long ptid, int fei
 
         return Breakpoint{
             .feid = feid,
-            .location = Frame {
+            .location = {
                 .function_name = funcname,
                 .file_name = ::basename(filename),
                 .line_number = line,
@@ -472,13 +587,13 @@ Expected<Breakpoint, std::nullptr_t> make_breakpoint(unsigned long ptid, int fei
             log("couldn't get frame from thread\n");
             return nullptr;
         }
-        auto frame = to_frame(*py_frame.ptr);
+        auto frame = to_frame(*py_frame.ptr, 0);
 
         return Breakpoint{
             .feid = feid,
-            .location = Frame {
+            .location = {
                 .function_name = "",
-                .file_name = ::basename(frame.file_name.c_str()),
+                .file_name = ::basename(frame.location.file_name.c_str()),
                 .line_number = line,
             }
         };
@@ -555,7 +670,7 @@ bool PybeImpl::install_step_trap(unsigned long py_thread_id, bool step_in) {
 
     using enum PybeImpl::Move::Type;
     m_move_in_progress = std::make_unique<Move>(Move{
-        .start = to_frame(*frame),
+        .start = to_frame(*frame, 0),
         .current_depth = 0,
         .type = step_in ? Step : Next,
     });
@@ -572,7 +687,7 @@ bool PybeImpl::install_finish_trap(unsigned long py_thread_id) {
 
     using enum PybeImpl::Move::Type;
     m_move_in_progress = std::make_unique<Move>(Move{
-        .start = to_frame(*frame),
+        .start = to_frame(*frame, 0),
         .current_depth = 0,
         .type = Finish,
     });

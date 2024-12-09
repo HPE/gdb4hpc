@@ -2,13 +2,13 @@
 
 #include "pybe_comms_dbgsrv.h"
 
-std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Frame& frame, int level) {
+std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Frame& frame) {
     // dbgloc owns the ptrs given to it
-    auto location = dbgloc(::strdup(frame.file_name.c_str()),
-                           ::strdup(frame.function_name.c_str()),
+    auto location = dbgloc(::strdup(frame.location.file_name.c_str()),
+                           ::strdup(frame.location.function_name.c_str()),
                            ::strdup("") /* address */,
-                           frame.line_number);
-    return std::make_unique<dbgframe_t>(level, location, nullptr, nullptr, nullptr);
+                           frame.location.line_number);
+    return std::make_unique<dbgframe_t>(frame.level, location, nullptr, nullptr, nullptr);
 }
 
 std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Backtrace& bt) {
@@ -16,14 +16,12 @@ std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Backtrace& bt) {
     // and it's cumbersome to keep creating unique ptrs only to immediately release them when
     // building the linked list.
 
-    int current_level = 0;
     auto first_frame = static_cast<dbgframe_t*>(nullptr); // "first" meaning "deepest"
     auto* last_frame = static_cast<dbgframe_t*>(nullptr); // "last" meaning "shallowest" (e.g. main)
 
     for (const auto& py_frame : bt.frames) {
         // dbgloc owns the ptrs given to it
-        auto* frame = to_dbgframe(py_frame, current_level).release();
-        current_level++;
+        auto* frame = to_dbgframe(py_frame).release();
 
         if (!first_frame) {
             first_frame = frame;
@@ -38,7 +36,7 @@ std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Backtrace& bt) {
         // if the user requests a backtrace before python has started, we won't
         // get any frames. in that case give the user something informative
         auto location = dbgloc(nullptr, ::strdup("No python backtrace"), nullptr, 0);
-        first_frame = new dbgframe_t(0, location, nullptr, nullptr, nullptr);
+        first_frame = new dbgframe_t(/*level=*/ 0, location, nullptr, nullptr, nullptr);
     }
 
     return std::unique_ptr<dbgframe_t>(first_frame);

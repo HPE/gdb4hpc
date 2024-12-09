@@ -52,10 +52,6 @@ public:
     // If count is not zero then return only that many frames. If count is zero then
     // return an unlimited number of frames. If count is negative return the
     // outermost frames.
-    //
-    // if in python mode, returns a python backtrace. use `showElfFrames` or `pythonBEBacktrace`
-    // to manually specify the type of backtrace to use.
-    dbgevent_t *showFrame(int count, const char* threads);
     dbgevent_t* showElfFrames(int count, const char* threads);
 
     dbgevent_t *getFrame(bool verbose, const char* threads);
@@ -121,6 +117,8 @@ public:
     // these python features use the pybe injected library. see python.md
     dbgevent_t* pyBEInject();
     dbgevent_t* pyBEBacktrace();
+    dbgevent_t* pyBEGetFrame();
+    dbgevent_t* pyBEMoveFrame(int count, DbgFrameDir dir);
     dbgevent_t* pyBEGetGIL();
     dbgevent_t* pyBEEvalExpr(std::string_view expr);
     dbgevent_t* pyBESetLineBreakpoint(int feid, std::string_view filename, int line);

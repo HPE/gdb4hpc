@@ -10,7 +10,10 @@ def sleep(seconds):
     time.sleep(seconds)
 
 def main():
+    pi = 3.14159
     sleep(int(sys.argv[1]))
+
+e = 2.718
 
 if __name__ == "__main__":
     main()

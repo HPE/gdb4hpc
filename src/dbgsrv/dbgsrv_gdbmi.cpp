@@ -1298,10 +1298,6 @@ dbgevent_t* DbgGdbMI::showElfFrames(int count, const char* threads) {
     return e;
 }
 
-dbgevent_t *DbgGdbMI::showFrame(int count, const char* threads) {
-    return isPython() ? pyBEBacktrace() : showElfFrames(count, threads);
-}
-
 /*
 ** Get selected stack frame. This will return information about the current
 *frame
@@ -2628,6 +2624,30 @@ dbgevent_t* DbgGdbMI::pyBEBacktrace() {
     return e;
 }
 
+dbgevent_t* DbgGdbMI::pyBEGetFrame() {
+    DVPRINT("pythonBEGetFrame\n");
+
+    auto gil = ensurePybe().run_until_gil(get_current_thread_id());
+
+    auto frame = gil.get_frame();
+    auto* e = NewEvent(DBGEV_FRAME);
+    e->ev_frame = to_dbgframe(frame).release();
+
+    return e;
+}
+
+dbgevent_t* DbgGdbMI::pyBEMoveFrame(int count, DbgFrameDir dir) {
+    DVPRINT("pythonBEMoveFrame\n");
+
+    auto gil = ensurePybe().run_until_gil(get_current_thread_id());
+
+    auto frame = gil.move_frame_level(count, dir);
+    auto* e = NewEvent(DBGEV_FRAME);
+    e->ev_frame = to_dbgframe(frame).release();
+
+    return e;
+}
+
 dbgevent_t* DbgGdbMI::pyBEEvalExpr(std::string_view expr) {
     DVPRINT("pythonBEEvalExpr [%*s]\n", (int)expr.size(), expr.data());
     auto gil = ensurePybe().run_until_gil(get_current_thread_id());
@@ -2758,7 +2778,7 @@ dbgevent_t* DbgGdbMI::pyBEHandleAsyncStop(MIEvent* event) {
             // so tell the frontend to always print the frame
             result->ev_step.step_frame_changed = true;
 
-            result->ev_step.step_frame = to_dbgframe(gil.get_frame(), 0).release();
+            result->ev_step.step_frame = to_dbgframe(gil.get_frame()).release();
             result->ev_step.step_threadId = event->threadId;
 
             return result;

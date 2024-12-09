@@ -9,6 +9,11 @@ Created network...
 Connected to application...
 Launch complete.
 a{0}: Initial breakpoint, %.*%
+0: bt
+a{0}: #0  No python backtrace
+
+0: frame
+a{0}: #0  No python frame
 0: break breaks.py:4
 a{0}: Breakpoint 1: file breaks.py, line 4.
 0: break lib.py:4
@@ -22,6 +27,8 @@ a{0}: #2  <module> at /src/python/breaks.py:14
 a{0}: #1  breaks_main at /src/python/breaks.py:8
 a{0}: #0  calc at /src/python/breaks.py:4
 
+0: frame
+a{0}: #0  calc at /src/python/breaks.py:4
 0: delete 1
 0: c
 a{0}: Breakpoint 3, in magic
@@ -30,6 +37,8 @@ a{0}: #2  <module> at /src/python/breaks.py:14
 a{0}: #1  breaks_main at /src/python/breaks.py:9
 a{0}: #0  magic at /src/python/lib.py:1
 
+0: frame
+a{0}: #0  magic at /src/python/lib.py:1
 0: break 3
 a{0}: Breakpoint 4: file lib.py, line 3.
 0: # breakpoint 5 will never be hit since it's lib.py:10 and not break.py:10
@@ -44,6 +53,8 @@ a{0}: #2  <module> at /src/python/breaks.py:14
 a{0}: #1  breaks_main at /src/python/breaks.py:9
 a{0}: #0  magic at /src/python/lib.py:4
 
+0: frame
+a{0}: #0  magic at /src/python/lib.py:4
 0: c
 a{0}: The application has reached an exit breakpoint.
 0: q

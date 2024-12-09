@@ -51,6 +51,16 @@ inline auto get_gil_signal_name() {
     return "SIGTRAP";
 }
 
+// specifies direction for frame modification commands like up/down/frame.
+// there is a similar enum (DbgFrameDir) in dbgcmd.h, but to fully isolate
+// the pybe API from the dbg API, we make our own here and translate at the API
+// boundary as needed.
+enum class FrameDirection : int {
+    Up,
+    Down,
+    Absolute,
+};
+
 namespace detail {
 
 template <typename String_T, typename StringView_T, template <typename T> typename Vector_T>
@@ -684,18 +694,20 @@ pybe::Expected<Channel_T<Ts>, std::nullptr_t> Server_T<Ts>::accept_with_timeout(
     return Channel_T<Ts>(conn_fd);
 }
 
+template <typename Ts> struct Location_T;
 template <typename Ts> struct Frame_T;
 template <typename Ts> struct Backtrace_T;
 template <typename Ts> struct Breakpoint_T;
 
 template <typename Ts>
-struct WireMsgBuilder_T {
+class WireMsgBuilder_T {
     // helper class to serialize groups of pybe plain-ol-data structs
-
+public:
     enum class Type : int {
         Int = 1,
         String,
 
+        Location,
         Frame,
         Backtrace,
         Breakpoint,
@@ -706,17 +718,31 @@ struct WireMsgBuilder_T {
     void push(int num);
     void push(const Ts::String& string);
 
+    void push(const Location_T<Ts>& frame);
     void push(const Frame_T<Ts>& frame);
     void push(const Backtrace_T<Ts>& frame);
     void push(const Breakpoint_T<Ts>& breakpoint);
+
+private:
+    // used internally by the push methods
+    void push_type(Type type);
+
 };
 
 template <typename Ts>
 Ts::String to_string(int num);
 
 template <typename Ts>
+void WireMsgBuilder_T<Ts>::push_type(WireMsgBuilder_T<Ts>::Type type) {
+    // we mark types with '^' to make debugging serialized messages easier,
+    // it serves no actual data storage/parsing purpose
+    this->msg.append("^");
+    this->msg.append(detail::to_string<Ts>(static_cast<int>(type)).c_str());
+}
+
+template <typename Ts>
 void WireMsgBuilder_T<Ts>::push(int num) {
-    this->msg.append(detail::to_string<Ts>(static_cast<int>(Type::Int)).c_str());
+    push_type(Type::Int);
     this->msg.append(" ");
     this->msg.append(detail::to_string<Ts>(num).c_str());
     this->msg.append(" ");
@@ -724,7 +750,7 @@ void WireMsgBuilder_T<Ts>::push(int num) {
 
 template <typename Ts>
 void WireMsgBuilder_T<Ts>::push(const Ts::String& string) {
-    this->msg.append(detail::to_string<Ts>(static_cast<int>(Type::String)).c_str());
+    push_type(Type::String);
     this->msg.append(" ");
     // note that this size push includes the type identifier for the int
     push(string.size());
@@ -733,18 +759,27 @@ void WireMsgBuilder_T<Ts>::push(const Ts::String& string) {
 }
 
 template <typename Ts>
-void WireMsgBuilder_T<Ts>::push(const Frame_T<Ts>& frame) {
-    this->msg.append(detail::to_string<Ts>(static_cast<int>(Type::Frame)).c_str());
+void WireMsgBuilder_T<Ts>::push(const Location_T<Ts>& loc) {
+    push_type(Type::Location);
     this->msg.append(" ");
 
-    push(frame.function_name);
-    push(frame.file_name);
-    push(frame.line_number);
+    push(loc.function_name);
+    push(loc.file_name);
+    push(loc.line_number);
+}
+
+template <typename Ts>
+void WireMsgBuilder_T<Ts>::push(const Frame_T<Ts>& frame) {
+    push_type(Type::Frame);
+    this->msg.append(" ");
+
+    push(frame.level);
+    push(frame.location);
 }
 
 template <typename Ts>
 void WireMsgBuilder_T<Ts>::push(const Backtrace_T<Ts>& bt) {
-    this->msg.append(detail::to_string<Ts>(static_cast<int>(Type::Backtrace)).c_str());
+    push_type(Type::Backtrace);
     this->msg.append(" ");
 
     push(bt.frames.size());
@@ -756,7 +791,7 @@ void WireMsgBuilder_T<Ts>::push(const Backtrace_T<Ts>& bt) {
 
 template <typename Ts>
 void WireMsgBuilder_T<Ts>::push(const Breakpoint_T<Ts>& bp) {
-    this->msg.append(detail::to_string<Ts>(static_cast<int>(Type::Breakpoint)).c_str());
+    push_type(Type::Breakpoint);
     this->msg.append(" ");
 
     push(bp.feid);
@@ -778,22 +813,20 @@ template <typename Ts>
 Expected<typename Ts::String, std::nullptr_t> parse_string(const char*& cursor);
 
 template <typename Ts>
-struct Frame_T {
-    // a single function frame
-
-    Ts::String serialize() const;
-    static Expected<Frame_T, std::nullptr_t> deserialize(const char*& data, size_t len);
-
-    bool operator==(const Frame_T& other) const = default;
-    bool operator!=(const Frame_T& other) const = default;
-
+struct Location_T {
     Ts::String function_name;
     Ts::String file_name;
     int line_number;
+
+    Ts::String serialize() const;
+    static Expected<Location_T, std::nullptr_t> deserialize(const char*& data, size_t len);
+
+    bool operator==(const Location_T& other) const = default;
+    bool operator!=(const Location_T& other) const = default;
 };
 
 template <typename Ts>
-Ts::String Frame_T<Ts>::serialize() const
+Ts::String Location_T<Ts>::serialize() const
 {
     auto result = detail::WireMsgBuilder_T<Ts>{};
     result.push(*this);
@@ -801,12 +834,12 @@ Ts::String Frame_T<Ts>::serialize() const
 }
 
 template <typename Ts>
-Expected<Frame_T<Ts>, std::nullptr_t> Frame_T<Ts>::deserialize(const char*& cursor, size_t) {
-    auto result = Frame_T{};
+Expected<Location_T<Ts>, std::nullptr_t> Location_T<Ts>::deserialize(const char*& cursor, size_t) {
+    auto result = Location_T{};
 
     // TODO bounds check with size_t param
 
-    if (!detail::consume_type<Ts>(cursor, detail::WireMsgBuilder_T<Ts>::Type::Frame)) return nullptr;
+    if (!detail::consume_type<Ts>(cursor, detail::WireMsgBuilder_T<Ts>::Type::Location)) return nullptr;
 
     if (auto maybe_str = detail::parse_string<Ts>(cursor)) {
         result.function_name = *maybe_str;
@@ -822,6 +855,50 @@ Expected<Frame_T<Ts>, std::nullptr_t> Frame_T<Ts>::deserialize(const char*& curs
 
     if (auto maybe_int = detail::parse_int<Ts>(cursor)) {
         result.line_number = *maybe_int;
+    } else {
+        return nullptr;
+    }
+
+    return result;
+}
+
+template <typename Ts>
+struct Frame_T {
+    // a single function frame
+
+    Ts::String serialize() const;
+    static Expected<Frame_T, std::nullptr_t> deserialize(const char*& data, size_t len);
+
+    bool operator==(const Frame_T& other) const = default;
+    bool operator!=(const Frame_T& other) const = default;
+
+    int level;
+    Location_T<Ts> location;
+};
+
+template <typename Ts>
+Ts::String Frame_T<Ts>::serialize() const {
+    auto result = detail::WireMsgBuilder_T<Ts>{};
+    result.push(*this);
+    return std::move(result.msg);
+}
+
+template <typename Ts>
+Expected<Frame_T<Ts>, std::nullptr_t> Frame_T<Ts>::deserialize(const char*& cursor, size_t len) {
+    auto result = Frame_T{};
+
+    // TODO bounds check with size_t param
+
+    if (!detail::consume_type<Ts>(cursor, detail::WireMsgBuilder_T<Ts>::Type::Frame)) return nullptr;
+
+    if (auto maybe_level = detail::parse_int<Ts>(cursor)) {
+        result.level = *maybe_level;
+    } else {
+        return nullptr;
+    }
+
+    if (auto maybe_loc = Location_T<Ts>::deserialize(cursor, len)) {
+        result.location = *maybe_loc;
     } else {
         return nullptr;
     }
@@ -895,7 +972,7 @@ struct Breakpoint_T {
     bool operator==(const Breakpoint_T& other) const = default;
 
     int feid;
-    Frame_T<Ts> location;
+    Location_T<Ts> location;
 };
 
 template <typename Ts>
@@ -919,7 +996,7 @@ Expected<Breakpoint_T<Ts>, std::nullptr_t> Breakpoint_T<Ts>::deserialize(const c
         return nullptr;
     }
 
-    if (auto maybe_loc = Frame_T<Ts>::deserialize(cursor, len)) {
+    if (auto maybe_loc = Location_T<Ts>::deserialize(cursor, len)) {
         result.location = *maybe_loc;
     } else {
         return nullptr;
@@ -953,6 +1030,13 @@ void consume_whitespace(const char*& cursor) {
 template <typename Ts>
 bool consume_type(const char*& cursor, typename WireMsgBuilder_T<Ts>::Type type) {
     consume_whitespace<Ts>(cursor);
+
+    // move past '^'
+    if (*cursor == '^') {
+        cursor++;
+    } else {
+        return false;
+    }
 
     const auto type_str = detail::to_string<Ts>(static_cast<int>(type));
     if (::strncmp(cursor, type_str.c_str(), type_str.size()) == 0) {

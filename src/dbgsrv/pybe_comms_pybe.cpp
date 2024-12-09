@@ -4,7 +4,7 @@
 
 namespace pybe {
 
-Frame to_frame(PyFrameObject& pyframe) {
+Frame to_frame(PyFrameObject& pyframe, int level) {
     auto code = StrongRef(PyFrame_GetCode(&pyframe));
 
     // note that PyUnicode_AsUTF8 does not give us a pointer that we have to
@@ -15,9 +15,12 @@ Frame to_frame(PyFrameObject& pyframe) {
     // XXX: these member accesses are not ABI portable and might break with a
     // python update
     return Frame{
-        .function_name = String(PyUnicode_AsUTF8(code->co_name)),
-        .file_name = String(PyUnicode_AsUTF8(code->co_filename)),
-        .line_number = PyFrame_GetLineNumber(&pyframe),
+        .level = level,
+        .location = {
+            .function_name = String(PyUnicode_AsUTF8(code->co_name)),
+            .file_name = String(PyUnicode_AsUTF8(code->co_filename)),
+            .line_number = PyFrame_GetLineNumber(&pyframe),
+        },
     };
 }
 

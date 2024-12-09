@@ -5,6 +5,7 @@
 #pragma once
 
 #include "dbgsrv_pybe_rpc.h"
+#include "dbgcmd.h"
 
 class Pybe {
     // Pybe is a singleton-like interface for dbgsrv to use to interact with the
@@ -82,6 +83,12 @@ public:
     //
     // throws dbgevent_t* error on failure.
     pybe::Frame get_frame();
+
+    // change which python frame is currently in focus (implements the up/down commands).
+    //
+    // returns newly focused frame.
+    // throws dbgevent_t* error on failure.
+    pybe::Frame move_frame_level(int count, DbgFrameDir dir);
 
     // retreive the current python backtrace.
     //

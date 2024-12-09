@@ -438,37 +438,6 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
                 break;
             }
 
-            case DBGCMD_PYEXTBT: {
-                e = DbgPyExtBacktrace();
-                break;
-            }
-
-            case DBGCMD_PYEXTLIST: {
-                std::string arg;
-                is.get(arg);
-                e = DbgPyExtList(arg);
-                break;
-            }
-
-            case DBGCMD_PYEXTMOVEFRAME: {
-                int dir;
-                is.get(dir);
-                e = DbgPyExtMoveFrame(DbgFrameDir(dir));
-                break;
-            }
-
-            case DBGCMD_PYEXTPRINT: {
-                std::string name;
-                is.get(name);
-                e = DbgPyExtPrint(name);
-                break;
-            }
-
-            case DBGCMD_PYEXTLOCALS: {
-                e = DbgPyExtLocals();
-                break;
-            }
-
             case DBGCMD_PYBEGETPYTHON: {
                 e = DbgPyBEGetPython();
                 break;

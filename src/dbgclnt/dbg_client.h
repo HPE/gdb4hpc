@@ -469,16 +469,6 @@ rep_set_t DbgSleep(rec_set_t* rec_set, int seconds);
 rep_set_t DbgShell(rec_set_t *, int argc, const char * const * argv);
 rep_set_t DbgSignal(rec_set_t *, const char* signame);
 
-// these require python extensions on the backend gdb and a python interpreter
-// with debug info. if something is missing, these return rep_sets with
-// errors explaining so. see python.md.
-
-rep_set_t DbgPyExtBacktrace(rec_set_t* rec);
-rep_set_t DbgPyExtList(rec_set_t* rec, std::string_view list_arg);
-rep_set_t DbgPyExtMoveFrame(rec_set_t* rec, DbgFrameDir dir);
-rep_set_t DbgPyExtPrint(rec_set_t* rec, std::string_view name);
-rep_set_t DbgPyExtLocals(rec_set_t* rec);
-
 // `DbgGetPython` returns the current python mode setting of the backend.
 // it's returned as a DBGEV_STRING.
 rep_set_t DbgPyBEGetPython(rec_set_t* rec);

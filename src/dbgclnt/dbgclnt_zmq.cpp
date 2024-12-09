@@ -269,7 +269,6 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
 
     // if these fail, they print their own warning messages
     shipOmpd(manifest_id);
-    shipPythonGdb(manifest_id);
 
     // TODO support --with-valgrind
 

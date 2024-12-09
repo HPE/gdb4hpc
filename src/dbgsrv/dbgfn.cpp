@@ -421,31 +421,6 @@ dbgevent_t *DbgSignal(char const* signame) {
     return DbgBackendSW->signal(signame);
 }
 
-dbgevent_t *DbgPyExtBacktrace() {
-    DBG_READY();
-    return DbgBackendSW->pyExtBacktrace();
-}
-
-dbgevent_t *DbgPyExtList(const std::string& arg) {
-    DBG_READY();
-    return DbgBackendSW->pyExtList(arg);
-}
-
-dbgevent_t *DbgPyExtMoveFrame(DbgFrameDir dir) {
-    DBG_READY();
-    return DbgBackendSW->pyExtMoveFrame(dir);
-}
-
-dbgevent_t *DbgPyExtPrint(const std::string& name) {
-    DBG_READY();
-    return DbgBackendSW->pyExtPrint(name);
-}
-
-dbgevent_t *DbgPyExtLocals() {
-    DBG_READY();
-    return DbgBackendSW->pyExtLocals();
-}
-
 dbgevent_t *DbgPyBEGetPython() {
     DBG_READY();
     return DbgBackendSW->pyBEGetPython();

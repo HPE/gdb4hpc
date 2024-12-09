@@ -67,7 +67,6 @@ A guide covering gdb4hpc's vscode extension.
 gdb4hpc has extra support for debugging Python applications.
 
 - [Using Python Mode](./guides/python-mode.md)
-- [(Deprecated) Using the gdb Python extension](./guides/python-extension.md)
 
 ### gdb4hpc man Pages and Reference Material
 

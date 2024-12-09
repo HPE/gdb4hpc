@@ -75,13 +75,6 @@ enum dbgcmd {
     DBGCMD_SHELL,
     DBGCMD_GETARGS,
     DBGCMD_SIGNAL,
-    // TODO: rename all DBGCMD_PY* to be more clear about which use gdb python extensions
-    //       and which use libgdb4_pybe.so.
-    DBGCMD_PYEXTBT,
-    DBGCMD_PYEXTLIST,
-    DBGCMD_PYEXTMOVEFRAME,
-    DBGCMD_PYEXTPRINT,
-    DBGCMD_PYEXTLOCALS,
     DBGCMD_PYBEGETPYTHON,
     DBGCMD_PYBESETPYTHON,
     DBGCMD_PYBEINJECT,

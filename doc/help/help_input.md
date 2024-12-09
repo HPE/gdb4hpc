@@ -692,47 +692,6 @@ Usage: python
 This enters a python interpreter, and all lines enterred will be\
 interpreted as python code.
 
-## maint pyext `pyext_help`
-
-Use gdb python debugging extensions. These commands require that you are
-debugging the cpython interpreter and that is has debug info available.
-For more info, see the documentation in the python-extension.md file in
-the documentation directory of your gdb4hpc installation.
-
-## maint pyext bt `cmd_py_bt_help`
-Summary: print the current python backtrace.\
-Usage: maint pyext bt
-
-## maint pyext list `cmd_py_list_help`
-Summary: print the current python source location.\
-Usage: maint pyext list\
-       maint pyext list <start line>\
-       maint pyext list <start line>, <end line>
-
-## maint pyext up `cmd_py_up_help`
-Summary: move up one frame on the python stack.\
-Usage: maint pyext up
-
-## maint pyext down `cmd_py_down_help`
-Summary: move down one frame on the python stack.\
-Usage: maint pyext down
-
-## maint pyext print `cmd_py_print_help`
-Summary: prints the value of a python variable.\
-Usage: maint pyext print <name>
-
-Prints the value of a python variable. Valid items include\
-locals, globals, and builtins.
-
-## maint pyext locals `cmd_py_locals_help`
-Summary: prints the names and values of local python variables.\
-Usage: maint pyext locals
-
-Prints the value of local variables in the current python frame.\
-If the C frame of the python interpreter corresponds to multiple\
-python frames (e.g. in a recursive python function), prints values\
-from all associated frames.
-
 ## show python `cmd_show_python_help`
 Summary: set/show if gdb4hpc is in python mode\
 Usage: set python <on|off|auto>\

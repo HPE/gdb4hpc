@@ -91,7 +91,6 @@ complete
 echo
 list-cached-frames
 pybe
-pyext
 set
 show
 sleep

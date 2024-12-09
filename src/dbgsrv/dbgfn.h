@@ -90,12 +90,6 @@ extern dbgevent_t *DbgOpenSocket(const char *, int);
 extern dbgevent_t *DbgCloseSocket(void);
 extern dbgevent_t *DbgSignal(char const*);
 
-extern dbgevent_t *DbgPyExtBacktrace();
-extern dbgevent_t *DbgPyExtList(const std::string& arg);
-extern dbgevent_t *DbgPyExtMoveFrame(DbgFrameDir dir);
-extern dbgevent_t *DbgPyExtPrint(const std::string& name);
-extern dbgevent_t *DbgPyExtLocals();
-
 extern dbgevent_t *DbgPyBEGetPython();
 extern dbgevent_t *DbgPyBESetPython(PyMode setting);
 extern dbgevent_t *DbgPyBEInject();

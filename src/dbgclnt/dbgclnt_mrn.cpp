@@ -377,7 +377,6 @@ int MRNClientProtocol::attach(DbgInvoke *di, const AttachOpts& opts) {
 
     // if these fail, they print their own warning messages
     shipOmpd(mid);
-    shipPythonGdb(mid);
 
 #ifdef BE_VALGRIND
 
@@ -990,7 +989,6 @@ int MRNClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
 
     // if these fail, they print their own warning messages
     shipOmpd(mid);
-    shipPythonGdb(mid);
 
 #ifdef BE_VALGRIND
     // Add valgrind files to the manifest

@@ -2716,42 +2716,6 @@ rep_set_t DbgSignal(rec_set_t* recSet, const char* signame) {
     return result;
 }
 
-rep_set_t DbgPyExtBacktrace(rec_set_t* rec) {
-    auto req = CommandToSocProto(DBGCMD_PYEXTBT);
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_FRAME);
-    return result;
-}
-
-rep_set_t DbgPyExtList(rec_set_t* rec, std::string_view list_arg) {
-    auto req = CommandToSocProto(DBGCMD_PYEXTLIST, list_arg);
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
-    return result;
-}
-
-rep_set_t DbgPyExtMoveFrame(rec_set_t* rec, DbgFrameDir dir) {
-    if (dir == DbgFrameDir::ABSOLUTE) {
-        // this error case could be better, but with the currently
-        // available py- commands, it will never happen
-        return rep_set_t();
-    }
-
-    auto req = CommandToSocProto(DBGCMD_PYEXTMOVEFRAME, int(dir));
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_FRAME);
-    return result;
-}
-
-rep_set_t DbgPyExtPrint(rec_set_t* rec, std::string_view name) {
-    auto req = CommandToSocProto(DBGCMD_PYEXTPRINT, name);
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
-    return result;
-}
-
-rep_set_t DbgPyExtLocals(rec_set_t* rec) {
-    auto req = CommandToSocProto(DBGCMD_PYEXTLOCALS);
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);
-    return result;
-}
-
 rep_set_t DbgPyBEGetPython(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEGETPYTHON);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING);

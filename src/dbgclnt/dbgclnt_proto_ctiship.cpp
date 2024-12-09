@@ -131,22 +131,6 @@ bool shipOmpd(cti_manifest_id_t mid) {
     return true;
 }
 
-bool shipPythonGdb(cti_manifest_id_t manifest) {
-    auto maybe_share_dir = getShareDir();
-    if (!maybe_share_dir) {
-        PrintOutMsg("Could not get executable path, py- commands will not be available\n");
-        return false;
-    }
-    auto python_gdb = *maybe_share_dir / "py-gdb/python-gdb.py";
-
-    if (cti_addManifestFile(manifest, python_gdb.c_str())) {
-        PrintOutMsg("Warning: %s not found, py- commands will not be available.\n", python_gdb.c_str());
-        return false;
-    }
-
-    return true;
-}
-
 bool shipCommonFiles(cti_manifest_id_t manifest) {
     if (cti_addManifestBinary(manifest, "dbgsrv")) {
         PrintOutError("CTI error: %s\n", cti_error_str());

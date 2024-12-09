@@ -101,15 +101,6 @@ public:
     dbgevent_t *shell(int argc, char **argv);
     dbgevent_t *signal(char const* signame);
 
-    // pyExt* functions use gdb python extensions, pyBE* functions use pybe. see python.md
-
-    // these python features require that the backend gdb has loaded python extensions. see python.md
-    dbgevent_t* pyExtBacktrace();
-    dbgevent_t* pyExtList(const std::string& arg);
-    dbgevent_t* pyExtMoveFrame(DbgFrameDir dir);
-    dbgevent_t* pyExtPrint(const std::string& name);
-    dbgevent_t* pyExtLocals();
-
     // endpoints of `get/set python` commands
     dbgevent_t* pyBEGetPython();
     dbgevent_t* pyBESetPython(PyMode setting);

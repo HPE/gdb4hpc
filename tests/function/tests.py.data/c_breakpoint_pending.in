@@ -5,8 +5,7 @@ Starting application, please wait...
 Launch complete.
 a{0..2}: Initial breakpoint, main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_dlopen_test.c:29
 18: # Set a pending breakpoint at function that will be dlopened
-19: set break pending on
-20: break dlopened_function
+20: break --pending dlopened_function
 a{0..2}: Breakpoint 1: Pending at dlopened_function.
 22: # Run to breakpoint 1:  
 23: continue

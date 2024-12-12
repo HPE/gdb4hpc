@@ -38,22 +38,71 @@ static std::optional<BreakArgs> parse_break_args(rec_set_t* rec_set, int argc, c
 
     if (rec_set->getThreads()) result.thread_set = rec_set->getThreads();
 
-    if (argc < 2) {
-        PrintOutError("Not enough command arguments.\n");
+    char const* location_arg = nullptr;
+    int thread_spec_idx = -1;
+    result.pending_val = Client.brk_pending;
+
+    // Verify argument count
+    if ((argc < 1) || (strcmp(argv[0], "break") != 0)) {
+        PrintOutError("Invalid command arguments.\n");
         PrintOutError("Expected: break main.c:20\n");
-        return {};
-    } else if (argc >= 4 && strcmp(argv[2],"thread") == 0) {
-        result.thread_set = ArgsToString(&argv[3], argc - 3);
-    } else if (argc > 2) {
-        PrintOutError("Too many command arguments.\n");
-        PrintOutError("Expected: break main.c:20\n");
-        PrintOutError("or: break main.c:20 thread 2\n");
         return {};
     }
 
-    result.pending_val = Client.brk_pending;
-    auto location = std::string_view(argv[1]);
+    // Parse break arguments
+    for (int i = 1; i < argc; i++) {
 
+        // Break options
+        if (argv[i][0] == '-') {
+
+            // --pending
+            if (strcmp(argv[i], "--pending") == 0) {
+                result.pending_val = PendingBrkType::On;
+
+            } else {
+                PrintOutError("Invalid break option: %s\n", argv[i]);
+                PrintOutError("Expected one of: --pending\n");
+                return {};
+            }
+
+        // Location after options
+        } else if (location_arg == nullptr) {
+            location_arg = argv[i];
+
+        // Thread specification
+        } else if (strcmp(argv[i], "thread") == 0) {
+
+            // Thread spec ends arguments
+            if (i + 1 < argc) {
+                thread_spec_idx = i + 1;
+                break;
+
+            } else {
+                PrintOutError("Expected argument after thread.\n");
+                PrintOutError("break main.c:20 thread 2\n");
+                return {};
+            }
+
+        } else {
+            PrintOutError("Invalid command arguments.\n");
+            PrintOutError("Expected: break main.c:20\n");
+            PrintOutError("or: break main.c:20 thread 2\n");
+            return {};
+        }
+    }
+
+    if (location_arg == nullptr) {
+        PrintOutError("Not enough command arguments.\n");
+        PrintOutError("Expected: break main.c:20\n");
+        return {};
+    }
+
+    // Parse thread spec
+    if (thread_spec_idx > 0) {
+        result.thread_set = ArgsToString(&argv[thread_spec_idx], argc - thread_spec_idx);
+    }
+
+    auto location = std::string_view(location_arg);
     if (auto colon = location.find(':'); colon != std::string_view::npos) {
         result.file = location.substr(0, colon);
         result.symbol_or_number = location.substr(colon + 1);

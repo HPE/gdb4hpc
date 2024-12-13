@@ -426,7 +426,7 @@ test against them. See avocado_config_python.yaml and tests.py.
 To add or remove a python version, the following need to be updated:
 
 1. The python-headers repository
-   (https://github.hpe.com/hpcde/hpc-cdst-python-headers) needs to be updated
+   (https://github.hpe.com/hpcde/cdst-python-headers) needs to be updated
    with the new set of python headers for each supported version and the submodule
    must be updated in gdb4hpc.
 2. The list of python versions in meson.build needs to be updated with the new

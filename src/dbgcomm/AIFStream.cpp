@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <iomanip>
 #include <cmath>
+#include <algorithm>
 
 void rd_unimplemented(const char* func) {
     fprintf(stderr, "UNIMPLEMENTED %s\n", func);
@@ -129,6 +130,7 @@ std::string SharedChunks::getChunk(int idx, bool& isFinal) {
     } else {
         throw std::runtime_error("data is truncated");
     }
+	return "";
 }
 
 CloneChunks::CloneChunks(std::shared_ptr<SharedChunks> parent, int idx) :

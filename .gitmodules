@@ -28,11 +28,11 @@
 	branch = master
 [submodule "external/openmp"]
 	path = external/openmp
-	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-llvm-mirror-openmp.git
+	url = git@github.hpe.com:hpcde/cdst-mirror-github-llvm-mirror-openmp.git
 	branch = hpe
 [submodule "external/doctest"]
 	path = external/doctest
-	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-doctest.git
+	url = git@github.hpe.com:hpcde/cdst-mirror-github-doctest.git
 	branch = hpe
 [submodule "external/changelog"]
 	path = external/changelog
@@ -40,13 +40,13 @@
 	branch = master
 [submodule "external/tinystl"]
 	path = external/tinystl
-	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-mendsley-tinystl.git
+	url = git@github.hpe.com:hpcde/cdst-mirror-github-mendsley-tinystl.git
 	branch = hpe
 [submodule "external/pythoncapi-compat"]
 	path = external/pythoncapi-compat
-	url = git@github.hpe.com:hpcde/hpc-cdst-mirror-github-python-pythoncapi-compat.git
+	url = git@github.hpe.com:hpcde/cdst-mirror-github-python-pythoncapi-compat.git
 	branch = hpe
 [submodule "external/python-headers"]
 	path = external/python-headers
-	url = git@github.hpe.com:hpcde/hpc-cdst-python-headers.git
+	url = git@github.hpe.com:hpcde/cdst-python-headers.git
 	branch = master

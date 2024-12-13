@@ -86,6 +86,8 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
 	  mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/8.10/$arch/latest/CRB/os/"
       elif [[ "$target_os" -eq "$cdst_os_rhel94" ]]; then
           mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/9.4/$arch/latest/CRB/os/"
+      elif [[ "$target_os" -eq "$cdst_os_rhel95" ]]; then
+          mirrored_repo_2="https://arti.hpc.amslabs.hpecorp.net:443/artifactory/rdlabs-os-mirror-remote-cache/netinst/rhel/9.5/$arch/latest/CRB/os/"
       fi
 
       sudo yum-config-manager --add-repo $mirrored_repo_1 "mirrored_repo_1"
@@ -104,6 +106,8 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
         cmake \
         environment-modules \
         flex \
+        gmp-devel \
+        jq \
         libarchive \
         libtool \
         libuuid-devel \
@@ -115,12 +119,11 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
         ncurses-devel \
         python3-devel \
         python3.11 \
-        jq \
         rpm-build \
         tcl \
-        which \
         texinfo \
-        gmp-devel \
+	wget \
+        which \
         xz-devel
     check_exit_status
 

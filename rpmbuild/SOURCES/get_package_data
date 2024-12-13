@@ -36,7 +36,7 @@ zmqnetversionmin=$(echo ${ZMQNET_DEVEL_VERSION} | awk -F . '{ print $1"."$2 }')
 tmpver=$(echo ${ZMQNET_DEVEL_VERSION} | awk -F . '{ print $1 }')
 zmqnetversionmax=$(($tmpver+1))
 
-arguments=$(getopt -o csmtxdefgb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,zmqnetversionmin,zmqnetversionmax,branch -n ${0} -- "$@")
+#arguments=$(getopt -o csmtxdefgb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,zmqnetversionmin,zmqnetversionmax,branch -n ${0} -- "$@")
 
 arguments=$(getopt -o csmtxdefgpb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,zmqnetversionmin,zmqnetversionmax,pythonversion,branch -n ${0} -- "$@")
 

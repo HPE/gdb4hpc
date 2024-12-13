@@ -92,7 +92,7 @@ check_exit_status
             --without-babeltrace \
             --without-guile \
             --without-separate-debug-dir \
-	CFLAGS="-O2" CXXFLAGS="-O2"
+	CFLAGS="-O2" CXXFLAGS="-O2 --std=c++17 -Wno-template-id-cdtor"
 check_exit_status
 
 make $cdst_j_flags

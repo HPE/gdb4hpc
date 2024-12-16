@@ -80,6 +80,29 @@ Pybe::Pybe(MISession& mi)
     // this is a low priority but still valid usecase - tracked in PE-55412
 }
 
+static bool backtrace_at_python_entry_point(const pybe::Backtrace bt) {
+    // we handle python entry points like we handle MPI entry points. we
+    // break in the python init function (listed in parallel_entry_pt_strs), then
+    // run a finish command. the functions in py_main_fns are the functions that we
+    // will end up in after the finish command. they are used to handle the
+    // special case of running pybe commands right after hitting the entry
+    // breakpoint.
+    // see "Getting the GIL after Launch..." in python.md
+    constexpr auto py_main_fns = std::array{
+        "Py_Main",
+        "pymain_init",
+        "pymain_get_importer",
+    };
+
+    // note that we are in at the entry point only if the Py_Main function is the
+    // bottom (deepest) of the stack. Py_Main will always be *somewhere* in
+    // the stack at any point in the python interpreter. a pybe backtrace
+    // lists the deepest frame first.
+    return std::ranges::any_of(py_main_fns, [&](const auto& fn){
+        return fn == bt.frames.front().location.function_name;
+    });
+}
+
 Pybe::GILHolder Pybe::run_until_gil(pybe::RPC::c_thread_id_t tid) {
     // throws if not a python thread
     auto py_thread_id = m_rpc.thread_get_python_id(tid);
@@ -106,13 +129,7 @@ Pybe::GILHolder Pybe::run_until_gil(pybe::RPC::c_thread_id_t tid) {
         auto bt = m_rpc.get_elf_backtrace(tid);
 
         // check for scenario 1
-        // note that we are in scenario 1 only if the Py_Main function is the
-        // bottom (deepest) of the stack. Py_Main will always be *somewhere* in
-        // the stack at any point in the python interpreter. a pybe backtrace
-        // lists the deepest frame first.
-        if (std::ranges::any_of(py_main_fns, [&](const auto& fn){
-            return fn == bt.frames.front().location.function_name;
-        })) {
+        if (backtrace_at_python_entry_point(bt)) {
             DVPRINT("gil scenario 1 (at main)\n");
             return tid;
         }
@@ -133,6 +150,10 @@ Pybe::GILHolder Pybe::run_until_gil(pybe::RPC::c_thread_id_t tid) {
     DVPRINT("getting gil on %d\n", chosen_thread);
 
     return GILHolder(m_rpc, chosen_thread, py_thread_id);
+}
+
+bool Pybe::thread_at_python_entry_point(pybe::RPC::c_thread_id_t tid) {
+    return backtrace_at_python_entry_point(m_rpc.get_elf_backtrace(tid));
 }
 
 void Pybe::trivialize_gil() {
@@ -283,7 +304,11 @@ std::string Pybe::GILHolder::eval_py_expression(std::string_view expr) {
     return m_parent_rpc.eval_py_expression(m_gil_holding_thread_id, m_py_thread_id, expr);
 }
 
-pybe::Breakpoint Pybe::GILHolder::set_breakpoint(int feid, std::string_view filename, int line, std::string_view funcname) {
+std::optional<pybe::Breakpoint>
+Pybe::GILHolder::set_breakpoint(int feid, std::string_view filename, int line, std::string_view funcname, bool allow_pending) {
+    if (!allow_pending && !m_parent_rpc.verify_breakpoint(m_gil_holding_thread_id, m_py_thread_id, filename, line, funcname)) {
+        return {};
+    }
     return m_parent_rpc.set_breakpoint(m_gil_holding_thread_id, m_py_thread_id, feid, filename, line, funcname);
 }
 

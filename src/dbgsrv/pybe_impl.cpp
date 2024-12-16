@@ -1,5 +1,9 @@
 // Copyright 2024 Hewlett Packard Enterprise Development LP.
 
+#include <fstream>
+#include <iterator>
+#include <algorithm>
+
 #include "pythoncapi_compat.h"
 #include "onscopeexit.h"
 
@@ -556,7 +560,8 @@ bool PybeImpl::init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc)
     return true;
 }
 
-Expected<Breakpoint, std::nullptr_t> make_breakpoint(unsigned long ptid, int feid, const char* filename, int line, const char* funcname) {
+static Expected<Breakpoint, std::nullptr_t>
+make_breakpoint(unsigned long ptid, int feid, const char* filename, int line, const char* funcname) {
     if (!filename || !funcname) [[ unlikely ]] {
         log("null parameters\n");
         return nullptr;
@@ -625,6 +630,127 @@ bool PybeImpl::set_breakpoint(uint32_t seq, unsigned long ptid, int feid, const 
     } else {
         return false;
     }
+}
+
+template <typename FN>
+static bool search_module_tree_impl(PyObject* dict, FN lambda, int level, tinystl::unordered_set<PyObject*>& seen_modules) {
+    PyObject* key = nullptr;
+    PyObject* value = nullptr;
+    Py_ssize_t i = 0;
+    while (PyDict_Next(dict, &i, &key, &value)) {
+        // uncomment with caution, very noisy!
+        // (wrapping in if false means we can diable the logging but the log statement will
+        // continue to be syntax checked and won't bitrot like it might if it was just commented out.)
+        if (false) {
+            auto* key_repr = PyObject_Repr(key);
+            auto* val_repr = PyObject_Repr(value);
+            log("%*c fn %s (%p): %s (%p)\n",
+                level, '-', PyUnicode_AsUTF8(key_repr), key, PyUnicode_AsUTF8(val_repr), value);
+        }
+
+        if (lambda(key, value)) return true;
+
+        if (PyModule_Check(value) && seen_modules.insert(value).second) {
+            if (search_module_tree_impl(PyModule_GetDict(value), lambda, level + 1, seen_modules)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+// starting from the top level module dictionary, this function will call
+// `lambda` on each key/value pair in the dictionary. after calling `lambda`, if
+// the value being inspected happens to be a module and hasn't been searched
+// yet, this function will recursively search the PyModule_GetDict of the module
+// with the same behavior (depth first search).
+template <typename FN>
+static bool search_module_tree(FN lambda) {
+    auto seen_modules = tinystl::unordered_set<PyObject*>{};
+    auto* modules_dict = PyImport_GetModuleDict();
+    if (!modules_dict) [[ unlikely ]] {
+        log("search_objects: modules_dict was null\n");
+        return false;
+    }
+    return search_module_tree_impl(modules_dict, lambda, 0, seen_modules);
+}
+
+bool PybeImpl::verify_breakpoint(unsigned long ptid, const char* filename, int line, const char* funcname) {
+    log("verify breakpoint: %s in %s:%d\n",
+        funcname ? funcname : "(null)",
+        filename ? filename : "(null)",
+        line);
+
+    if (funcname && funcname[0] != '\0') {
+        // "break my_fn"
+        // XXX: also "break my_fn:filename" which is slightly incorrect
+        return search_module_tree([&](PyObject* /*key*/, PyObject* value) {
+            if (PyFunction_Check(value) && PyObject_HasAttrString(value, "__name__")) {
+                auto* name = PyUnicode_AsUTF8(PyObject_GetAttrString(value, "__name__"));
+                if (name && ::strcmp(funcname, name) == 0) {
+                    log("matched fn %s\n", name);
+                    return true;
+                }
+            }
+            return false;
+        });
+    } else if (line > 0 && filename && filename[0] != '\0') {
+        // "break filename.c:77"
+        return search_module_tree([&](PyObject* /*key*/, PyObject* value) {
+            if (PyModule_Check(value) && PyObject_HasAttrString(value, "__file__")) {
+                auto* fname_obj = PyModule_GetFilenameObject(value);
+                if (!fname_obj) [[ unlikely ]] return false;
+
+                const auto* fname = PyUnicode_AsUTF8(fname_obj);
+                if (!fname) [[ unlikely ]] return false;
+
+                const auto* fname_basename = ::basename(fname);
+                if (!fname_basename) [[ unlikely ]] return false;
+
+                if (::strcmp(fname_basename, filename) == 0) {
+                    log("matched filename %s\n", fname);
+                    return true;
+                }
+            }
+            return false;
+        });
+    } else if (line > 0 && (!filename || filename[0] == '\0')) {
+        // "break 77"
+        // get filename from current frame
+        auto* tstate = get_threadstate(ptid);
+        if (tstate == nullptr) {
+            log("verify_breakpoint: couldn't find thread\n");
+            return false;
+        }
+
+        auto py_frame = StrongRef(PyThreadState_GetFrame(tstate));
+        if (!py_frame.ptr) [[ unlikely ]] {
+            log("verify_breakpoint: couldn't get frame from thread\n");
+            return false;
+        }
+
+        // verify that the line number is not past the end of the file
+        auto code = StrongRef(PyFrame_GetCode(py_frame.ptr));
+        if (!code || !code->co_filename) {
+            log("verify_breakpoint: no code found in frame\n");
+            return false;
+        }
+
+        // co_filename is always a full path
+        auto src_filename = String(PyUnicode_AsUTF8(code->co_filename));
+        auto src_file = std::ifstream{src_filename.c_str()};
+        auto src_line = std::string{};
+        if (!src_file.is_open()) {
+            log("verify_breakpoint: failed to open %s\n", src_filename.c_str());
+            return false;
+        }
+
+        auto lines = std::count(std::istreambuf_iterator<char>(src_file), std::istreambuf_iterator<char>(), '\n');
+        return line <= lines;
+    }
+
+    return false;
 }
 
 bool PybeImpl::have_breakpoint() {

@@ -165,7 +165,7 @@ def makeRunFile(test, substitutions = ()):
 
             if GENERATE_DEBUG_LOGS:
                 line = launch_re.sub(r"\1" + "--debug=./logs ", line)
-                line = re.sub(r"(attach \$.+)", r"\1" + " --debug=./logs ", line)
+                line = re.sub(r"(attach \$\S+)", r"\1" + " --debug=./logs ", line)
 
             run.write(line)
 

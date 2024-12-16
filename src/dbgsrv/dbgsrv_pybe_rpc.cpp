@@ -24,7 +24,7 @@ void try_send_command_impl(MISession& sess, MICommand& cmd, FN fail_callback, co
     SendMICommand(&sess, &cmd);
     if (!MICommandResultOK(&cmd)) {
         DVPRINT("pybe mi command failed: %s:%d\n", file, line);
-        fail_callback();
+        fail_callback(cmd);
     }
 }
 
@@ -42,7 +42,7 @@ void try_pybe_fn_check_true_impl(MISession& sess, const char* expr, pybe::RPC::c
     const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
     if (result.get_view() != "true") {
         DVPRINT("pybe mi command ran successfully, but did not return true: %s:%d\n", file, line);
-        fail_callback();
+        fail_callback(*cmd);
     }
 }
 
@@ -62,7 +62,7 @@ void try_pybe_fn_check_true_impl(MISession& sess, const char* expr, pybe::RPC::c
 static void assert_thread_is_python_thread(pybe::RPC::c_thread_id_t tid, MISession& session) {
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(bool)pybe::is_python_thread()", tid));
 
-    try_send_command(session, *cmd, [=](){
+    try_send_command(session, *cmd, [=](MICommand& /*cmd*/){
         throw NewErrorEvent(DBGERR_DEBUGGER, "Thread %u is not a python thread.", tid);
     });
 
@@ -83,12 +83,15 @@ RPC::RPC(MISession& parent_sess)
 void RPC::init_GIL(c_thread_id_t tid) {
     const auto fn = "pybe::init_GIL()";
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn, tid));
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
+        // note that we use e_msg.get_string().c_str() instead of e_msg.get() - this
+        // protects from nullptrs since get_string() returns "" if the internal ptr is nullptr.
+        // we do this throughout the rest of this file.
         throw NewErrorEvent(DBGERR_DEBUGGER,
             "Failed to set up python debugging.\n"
             "This is a bug. Please report it and include the following info:\n"
-            "failure: failed to initialize python");
-        // TODO include error text from gdb
+            "failure: failed to initialize python. gdb: %s", e_msg.get_string().c_str());
     });
 }
 
@@ -96,10 +99,11 @@ int RPC::get_python_minor_version(c_thread_id_t tid) {
     const auto python_version_str = [&](){
         auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(char*)Py_GetVersion()", tid));
 
-        try_send_command(m_parent_session, *cmd, [](){
+        try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+            auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
             throw NewErrorEvent(DBGERR_DEBUGGER,
                 "Failed to detect python version (couldn't communicate). Disabling python debugging "
-                "for this rank. Re-enable with `set python on`.\n");
+                "for this rank. Re-enable with `set python on`.\ngdb: %s", e_msg.get_string().c_str());
         });
 
         // XXX: wasteful get_string seems to be required by std::regex api for some reason
@@ -148,10 +152,12 @@ void RPC::inject_pybe_so(int minor_version, c_thread_id_t tid) {
     auto open_exp = std::string{"\"(void *)dlopen(\\\""} + lib_path.string() + "\\\", " + std::to_string(RTLD_NOW) + ")\"";
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread(open_exp.c_str(), tid));
 
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         throw NewErrorEvent(DBGERR_DEBUGGER,
             "Failed to set up python debugging (loading gdb4hpc python library failed)\n"
-            "Disabling python debugging for this rank. Re-enable with `set python on`.");
+            "Disabling python debugging for this rank. Re-enable with `set python on`.\n"
+            "gdb: %s", e_msg.get_string().c_str());
         }
     );
 
@@ -228,8 +234,9 @@ void RPC::open_pybe_channel(c_thread_id_t tid) {
 
     {   // call connection in pybe
         const auto expr = "(bool)pybe::connect_to_dbgsrv(\"" + socket_path + "\")";
-        try_pybe_fn_check_true(m_parent_session, expr.c_str(), tid, [](){
-            throw NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed.");
+        try_pybe_fn_check_true(m_parent_session, expr.c_str(), tid, [](MICommand& cmd){
+            auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
+            throw NewErrorEvent(DBGERR_INTERNAL, "Connection to python failed. gdb: %s", e_msg.get_string().c_str());
         });
     }
 
@@ -299,12 +306,12 @@ RPC::c_thread_id_t RPC::spawn_pybe_gil_thread(c_thread_id_t tid) {
 RPC::c_thread_id_t RPC::current_thread_get_id() {
     auto cmd = make_MICmd(CLIInfoThreads());
 
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         throw NewErrorEvent(DBGERR_DEBUGGER,
             "Failed to set up python debugging.\n"
             "This is a bug. Please report it and include the following info:\n"
-            "failure: failed to get current thread");
-        // TODO include error text from gdb
+            "failure: failed to get current thread. gdb: %s", e_msg.get_string().c_str());
     });
 
     auto thread_info = std::unique_ptr<CLIInfoThreadsInfo, decltype(&CLIInfoThreadsInfoFree)>
@@ -318,10 +325,11 @@ RPC::py_thread_id_t RPC::thread_get_python_id(c_thread_id_t tid) {
 
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(long)pybe::get_python_thread_id()", tid));
 
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. we already verified that we are on a python
         // thread above so something internal must be wrong. just emit a bug report friendly error message.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to get python thread id (failed to communicate)");
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to get python thread id (failed to communicate). gdb: %s", e_msg.get_string().c_str());
     });
 
     auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -364,10 +372,10 @@ void RPC::thread_interrupt(c_thread_id_t tid) {
 
     auto cmd = make_MICmd(MIExecInterruptThread(tid));
 
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if the interrupt failed. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "thread_interrupt: failed to interrupt thread.");
-        // TODO include error text from gdb
+        throw NewErrorEvent(DBGERR_INTERNAL, "thread_interrupt: failed to interrupt thread. gdb: %s", e_msg.get_string().c_str());
     });
 
     // sometimes it takes a moment for gdb to emit the sigzero event
@@ -397,7 +405,7 @@ void RPC::thread_set_name(c_thread_id_t tid, std::string_view name) {
     argv.push_back(name_buf.c_str());
 
     auto cmd = make_MICmd(CLIBypass(argv.size(), const_cast<char**>(argv.data())));
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& /*cmd*/){
         // don't throw on failure - this is purely aesthetic and shouldn't bring down the whole ship if it fails
         DVPRINT("failed to set gdb4hpc thread name! oh well...\n");
     });
@@ -405,18 +413,20 @@ void RPC::thread_set_name(c_thread_id_t tid, std::string_view name) {
 
 void RPC::thread_select(c_thread_id_t tid) {
     auto cmd = make_MICmd(MIThreadSelect(tid));
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if the select failed. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to select thread.");
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to select thread. gdb: %s", e_msg.get_string().c_str());
     });
 }
 
 bool RPC::thread_has_GIL(c_thread_id_t tid) {
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread("(bool)PyGILState_Check()", tid));
 
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to check for GIL");
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to check for GIL. gdb: %s", e_msg.get_string().c_str());
     });
 
     auto result_buf = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -432,12 +442,12 @@ void RPC::thread_take_GIL(c_thread_id_t tid) {
     {
         auto cmd = make_MICmd(MIGDBSet("unwindonsignal", "off"));
 
-        try_send_command(m_parent_session, *cmd, [](){
+        try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+            auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
             throw NewErrorEvent(DBGERR_INTERNAL,
                 "Failed to set up python debugging.\n"
                 "This is a bug. Please report it and include the following info:\n"
-                "failure: failed to disable unwind-on-signal");
-            // TODO include error text from gdb
+                "failure: failed to disable unwind-on-signal. gdb: %s", e_msg.get_string().c_str());
         });
     }
 
@@ -497,10 +507,10 @@ std::optional<RPC::c_thread_id_t> RPC::get_GIL_holding_thread() {
 
     {
         auto cmd = make_MICmd(MIExecInterruptAll());
-        try_send_command(m_parent_session, *cmd, [](){
+        try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+            auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
             // not much the user can do if the interrupt failed. just emit a bug report friendly error.
-            throw NewErrorEvent(DBGERR_INTERNAL, "get_GIL_holding_thread: failed to interrupt thread");
-            // TODO include error text from gdb
+            throw NewErrorEvent(DBGERR_INTERNAL, "get_GIL_holding_thread: failed to interrupt thread. gdb: %s", e_msg.get_string().c_str());
         });
 
         // FIXME: -exec-interrupt --all is an async command and there is no guarantee that
@@ -513,10 +523,10 @@ std::optional<RPC::c_thread_id_t> RPC::get_GIL_holding_thread() {
     {
         const char* argv[] = { "thread", "apply", "all", "p", "(int)PyGILState_Check()" };
         auto cmd = make_MICmd(CLIBypass(sizeof(argv) / sizeof(argv[0]), const_cast<char**>(argv)));
-        try_send_command(m_parent_session, *cmd, [](){
+        try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+            auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
             // not much the user can do if this fails. just emit a bug report friendly error.
-            throw NewErrorEvent(DBGERR_INTERNAL, "get_GIL_holding_thread: failed to find GIL (command failed)");
-            // TODO include error text from gdb
+            throw NewErrorEvent(DBGERR_INTERNAL, "get_GIL_holding_thread: failed to find GIL (command failed). gdb: %s", e_msg.get_string().c_str());
         });
 
         auto result_buf = MallocedCharPtr(MICommandConsoleOOBMessages(cmd.get()));
@@ -548,10 +558,10 @@ std::optional<RPC::c_thread_id_t> RPC::get_GIL_holding_thread() {
 
 void RPC::thread_continue(c_thread_id_t tid) {
     auto cmd = make_MICmd(MIExecContinueThread(tid));
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to continue");
-        // TODO include error text from gdb
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to continue. gdb: %s", e_msg.get_string().c_str());
     });
 }
 
@@ -584,10 +594,11 @@ void RPC::thread_finish_with_timeout(c_thread_id_t tid, unsigned int frame) {
         MIEventFree(e);
     }, &got_one);
 
-    try_send_command(m_parent_session, *make_MICmd(MIExecFinishThreadFrame(tid, frame)), [](){
+    auto cmd = make_MICmd(MIExecFinishThreadFrame(tid, frame));
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to execute finish");
-        // TODO include error text from gdb
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to execute finish gdb: %s", e_msg.get_string().c_str());
     });
 
     // eat the generated *stopped
@@ -607,17 +618,16 @@ void RPC::thread_finish_with_timeout(c_thread_id_t tid, unsigned int frame) {
 
 pybe::Backtrace RPC::get_elf_backtrace(c_thread_id_t tid) {
     auto cmd = make_MICmd(MIStackListAllFramesThread(tid));
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to list frames");
-        // TODO include error text from gdb
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to list frames. gdb: %s", e_msg.get_string().c_str());
     });
 
     auto miframes = MIGetStackListFramesInfo(cmd.get());
     if (!miframes) {
         // not much the user can do if this fails. just emit a bug report friendly error.
         throw NewErrorEvent(DBGERR_INTERNAL, "failed to extract frame info (mi returned nullptr)");
-        // TODO include error text from gdb
     }
     auto miframes_cleanup = OnScopeExit([&](){
         MIListFree(miframes, (void (*)())MIFrameFree);
@@ -645,7 +655,6 @@ pybe::Backtrace RPC::get_elf_backtrace(c_thread_id_t tid) {
     if (result.frames.empty()) {
         // not much the user can do if this fails. just emit a bug report friendly error.
         throw NewErrorEvent(DBGERR_INTERNAL, "failed to extract frame info (no frames found)");
-        // TODO include error text from gdb
     }
 
     return result;
@@ -662,9 +671,10 @@ pybe::Backtrace RPC::get_python_backtrace(c_thread_id_t tid, py_thread_id_t py_t
     const auto seq = channel.generate_sequence_number();
     {
         const auto fn = std::string{"\"pybe::get_backtrace("} + std::to_string(seq) + ", " + std::to_string(py_thread_id) + ")\"";
-        try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+        try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](MICommand& cmd){
+            auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
             // not much the user can do if this fails. just emit a bug report friendly error.
-            throw NewErrorEvent(DBGERR_INTERNAL, "get_python_backtrace: pybe fn failed");
+            throw NewErrorEvent(DBGERR_INTERNAL, "get_python_backtrace: pybe fn failed. gdb: %s", e_msg.get_string().c_str());
         });
     }
 
@@ -694,9 +704,10 @@ pybe::Frame RPC::get_python_frame(c_thread_id_t tid, py_thread_id_t py_thread_id
     const auto seq = channel.generate_sequence_number();
     const auto fn = std::string{"pybe::get_frame("} + std::to_string(seq) + "," + std::to_string(py_thread_id) + ")";
 
-    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "get_python_frame: pybe fn failed");
+        throw NewErrorEvent(DBGERR_INTERNAL, "get_python_frame: pybe fn failed. gdb: %s", e_msg.get_string().c_str());
     });
 
     auto buf = channel.recv_with_timeout(seq);
@@ -720,9 +731,10 @@ void RPC::move_python_frame_level(c_thread_id_t tid, py_thread_id_t ptid, int co
         std::to_string(count) + "," +
         std::to_string(static_cast<int>(dir)) + ")";
 
-    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](){
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "move_python_frame_level: pybe fn failed");
+        throw NewErrorEvent(DBGERR_INTERNAL, "move_python_frame_level: pybe fn failed. gdb: %s", e_msg.get_string().c_str());
     });
 }
 
@@ -737,8 +749,9 @@ std::string RPC::eval_elf_expression(c_thread_id_t tid, size_t frame, std::strin
     const auto gdb_expr = std::string{"\""} + double_escaped + "\"";
 
     auto cmd = make_MICmd(MIDataEvaluateExpressionThreadFrame(gdb_expr.c_str(), tid, frame));
-    try_send_command(m_parent_session, *cmd, [&](){
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s", expr.size(), expr.data());
+    try_send_command(m_parent_session, *cmd, [&](MICommand& failed_cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&failed_cmd));
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s. gdb: %s", expr.size(), expr.data(), e_msg.get_string().c_str());
     });
 
     const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -765,8 +778,9 @@ std::string RPC::eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std:
 
         const auto gdb_expr = std::string{"\"(bool)pybe::eval_expr("} + std::to_string(seq) + "," + std::to_string(ptid) + ",\\\"" + double_escaped + "\\\")\"";
 
-        try_pybe_fn_check_true(m_parent_session, gdb_expr.c_str(), tid, [&](){
-            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s", expr.size(), expr.data());
+        try_pybe_fn_check_true(m_parent_session, gdb_expr.c_str(), tid, [&](MICommand& failed_cmd){
+            auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&failed_cmd));
+            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s. gdb: %s", expr.size(), expr.data(), e_msg.get_string().c_str());
         });
     }
 
@@ -781,12 +795,12 @@ std::string RPC::eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std:
 }
 
 void RPC::install_breakpoint_trace(c_thread_id_t tid) {
-    try_pybe_fn_check_true(m_parent_session, "pybe::init_trace()", tid, [](){
+    try_pybe_fn_check_true(m_parent_session, "pybe::init_trace()", tid, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         throw NewErrorEvent(DBGERR_INTERNAL,
             "Failed to set up python debugging.\n"
             "This is a bug. Please report it and include the following info:\n"
-            "failure: failed to set up tracing");
-        // TODO include error text from gdb
+            "failure: failed to set up tracing. gdb: %s", e_msg.get_string().c_str());
     });
 }
 
@@ -821,13 +835,12 @@ pybe::Breakpoint RPC::set_breakpoint(c_thread_id_t tid, py_thread_id_t ptid, int
         "\"" + std::string{funcname} + "\"" +
     ")";
 
-    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [&](){
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to set breakpoint at function \"%*s\" in file \"%*s\", line %d",
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [&](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to set breakpoint at function \"%*s\" in file \"%*s\", line %d. gdb: %s",
                             (int)funcname.size(), funcname.data(),
                             (int)filename.size(), filename.data(),
-                            line);
-        // TODO include error text from gdb - right now we can't tell if
-        // pybe failed or the user simply passed a bad breakpoint
+                            line, e_msg.get_string().c_str());
     });
 
     auto buf = channel.recv_with_timeout(seq);
@@ -845,22 +858,40 @@ pybe::Breakpoint RPC::set_breakpoint(c_thread_id_t tid, py_thread_id_t ptid, int
     throw NewErrorEvent(DBGERR_INTERNAL, "set_breakpoint: failed to deserialize data");
 }
 
+bool RPC::verify_breakpoint(c_thread_id_t tid, py_thread_id_t ptid, std::string_view filename, int line, std::string_view funcname) {
+    // TODO support spaces
+    const auto fn = std::string{"pybe::verify_breakpoint("} +
+        std::to_string(ptid) + "," +
+        "\"" + std::string{filename} + "\"," +
+        std::to_string(line) + "," +
+        "\"" + std::string{funcname} + "\"" +
+    ")";
+
+    auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
+        throw NewErrorEvent(DBGERR_INTERNAL, "verify_breakpoint: pybe command failed. gdb: %s", e_msg.get_string().c_str());
+    });
+
+    const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+    return result.get_view() == "true";
+}
+
 void RPC::delete_breakpoint(c_thread_id_t tid, int feid) {
     const auto fn = std::string{"pybe::delete_breakpoint("} + std::to_string(feid) +")";
-    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [&](){
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to delete breakpoint %d", feid);
-        // TODO include error text from gdb - right now we can't tell if
-        // pybe failed or the user simply passed a bad breakpoint
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [&](MICommand& failed_cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&failed_cmd));
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to delete breakpoint %d. gdb: %s", e_msg.get_string().c_str(), feid);
     });
 }
 
 bool RPC::at_breakpoint(c_thread_id_t tid) {
     const auto fn = std::string{"pybe::have_breakpoint()"};
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to determine if python is at a breakpoint");
-        // TODO include error text from gdb
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to determine if python is at a breakpoint. gdb: %s", e_msg.get_string().c_str());
     });
 
     auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -879,10 +910,10 @@ pybe::Breakpoint RPC::take_current_breakpoint(c_thread_id_t tid) {
         const auto fn = std::string{"pybe::take_current_breakpoint("} + std::to_string(seq) + ")";
         auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
 
-        try_send_command(m_parent_session, *cmd, [](){
+        try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+            auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
             // not much the user can do if this fails. just emit a bug report friendly error.
-            throw NewErrorEvent(DBGERR_INTERNAL, "failed to take breakpoint");
-            // TODO include error text from gdb
+            throw NewErrorEvent(DBGERR_INTERNAL, "failed to take breakpoint. gdb: %s", e_msg.get_string().c_str());
         });
     }
 
@@ -906,10 +937,10 @@ void RPC::insert_step_trap(c_thread_id_t tid, py_thread_id_t ptid, bool step_in)
 
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
 
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to initiate python step (failed to communicate)");
-        // TODO include error text from gdb
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to initiate python step (failed to communicate). gdb: %s", e_msg.get_string().c_str());
     });
 
     const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -926,10 +957,10 @@ void RPC::insert_finish_trap(c_thread_id_t tid, py_thread_id_t ptid) {
 
     auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
 
-    try_send_command(m_parent_session, *cmd, [](){
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
         // not much the user can do if this fails. just emit a bug report friendly error.
-        throw NewErrorEvent(DBGERR_INTERNAL, "failed to initiate python finish (failed to communicate)");
-        // TODO include error text from gdb
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to initiate python finish (failed to communicate). gdb: %s", e_msg.get_string().c_str());
     });
 
     const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));

@@ -251,6 +251,57 @@ dbg all> <$python3>: Fibonacci sequence:
 python3{0..3}: The application has reached an exit breakpoint.
 ```
 
+##### Pending Breakpoints
+
+Note that when setting breakpoints right after launching the python interpreter
+in gdb4hpc, gdb4hpc will automatically set the breakpoints as pending
+breakpoints:
+
+```
+dbg all> srun -n1 python3 ./fib.py 30
+Starting application, please wait...
+Launched application...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Enabling python debugging. To disable, use `set python off`
+Launch complete.
+python3{0}: Initial breakpoint, in pymain_init
+python all> break fibonacci
+Breakpoint 1: Pending at fibonacci.
+```
+
+A breakpoint is considered **pending** if its exact code location can't be
+determined at the time it is set. gdb4hpc will re-check its location as new
+python modules are imported and it will become a normal breakpoint if a match
+is found.
+
+This is just like setting a breakpoint in a C shared library that hasn't been
+loaded by the program yet. Since python was stopped by gdb4hpc before it had a
+chance to import any modules, no modules or functions have been defined yet so
+gdb4hpc can't confirm that the requested location actually exists.
+
+gdb4hpc will switch to verifying all breakpoints once the program has
+progressed past the initial breakpoint. gdb4hpc will check that breakpoint
+locations actually exist and emit an error message if a location can't be
+found. If a breakpoint location can't be found, you can still set the
+breakpoint by answering 'y' to the error message prompt. This will set the
+breakpoint as pending, and it will behave as described above.
+
+```
+python all> break fibonacci
+python3{0}: Debugger error: No function "fibonacci" defined yet.
+Make breakpoint pending on future code object load? (y or [n]) y
+
+python3{0}: Breakpoint 1: Pending at fibonacci.
+python all> continue
+python3{0}: Breakpoint 1, in fibonacci
+python all> backtrace
+python3{0}: #1  <module> at /hpcdc/project/pe_users/chandlej/home/chandlej/Code/cdst-gdb4hpc/tests/function/fib.py:13
+python3{0}: #0  fibonacci at /hpcdc/project/pe_users/chandlej/home/chandlej/Code/cdst-gdb4hpc/tests/function/fib.py:3
+```
+
 #### `backtrace` - Generate a Python Backtrace
 
 When stopped in a Python source file, use the usual `backtrace` command to

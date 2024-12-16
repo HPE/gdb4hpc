@@ -141,14 +141,14 @@ dbgevent_t *DbgStartup(void) {
 dbgevent_t *DbgSetLineBreak(int id, int allowPending, const char *file, int line,
                             const char* threadSet, const dbgcomm_info *ci) {
     DBG_READY();
-    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBESetLineBreakpoint(id, file, line);
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBESetLineBreakpoint(id, file, line, allowPending);
     return DbgBackendSW->setLineBreak(id, allowPending, file, line, threadSet, ci);
 }
 
 dbgevent_t *DbgSetFuncBreak(int id, int allowPending, const char *file, const char *func,
                             const char* threadSet, const dbgcomm_info *ci) {
     DBG_READY();
-    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBESetFuncBreakpoint(id, file, func);
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBESetFuncBreakpoint(id, file, func, allowPending);
     return DbgBackendSW->setFuncBreak(id, allowPending, file, func, threadSet, ci);
 }
 

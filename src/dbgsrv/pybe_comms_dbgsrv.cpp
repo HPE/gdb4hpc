@@ -42,12 +42,27 @@ std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Backtrace& bt) {
     return std::unique_ptr<dbgframe_t>(first_frame);
 }
 
-std::unique_ptr<dbgbp_t> to_dbgbp(const pybe::Breakpoint& bp) {
+std::unique_ptr<dbgbp_t> to_dbgbp(const pybe::Breakpoint& bp, bool pending) {
     auto dbgbp = std::make_unique<dbgbp_t>(bp.feid, 0);
 
     dbgbp->bp_loc.loc_file = !bp.location.file_name.empty() ? ::strdup(bp.location.file_name.c_str()) : nullptr;
     dbgbp->bp_loc.loc_line = bp.location.line_number;
     dbgbp->bp_loc.loc_func = !bp.location.function_name.empty() ? ::strdup(bp.location.function_name.c_str()) : nullptr;
+
+    dbgbp->bp_pending = pending;
+    // XXX: in order for the frontend to consider a breakpoint as pending, it needs to have
+    //      a nonempty bp_stmt too
+    if (dbgbp->bp_pending) {
+        if (dbgbp->bp_loc.loc_file && dbgbp->bp_loc.loc_line > 0) {
+            dbgbp->bp_stmt = std::string{dbgbp->bp_loc.loc_file} + ":" + std::to_string(dbgbp->bp_loc.loc_line);
+        } else if (dbgbp->bp_loc.loc_func) {
+            dbgbp->bp_stmt = dbgbp->bp_loc.loc_func;
+        } else {
+            // set something so the frontend will still display it as a pending breakpoint.
+            // "Pending at unknown locaion"
+            dbgbp->bp_stmt = "unknown location";
+        }
+    }
 
     dbgbp->bp_type = DBGBP_BREAK_TYPE;
     dbgbp->bp_disp = DBGBP_KEEP_DISP;

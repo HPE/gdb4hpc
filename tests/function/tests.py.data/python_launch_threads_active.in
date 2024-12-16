@@ -10,7 +10,7 @@ Enabling python debugging. To disable, use `set python off`
 Launch complete.
 a{0}: Initial breakpoint, %.*%
 0: break threads_active.py:16
-a{0}: Breakpoint 1: file threads_active.py, line 16.
+a{0}: Breakpoint 1: Pending at threads_active.py:16.
 0: c -a
 a{0}: Breakpoint 1,  at threads_active.py:16
 0: info thread

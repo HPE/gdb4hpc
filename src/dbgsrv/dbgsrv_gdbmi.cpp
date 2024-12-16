@@ -2543,26 +2543,58 @@ dbgevent_t* DbgGdbMI::pyBEEvalExpr(std::string_view expr) {
     return e;
 }
 
-dbgevent_t* DbgGdbMI::pyBESetLineBreakpoint(int feid, std::string_view filename, int line) {
+dbgevent_t* DbgGdbMI::pyBESetLineBreakpoint(int feid, std::string_view filename, int line, bool allow_pending) {
     auto& pybe = ensurePybe();
-    auto gil = pybe.run_until_gil(get_current_thread_id());
+    const auto tid = get_current_thread_id();
+    auto gil = pybe.run_until_gil(tid);
 
-    auto bp = gil.set_breakpoint(feid, filename, line, /* func */ "");
+    // if we're at the python entry fn, there is no way to verify the breakpoint since
+    // python hasn't imported any modules or files or defined any functions to check against.
+    // so for a better UX we always do pending breakpoints when we're at the entry fn.
+    const auto do_pending = allow_pending || pybe.thread_at_python_entry_point(tid);
 
-    auto result = NewEvent(DBGEV_BPSET);
-    result->ev_u.ev_u_bp = to_dbgbp(bp).release();
-    return result;
+    if (auto bp = gil.set_breakpoint(feid, filename, line, /* func */ "", do_pending)) {
+        auto result = NewEvent(DBGEV_BPSET);
+        result->ev_u.ev_u_bp = to_dbgbp(*bp, do_pending).release();
+        return result;
+    } else {
+        // XXX: since pybe doesn't have a proper way to send error strings back over
+        // its internal socket yet, we have to make assumptions about what was wrong.
+        if (!filename.empty()) {
+            return NewErrorEvent(DBGERR_DEBUGGER, "No python source file %*s imported yet.", filename.size(), filename.data());
+        } else {
+            return NewErrorEvent(DBGERR_DEBUGGER, "Line %d is past end of current python source file.", line);
+        }
+    }
 }
 
-dbgevent_t* DbgGdbMI::pyBESetFuncBreakpoint(int feid, std::string_view file, std::string_view func) {
+dbgevent_t* DbgGdbMI::pyBESetFuncBreakpoint(int feid, std::string_view file, std::string_view func, bool allow_pending) {
     auto& pybe = ensurePybe();
+    const auto tid = get_current_thread_id();
     auto gil = pybe.run_until_gil(get_current_thread_id());
 
-    auto bp = gil.set_breakpoint(feid, file, /* line */ 0, func);
+    // if we're at the python entry fn, there is no way to verify the breakpoint since
+    // python hasn't imported any modules or files or defined any functions to check against.
+    // so for a better UX we always do pending breakpoints when we're at the entry fn.
+    const auto do_pending = allow_pending || pybe.thread_at_python_entry_point(tid);
 
-    auto result = NewEvent(DBGEV_BPSET);
-    result->ev_u.ev_u_bp = to_dbgbp(bp).release();
-    return result;
+    if (auto bp = gil.set_breakpoint(feid, file, /* line */ 0, func, do_pending)) {
+        auto result = NewEvent(DBGEV_BPSET);
+        result->ev_u.ev_u_bp = to_dbgbp(*bp, do_pending).release();
+        return result;
+    } else {
+        // XXX: since pybe doesn't have a proper way to send error strings back over
+        // its internal socket yet, we have to make assumptions about what was wrong.
+        if (!func.empty() && !file.empty()) {
+            return NewErrorEvent(DBGERR_DEBUGGER, "No function \"%*s\" found in %*s.",
+                                 func.size(), func.data(), file.size(), file.data());
+        } else if (!func.empty()) {
+            return NewErrorEvent(DBGERR_DEBUGGER, "No function \"%*s\" defined yet.",
+                                 func.size(), func.data());
+        } else {
+            return NewErrorEvent(DBGERR_DEBUGGER, "Invalid breakpoint");
+        }
+    }
 }
 
 dbgevent_t* DbgGdbMI::pyBEDeleteBreakpoint(int feid) {
@@ -2648,7 +2680,7 @@ dbgevent_t* DbgGdbMI::pyBEHandleAsyncStop(MIEvent* event) {
             // pybe breakpoint hit
 
             auto result = NewEvent(DBGEV_BPHIT);
-            result->ev_u.ev_u_bp = to_dbgbp(*maybe_bp).release();
+            result->ev_u.ev_u_bp = to_dbgbp(*maybe_bp, /* pending */ false).release();
             return result;
         } else {
             // must be the end of a step

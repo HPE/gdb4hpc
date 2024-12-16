@@ -112,8 +112,8 @@ public:
     dbgevent_t* pyBEMoveFrame(int count, DbgFrameDir dir);
     dbgevent_t* pyBEGetGIL();
     dbgevent_t* pyBEEvalExpr(std::string_view expr);
-    dbgevent_t* pyBESetLineBreakpoint(int feid, std::string_view filename, int line);
-    dbgevent_t* pyBESetFuncBreakpoint(int feid, std::string_view filename, std::string_view func);
+    dbgevent_t* pyBESetLineBreakpoint(int feid, std::string_view filename, int line, bool allow_pending);
+    dbgevent_t* pyBESetFuncBreakpoint(int feid, std::string_view filename, std::string_view func, bool allow_pending);
     dbgevent_t* pyBEDeleteBreakpoint(int feid);
     dbgevent_t* pyBEStep(bool step_in);
     dbgevent_t* pyBEFinish();

@@ -173,6 +173,14 @@ public:
     // file/function actually exists
     pybe::Breakpoint set_breakpoint(c_thread_id_t tid, py_thread_id_t ptid, int feid, std::string_view filename, int line, std::string_view funcname);
 
+    // use thread `tid` to call pybe and verify that the breakpoint that refers to
+    // `funcname` in `filename`:`line` is valid in the context of python thread `ptid`.
+    // `filename`, `line`, and `funcname` can be omitted (via an empty string or 0) and
+    // pybe will change how the breakpoint is checked. e.g. specifying only a function
+    // name will search all modules for a matching function name rather than check any
+    // filenames.
+    bool verify_breakpoint(c_thread_id_t tid, py_thread_id_t ptid, std::string_view filename, int line, std::string_view funcname);
+
     // use thread `tid` to call pybe and delete the breakpoint with id `feid`.
     void delete_breakpoint(c_thread_id_t tid, int feid);
 

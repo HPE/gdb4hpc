@@ -14,14 +14,27 @@ a{0}: #0  No python backtrace
 
 0: frame
 a{0}: #0  No python frame
+0: # these breakpoints show as pending because nothing has been run in the python interpreter
+0: # yet. so python legitimately doesn't know about them.
 0: break breaks.py:4
-a{0}: Breakpoint 1: file breaks.py, line 4.
+a{0}: Breakpoint 1: Pending at breaks.py:4.
 0: break lib.py:4
-a{0}: Breakpoint 2: file lib.py, line 4.
+a{0}: Breakpoint 2: Pending at lib.py:4.
 0: break magic
-a{0}: Breakpoint 3: file , line 0.
+a{0}: Breakpoint 3: Pending at magic.
 0: c
 a{0}: Breakpoint 1,  at breaks.py:4
+0: # we are already in calc, this is testing if pybe can verify that calc exists
+0: break calc
+a{0}: Breakpoint 4: file , line 0.
+0: delete 4
+0: # check that we can find imported files
+0: break breaks.py:1
+a{0}: Breakpoint 5: file breaks.py, line 1.
+0: break lib.py:3
+a{0}: Breakpoint 6: file lib.py, line 3.
+0: delete 5
+0: delete 6
 0: bt
 a{0}: #2  <module> at /src/python/breaks.py:14
 a{0}: #1  breaks_main at /src/python/breaks.py:8
@@ -40,12 +53,14 @@ a{0}: #0  magic at /src/python/lib.py:1
 0: frame
 a{0}: #0  magic at /src/python/lib.py:1
 0: break 3
-a{0}: Breakpoint 4: file lib.py, line 3.
-0: # breakpoint 5 will never be hit since it's lib.py:10 and not break.py:10
+a{0}: Breakpoint 7: file lib.py, line 3.
+0: # we are stopped in lib.py which only has 10 lines, so this is an invalid breakpoint
 0: break 10
-a{0}: Breakpoint 5: file lib.py, line 10.
+a{0}: Debugger error: Line 10 is past end of current python source file.
+Make breakpoint pending on future code object load? ([y] or n) y
+a{0}: Breakpoint 8: Pending at lib.py:10.
 0: c
-a{0}: Breakpoint 4,  at lib.py:3
+a{0}: Breakpoint 7,  at lib.py:3
 0: c
 a{0}: Breakpoint 2,  at lib.py:4
 0: bt

@@ -40,4 +40,4 @@ namespace pybe {
 
 std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Frame& frame);
 std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Backtrace& bt);
-std::unique_ptr<dbgbp_t> to_dbgbp(const pybe::Breakpoint& bp);
+std::unique_ptr<dbgbp_t> to_dbgbp(const pybe::Breakpoint& bp, bool pending);

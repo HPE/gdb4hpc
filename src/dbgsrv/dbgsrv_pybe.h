@@ -54,6 +54,12 @@ public:
     // gil is trivial to get is true.
     void trivialize_gil();
 
+    // return true if `tid` is stopped at the python interpreter entry point.
+    // the python interpreter entry point is the function that gdb4hpc stops
+    // python at after a launch and is before any lines of python code are
+    // interpreted. the exact function changes between python versions.
+    bool thread_at_python_entry_point(pybe::RPC::c_thread_id_t tid);
+
     // return the minor version of the python inferior.
     // e.g. if attached to python 3.6.9, this function returns 6.
     static int get_python_minor_version(MISession& sess);
@@ -106,7 +112,11 @@ public:
     // if omitted, the data is simply ignored during matching. e.g. setting a
     // breakpoint on line 9 with no file or function specified will match line
     // 9 in *any* file.
-    pybe::Breakpoint set_breakpoint(int feid, std::string_view filename, int line, std::string_view funcname);
+    //
+    // pybe will attempt to verify that the specified breakpoint is valid (refers
+    // to a location that is known). if the location is invalid, this function
+    // returns std::nullopt. set `allow_pending` to skip this validation.
+    std::optional<pybe::Breakpoint> set_breakpoint(int feid, std::string_view filename, int line, std::string_view funcname, bool allow_pending);
 
     // this should be called after receiving a stop signal from pybe to check if
     // a pybe breakpoint has been hit. if one has been hit, return it. if we're

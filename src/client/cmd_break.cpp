@@ -217,7 +217,7 @@ static bool do_set_break_console(rec_set_t* rec_set, BreakArgs& args) {
     if (ProcessErrorInRepSet(rep_set) && args.pending_val == PendingBrkType::Auto) {
         // XXX: in gdb, this query defaults to no. but in gdb mi mode, when using the
         // console interpreter fallback, it defaults to yes.
-        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO)) {
+        if (cli_query("Make breakpoint pending on future code object load?", cli_query_default::NO, cli_query_default::YES)) {
             // Force pending_val to on and try again
             args.pending_val = PendingBrkType::On;
             return do_set_break_console(rec_set, args);

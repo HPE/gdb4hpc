@@ -30,6 +30,7 @@ public:
     int trace_return(PyFrameObject& frame, PyObject& return_value);
     int trace_line(PyFrameObject& frame);
     bool set_breakpoint(uint32_t seq, unsigned long ptid, int feid, const char* filename, int line, const char* funcname);
+    bool verify_breakpoint(unsigned long py_thread_id, const char* filename, int line, const char* funcname);
     bool have_breakpoint();
     bool take_current_breakpoint(uint32_t seq);
     bool delete_breakpoint(int feid);

@@ -145,6 +145,10 @@ bool set_breakpoint(uint32_t seq, unsigned long ptid, int feid, const char* file
     return get_pybe().set_breakpoint(seq, ptid, feid, filename, line, funcname);
 }
 
+bool verify_breakpoint(unsigned long ptid, const char* filename, int line, const char* funcname) {
+    return get_pybe().verify_breakpoint(ptid, filename, line, funcname);
+}
+
 bool have_breakpoint() {
     return get_pybe().have_breakpoint();
 }

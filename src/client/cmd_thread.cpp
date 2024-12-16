@@ -202,6 +202,8 @@ static int cmd_info_threads_cmd_console(rec_set_t *rec_set, int argc, const char
 
     auto had_error = ProcessErrorInRepSet(rep_set);
 
+    auto pager = cli_pager{};
+
     for (const auto* reply : rep_set) {
         if (reply->rep_event == nullptr) {
             continue;

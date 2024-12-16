@@ -1,0 +1,22 @@
+0: maint set sync on
+0: launch $a{1} %.*python3.*% ./src/python/exceptions.py
+Starting application, please wait...
+Launched application...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Enabling python debugging. To disable, use `set python off`
+Launch complete.
+a{0}: Initial breakpoint, %.*%
+0: continue
+a{0}: Uncaught python exception:
+KeyError: 'oofdah'
+  <module> at /src/python/exceptions.py:9
+  main at /src/python/exceptions.py:6
+  oofdah at /src/python/exceptions.py:3
+a{0}: Python will now exit.
+0: continue
+a{0}: The application has reached an exit breakpoint.
+0: q
+Shutting down debugger and killing application for 'a'.

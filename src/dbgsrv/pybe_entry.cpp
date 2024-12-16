@@ -19,6 +19,14 @@ bool get_backtrace(uint32_t seq, unsigned long py_thread_id) {
     return get_pybe().get_backtrace(seq, py_thread_id);
 }
 
+bool have_uncaught_exception() {
+    return get_pybe().have_uncaught_exception();
+}
+
+bool take_current_uncaught_exception(uint32_t seq) {
+    return get_pybe().take_current_uncaught_exception(seq);
+}
+
 bool get_frame(uint32_t seq, unsigned long py_thread_id) {
     return get_pybe().get_frame(seq, py_thread_id);
 }
@@ -95,7 +103,7 @@ PyObject* python_wrapped_trace(PyObject* /*self*/, PyObject* args) {
     const char* event = nullptr;
     PyObject* trace_arg = nullptr;
 
-    if (!PyArg_ParseTuple(args, "OsO", &frame, &event, &trace_arg)) {
+    if (!PyArg_ParseTuple(args, "O!sO", &PyFrame_Type, &frame, &event, &trace_arg)) {
         log("python_wrapped_trace: failed to unpack tuple\n");
         // TODO not sure how to handle this failure correctly
     }
@@ -137,8 +145,40 @@ PyObject* python_wrapped_trace(PyObject* /*self*/, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+// when pybe sets up tracing, this function is set to sys.excepthook. sys.excepthook
+// is called when an uncaught exception bubbles all the way up to the top of the program.
+// the program is in an unrecoverable state at that point, so we can't save it, but
+// we can grab the exception information before python dies and give it to the gdb4hpc user.
+PyObject* pybe_excepthook(PyObject* /*self*/, PyObject* args) {
+    log("pybe_excepthook\n");
+    PyTypeObject* exception_type = nullptr;
+    PyObject* exception_instance = nullptr;
+    PyTracebackObject* backtrace = nullptr;
+
+    if (!PyArg_ParseTuple(args, "O!OO!", &PyType_Type, &exception_type, &exception_instance, &PyTraceBack_Type, &backtrace)) {
+        log("pybe_excepthook: failed to unpack tuple\n");
+        // TODO not sure how to handle this failure correctly
+        Py_RETURN_NONE;
+    }
+    if (!PyExceptionInstance_Check(exception_instance)) {
+        log("pybe_excepthook: exception instance is wrong type\n");
+        // TODO not sure how to handle this failure correctly
+        Py_RETURN_NONE;
+    }
+    if (!exception_type || !exception_instance || !backtrace) {
+        log("pybe_excepthook: missing data: %p %p %p\n", exception_type, exception_instance, backtrace);
+        Py_RETURN_NONE;
+    }
+
+    get_pybe().notify_uncaught_exception(*exception_type, *exception_instance, *backtrace);
+
+    log("done handling exception\n");
+
+    Py_RETURN_NONE;
+}
+
 bool init_trace() {
-    return get_pybe().init_trace(trace, python_wrapped_trace);
+    return get_pybe().init_trace(trace, python_wrapped_trace, pybe_excepthook);
 }
 
 bool set_breakpoint(uint32_t seq, unsigned long ptid, int feid, const char* filename, int line, const char* funcname) {

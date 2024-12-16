@@ -16,6 +16,8 @@ class PybeImpl {
 public:
 
     bool get_backtrace(uint32_t seq, unsigned long py_thread_id);
+    bool have_uncaught_exception();
+    bool take_current_uncaught_exception(uint32_t seq);
     bool get_frame(uint32_t seq, unsigned long py_thread_id);
     bool move_frame_level(unsigned long py_thread_id, int count, pybe::FrameDirection dir);
     bool eval_expr(uint32_t seq, unsigned long py_thread_id, const char* expr);
@@ -25,7 +27,7 @@ public:
     PyGILState_STATE get_GIL_then_breakpoint();
     bool spawn_GIL_grabbing_thread();
     void init_GIL();
-    bool init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc);
+    bool init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc, PyCFunction wrapped_exceptionfunc);
     int trace_call(PyFrameObject& frame);
     int trace_return(PyFrameObject& frame, PyObject& return_value);
     int trace_line(PyFrameObject& frame);
@@ -36,6 +38,7 @@ public:
     bool delete_breakpoint(int feid);
     bool install_step_trap(unsigned long py_thread_id, bool step_in);
     bool install_finish_trap(unsigned long py_thread_id);
+    void notify_uncaught_exception(PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject& backtrace);
 
 private:
     void stop_and_notify_gdb();
@@ -73,6 +76,7 @@ private:
     Vector<Breakpoint> m_breakpoints;
 
     std::unique_ptr<Breakpoint> m_last_hit_breakpoint = nullptr;
+    std::unique_ptr<Exception> m_last_uncaught_exception = nullptr;
 
     struct Move {
         Frame start;

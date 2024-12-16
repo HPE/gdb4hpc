@@ -166,6 +166,32 @@ bool PybeImpl::get_backtrace(uint32_t seq, unsigned long py_thread_id) {
     return true;
 }
 
+bool PybeImpl::have_uncaught_exception() {
+    return m_last_uncaught_exception != nullptr;
+}
+
+bool PybeImpl::take_current_uncaught_exception(uint32_t seq) {
+    log("get_exception\n");
+    if (!m_connection) [[ unlikely ]] {
+        log("no connection to send result on\n");
+        return false;
+    }
+
+    if (!m_last_uncaught_exception) [[ unlikely ]] {
+        log("no exception bt to send\n");
+        return false;
+    }
+
+    auto wire = m_last_uncaught_exception->serialize();
+    log("serialized exception: \"%s\"\n", wire.c_str());
+    if (m_connection->send_with_timeout(wire.c_str(), wire.size(), seq) == -1) [[ unlikely ]] {
+        log("failed to send exception result\n");
+        return false;
+    }
+
+    return true;
+}
+
 bool PybeImpl::get_frame(uint32_t seq, unsigned long py_thread_id) {
     log("get_frame\n");
     if (!m_connection) [[ unlikely ]] {
@@ -509,7 +535,7 @@ int PybeImpl::trace_line(PyFrameObject& pyframe) {
     return 0;
 }
 
-bool PybeImpl::init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc) {
+bool PybeImpl::init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc, PyCFunction wrapped_exceptionfunc) {
     log("pybe: init_trace\n");
 
     if (!PyGILState_Check()) [[ unlikely ]] {
@@ -553,6 +579,29 @@ bool PybeImpl::init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc)
         if (PyObject_CallMethod(module_threading.ptr, "settrace", "O", wrapped_tracefunc.ptr) == nullptr) {
             log("failed to threading.settrace\n");
             // TODO PyObject_CallMethod also sets an exception on failure, handle it (CPE-5688)
+            return false;
+        }
+    }
+
+    // install handler for uncaught exceptions
+    {
+        auto module_sys = StrongRef<PyObject>{nullptr};
+        if (module_sys = PyImport_ImportModule("sys"); !module_sys) {
+            log("failed to import sys\n");
+            return false;
+        }
+
+        static auto gdb4hpc_exception_method = PyMethodDef{
+            .ml_name = "gdb4hpc_exception_handler",
+            .ml_meth = wrapped_exceptionfunc,
+            .ml_flags = METH_VARARGS,
+            .ml_doc = "gdb4hpc python exception handler function",
+        };
+
+        auto exception_method = StrongRef<PyObject>(PyCFunction_New(&gdb4hpc_exception_method, nullptr));
+
+        if (PyObject_SetAttrString(module_sys.ptr, "excepthook", exception_method.ptr)) {
+            log("failed to set excepthook\n");
             return false;
         }
     }
@@ -819,6 +868,31 @@ bool PybeImpl::install_finish_trap(unsigned long py_thread_id) {
     });
 
     return true;
+}
+
+void PybeImpl::notify_uncaught_exception(PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject& backtrace_obj) {
+    log("notify_uncaught_exception\n");
+
+    auto pybe_bt = Backtrace{};
+    int level = 0;
+    for (
+        const auto* backtrace = &backtrace_obj;
+        backtrace;
+        backtrace = backtrace->tb_next, level++
+    ) {
+        pybe_bt.frames.push_back(to_frame(*backtrace->tb_frame, level));
+    }
+
+    auto str_obj = StrongRef<PyObject>(PyObject_Str(&exception_instance));
+    auto str = PyUnicode_AsUTF8(str_obj.ptr);
+
+    m_last_uncaught_exception = std::make_unique<Exception>(Exception{
+        .type_name = exception_type.tp_name ? exception_type.tp_name : "(Missing exception name)",
+        .str = str ? str : "(Missing exception description)",
+        .backtrace = std::move(pybe_bt),
+    });
+
+    stop_and_notify_gdb();
 }
 
 } // namespace pybe

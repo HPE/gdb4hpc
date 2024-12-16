@@ -153,6 +153,9 @@ public:
     // return the name of the tracing function that `start_tracing` will install.
     const char* get_tracing_function_name();
 
+    // return the name of the exception handling function that `start_tracing` will install.
+    const char* get_exception_handling_function_name();
+
     // return the name of the function that will call PyGILState_Ensure when
     // `thread_take_GIL` is called.
     const char* get_GIL_holding_function_name();
@@ -195,6 +198,17 @@ public:
     //
     // XXX: maybe at_breakpoint and this function can be merged into one.
     pybe::Breakpoint take_current_breakpoint(c_thread_id_t tid);
+
+    // use thread `tid` to call pybe and check if pybe is holding an exception that can
+    // be retreived via `get_python_exception`.
+    bool at_uncaught_exception(c_thread_id_t tid);
+
+    // if `at_uncaught_exception` returns true, this function can be called to
+    // use thread `tid` to retreive the uncaught python exception, clearing it
+    // from the internal pybe storage that holds it. This function can only be
+    // called once per uncaught exception. If there isn't a pending exception,
+    // throws dbgevent_t*.
+    pybe::Exception take_current_uncaught_exception(c_thread_id_t tid);
 
     // use thread `tid` to call pybe and insert a trap that will be activated
     // when python thread `ptid` starts executing a new line. if `step_in` is

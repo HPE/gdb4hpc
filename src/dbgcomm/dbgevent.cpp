@@ -278,6 +278,14 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
         case DBGEV_PACKEDTHREADINFO:
             e->ev_u.ev_u_packedthreadinfo = new dbgpackedthreadinfo_t{event->ev_u.ev_u_packedthreadinfo->clone()};;
             break;
+
+        case DBGEV_PYUNCAUGHTEXCEPTION:
+            e->ev_u.ev_u_pyexception = new dbgpyexception_t {
+                .type_name = event->ev_u.ev_u_pyexception->type_name,
+                .err_str = event->ev_u.ev_u_pyexception->err_str,
+                .backtrace = event->ev_u.ev_u_pyexception->backtrace->clone(),
+            };
+            break;
     }
 
     e->save_ev_data = event->save_ev_data;
@@ -565,6 +573,11 @@ void FreeEvent(dbgevent_t *event) {
 
         case DBGEV_PACKEDTHREADINFO:
             delete event->ev_u.ev_u_packedthreadinfo;
+            break;
+
+        case DBGEV_PYUNCAUGHTEXCEPTION:
+            delete event->ev_u.ev_u_pyexception->backtrace;
+            delete event->ev_u.ev_u_pyexception;
             break;
 
         // Anything that doesn't alloc should go here
@@ -1055,6 +1068,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_CMD";
         case DBGEV_SYMBOLS:
             return "DBGEV_SYMBOLS";
+        case DBGEV_PYUNCAUGHTEXCEPTION:
+            return "DBGEV_PYUNCAUGHTEXCEPTION";
         case DBGEV_NONE:
             return "DBGEV_NONE";
         case DBGEV_ERROR:

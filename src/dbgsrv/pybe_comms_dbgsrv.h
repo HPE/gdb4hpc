@@ -36,6 +36,7 @@ namespace pybe {
     using Frame = detail::Frame_T<detail::DbgsrvLowLevels>;
     using Backtrace = detail::Backtrace_T<detail::DbgsrvLowLevels>;
     using Breakpoint = detail::Breakpoint_T<detail::DbgsrvLowLevels>;
+    using Exception = detail::Exception_T<detail::DbgsrvLowLevels>;
 };
 
 std::unique_ptr<dbgframe_t> to_dbgframe(const pybe::Frame& frame);

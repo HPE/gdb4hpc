@@ -2682,6 +2682,16 @@ dbgevent_t* DbgGdbMI::pyBEHandleAsyncStop(MIEvent* event) {
             auto result = NewEvent(DBGEV_BPHIT);
             result->ev_u.ev_u_bp = to_dbgbp(*maybe_bp, /* pending */ false).release();
             return result;
+        } else if (auto maybe_exc = gil.find_current_uncaught_exception()) {
+            DVPRINT("handling python exception\n");
+
+            auto* e = NewEvent(DBGEV_PYUNCAUGHTEXCEPTION);
+            e->ev_u.ev_u_pyexception = new dbgpyexception_t {
+                .type_name = maybe_exc->type_name,
+                .err_str = maybe_exc->str,
+                .backtrace = to_dbgframe(maybe_exc->backtrace).release(),
+            };
+            return e;
         } else {
             // must be the end of a step
 

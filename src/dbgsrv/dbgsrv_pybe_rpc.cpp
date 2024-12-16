@@ -693,6 +693,52 @@ pybe::Backtrace RPC::get_python_backtrace(c_thread_id_t tid, py_thread_id_t py_t
     throw NewErrorEvent(DBGERR_INTERNAL, "get_python_backtrace: failed to deserialize data");
 }
 
+bool RPC::at_uncaught_exception(c_thread_id_t tid) {
+    const auto fn = std::string{"pybe::have_uncaught_exception()"};
+    auto cmd = make_MICmd(MIDataEvaluateExpressionThread(fn.c_str(), tid));
+    try_send_command(m_parent_session, *cmd, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "failed to determine if python is at an exception. gdb: %s", e_msg.get_string().c_str());
+    });
+
+    auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+    return result.get_view() == "true";
+}
+
+pybe::Exception RPC::take_current_uncaught_exception(c_thread_id_t tid) {
+    if (!m_pybe_channel) {
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "take_current_uncaught_exception: used before communication available");
+    }
+
+    auto& channel = *m_pybe_channel;
+
+    const auto seq = channel.generate_sequence_number();
+    {
+        const auto fn = "\"pybe::take_current_uncaught_exception(" + std::to_string(seq) + ")\"";
+        try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](MICommand& cmd){
+            auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
+            // not much the user can do if this fails. just emit a bug report friendly error.
+            throw NewErrorEvent(DBGERR_INTERNAL, "take_current_uncaught_exception: pybe fn failed. gdb: %s", e_msg.get_string().c_str());
+        });
+    }
+
+    auto buf = channel.recv_with_timeout(seq);
+    if (buf == "") {
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "take_current_uncaught_exception: got nothing from pybe");
+    }
+
+    const auto* cursor = buf.c_str();
+    if (auto result = pybe::Exception::deserialize(cursor, buf.size())) {
+        return *result;
+    }
+
+    // not much the user can do if this fails. just emit a bug report friendly error.
+    throw NewErrorEvent(DBGERR_INTERNAL, "take_current_uncaught_exception: failed to deserialize data");
+}
+
 pybe::Frame RPC::get_python_frame(c_thread_id_t tid, py_thread_id_t py_thread_id) {
     if (!m_pybe_channel) {
         // not much the user can do if this fails. just emit a bug report friendly error.
@@ -806,6 +852,10 @@ void RPC::install_breakpoint_trace(c_thread_id_t tid) {
 
 const char* RPC::get_tracing_function_name() {
     return "pybe::trace";
+}
+
+const char* RPC::get_exception_handling_function_name() {
+    return "pybe::pybe_excepthook";
 }
 
 const char* RPC::get_GIL_holding_function_name() {

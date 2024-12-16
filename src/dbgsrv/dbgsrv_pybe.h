@@ -126,6 +126,11 @@ public:
     // delete breakpoint with id `feid`.
     void delete_breakpoint(int feid);
 
+    // this should be called after receiving a stop signal from pybe to check if
+    // python is stopped at an uncaught exception. if it is, retreive the
+    // exception. if there isn't an exception, return nullopt.
+    std::optional<pybe::Exception> find_current_uncaught_exception();
+
     // set up pybe and the inferior for a single step. if `step_in` is true,
     // pybe will follow function calls (like the "step" command). if `step_in`
     // is false, it will step over function calls (like the "next" command)

@@ -698,6 +698,7 @@ template <typename Ts> struct Location_T;
 template <typename Ts> struct Frame_T;
 template <typename Ts> struct Backtrace_T;
 template <typename Ts> struct Breakpoint_T;
+template <typename Ts> struct Exception_T;
 
 template <typename Ts>
 class WireMsgBuilder_T {
@@ -711,6 +712,7 @@ public:
         Frame,
         Backtrace,
         Breakpoint,
+        Exception,
     };
 
     Ts::String msg;
@@ -722,6 +724,7 @@ public:
     void push(const Frame_T<Ts>& frame);
     void push(const Backtrace_T<Ts>& frame);
     void push(const Breakpoint_T<Ts>& breakpoint);
+    void push(const Exception_T<Ts>& exception);
 
 private:
     // used internally by the push methods
@@ -796,6 +799,16 @@ void WireMsgBuilder_T<Ts>::push(const Breakpoint_T<Ts>& bp) {
 
     push(bp.feid);
     push(bp.location);
+}
+
+template <typename Ts>
+void WireMsgBuilder_T<Ts>::push(const Exception_T<Ts>& exp) {
+    push_type(Type::Exception);
+    this->msg.append(" ");
+
+    push(exp.type_name);
+    push(exp.str);
+    push(exp.backtrace);
 }
 
 // deserialization helpers
@@ -998,6 +1011,58 @@ Expected<Breakpoint_T<Ts>, std::nullptr_t> Breakpoint_T<Ts>::deserialize(const c
 
     if (auto maybe_loc = Location_T<Ts>::deserialize(cursor, len)) {
         result.location = *maybe_loc;
+    } else {
+        return nullptr;
+    }
+
+    return result;
+}
+
+template <typename Ts>
+struct Exception_T {
+    // a python exception with a backtrace
+
+    Ts::String serialize() const;
+    static Expected<Exception_T, std::nullptr_t> deserialize(const char*& data, size_t len);
+
+    bool operator==(const Exception_T& other) const = default;
+
+    // type(exc).__name__
+    Ts::String type_name;
+    // str(exc)
+    Ts::String str;
+    Backtrace_T<Ts> backtrace;
+};
+
+template <typename Ts>
+Ts::String Exception_T<Ts>::serialize() const {
+    auto result = detail::WireMsgBuilder_T<Ts>{};
+    result.push(*this);
+    return std::move(result.msg);
+}
+
+template <typename Ts>
+Expected<Exception_T<Ts>, std::nullptr_t> Exception_T<Ts>::deserialize(const char*& cursor, size_t len) {
+    auto result = Exception_T{};
+
+    // TODO bounds check with size_t param
+
+    if (!detail::consume_type<Ts>(cursor, detail::WireMsgBuilder_T<Ts>::Type::Exception)) return nullptr;
+
+    if (auto maybe_str = detail::parse_string<Ts>(cursor)) {
+        result.type_name = std::move(*maybe_str);
+    } else {
+        return nullptr;
+    }
+
+    if (auto maybe_str = detail::parse_string<Ts>(cursor)) {
+        result.str = std::move(*maybe_str);
+    } else {
+        return nullptr;
+    }
+
+    if (auto maybe_bt = Backtrace_T<Ts>::deserialize(cursor, len)) {
+        result.backtrace = std::move(*maybe_bt);
     } else {
         return nullptr;
     }

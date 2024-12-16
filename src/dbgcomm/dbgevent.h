@@ -146,6 +146,7 @@ enum dbgev {
     DBGEV_PACKEDTHREADINFO,
     DBGEV_STRING,
     DBGEV_SYMBOLS,
+    DBGEV_PYUNCAUGHTEXCEPTION,
 };
 typedef enum dbgev dbgev;
 
@@ -373,6 +374,14 @@ struct dbgpackedthreadinfo_t {
     std::vector<PackedThread> threads;
 };
 
+struct dbgpyexception_t {
+    // result of type(e).__name__
+    std::string type_name;
+    // result of str(e)
+    std::string err_str;
+    dbgframe_t* backtrace;
+};
+
 struct dbgevent_t {
     dbgev ev_event;
 
@@ -401,6 +410,7 @@ struct dbgevent_t {
         dbgsymbols_t *ev_u_symbols;
         dbgpackedthreadinfo_t *ev_u_packedthreadinfo;
         dbgthreadinfo_t *ev_u_threadinfo;
+        dbgpyexception_t *ev_u_pyexception;
     } ev_u;
 // These are generic and should not be used outside the format/event functions.
 #define ev_string ev_u.ev_u_string

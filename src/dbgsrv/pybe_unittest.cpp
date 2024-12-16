@@ -28,6 +28,7 @@ namespace pybe {
     using Frame = detail::Frame_T<DbgsrvLowLevels>;
     using Backtrace = detail::Backtrace_T<DbgsrvLowLevels>;
     using Breakpoint = detail::Breakpoint_T<DbgsrvLowLevels>;
+    using Exception = detail::Exception_T<DbgsrvLowLevels>;
 };
 
 namespace doctest {
@@ -315,6 +316,55 @@ TEST_CASE("breakpoint serialization") {
     auto& bp_out = *maybe_bp_out;
 
     CHECK(bp_in == bp_out);
+}
+
+TEST_CASE("exception serialization") {
+    const auto frame_a = pybe::Frame{
+        .level = 2,
+        .location = {
+            .function_name = "pybe::Frame::serialize",
+            .file_name = "", // test empty string
+            .line_number = 17,
+        },
+    };
+    const auto frame_b = pybe::Frame{
+        .level = 3,
+        .location = {
+            .function_name = "pybe::Backtrace::serialize",
+            .file_name = "pybe_unittest.cpp",
+            .line_number = 21,
+        },
+    };
+    const auto frame_c = pybe::Frame{
+        .level = 4,
+        .location = {
+            .function_name = "pybe::Backtrace::deserialize",
+            .file_name = "pybe_comms.cpp",
+            .line_number = 13,
+        },
+    };
+
+    auto bt = pybe::Backtrace{};
+    bt.frames.push_back(frame_a);
+    bt.frames.push_back(frame_b);
+    bt.frames.push_back(frame_c);
+
+    const auto exception_in = pybe::Exception{
+        .type_name = "KeyError",
+        .str = "'oofdah'",
+        .backtrace = bt,
+    };
+
+    auto exception_wire = exception_in.serialize();
+    CAPTURE(exception_wire);
+
+    auto* cursor = exception_wire.c_str();
+
+    auto maybe_exception_out = pybe::Exception::deserialize(cursor, exception_wire.size());
+    REQUIRE(maybe_exception_out);
+    auto& exception_out = *maybe_exception_out;
+
+    CHECK(exception_in == exception_out);
 }
 
 TEST_CASE("Channel") {

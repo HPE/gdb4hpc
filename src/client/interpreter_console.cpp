@@ -4,6 +4,7 @@
 #include "str.h"
 #include "client_settings.h"
 #include "cmd.h"
+#include "bttree.h"
 
 using namespace std::string_literals;
 namespace {
@@ -556,7 +557,7 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
             // this is a little hacky and relies on the fact that there are no
             // other situations where an async DBGEV_FRAME event happens.
 
-            auto frame = ev_set.event()->ev_frame;
+            auto* frame = ev_set.event()->ev_frame;
             const auto &loc = frame->getLoc();
 
             if (loc.loc_line > 0) {
@@ -574,6 +575,27 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
             m_printer.print_error_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),
                                   "%s\n", DbgEventErrorStr(ev_set.event()));
             break;
+
+        case DBGEV_PYUNCAUGHTEXCEPTION: {
+            m_printer.print_with_set_info(
+                ev_set.di().handle().c_str(), ev_set.group(), "Uncaught python exception:\n");
+
+            // print error type and message
+            m_printer.print_message("%s: %s\n",
+                ev_set.event()->ev_u.ev_u_pyexception->type_name.c_str(),
+                ev_set.event()->ev_u.ev_u_pyexception->err_str.c_str());
+
+            // print backtrace
+            if (const auto* frame = ev_set.event()->ev_u.ev_u_pyexception->backtrace) {
+                for(; frame; frame = frame->getNext()) {
+                    m_printer.print_message("  %s\n", frame->getLocationString(false, false).c_str());
+                }
+            }
+
+            m_printer.print_with_set_info(
+                ev_set.di().handle().c_str(), ev_set.group(), "Python will now exit.\n");
+            break;
+        }
 
         case DBGEV_STRING:
             m_printer.print_with_set_info(ev_set.di().handle().c_str(), ev_set.group(),

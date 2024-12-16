@@ -136,9 +136,10 @@ Pybe::GILHolder Pybe::run_until_gil(pybe::RPC::c_thread_id_t tid) {
 
         // check for scenario 2
         if (std::ranges::any_of(bt.frames, [&](const auto& fr){
-            return fr.location.function_name == m_rpc.get_tracing_function_name();
+            return fr.location.function_name == m_rpc.get_tracing_function_name() ||
+                   fr.location.function_name == m_rpc.get_exception_handling_function_name();
         })) {
-            DVPRINT("gil scenario 2 (at trace)\n");
+            DVPRINT("gil scenario 2 (at trace/exception handler)\n");
             return tid;
         }
 
@@ -298,6 +299,12 @@ pybe::Frame Pybe::GILHolder::move_frame_level(int count, DbgFrameDir dir) {
 
 pybe::Backtrace Pybe::GILHolder::get_backtrace() {
     return m_parent_rpc.get_python_backtrace(m_gil_holding_thread_id, m_py_thread_id);
+}
+
+std::optional<pybe::Exception>
+Pybe::GILHolder::find_current_uncaught_exception() {
+    if (!m_parent_rpc.at_uncaught_exception(m_gil_holding_thread_id)) return {};
+    return m_parent_rpc.take_current_uncaught_exception(m_gil_holding_thread_id);
 }
 
 std::string Pybe::GILHolder::eval_py_expression(std::string_view expr) {

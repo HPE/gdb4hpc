@@ -275,6 +275,27 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
             FreeEvent(e3);
         }
 
+        SUBCASE("DBGEV_PYUNCAUGHTEXCEPTION") {
+            auto* exception = new dbgpyexception_t{
+                .type_name = "KeyError",
+                .err_str = "'oofdah'",
+                .backtrace = frame0a->clone(),
+            };
+
+            auto* e = NewEvent(DBGEV_PYUNCAUGHTEXCEPTION);
+            e->ev_u.ev_u_pyexception = exception;
+
+            auto* soc = EventToSocProto(e); // frees e and its contained frame
+            auto* e2 = SocProtoToEvent(soc);
+
+            CHECK(e2->ev_u.ev_u_pyexception->type_name == "KeyError");
+            CHECK(e2->ev_u.ev_u_pyexception->err_str == "'oofdah'");
+            sameFrame(*e2->ev_u.ev_u_pyexception->backtrace, *frame0a);
+
+            FreeEvent(e2);
+            ::free(soc);
+        }
+
         delete frame0a;
     }
 
@@ -1152,6 +1173,18 @@ static char* EventPackedThreadInfoToSocProto(dbgev ev, const dbgpackedthreadinfo
     return MakeSocStr(ev, data.str().c_str());
 }
 
+static char* EventPyExceptionToSocProto(dbgev ev, const dbgpyexception_t& pyexc) {
+    auto data = std::ostringstream{};
+
+    data << pyexc.type_name.length() << ' ' << pyexc.type_name << ' ';
+    data << pyexc.err_str.length() << ' ' << pyexc.err_str << ' ';
+    auto* frame_str = EventFrameToSocProtoL(pyexc.backtrace);
+    data << ::strlen(frame_str) << ' ' << frame_str;
+    ::free(frame_str);
+
+    return MakeSocStr(ev, data.str().c_str());
+}
+
 /*
 ** This is the main function that converts an event to network protocol
 */
@@ -1257,6 +1290,10 @@ char* EventToSocProto(dbgevent_t *e)
 
     case DBGEV_PACKEDTHREADINFO:
         res = EventPackedThreadInfoToSocProto(ev, *e->ev_u.ev_u_packedthreadinfo);
+        break;
+
+    case DBGEV_PYUNCAUGHTEXCEPTION:
+        res = EventPyExceptionToSocProto(ev, *e->ev_u.ev_u_pyexception);
         break;
     }
 
@@ -1747,6 +1784,17 @@ static dbgpackedthreadinfo_t* SocProtoToPackedThreadInfo(const char* s) {
     return result;
 }
 
+static dbgpyexception_t* SocProtoToPyException(const char* s) {
+    auto result = new dbgpyexception_t{};
+
+    result->type_name = getStdString(s);
+    result->err_str = getStdString(s);
+    auto frame_str = getStdString(s);
+    result->backtrace = SocProtoToFrame(frame_str.c_str());
+
+    return result;
+}
+
 /*
 ** This is the main function that converts a network protocol string back into
 ** an event.
@@ -1928,6 +1976,12 @@ dbgevent_t *SocProtoToEvent(const char *s) {
         case DBGEV_PACKEDTHREADINFO:
             evdata = getstring(s);
             e->ev_u.ev_u_packedthreadinfo = SocProtoToPackedThreadInfo(evdata);
+            ::free(evdata);
+            break;
+
+        case DBGEV_PYUNCAUGHTEXCEPTION:
+            evdata = getstring(s);
+            e->ev_u.ev_u_pyexception = SocProtoToPyException(evdata);
             ::free(evdata);
             break;
     }

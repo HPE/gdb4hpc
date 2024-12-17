@@ -31,14 +31,16 @@ public:
     int trace_call(PyFrameObject& frame);
     int trace_return(PyFrameObject& frame, PyObject& return_value);
     int trace_line(PyFrameObject& frame);
+    int trace_exception(PyFrameObject& frame, PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject& backtrace);
     bool set_breakpoint(uint32_t seq, unsigned long ptid, int feid, const char* filename, int line, const char* funcname);
     bool verify_breakpoint(unsigned long py_thread_id, const char* filename, int line, const char* funcname);
     bool have_breakpoint();
     bool take_current_breakpoint(uint32_t seq);
     bool delete_breakpoint(int feid);
+    bool enable_exception_catchpoint(int feid);
     bool install_step_trap(unsigned long py_thread_id, bool step_in);
     bool install_finish_trap(unsigned long py_thread_id);
-    void notify_uncaught_exception(PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject& backtrace);
+    void notify_uncaught_exception(PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject* backtrace);
 
 private:
     void stop_and_notify_gdb();
@@ -65,6 +67,11 @@ private:
     Expected<StrongRef<PyFrameObject>, std::nullptr_t>
     get_current_frame_with_fallback(unsigned long py_thread_id);
 
+    // called by exception handling functions to store the python exception in m_last_exception.
+    // note that `backtrace` is a ptr, not a reference, because there are cases where exceptions
+    // are raised with no backtrace.
+    void store_exception(PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject* backtrace, bool fatal);
+
     std::unique_ptr<pybe::Channel> m_connection = nullptr;
 
     // this could have been an associative structure like a (unordered) set,
@@ -76,7 +83,13 @@ private:
     Vector<Breakpoint> m_breakpoints;
 
     std::unique_ptr<Breakpoint> m_last_hit_breakpoint = nullptr;
-    std::unique_ptr<Exception> m_last_uncaught_exception = nullptr;
+    std::unique_ptr<Exception> m_last_exception = nullptr;
+
+    // true if the user runs `catch throw` or `catch raise` in python mode
+    bool m_catch_exceptions = false;
+    // m_catch_exceptions is presented to the user as a catchpoint with this id.
+    // to disable m_catch_exceptions, the user runs `delete <id>` (just like normal catchpoints)
+    int m_catch_exceptions_feid = 0;
 
     struct Move {
         Frame start;

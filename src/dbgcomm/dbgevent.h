@@ -146,7 +146,7 @@ enum dbgev {
     DBGEV_PACKEDTHREADINFO,
     DBGEV_STRING,
     DBGEV_SYMBOLS,
-    DBGEV_PYUNCAUGHTEXCEPTION,
+    DBGEV_PYEXCEPTION,
 };
 typedef enum dbgev dbgev;
 
@@ -380,6 +380,8 @@ struct dbgpyexception_t {
     // result of str(e)
     std::string err_str;
     dbgframe_t* backtrace;
+    // if true, python is about to exit
+    bool fatal;
 };
 
 struct dbgevent_t {

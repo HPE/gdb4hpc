@@ -982,6 +982,25 @@ pybe::Breakpoint RPC::take_current_breakpoint(c_thread_id_t tid) {
     }
 }
 
+pybe::Breakpoint RPC::enable_exception_catchpoint(c_thread_id_t tid, int feid) {
+    const auto fn = std::string{"(bool)pybe::enable_exception_catchpoint(" + std::to_string(feid) + ")"};
+
+    try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [](MICommand& cmd){
+        auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&cmd));
+        // not much the user can do if this fails. just emit a bug report friendly error.
+        throw NewErrorEvent(DBGERR_INTERNAL, "enable_exception_catchpoint: pybe fn failed. gdb: %s", e_msg.get_string().c_str());
+    });
+
+    return pybe::Breakpoint {
+        .feid = feid,
+        .location = {
+            .function_name = "raise",
+            .file_name = "",
+            .line_number = 0,
+        },
+    };
+}
+
 void RPC::insert_step_trap(c_thread_id_t tid, py_thread_id_t ptid, bool step_in) {
     const auto fn = std::string{"pybe::install_step_trap("} + std::to_string(ptid) + "," + std::to_string(step_in) + ")";
 

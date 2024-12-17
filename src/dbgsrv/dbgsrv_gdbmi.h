@@ -114,6 +114,7 @@ public:
     dbgevent_t* pyBEEvalExpr(std::string_view expr);
     dbgevent_t* pyBESetLineBreakpoint(int feid, std::string_view filename, int line, bool allow_pending);
     dbgevent_t* pyBESetFuncBreakpoint(int feid, std::string_view filename, std::string_view func, bool allow_pending);
+    dbgevent_t* pyBESetCatchpoint(int feid, std::string_view event);
     dbgevent_t* pyBEDeleteBreakpoint(int feid);
     dbgevent_t* pyBEStep(bool step_in);
     dbgevent_t* pyBEFinish();

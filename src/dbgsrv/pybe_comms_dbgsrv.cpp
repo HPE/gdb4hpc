@@ -70,3 +70,13 @@ std::unique_ptr<dbgbp_t> to_dbgbp(const pybe::Breakpoint& bp, bool pending) {
     return dbgbp;
 }
 
+std::unique_ptr<dbgbp_t> to_dbgcp(const pybe::Breakpoint& bp) {
+    auto dbgbp = std::make_unique<dbgbp_t>(bp.feid, 0);
+
+    dbgbp->bp_exp = bp.location.function_name;
+    dbgbp->bp_type = DBGBP_CATCH_TYPE;
+    dbgbp->bp_disp = DBGBP_KEEP_DISP;
+
+    return dbgbp;
+}
+

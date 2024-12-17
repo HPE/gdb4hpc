@@ -467,10 +467,13 @@ static int cmd_catch_cmd(rec_set_t *rec_set, int argc, const char* const argv[])
     // is set up to send a generic "catch _____" command with CLIBypass, so
     // any valid event type could work. These are just the few that have been
     // verified to work (and not crash the dbgsrv) so far.
+    //
+    // in python mode, only throw and raise are valid, and they do the same thing.
     const auto eventTypes = 
-        std::vector<std::string>{"throw", "catch", "load", "unload", "fork", 
-                                 "vfork", "exec"};
-    
+        std::vector<std::string>{"throw", "catch", "load", "unload", "fork",
+                                 "vfork", "exec",
+                                 "raise" /* python mode */};
+
     // build a nicely formatted string out of types
     // e.g. "[throw|load|...|exec]"
     auto buildExpected = [&](){

@@ -167,7 +167,7 @@ bool PybeImpl::get_backtrace(uint32_t seq, unsigned long py_thread_id) {
 }
 
 bool PybeImpl::have_uncaught_exception() {
-    return m_last_uncaught_exception != nullptr;
+    return m_last_exception != nullptr;
 }
 
 bool PybeImpl::take_current_uncaught_exception(uint32_t seq) {
@@ -177,12 +177,12 @@ bool PybeImpl::take_current_uncaught_exception(uint32_t seq) {
         return false;
     }
 
-    if (!m_last_uncaught_exception) [[ unlikely ]] {
+    if (!m_last_exception) [[ unlikely ]] {
         log("no exception bt to send\n");
         return false;
     }
 
-    auto wire = m_last_uncaught_exception->serialize();
+    auto wire = m_last_exception->serialize();
     log("serialized exception: \"%s\"\n", wire.c_str());
     if (m_connection->send_with_timeout(wire.c_str(), wire.size(), seq) == -1) [[ unlikely ]] {
         log("failed to send exception result\n");
@@ -535,6 +535,20 @@ int PybeImpl::trace_line(PyFrameObject& pyframe) {
     return 0;
 }
 
+int PybeImpl::trace_exception(PyFrameObject& /*frame*/, PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject& backtrace) {
+    // log("[EXCEPTION] ...\n");
+
+    // `backtrace` is a superset of `frame` so we don't use `frame`
+
+    if (m_catch_exceptions) {
+        log("storing exception\n");
+        store_exception(exception_type, exception_instance, &backtrace, /* fatal */ false);
+        stop_and_notify_gdb();
+    }
+
+    return 0;
+}
+
 bool PybeImpl::init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc, PyCFunction wrapped_exceptionfunc) {
     log("pybe: init_trace\n");
 
@@ -823,6 +837,15 @@ bool PybeImpl::take_current_breakpoint(uint32_t seq) {
 }
 
 bool PybeImpl::delete_breakpoint(int feid) {
+    // the exception tracing flag is represented to the user as a catchpoint with an id.
+    // check if `feid` represents the exception tracing setting.
+    if (feid == m_catch_exceptions_feid) {
+        m_catch_exceptions = false;
+        m_catch_exceptions_feid = 0;
+        return true;
+    }
+
+    // check breakpoints
     auto idx = [&](){
         auto i = m_breakpoints.begin();
         for (; i != m_breakpoints.end(); i++) {
@@ -833,6 +856,12 @@ bool PybeImpl::delete_breakpoint(int feid) {
 
     if (idx == m_breakpoints.end()) return false;
     m_breakpoints.erase(idx);
+    return true;
+}
+
+bool PybeImpl::enable_exception_catchpoint(int feid) {
+    m_catch_exceptions = true;
+    m_catch_exceptions_feid = feid;
     return true;
 }
 
@@ -870,28 +899,36 @@ bool PybeImpl::install_finish_trap(unsigned long py_thread_id) {
     return true;
 }
 
-void PybeImpl::notify_uncaught_exception(PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject& backtrace_obj) {
-    log("notify_uncaught_exception\n");
-
+void PybeImpl::store_exception(PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject* backtrace_obj, bool fatal) {
     auto pybe_bt = Backtrace{};
-    int level = 0;
-    for (
-        const auto* backtrace = &backtrace_obj;
-        backtrace;
-        backtrace = backtrace->tb_next, level++
-    ) {
-        pybe_bt.frames.push_back(to_frame(*backtrace->tb_frame, level));
+
+    // in some contexts, e.g. syntax errors before the interpreter starts, an
+    // exception can validly be raised without a backtrace
+    if (backtrace_obj) {
+        int level = 0;
+        for (
+            const auto* backtrace = backtrace_obj;
+            backtrace;
+            backtrace = backtrace->tb_next, level++
+        ) {
+            pybe_bt.frames.push_back(to_frame(*backtrace->tb_frame, level));
+        }
     }
 
     auto str_obj = StrongRef<PyObject>(PyObject_Str(&exception_instance));
     auto str = PyUnicode_AsUTF8(str_obj.ptr);
 
-    m_last_uncaught_exception = std::make_unique<Exception>(Exception{
+    m_last_exception = std::make_unique<Exception>(Exception{
         .type_name = exception_type.tp_name ? exception_type.tp_name : "(Missing exception name)",
         .str = str ? str : "(Missing exception description)",
         .backtrace = std::move(pybe_bt),
+        .fatal = fatal,
     });
+}
 
+void PybeImpl::notify_uncaught_exception(PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject* backtrace_obj) {
+    log("notify_uncaught_exception\n");
+    store_exception(exception_type, exception_instance, backtrace_obj, /*fatal=*/ true);
     stop_and_notify_gdb();
 }
 

@@ -576,9 +576,13 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
                                   "%s\n", DbgEventErrorStr(ev_set.event()));
             break;
 
-        case DBGEV_PYUNCAUGHTEXCEPTION: {
+        case DBGEV_PYEXCEPTION: {
+            auto fatal = ev_set.event()->ev_u.ev_u_pyexception->fatal;
+
             m_printer.print_with_set_info(
-                ev_set.di().handle().c_str(), ev_set.group(), "Uncaught python exception:\n");
+                ev_set.di().handle().c_str(), ev_set.group(),
+                "Application raised an %sexception:\n",
+                fatal ? "uncaught " : "");
 
             // print error type and message
             m_printer.print_message("%s: %s\n",
@@ -592,8 +596,12 @@ void ConsoleInterpreter::handle_async_event(DbgInvoke::EventSet& ev_set, const B
                 }
             }
 
-            m_printer.print_with_set_info(
-                ev_set.di().handle().c_str(), ev_set.group(), "Python will now exit.\n");
+            if (fatal) {
+                m_printer.print_message(
+                    "The python stack has been unwound and python will now exit.\n"
+                    "Use the `catch raise` command to stop on exceptions before the stack is unwound.\n");
+            }
+
             break;
         }
 

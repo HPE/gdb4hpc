@@ -27,6 +27,10 @@ bool take_current_uncaught_exception(uint32_t seq) {
     return get_pybe().take_current_uncaught_exception(seq);
 }
 
+bool enable_exception_catchpoint(int feid) {
+    return get_pybe().enable_exception_catchpoint(feid);
+}
+
 bool get_frame(uint32_t seq, unsigned long py_thread_id) {
     return get_pybe().get_frame(seq, py_thread_id);
 }
@@ -82,6 +86,32 @@ int trace(PyObject* /* ctx */, PyFrameObject* frame, int what, PyObject* arg) {
         case PyTrace_CALL: return get_pybe().trace_call(*frame);
         case PyTrace_RETURN: return get_pybe().trace_return(*frame, *arg);
         case PyTrace_LINE: return get_pybe().trace_line(*frame);
+        case PyTrace_EXCEPTION: {
+            // note that unlike `pybe_excepthook`, where it's possible that we will receive
+            // Py_None as the backtrace, here we always get a backtrace. we always get one
+            // since in order to get to the point where python is calling `trace`, the
+            // interpreter is running code and a backtrace exists.
+            //
+            // if that assumption happens to be wrong, the worst that will happen is
+            // `PyArg_ParseTuple` will detect it and return an error.
+            PyTypeObject* exception_type = nullptr;
+            PyObject* exception_instance = nullptr;
+            PyTracebackObject* backtrace = nullptr;
+            if (!PyArg_ParseTuple(arg, "O!OO!", &PyType_Type, &exception_type, &exception_instance, &PyTraceBack_Type, &backtrace)) {
+                log("pybe::trace: failed to unpack tuple\n");
+                return 0;
+            }
+            if (!PyExceptionInstance_Check(exception_instance)) {
+                log("pybe::trace: exception instance is wrong type\n");
+                return 0;
+            }
+            if (!exception_type || !exception_instance || !backtrace) {
+                log("pybe::trace: missing data: %p %p %p\n", exception_type, exception_instance, backtrace);
+                return 0;
+            }
+
+            return get_pybe().trace_exception(*frame, *exception_type, *exception_instance, *backtrace);
+        }
         default: break;
     }
 
@@ -155,7 +185,7 @@ PyObject* pybe_excepthook(PyObject* /*self*/, PyObject* args) {
     PyObject* exception_instance = nullptr;
     PyTracebackObject* backtrace = nullptr;
 
-    if (!PyArg_ParseTuple(args, "O!OO!", &PyType_Type, &exception_type, &exception_instance, &PyTraceBack_Type, &backtrace)) {
+    if (!PyArg_ParseTuple(args, "O!OO", &PyType_Type, &exception_type, &exception_instance, &backtrace)) {
         log("pybe_excepthook: failed to unpack tuple\n");
         // TODO not sure how to handle this failure correctly
         Py_RETURN_NONE;
@@ -165,12 +195,25 @@ PyObject* pybe_excepthook(PyObject* /*self*/, PyObject* args) {
         // TODO not sure how to handle this failure correctly
         Py_RETURN_NONE;
     }
-    if (!exception_type || !exception_instance || !backtrace) {
+    // some exceptions might not have a backtrace, e.g. syntax errors that are emitted
+    // before any python code is interpreted. in that case `backtrace` will be set to
+    // Py_None. Py_None is a singleton and the correct way to check for it is to simply
+    // compare memory addresses of two objects.
+    if (static_cast<void*>(backtrace) == static_cast<void*>(Py_None)) {
+        log("backtrace is Py_None, setting to nullptr\n");
+        backtrace = nullptr;
+    } else if (!PyTraceBack_Check(backtrace)) {
+        // if not Py_None, it is required to be a traceback object for the below fn calls
+        log("backtrace pt not a backtrace object\n");
+        Py_RETURN_NONE;
+    }
+
+    if (!exception_type || !exception_instance) {
         log("pybe_excepthook: missing data: %p %p %p\n", exception_type, exception_instance, backtrace);
         Py_RETURN_NONE;
     }
 
-    get_pybe().notify_uncaught_exception(*exception_type, *exception_instance, *backtrace);
+    get_pybe().notify_uncaught_exception(*exception_type, *exception_instance, backtrace);
 
     log("done handling exception\n");
 

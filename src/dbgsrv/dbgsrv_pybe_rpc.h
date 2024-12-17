@@ -199,6 +199,14 @@ public:
     // XXX: maybe at_breakpoint and this function can be merged into one.
     pybe::Breakpoint take_current_breakpoint(c_thread_id_t tid);
 
+    // use thread `tid` to call pybe and enable python exception catchpoints. when
+    // enabled, the tracing functionality will notice when exceptions are raised
+    // and raise an async event similar to how breakpoints are handled.
+    //
+    // we present this setting to the user in the form of setting a catchpoint
+    // with id `feid`. to disable the catchpoint, use delete_breakpoint(..., `feid`).
+    pybe::Breakpoint enable_exception_catchpoint(c_thread_id_t tid, int feid);
+
     // use thread `tid` to call pybe and check if pybe is holding an exception that can
     // be retreived via `get_python_exception`.
     bool at_uncaught_exception(c_thread_id_t tid);

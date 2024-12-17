@@ -2,21 +2,39 @@
 0: launch $a{1} %.*python3.*% ./src/python/exceptions.py
 Starting application, please wait...
 Launched application...
-0/1 ranks connected... (timeout in 300 seconds)
+Got a timeout of 30 from GDB4HPC_STARTUP_TIMEOUT.
+0/1 ranks connected... (timeout in 30 seconds)
 1/1 ranks connected.
 Created network...
 Connected to application...
 Enabling python debugging. To disable, use `set python off`
 Launch complete.
 a{0}: Initial breakpoint, %.*%
+0: # set a breakpoint since python will actually throw (and then catch) exceptions during its initialization
+0: break exceptions.py:17
+a{0}: Breakpoint 1: Pending at exceptions.py:17.
 0: continue
-a{0}: Uncaught python exception:
+a{0}: Breakpoint 1,  at exceptions.py:17
+0: delete 1
+0: catch raise
+a{0}: Catchpoint 2: Set on raise.
+0: continue
+a{0}: Application raised an exception:
+KeyError: 'safe_oofdah'
+  safe_oofdah at /hpcdc/project/pe_users/chandlej/home/chandlej/Code/cdst-gdb4hpc/tests/function/src/python/exceptions.py:12
+0: bt
+a{0}: #2  <module> at /hpcdc/project/pe_users/chandlej/home/chandlej/Code/cdst-gdb4hpc/tests/function/src/python/exceptions.py:17
+a{0}: #1  main at /hpcdc/project/pe_users/chandlej/home/chandlej/Code/cdst-gdb4hpc/tests/function/src/python/exceptions.py:6
+a{0}: #0  safe_oofdah at /hpcdc/project/pe_users/chandlej/home/chandlej/Code/cdst-gdb4hpc/tests/function/src/python/exceptions.py:12
+
+0: delete 2
+0: continue
+a{0}: Application raised an uncaught exception:
 KeyError: 'oofdah'
-  <module> at /src/python/exceptions.py:9
-  main at /src/python/exceptions.py:6
+  <module> at /src/python/exceptions.py:17
+  main at /src/python/exceptions.py:7
   oofdah at /src/python/exceptions.py:3
-a{0}: Python will now exit.
-0: continue
-a{0}: The application has reached an exit breakpoint.
+The python stack has been unwound and python will now exit.
+Use the `catch raise` command to stop on exceptions before the stack is unwound.
 0: q
 Shutting down debugger and killing application for 'a'.

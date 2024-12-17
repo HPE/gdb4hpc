@@ -279,11 +279,12 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
             e->ev_u.ev_u_packedthreadinfo = new dbgpackedthreadinfo_t{event->ev_u.ev_u_packedthreadinfo->clone()};;
             break;
 
-        case DBGEV_PYUNCAUGHTEXCEPTION:
+        case DBGEV_PYEXCEPTION:
             e->ev_u.ev_u_pyexception = new dbgpyexception_t {
                 .type_name = event->ev_u.ev_u_pyexception->type_name,
                 .err_str = event->ev_u.ev_u_pyexception->err_str,
                 .backtrace = event->ev_u.ev_u_pyexception->backtrace->clone(),
+                .fatal = event->ev_u.ev_u_pyexception->fatal,
             };
             break;
     }
@@ -575,7 +576,7 @@ void FreeEvent(dbgevent_t *event) {
             delete event->ev_u.ev_u_packedthreadinfo;
             break;
 
-        case DBGEV_PYUNCAUGHTEXCEPTION:
+        case DBGEV_PYEXCEPTION:
             delete event->ev_u.ev_u_pyexception->backtrace;
             delete event->ev_u.ev_u_pyexception;
             break;
@@ -1068,8 +1069,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_CMD";
         case DBGEV_SYMBOLS:
             return "DBGEV_SYMBOLS";
-        case DBGEV_PYUNCAUGHTEXCEPTION:
-            return "DBGEV_PYUNCAUGHTEXCEPTION";
+        case DBGEV_PYEXCEPTION:
+            return "DBGEV_PYEXCEPTION";
         case DBGEV_NONE:
             return "DBGEV_NONE";
         case DBGEV_ERROR:

@@ -1,0 +1,21 @@
+0: maint set sync on
+0: launch $a{1} %.*python3.*% ./src/python/bad_syntax.py
+Starting application, please wait...
+Launched application...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Enabling python debugging. To disable, use `set python off`
+Launch complete.
+a{0}: Initial breakpoint, %.*%
+0: c
+a{0}: Application raised an uncaught exception:
+SyntaxError: invalid syntax (bad_syntax.py, line 2)
+  No python backtrace
+The python stack has been unwound and python will now exit.
+Use the `catch raise` command to stop on exceptions before the stack is unwound.
+0: c
+a{0}: The application has reached an exit breakpoint.
+0: q
+Shutting down debugger and killing application for 'a'.

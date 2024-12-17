@@ -353,6 +353,7 @@ TEST_CASE("exception serialization") {
         .type_name = "KeyError",
         .str = "'oofdah'",
         .backtrace = bt,
+        .fatal = true,
     };
 
     auto exception_wire = exception_in.serialize();

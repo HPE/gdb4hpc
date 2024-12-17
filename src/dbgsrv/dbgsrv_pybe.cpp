@@ -328,6 +328,10 @@ std::optional<pybe::Breakpoint> Pybe::GILHolder::find_current_breakpoint() {
     return m_parent_rpc.take_current_breakpoint(m_gil_holding_thread_id);
 }
 
+std::optional<pybe::Breakpoint> Pybe::GILHolder::enable_exception_catchpoint(int feid) {
+    return m_parent_rpc.enable_exception_catchpoint(m_gil_holding_thread_id, feid);
+}
+
 void Pybe::GILHolder::insert_step_trap(bool step_in) {
     m_parent_rpc.insert_step_trap(m_gil_holding_thread_id, m_py_thread_id, step_in);
 }

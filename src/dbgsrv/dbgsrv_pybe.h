@@ -126,6 +126,14 @@ public:
     // delete breakpoint with id `feid`.
     void delete_breakpoint(int feid);
 
+    // enable tracing of python `raise` statements and stack unwinding.
+    // we emulate the appearance of c++'s `catch throw` catchpoints, and on success
+    // this function returns a breakpoint which is expected to be presented to the user
+    // as a catchpoint with id `feid`. to disable the catchpoint, use delete_breakpoint(`feid`).
+    //
+    // returns nullopt on error.
+    std::optional<pybe::Breakpoint> enable_exception_catchpoint(int feid);
+
     // this should be called after receiving a stop signal from pybe to check if
     // python is stopped at an uncaught exception. if it is, retreive the
     // exception. if there isn't an exception, return nullopt.

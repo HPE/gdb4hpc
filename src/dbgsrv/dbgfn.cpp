@@ -159,6 +159,7 @@ dbgevent_t *DbgSetWatch(int id, int type, const char *expr, const dbgcomm_info *
 
 dbgevent_t *DbgSetCatch(int id, const std::string &event, const std::string &regex, const dbgcomm_info *ci) {
     DBG_READY();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBESetCatchpoint(id, event);
     return DbgBackendSW->setCatch(id, event, regex, ci);
 }
 

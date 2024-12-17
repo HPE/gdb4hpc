@@ -809,6 +809,7 @@ void WireMsgBuilder_T<Ts>::push(const Exception_T<Ts>& exp) {
     push(exp.type_name);
     push(exp.str);
     push(exp.backtrace);
+    push(static_cast<int>(exp.fatal));
 }
 
 // deserialization helpers
@@ -1032,6 +1033,8 @@ struct Exception_T {
     // str(exc)
     Ts::String str;
     Backtrace_T<Ts> backtrace;
+    // if true, python is about to exit
+    bool fatal;
 };
 
 template <typename Ts>
@@ -1065,6 +1068,10 @@ Expected<Exception_T<Ts>, std::nullptr_t> Exception_T<Ts>::deserialize(const cha
         result.backtrace = std::move(*maybe_bt);
     } else {
         return nullptr;
+    }
+
+    if (auto maybe_fatal = parse_int<Ts>(cursor)) {
+        result.fatal = *maybe_fatal;
     }
 
     return result;

@@ -2597,6 +2597,24 @@ dbgevent_t* DbgGdbMI::pyBESetFuncBreakpoint(int feid, std::string_view file, std
     }
 }
 
+dbgevent_t* DbgGdbMI::pyBESetCatchpoint(int feid, std::string_view event) {
+    if (event != "throw" && event != "raise") {
+        return NewErrorEvent(DBGERR_DEBUGGER, "In python mode, only 'throw' and 'raise' catchpoints are supported.");
+    }
+
+    auto& pybe = ensurePybe();
+    auto gil = pybe.run_until_gil(get_current_thread_id());
+
+    if (auto bp = gil.enable_exception_catchpoint(feid)) {
+        // like c catchpoints, python catchpoints are represented as a special kind of breakpoint.
+        auto result = NewEvent(DBGEV_BPSET);
+        result->ev_u.ev_u_bp = to_dbgcp(*bp).release();
+        return result;
+    } else {
+        return NewErrorEvent(DBGERR_INTERNAL, "Failed to enable python exception catchpoints.");
+    }
+}
+
 dbgevent_t* DbgGdbMI::pyBEDeleteBreakpoint(int feid) {
     auto& pybe = ensurePybe();
     auto gil = pybe.run_until_gil(get_current_thread_id());
@@ -2685,11 +2703,12 @@ dbgevent_t* DbgGdbMI::pyBEHandleAsyncStop(MIEvent* event) {
         } else if (auto maybe_exc = gil.find_current_uncaught_exception()) {
             DVPRINT("handling python exception\n");
 
-            auto* e = NewEvent(DBGEV_PYUNCAUGHTEXCEPTION);
+            auto* e = NewEvent(DBGEV_PYEXCEPTION);
             e->ev_u.ev_u_pyexception = new dbgpyexception_t {
                 .type_name = maybe_exc->type_name,
                 .err_str = maybe_exc->str,
                 .backtrace = to_dbgframe(maybe_exc->backtrace).release(),
+                .fatal = maybe_exc->fatal,
             };
             return e;
         } else {

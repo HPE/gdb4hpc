@@ -275,14 +275,15 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
             FreeEvent(e3);
         }
 
-        SUBCASE("DBGEV_PYUNCAUGHTEXCEPTION") {
+        SUBCASE("DBGEV_PYEXCEPTION") {
             auto* exception = new dbgpyexception_t{
                 .type_name = "KeyError",
                 .err_str = "'oofdah'",
                 .backtrace = frame0a->clone(),
+                .fatal = true,
             };
 
-            auto* e = NewEvent(DBGEV_PYUNCAUGHTEXCEPTION);
+            auto* e = NewEvent(DBGEV_PYEXCEPTION);
             e->ev_u.ev_u_pyexception = exception;
 
             auto* soc = EventToSocProto(e); // frees e and its contained frame
@@ -1179,8 +1180,9 @@ static char* EventPyExceptionToSocProto(dbgev ev, const dbgpyexception_t& pyexc)
     data << pyexc.type_name.length() << ' ' << pyexc.type_name << ' ';
     data << pyexc.err_str.length() << ' ' << pyexc.err_str << ' ';
     auto* frame_str = EventFrameToSocProtoL(pyexc.backtrace);
-    data << ::strlen(frame_str) << ' ' << frame_str;
+    data << ::strlen(frame_str) << ' ' << frame_str << ' ';
     ::free(frame_str);
+    data << pyexc.fatal;
 
     return MakeSocStr(ev, data.str().c_str());
 }
@@ -1292,7 +1294,7 @@ char* EventToSocProto(dbgevent_t *e)
         res = EventPackedThreadInfoToSocProto(ev, *e->ev_u.ev_u_packedthreadinfo);
         break;
 
-    case DBGEV_PYUNCAUGHTEXCEPTION:
+    case DBGEV_PYEXCEPTION:
         res = EventPyExceptionToSocProto(ev, *e->ev_u.ev_u_pyexception);
         break;
     }
@@ -1791,6 +1793,7 @@ static dbgpyexception_t* SocProtoToPyException(const char* s) {
     result->err_str = getStdString(s);
     auto frame_str = getStdString(s);
     result->backtrace = SocProtoToFrame(frame_str.c_str());
+    result->fatal = static_cast<bool>(getint(s));
 
     return result;
 }
@@ -1979,7 +1982,7 @@ dbgevent_t *SocProtoToEvent(const char *s) {
             ::free(evdata);
             break;
 
-        case DBGEV_PYUNCAUGHTEXCEPTION:
+        case DBGEV_PYEXCEPTION:
             evdata = getstring(s);
             e->ev_u.ev_u_pyexception = SocProtoToPyException(evdata);
             ::free(evdata);

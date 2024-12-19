@@ -100,34 +100,30 @@ static int cmd_backtrace_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, con
     // process error - even with an error, continue and print what we can
     (void)ProcessErrorInRepSet(rep_set);
 
+    std::stringstream ss;
+
     for (const auto& reply : rep_set) {
-        std::stringstream ss;
+        ss.str().empty()?ss<<"msgs=[":ss<<",";
+        std::string group = reply->rep_group.get()->toSetString();
+        ss<<"{proc_set=\""<<reply->rep_di.c_str()<<"\",group=\""<<group.substr(1,group.length()-2).c_str()<<"\",stack=[";
+        
         int n = 0;
 
         for (const dbgframe_t* f = EVENT_FRAME(reply->rep_event); f; f = f->getNext(), ++n) {
             // deepest (farthest from main) frame will be in the front
             auto loc = f->getLoc();
 
-            ss << (n ? "," : "[");
+            ss << (n ? "," : "");
             ss << "frame={level=\"" << f->getLevel() << "\","
                << (f->getLevel() ? "" : mi_dummyFrameAddr)
                << "func=\"" << loc.loc_func << "\",file=\"" << loc.loc_file
                << "\",fullname=\""<<loc.loc_file<<"\",line=\""<<loc.loc_line<<"\"}";
         }
 
-        if (ss.str().empty()){
-            ss<<"[";
-        }
-        ss<<"]";
-        std::string group = reply->rep_group.get()->toSetString();
-        mi.set_result("proc_set=\"%s\",group=\"%s\",stack=%s",
-                         reply->rep_di.c_str(), group.substr(1,group.length()-2).c_str(),
-                         ss.str().c_str());
-        // XXX: while splitting cmd_backtrace_cmd into console and mi functions,
-        // I noticed that this is printing ^done, but proceeding with the loop
-        // anyway, potentially printing ^done multiple times? leaving as is for
-        // now...
+        ss<<"]}";
     }
+    ss.str().empty()?ss<<"msgs=[]":ss<<"]";
+    mi.set_result(ss.str().c_str());
 
     return Command::Success;
 }
@@ -175,18 +171,19 @@ static int cmd_frame_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const c
 
     if (ProcessErrorInRepSet(rep_set)) return Command::Failure;
 
+    std::stringstream ss;
     for (auto&& reply : rep_set) {
         auto f = EVENT_FRAME(reply->rep_event);
         auto loc = f->getLoc();
         std::string group = reply->rep_group.get()->toSetString();
-        mi.set_result(
-            "proc_set=\"%s\",group=\"%s\",frame={level=\"%d\",addr=\"%s\","
-            "func=\"%s\",file=\"%s\",fullname=\"%s\",line=\"%d\"}",
-            reply->rep_di.c_str(), group.substr(1, group.length() - 2).c_str(),
-            f->getLevel(), loc.loc_addr, loc.loc_func, loc.loc_file,
-            loc.loc_file, loc.loc_line);
-        break; // just print the first (XXX: seems wrong?)
+        ss.str().empty()?ss<<"msgs=[":ss<<",";
+        ss<<"{proc_set=\""<<reply->rep_di.c_str()<<"\",group=\""<<group.substr(1, group.length() - 2).c_str()
+            <<"\",frame={level=\""<<f->getLevel()<<"\",addr=\""<<loc.loc_addr
+            <<"\",""func=\""<<loc.loc_func<<"\",file=\""<< loc.loc_file
+            <<"\",fullname=\""<<loc.loc_file<<"\",line=\""<<loc.loc_line<<"\"}}";
     }
+    ss.str().empty()?ss<<"msgs=[]":ss<<"]";
+    mi.set_result(ss.str().c_str());
 
     return Command::Success;
 }

@@ -43,7 +43,7 @@ static std::optional<BreakArgs> parse_break_args(rec_set_t* rec_set, int argc, c
     result.pending_val = Client.brk_pending;
 
     // Verify argument count
-    if ((argc < 1) || (strcmp(argv[0], "break") != 0)) {
+    if (argc < 2) {
         PrintOutError("Invalid command arguments.\n");
         PrintOutError("Expected: break main.c:20\n");
         return {};

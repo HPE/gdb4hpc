@@ -10,10 +10,24 @@ Created network...
 Connected to application...
 Launch complete.
 a{0}: Initial breakpoint, %.*%
+0: list
+a{0}: Debugger error: Currently stopped at initial breakpoint. No python code has been executed yet.
 0: break scopes.py:9
 a{0}: Breakpoint 1: Pending at scopes.py:9.
 0: c
 a{0}: Breakpoint 1,  at scopes.py:9
+0: list
+a{0}: 4    	import sys
+a{0}: 5
+a{0}: 6    	globl = "your grumpy global string"
+a{0}: 7
+a{0}: 8    	def sleep(seconds):
+a{0}: 9    	    local = "your friendly neighborhood string"
+a{0}: 10   	    time.sleep(seconds)
+a{0}: 11
+a{0}: 12   	def main():
+a{0}: 13   	    pi = 3.14159
+a{0}: 14   	    sleep(int(sys.argv[1]))
 0: bt
 a{0}: #2  <module> at /src/python/scopes.py:19
 a{0}: #1  main at /src/python/scopes.py:14
@@ -39,10 +53,41 @@ a{0}: '__main__'
 a{0}: 'string literal'
 0: up
 a{0}: #1  main at /src/python/scopes.py:14
+0: list
+a{0}: 9    	    local = "your friendly neighborhood string"
+a{0}: 10   	    time.sleep(seconds)
+a{0}: 11
+a{0}: 12   	def main():
+a{0}: 13   	    pi = 3.14159
+a{0}: 14   	    sleep(int(sys.argv[1]))
+a{0}: 15
+a{0}: 16   	e = 2.718
+a{0}: 17
+a{0}: 18   	if __name__ == "__main__":
+a{0}: 19   	    main()
 0: p pi
 a{0}: 3.14159
 0: up
 a{0}: #2  <module> at /src/python/scopes.py:19
+0: list
+a{0}: 14   	    sleep(int(sys.argv[1]))
+a{0}: 15
+a{0}: 16   	e = 2.718
+a{0}: 17
+a{0}: 18   	if __name__ == "__main__":
+a{0}: 19   	    main()
+0: list 1
+a{0}: 1    	# sleep for argv[1] seconds
+a{0}: 2
+a{0}: 3    	import time
+a{0}: 4    	import sys
+a{0}: 5
+a{0}: 6    	globl = "your grumpy global string"
+a{0}: 7
+a{0}: 8    	def sleep(seconds):
+a{0}: 9    	    local = "your friendly neighborhood string"
+a{0}: 10   	    time.sleep(seconds)
+a{0}: 11
 0: p e
 a{0}: 2.718
 0: # continue for a few seconds to make sure pybe didn't segfault python

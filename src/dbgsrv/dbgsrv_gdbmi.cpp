@@ -18,6 +18,7 @@
 ** Now uses the Eclipse SDM libmi interface.
 */
 #include <string>
+#include <charconv>
 
 #include "config.h"
 
@@ -38,6 +39,8 @@
 #include <regex>
 #include <iomanip>
 #include <filesystem>
+
+#include "unittest_macros.h"
 
 #include "common_tools_be.h"
 
@@ -912,7 +915,7 @@ dbgevent_t *DbgGdbMI::go(bool all, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     if (Status == DBGSTAT_EXIT) {
-        return NewErrorEvent(DBGERR_AT_EXIT, "");
+        return NewErrorEvent(DBGERR_AT_EXIT);
     }
 
     if (!all && threads && isInNonStopMode) {
@@ -950,7 +953,7 @@ dbgevent_t *DbgGdbMI::finishFunc(const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     if (Status == DBGSTAT_EXIT) {
-        return NewErrorEvent(DBGERR_AT_EXIT, "");
+        return NewErrorEvent(DBGERR_AT_EXIT);
     }
 
     if (threads) {
@@ -993,7 +996,7 @@ dbgevent_t *DbgGdbMI::step(int count, bool in, const char* threads) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
 
     if (Status == DBGSTAT_EXIT) {
-        return NewErrorEvent(DBGERR_AT_EXIT, "");
+        return NewErrorEvent(DBGERR_AT_EXIT);
     }
 
     if (count < 1) count = 1;
@@ -2561,7 +2564,7 @@ dbgevent_t* DbgGdbMI::pyBESetLineBreakpoint(int feid, std::string_view filename,
         // XXX: since pybe doesn't have a proper way to send error strings back over
         // its internal socket yet, we have to make assumptions about what was wrong.
         if (!filename.empty()) {
-            return NewErrorEvent(DBGERR_DEBUGGER, "No python source file %*s imported yet.", filename.size(), filename.data());
+            return NewErrorEvent(DBGERR_DEBUGGER, "No python source file %*s imported yet.", (int)filename.size(), filename.data());
         } else {
             return NewErrorEvent(DBGERR_DEBUGGER, "Line %d is past end of current python source file.", line);
         }
@@ -2587,10 +2590,10 @@ dbgevent_t* DbgGdbMI::pyBESetFuncBreakpoint(int feid, std::string_view file, std
         // its internal socket yet, we have to make assumptions about what was wrong.
         if (!func.empty() && !file.empty()) {
             return NewErrorEvent(DBGERR_DEBUGGER, "No function \"%*s\" found in %*s.",
-                                 func.size(), func.data(), file.size(), file.data());
+                                 (int)func.size(), func.data(), (int)file.size(), file.data());
         } else if (!func.empty()) {
             return NewErrorEvent(DBGERR_DEBUGGER, "No function \"%*s\" defined yet.",
-                                 func.size(), func.data());
+                                 (int)func.size(), func.data());
         } else {
             return NewErrorEvent(DBGERR_DEBUGGER, "Invalid breakpoint");
         }
@@ -2625,7 +2628,7 @@ dbgevent_t* DbgGdbMI::pyBEDeleteBreakpoint(int feid) {
 
 dbgevent_t* DbgGdbMI::pyBEStep(bool step_in) {
     if (Status == DBGSTAT_EXIT) {
-        return NewErrorEvent(DBGERR_AT_EXIT, "");
+        return NewErrorEvent(DBGERR_AT_EXIT);
     }
     {
         auto& pybe = ensurePybe();
@@ -2653,7 +2656,7 @@ dbgevent_t* DbgGdbMI::pyBEStep(bool step_in) {
 
 dbgevent_t* DbgGdbMI::pyBEFinish() {
     if (Status == DBGSTAT_EXIT) {
-        return NewErrorEvent(DBGERR_AT_EXIT, "");
+        return NewErrorEvent(DBGERR_AT_EXIT);
     }
     {
         auto& pybe = ensurePybe();
@@ -2677,6 +2680,80 @@ dbgevent_t* DbgGdbMI::pyBEFinish() {
 
     // async step end event will be generated later, return OK now
     return NewEvent(DBGEV_OK);
+}
+
+dbgevent_t* DbgGdbMI::pyBEList(std::string_view linenum_str) {
+    DVPRINT("pyBEList %*s\n", (int)linenum_str.size(), linenum_str.data());
+
+    auto& pybe = ensurePybe();
+    if (pybe.thread_at_python_entry_point(get_current_thread_id())) {
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Currently stopped at initial breakpoint. No python code has been executed yet.");
+    }
+    auto gil = pybe.run_until_gil(get_current_thread_id());
+    auto py_frame = gil.get_frame();
+
+    // get filename/line number from python if needed
+    const auto linenum = std::invoke([&](){
+        if (linenum_str.empty()) {
+            return py_frame.location.line_number;
+        } else {
+            int linenum = 0;
+            // error checking is done later
+            [[maybe_unused]] auto result = std::from_chars(linenum_str.data(), linenum_str.data() + linenum_str.size(), linenum);
+            return linenum;
+        }
+    });
+
+    const auto filename = py_frame.location.file_name;
+
+    if (linenum <= 0) {
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Invalid line number %d", linenum);
+    }
+    if (filename.empty()) {
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Couldn't find source file of current python frame.");
+    }
+
+    // open file
+    auto f = std::ifstream{filename};
+    if (!f.is_open()) {
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Couldn't open file: %s", filename.c_str());
+    }
+
+    // extract data. we take the specified line number and get the five lines before and after it,
+    // totalling 11 lines with the specified line in the middle.
+    const auto first_line = std::max(1, linenum - 5);
+    std::string current_line;
+    dbglist_t* head = nullptr;
+    dbglist_t* list_it = nullptr;
+
+    for (int current_linenum = 1; std::getline(f, current_line, '\n') && current_linenum <= first_line + 10; current_linenum++) {
+        if (current_linenum >= first_line) {
+            // XXX: FreeEvent etc. still clean up dbglist_t via ::free so we need to
+            // use malloc instead of new
+            auto* new_line = static_cast<dbglist_t*>(::malloc(sizeof(dbglist_t)));
+            new_line->list_lno = current_linenum;
+            new_line->list_line = ::strdup(current_line.c_str());
+            new_line->list_threads = nullptr;
+            new_line->list_next = nullptr;
+
+            if (head == nullptr) {
+                head = new_line;
+                list_it = head;
+            } else {
+                list_it->list_next = new_line;
+                list_it = new_line;
+            }
+        }
+    }
+
+    if (head == nullptr) {
+        throw NewErrorEvent(DBGERR_INTERNAL, "Failed to extract lines from %s.", filename.c_str());
+    }
+
+    auto e = NewEvent(DBGEV_LIST);
+    e->ev_u.ev_u_list = head;
+
+    return e;
 }
 
 dbgevent_t* DbgGdbMI::pyBEHandleAsyncStop(MIEvent* event) {

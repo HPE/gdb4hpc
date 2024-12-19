@@ -1092,6 +1092,13 @@ dbgevent_t* NewErrorEvent(dbgerr err, const char* fmt, ...) {
     return e;
 }
 
+dbgevent_t* NewErrorEvent(dbgerr err) {
+    auto e = NewEvent(DBGEV_ERROR);
+    e->ev_errno = err;
+    e->ev_errstr = ::strdup("");
+    return e;
+}
+
 // get next thread,value pair from the string if any exist
 std::optional<std::pair<std::string,std::string>> ThreadMsgParser::nextResult() {
     static auto threadHeadRE=std::regex{R"((^|\n)Thread\s+([0-9 ,-]+)(\s*\(AMDGPU Thread.*)?:\s*\n)"};

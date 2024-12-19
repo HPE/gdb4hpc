@@ -56,10 +56,7 @@ ZMQNetNetwork::ZMQNetNetwork(std::unique_ptr<zmqnet::AsyncFrontend> &&frontend, 
 
         // generate an error event. the message will have rank info prepended
         // by the async callback handling functions
-        auto error = NewErrorEvent(DBGERR_INTERNAL,
-            "Remote debugger disappeared. This is a bug. Please report it!",
-            rank
-        );
+        auto error = NewErrorEvent(DBGERR_INTERNAL, "Remote debugger disappeared. This is a bug. Please report it!");
 
         // Async event callbacks want messages in soc proto form.
         // EventToSocProto free()'s error.

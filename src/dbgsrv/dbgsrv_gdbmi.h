@@ -118,6 +118,7 @@ public:
     dbgevent_t* pyBEDeleteBreakpoint(int feid);
     dbgevent_t* pyBEStep(bool step_in);
     dbgevent_t* pyBEFinish();
+    dbgevent_t* pyBEList(std::string_view linenum);
 
     // pybe breakpoint callback
     dbgevent_t* pyBEHandleAsyncStop(MIEvent* event);

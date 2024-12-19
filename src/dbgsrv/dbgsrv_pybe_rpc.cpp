@@ -797,7 +797,7 @@ std::string RPC::eval_elf_expression(c_thread_id_t tid, size_t frame, std::strin
     auto cmd = make_MICmd(MIDataEvaluateExpressionThreadFrame(gdb_expr.c_str(), tid, frame));
     try_send_command(m_parent_session, *cmd, [&](MICommand& failed_cmd){
         auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&failed_cmd));
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s. gdb: %s", expr.size(), expr.data(), e_msg.get_string().c_str());
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s. gdb: %s", (int)expr.size(), expr.data(), e_msg.get_string().c_str());
     });
 
     const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
@@ -826,7 +826,7 @@ std::string RPC::eval_py_expression(c_thread_id_t tid, py_thread_id_t ptid, std:
 
         try_pybe_fn_check_true(m_parent_session, gdb_expr.c_str(), tid, [&](MICommand& failed_cmd){
             auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&failed_cmd));
-            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s. gdb: %s", expr.size(), expr.data(), e_msg.get_string().c_str());
+            throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to evaluate expression: %*s. gdb: %s", (int)expr.size(), expr.data(), e_msg.get_string().c_str());
         });
     }
 
@@ -931,7 +931,7 @@ void RPC::delete_breakpoint(c_thread_id_t tid, int feid) {
     const auto fn = std::string{"pybe::delete_breakpoint("} + std::to_string(feid) +")";
     try_pybe_fn_check_true(m_parent_session, fn.c_str(), tid, [&](MICommand& failed_cmd){
         auto e_msg = MallocedCharPtr(MICommandResultErrorMessage(&failed_cmd));
-        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to delete breakpoint %d. gdb: %s", e_msg.get_string().c_str(), feid);
+        throw NewErrorEvent(DBGERR_DEBUGGER, "Failed to delete breakpoint %d. gdb: %s", feid, e_msg.get_string().c_str());
     });
 }
 

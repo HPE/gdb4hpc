@@ -3056,10 +3056,17 @@ rep_set_t DbgList(rec_set_t *set, const char *str) {
             // set the forward/reverse direction
             auto isReverse = (str == nullptr) ? false : (*str == '-');
 
-            // First is the logic for the case where a previous list is not
-            // pending. If str is null, then we need to ask each of the ranks
-            // for their current frame.
-            if ((!str || isReverse) && !dbg_fe->listIsPending()) {
+            if (!recv_ptr->rec_di.getPythonBitset()->isEmpty()) {
+                // if any ranks are in python mode, the frontend gdb won't be
+                // helpful since it doesn't have access to the injected Python C
+                // API that the backend does.
+                AddReceiverToSet(to_send, CopyGroupReceiver(recv_ptr));
+
+            } else if ((!str || isReverse) && !dbg_fe->listIsPending()) {
+                // Next is the logic for the case where a previous list is not
+                // pending. If str is null, then we need to ask each of the ranks
+                // for their current frame.
+                //
                 // Get the innermost frame.
                 // Create the new rec set for this group - it holds state so it's not
                 // directly re-usable

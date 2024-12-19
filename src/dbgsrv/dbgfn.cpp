@@ -212,6 +212,7 @@ dbgevent_t *DbgInfoBreak(void) {
 
 dbgevent_t *DbgList(const char *str) {
     DBG_READY();
+    if (DbgBackendSW->isPython()) return DbgBackendSW->pyBEList(str);
     return DbgBackendSW->list(str);
 }
 

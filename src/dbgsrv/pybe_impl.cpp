@@ -213,7 +213,26 @@ bool PybeImpl::get_frame(uint32_t seq, unsigned long py_thread_id) {
     // convert to pybe::Frame
     auto result = [&]() {
         if (py_frame) {
-            return to_frame(*py_frame, m_level);
+            auto frame = to_frame(*py_frame, m_level);
+
+            // in python 3.5-3.8, the filename might be relative. dbgsrv has a different
+            // cwd than the python interpreter so to be useful to dbgsrv we convert
+            // all relative paths to absolute paths.
+            //
+            // (tinystl strings don't have operator[] or .at)
+            if (!frame.location.file_name.empty() && frame.location.file_name.c_str()[0] != '/') {
+                auto cwd = ::getcwd(nullptr, PATH_MAX);
+                auto cwd_cleanup = OnScopeExit([&](){ ::free(cwd); });
+
+                // we need to do a funny little dance to make tinystl::String play nice
+                auto relative_path = std::move(frame.location.file_name);
+                frame.location.file_name.clear();
+                frame.location.file_name.append(cwd);
+                frame.location.file_name.append("/");
+                frame.location.file_name.append(relative_path.c_str());
+            }
+
+            return frame;
         } else {
             // if the user requests a frame at the entry breakpoint, python is still initializing
             // and hasn't started interpreting code yet and there is legitimately no python frame
@@ -801,6 +820,7 @@ bool PybeImpl::verify_breakpoint(unsigned long ptid, const char* filename, int l
         }
 
         // co_filename is always a full path
+        // FIXME: co_filename is not actually always a full path, in 3.5-3.8 it can be a relative path
         auto src_filename = String(PyUnicode_AsUTF8(code->co_filename));
         auto src_file = std::ifstream{src_filename.c_str()};
         auto src_line = std::string{};

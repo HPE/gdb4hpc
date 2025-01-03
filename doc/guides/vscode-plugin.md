@@ -18,7 +18,7 @@ A launch.json file is needed. If it does not exist, create a launch.json file an
             "type": "gdb4hpc",
             "request": "launch",
             "name": "GDB4HPC",
-            "dbgversion": "",   
+            "setupCommands": ["module load gdb4hpc"], 
             "apps": [
                 {
                     "procset": "",
@@ -36,7 +36,7 @@ A launch.json file is needed. If it does not exist, create a launch.json file an
 
 ```
 
-- dbgversion = path to gdb4hpc
+- setupCommands = any commands to send to terminal before gdb4hpc is launched including pointing to the gdb4hpc executable. 
 - procset = name and ranks for launch command i.e. "App0{10}"
 - program = path of program to debug
 - args = arg flags for launch command i.e "--gpu --non-mpi"
@@ -62,7 +62,7 @@ Configure the launch options in the launch.json file before running the debugger
 Different terminals are available on the bottom.
 
 ### Debug Console
-The Debug Console is the output console for GDB4HPC. Any information and warnings will show up here.
+The Debug Console is the output console for GDB4HPC. Any information and warnings will show up here. If setupCommands is empty in the launch.json file, this Debug Console will be interactive until the "gdb4hpc" command is given which will then launch gdb4hpc.
 
 ### Output
 There is a drop down on the right to choose the Output Channel to view.
@@ -95,9 +95,9 @@ You can enable, disable, and delete each breakpoint here.
 ![Creating a Breakpoint](./img/vscode_breakpoint.gif)  
 
 ### Focus
-This section allows you to see the lists of pe sets. The pe set in focus is marked as with *. Choose a different pe set to focus on by pressing the **select** button. A new tab can be opened for each pe set describing an individual application. This new tab will display the source code location for the specific pe set as well as any other information specific to that pe set.
+This section allows you to see the lists of pe sets. The pe set in focus is marked as with *. Choose a different pe set to focus on by pressing the **radio** button next to it or adding it to the list by providing a name for it and its procset. If a name is omitted, the pe set will be temporary and will be removed from the list once it is no longer in focus. 
 
-![Creating a new PE Set](./img/vscode_focus.gif)  
+![Creating a new PE Set](./img/vscode_focus.png)  
 
 ### Decompositions
 To create a decomposition, click the add button in the Decomposition section. This will make a popup appear on the top of the screen. 

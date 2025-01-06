@@ -10,6 +10,7 @@ Links are relative to the output of collect_cpedocs.sh. See its implementation f
 gdb4hpc is a GDB-based parallel debugger used to debug applications compiled
 with CCE, PGI, GNU and Intel Fortran, C and C++ compilers.
 
+- [What's New in gdb4hpc 4.16.4](./whatsnew/new-in-041604.md)
 - [What's New in gdb4hpc 4.16.3](./whatsnew/new-in-041603.md)
 
 ### Guides and Tutorials

@@ -143,9 +143,16 @@ static int cmd_info_locals_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set) {
     auto rep_set = DbgGetVars(rec_set);
     ProcessErrorInRepSet(rep_set);
 
+    std::ostringstream result;
+
     // Process the replies
     for (auto&& reply : rep_set) {
         auto ev = reply->rep_event->ev_event;
+        if (result.tellp() == std::streampos(0)){
+            result<<",";
+        }else{
+            result<<"msgs=[";
+        }
         if (ev == DBGEV_VARS) {
             // point at the vars data
             auto v = EVENT_VARS(reply->rep_event);
@@ -156,20 +163,25 @@ static int cmd_info_locals_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set) {
                 ss<<comma;
                 std::string group = reply->rep_group.get()->toSetString();
                 ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<reply->rep_di.c_str()
-                                <<"\",group=\""<<group.substr(1,group.length()-2).c_str()<<"\"}";
-                comma = ",";
+                                <<"\",group=\""<<group.substr(1,group.length()-2)<<"\"}";
+                comma = ","; 
             }
             ss<<"]";
             std::string group = reply->rep_group.get()->toSetString();
-            mi.set_result("proc_set=\"%s\",group=\"%s\",variables=%s", reply->rep_di.c_str(),
-                                group.substr(1,group.length()-2).c_str(),ss.str().c_str());
+            result<<"{proc_set=\""<<reply->rep_di.c_str()<<"\",group=\""<<group.substr(1,group.length()-2)<<"\",variables="<<ss.str()<<"}";
         } else if (ev == DBGEV_STRING) {
-            PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(),
-                                reply->rep_event->ev_u.ev_u_string);
+            PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(), reply->rep_event->ev_u.ev_u_string);
         } else {
             PrintOutError("unexpected result type.\n");
         }
     }
+    if (result.tellp() == std::streampos(0)){
+        result<<"msgs=[";
+    }
+
+    result<<"]";
+
+    mi.set_result(result.str().c_str());
 
     return Command::Success;
 }

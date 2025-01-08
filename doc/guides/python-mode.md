@@ -12,7 +12,7 @@ of Python code (.py files) instead of the internals of the Python interpreter
 that you would normally get when attaching gdb to a Python interpreter.
 
 gdb4hpc Python mode can display Python backtraces, print Python expressions,
-set Python breakpoins, and step through Python code.
+set Python breakpoints, and step through Python code.
 
 ## Python Mode is in Beta
 
@@ -33,21 +33,21 @@ Environment is an instance of the CPython interpreter.
 
 The following Python versions and debugging workflows are supported:
 
-| Python Version | 3.6 | 3.8 | 3.9 | 3.10 | 3.11 | 3.12 |
-| -------------- | --- | --- | --- | ---- | ---- | ---- |
-| Launch         | yes | yes | yes | yes  | yes  | yes  |
-| Attach         | no* | yes | yes | yes  | yes  | yes  |
+| Python Version | 3.5 | 3.6 | 3.7 | 3.8 | 3.9 | 3.10 | 3.11 | 3.12 | 3.13 |
+| -------------- | --- | --- | --- | --- | --- | ---- | ---- | ---- | ---- |
+| Launch         | yes | yes | yes | yes | yes | yes  | yes  | yes  | yes  |
+| Attach         | no* | no* | yes | yes | yes | yes  | yes  | yes  | yes  |
 
 You can verify that your version of Python is supported by checking the
 version with `python3 --version`.
 
-> Due to limitations in Python 3.6, attach is not supported. gdb4hpc can
-> still attach to a Python 3.6 interpreter like any C binary, but will be
-> debugging the Python interpreter rather than the Python script that the
-> interpreter is running.
+Due to limitations up to Python 3.6, attach is not supported. gdb4hpc can
+still attach to a Python 3.5 or 3.6 interpreter like any C binary, but will be
+debugging the Python interpreter rather than the Python script that the
+interpreter is running.
 
-> If you are unfamiliar with gdb4hpc's two workflows, launch and attach, see
-> the [gdb4hpc Getting Started Guide](./getting-started.md).
+If you are unfamiliar with gdb4hpc's two workflows, launch and attach, see
+the [gdb4hpc Getting Started Guide](./getting-started.md).
 
 ## Using Python Mode
 
@@ -204,9 +204,9 @@ dbg all> srun -n4 python3 ./fib.py 10
 ...
 python3{3}: Initial breakpoint, in pymain_init
 dbg all> break fib.py:9
-python3{0..3}: Breakpoint 1: file fib.py, line 9.
+python3{0..3}: Breakpoint 1: Pending at fib.py:9.
 dbg all> break fibonacci
-python3{0..3}: Breakpoint 2: file , line 0 # see troubleshooting and limitations section
+python3{0..3}: Breakpoint 2: Pending at fibonacci.
 ```
 
 Use the usual `continue` command as usual to run the application until it gets
@@ -298,23 +298,25 @@ python3{0}: Breakpoint 1: Pending at fibonacci.
 python all> continue
 python3{0}: Breakpoint 1, in fibonacci
 python all> backtrace
-python3{0}: #1  <module> at /hpcdc/project/pe_users/chandlej/home/chandlej/Code/cdst-gdb4hpc/tests/function/fib.py:13
-python3{0}: #0  fibonacci at /hpcdc/project/pe_users/chandlej/home/chandlej/Code/cdst-gdb4hpc/tests/function/fib.py:3
+python3{0}: #1  <module> at ./fib.py:13
+python3{0}: #0  fibonacci at ./fib.py:3
 ```
 
-#### `backtrace` - Generate a Python Backtrace
+#### `frame`, `up`, `down`, `backtrace` - Show and Navigate Program Frames
 
-When stopped in a Python source file, use the usual `backtrace` command to
-generate a Python backtrace:
+When stopped in a Python source file, use the usual `frame` and `backtrace`
+commands to show the location of the Python application:
 
 ```
 dbg all> srun -n4 python3 ./fib.py 10
 ...
 python3{3}: Initial breakpoint, in pymain_init
-dbg all> break lib:py:5
-dbg all> # get a few recursion levels deep
+dbg all> break fib.py:5
 dbg all> continue
 python3{0..3}: Breakpoint 1,  at fib.py:5
+dbg all> frame
+python3{0}: #0  fibonacci at fib.py:5
+dbg all> # get a few recursion levels deep
 dbg all> continue
 python3{0..3}: Breakpoint 1,  at fib.py:5
 dbg all> continue
@@ -332,6 +334,30 @@ python3{0..3}: #0  fibonacci at fib.py:5
 
 In a backtrace, `<module>` is the "function name" of script level (i.e. code
 not contained in a function) Python code.
+
+The `up` and `down` commands can be used to navigate up and down the Python
+stack. Other commands will respect the currently focused frame.
+
+```
+python all> backtrace
+python3{0..3}: #3  <module> at fib.py:13
+python3{0..3}: #2  fibonacci at fib.py:7
+python3{0..3}: #1  fibonacci at fib.py:7
+python3{0..3}: #0  fibonacci at fib.py:5
+
+python all> frame
+python3{0..3}: #0  fibonacci at fib.py:5
+python all> print n
+python3{0..3}: 1
+python all> up
+python3{0..3}: #1  fibonacci at fib.py:7
+python all> print n
+python3{0..3}: 2
+python all> down
+python3{0..3}: #0  fibonacci at fib.py:5
+python all> print n
+python3{0..3}: 1
+```
 
 #### `print` - Print Python Expressions
 
@@ -391,6 +417,61 @@ dbg all> finish # runs until the function returns
 python3{0..3}: <module> at fib.py:12
 ```
 
+#### `list` - Show Python Source Code
+
+Use the `list` command to show the Python source code where the application is stopped.
+
+```
+python all> frame
+python3{0..3}: #0  fibonacci at fib.py:5
+python all> list
+python3{0..3}: 1           import sys
+python3{0..3}: 2
+python3{0..3}: 3           def fibonacci(n):
+python3{0..3}: 4              if n <= 1:
+python3{0..3}: 5                  return n
+python3{0..3}: 6              else:
+python3{0..3}: 7                  return(fibonacci(n-1) + fibonacci(n-2))
+python3{0..3}: 8
+python3{0..3}: 9           nterms = int(sys.argv[1])
+python3{0..3}: 10
+python3{0..3}: 11          print("Fibonacci sequence:")
+```
+
+
+### Handling Python Exceptions
+
+gdb4hpc's Python mode has support for debugging Python exceptions.
+
+gdb4hpc will print a backtrace before a Python application exits due to an
+uncaught exception:
+
+```
+python all> continue
+a{0}: Uncaught python exception:
+KeyError: 'oofdah'
+  <module> at /src/python/exceptions.py:9
+  main at /src/python/exceptions.py:6
+  oofdah at /src/python/exceptions.py:3
+a{0}: Python will now exit.
+```
+
+gdb4hpc can also stop the application before any Python exception is thrown by
+using the `catch raise` command:
+
+```
+python all> catch raise
+a{0}: Catchpoint 2: Set on raise.
+python all> continue
+a{0}: Application raised an exception:
+KeyError: 'oofdah'
+  erroneous_fn at src/python/exceptions.py:12
+python all> backtrace
+a{0}: #2  <module> at src/python/exceptions.py:17
+a{0}: #1  main at src/python/exceptions.py:6
+a{0}: #0  erroneous_fn at src/python/exceptions.py:12
+```
+
 ### Temporarily Disabling Python Mode
 
 If you are debugging a Python application but want to see the native
@@ -442,38 +523,6 @@ offers some workarounds for the most common issues. If you encounter a problem
 that is not listed here, please file a bug!
 
 The issues listed here will be fixed in a future version of gdb4hpc.
-
-### Breakpoints/Step/Next/Finish Only Work in the Main Thread
-
-Due to limitations in Python, breakpoints in Python code are only hit by the
-main python thread. The step, next, and finish commands are implemented with
-similar techniques to breakpoints and also do not work outside of the main
-python thread. If these commands are used on a non-main thread, the application
-will act as if a plain `continue` command was used.
-
-#### Workaround
-
-If you can get a non-main thread to stop in a position that you want to debug
-(e.g. using the `halt -a` command or setting a breakpoint in native code that
-it calls), the `print` command will still work. Python threads are selected as
-usual via the `thread` command.
-
-### Breakpoints are Sometimes Missing File Names and Line Numbers
-
-Due to limitations in Python, setting a breakpoint using a function name will
-not show file names or line numbers.
-
-#### Workaround
-
-When setting a function name breakpoint, a "breakpoint set..." result is always
-returned. gdb4hpc is treating it like a pending breakpoint. The function name
-has not been verified to actually exist and gdb4hpc is only keeping an eye out
-for it. When it does encounter it, it will break as normal and generate a
-message with the actual location.
-
-This means that extra care should be taken when typing function names for
-breakpoints. If gdb4hpc doesn't seem to hit the breakpoint, double check that
-the function name was spelled correctly.
 
 ### Some Features Don't Work Directly After a Launch
 

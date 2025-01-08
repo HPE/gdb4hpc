@@ -219,7 +219,7 @@
 <h1 id="debugging-python-applications-with-python-mode">Debugging Python Applications with Python Mode</h1>
 <p>In gdb4hpc 4.16.3, gdb4hpc gained initial beta support for debugging HPC Python applications via a new Python mode.</p>
 <p>In Python mode, common debugging commands automatically execute in the context of Python code (.py files) instead of the internals of the Python interpreter that you would normally get when attaching gdb to a Python interpreter.</p>
-<p>gdb4hpc Python mode can display Python backtraces, print Python expressions, set Python breakpoins, and step through Python code.</p>
+<p>gdb4hpc Python mode can display Python backtraces, print Python expressions, set Python breakpoints, and step through Python code.</p>
 <h2 id="python-mode-is-in-beta">Python Mode is in Beta</h2>
 <p>Python mode is brand new and only a small portion of the possible debugging space has been explored. While its existing functionality has been thoroughly tested, it is inevitable that there are cases that haven’t been encountered yet. If you encounter a problem, check the troubleshooting section at the end of this document or submit a bug report.</p>
 <h2 id="supported-python-versions-and-gdb4hpc-workflows">Supported Python Versions and gdb4hpc Workflows</h2>
@@ -229,12 +229,15 @@
 <thead>
 <tr class="header">
 <th>Python Version</th>
+<th>3.5</th>
 <th>3.6</th>
+<th>3.7</th>
 <th>3.8</th>
 <th>3.9</th>
 <th>3.10</th>
 <th>3.11</th>
 <th>3.12</th>
+<th>3.13</th>
 </tr>
 </thead>
 <tbody>
@@ -246,10 +249,16 @@
 <td>yes</td>
 <td>yes</td>
 <td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
 </tr>
 <tr class="even">
 <td>Attach</td>
 <td>no*</td>
+<td>no*</td>
+<td>yes</td>
+<td>yes</td>
 <td>yes</td>
 <td>yes</td>
 <td>yes</td>
@@ -259,12 +268,8 @@
 </tbody>
 </table>
 <p>You can verify that your version of Python is supported by checking the version with <code>python3 --version</code>.</p>
-<blockquote>
-<p>Due to limitations in Python 3.6, attach is not supported. gdb4hpc can still attach to a Python 3.6 interpreter like any C binary, but will be debugging the Python interpreter rather than the Python script that the interpreter is running.</p>
-</blockquote>
-<blockquote>
+<p>Due to limitations up to Python 3.6, attach is not supported. gdb4hpc can still attach to a Python 3.5 or 3.6 interpreter like any C binary, but will be debugging the Python interpreter rather than the Python script that the interpreter is running.</p>
 <p>If you are unfamiliar with gdb4hpc’s two workflows, launch and attach, see the <a href="./getting-started.md">gdb4hpc Getting Started Guide</a>.</p>
-</blockquote>
 <h2 id="using-python-mode">Using Python Mode</h2>
 <h3 id="launching-or-attaching-to-a-python-application">Launching or Attaching to a Python Application</h3>
 <p>To start debugging a Python application, launch or attach to a Python HPC application as you would any other. For more information on the launch and attach commands, see the <a href="./getting-started.md">gdb4hpc Getting Started Guide</a>.</p>
@@ -362,9 +367,9 @@ my_python_app{0}: #0  sleep at my_python_app.py:10</code></pre>
 ...
 python3{3}: Initial breakpoint, in pymain_init
 dbg all&gt; break fib.py:9
-python3{0..3}: Breakpoint 1: file fib.py, line 9.
+python3{0..3}: Breakpoint 1: Pending at fib.py:9.
 dbg all&gt; break fibonacci
-python3{0..3}: Breakpoint 2: file , line 0 # see troubleshooting and limitations section</code></pre>
+python3{0..3}: Breakpoint 2: Pending at fibonacci.</code></pre>
 <p>Use the usual <code>continue</code> command as usual to run the application until it gets to the breakpoints:</p>
 <pre><code>dbg all&gt; continue
 python3{0..3}: Breakpoint 1,  at fib.py:9
@@ -392,15 +397,44 @@ dbg all&gt; &lt;$python3&gt;: Fibonacci sequence:
 &lt;$python3&gt;: 21
 &lt;$python3&gt;: 34
 python3{0..3}: The application has reached an exit breakpoint.</code></pre>
-<h4 id="backtrace---generate-a-python-backtrace"><code>backtrace</code> - Generate a Python Backtrace</h4>
-<p>When stopped in a Python source file, use the usual <code>backtrace</code> command to generate a Python backtrace:</p>
+<h5 id="pending-breakpoints">Pending Breakpoints</h5>
+<p>Note that when setting breakpoints right after launching the python interpreter in gdb4hpc, gdb4hpc will automatically set the breakpoints as pending breakpoints:</p>
+<pre><code>dbg all&gt; srun -n1 python3 ./fib.py 30
+Starting application, please wait...
+Launched application...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Enabling python debugging. To disable, use `set python off`
+Launch complete.
+python3{0}: Initial breakpoint, in pymain_init
+python all&gt; break fibonacci
+Breakpoint 1: Pending at fibonacci.</code></pre>
+<p>A breakpoint is considered <strong>pending</strong> if its exact code location can’t be determined at the time it is set. gdb4hpc will re-check its location as new python modules are imported and it will become a normal breakpoint if a match is found.</p>
+<p>This is just like setting a breakpoint in a C shared library that hasn’t been loaded by the program yet. Since python was stopped by gdb4hpc before it had a chance to import any modules, no modules or functions have been defined yet so gdb4hpc can’t confirm that the requested location actually exists.</p>
+<p>gdb4hpc will switch to verifying all breakpoints once the program has progressed past the initial breakpoint. gdb4hpc will check that breakpoint locations actually exist and emit an error message if a location can’t be found. If a breakpoint location can’t be found, you can still set the breakpoint by answering ‘y’ to the error message prompt. This will set the breakpoint as pending, and it will behave as described above.</p>
+<pre><code>python all&gt; break fibonacci
+python3{0}: Debugger error: No function &quot;fibonacci&quot; defined yet.
+Make breakpoint pending on future code object load? (y or [n]) y
+
+python3{0}: Breakpoint 1: Pending at fibonacci.
+python all&gt; continue
+python3{0}: Breakpoint 1, in fibonacci
+python all&gt; backtrace
+python3{0}: #1  &lt;module&gt; at ./fib.py:13
+python3{0}: #0  fibonacci at ./fib.py:3</code></pre>
+<h4 id="frame-up-down-backtrace---show-and-navigate-program-frames"><code>frame</code>, <code>up</code>, <code>down</code>, <code>backtrace</code> - Show and Navigate Program Frames</h4>
+<p>When stopped in a Python source file, use the usual <code>frame</code> and <code>backtrace</code> commands to show the location of the Python application:</p>
 <pre><code>dbg all&gt; srun -n4 python3 ./fib.py 10
 ...
 python3{3}: Initial breakpoint, in pymain_init
-dbg all&gt; break lib:py:5
-dbg all&gt; # get a few recursion levels deep
+dbg all&gt; break fib.py:5
 dbg all&gt; continue
 python3{0..3}: Breakpoint 1,  at fib.py:5
+dbg all&gt; frame
+python3{0}: #0  fibonacci at fib.py:5
+dbg all&gt; # get a few recursion levels deep
 dbg all&gt; continue
 python3{0..3}: Breakpoint 1,  at fib.py:5
 dbg all&gt; continue
@@ -415,6 +449,25 @@ python3{0..3}: #2  fibonacci at fib.py:7
 python3{0..3}: #1  fibonacci at fib.py:7
 python3{0..3}: #0  fibonacci at fib.py:5</code></pre>
 <p>In a backtrace, <code>&lt;module&gt;</code> is the “function name” of script level (i.e. code not contained in a function) Python code.</p>
+<p>The <code>up</code> and <code>down</code> commands can be used to navigate up and down the Python stack. Other commands will respect the currently focused frame.</p>
+<pre><code>python all&gt; backtrace
+python3{0..3}: #3  &lt;module&gt; at fib.py:13
+python3{0..3}: #2  fibonacci at fib.py:7
+python3{0..3}: #1  fibonacci at fib.py:7
+python3{0..3}: #0  fibonacci at fib.py:5
+
+python all&gt; frame
+python3{0..3}: #0  fibonacci at fib.py:5
+python all&gt; print n
+python3{0..3}: 1
+python all&gt; up
+python3{0..3}: #1  fibonacci at fib.py:7
+python all&gt; print n
+python3{0..3}: 2
+python all&gt; down
+python3{0..3}: #0  fibonacci at fib.py:5
+python all&gt; print n
+python3{0..3}: 1</code></pre>
 <h4 id="print---print-python-expressions"><code>print</code> - Print Python Expressions</h4>
 <p>When stopped in a Python source file, use the usual <code>print</code> command to print Python expressions. As usual with the <code>print</code> command, you can reference local or global variables, function arguments, or arbitrary constant expressions. Continuing from the location we stopped at in the backtrace example:</p>
 <pre><code>dbg all&gt; print n
@@ -454,6 +507,43 @@ dbg all&gt; step # steps into the fibonacci call
 python3{0..3}: fibonacci at fib.py:3
 dbg all&gt; finish # runs until the function returns
 python3{0..3}: &lt;module&gt; at fib.py:12</code></pre>
+<h4 id="list---show-python-source-code"><code>list</code> - Show Python Source Code</h4>
+<p>Use the <code>list</code> command to show the Python source code where the application is stopped.</p>
+<pre><code>python all&gt; frame
+python3{0..3}: #0  fibonacci at fib.py:5
+python all&gt; list
+python3{0..3}: 1           import sys
+python3{0..3}: 2
+python3{0..3}: 3           def fibonacci(n):
+python3{0..3}: 4              if n &lt;= 1:
+python3{0..3}: 5                  return n
+python3{0..3}: 6              else:
+python3{0..3}: 7                  return(fibonacci(n-1) + fibonacci(n-2))
+python3{0..3}: 8
+python3{0..3}: 9           nterms = int(sys.argv[1])
+python3{0..3}: 10
+python3{0..3}: 11          print(&quot;Fibonacci sequence:&quot;)</code></pre>
+<h3 id="handling-python-exceptions">Handling Python Exceptions</h3>
+<p>gdb4hpc’s Python mode has support for debugging Python exceptions.</p>
+<p>gdb4hpc will print a backtrace before a Python application exits due to an uncaught exception:</p>
+<pre><code>python all&gt; continue
+a{0}: Uncaught python exception:
+KeyError: &#39;oofdah&#39;
+  &lt;module&gt; at /src/python/exceptions.py:9
+  main at /src/python/exceptions.py:6
+  oofdah at /src/python/exceptions.py:3
+a{0}: Python will now exit.</code></pre>
+<p>gdb4hpc can also stop the application before any Python exception is thrown by using the <code>catch raise</code> command:</p>
+<pre><code>python all&gt; catch raise
+a{0}: Catchpoint 2: Set on raise.
+python all&gt; continue
+a{0}: Application raised an exception:
+KeyError: &#39;oofdah&#39;
+  erroneous_fn at src/python/exceptions.py:12
+python all&gt; backtrace
+a{0}: #2  &lt;module&gt; at src/python/exceptions.py:17
+a{0}: #1  main at src/python/exceptions.py:6
+a{0}: #0  erroneous_fn at src/python/exceptions.py:12</code></pre>
 <h3 id="temporarily-disabling-python-mode">Temporarily Disabling Python Mode</h3>
 <p>If you are debugging a Python application but want to see the native (C/C++/Fortran) backtrace or another native debugging item, Python mode can be disabled and normal gdb4hpc functionality will be restored.</p>
 <p>This is a common situation when debugging native modules that are called from Python code.</p>
@@ -489,33 +579,24 @@ python3{0..3}: #0  &lt;module&gt; at fib.py:1
 <h2 id="troubleshooting-and-known-limitations">Troubleshooting and Known Limitations</h2>
 <p>This section outlines some known limitations of gdb4hpc’s Python mode and offers some workarounds for the most common issues. If you encounter a problem that is not listed here, please file a bug!</p>
 <p>The issues listed here will be fixed in a future version of gdb4hpc.</p>
-<h3 id="breakpointsstepnextfinish-only-work-in-the-main-thread">Breakpoints/Step/Next/Finish Only Work in the Main Thread</h3>
-<p>Due to limitations in Python, breakpoints in Python code are only hit by the main python thread. The step, next, and finish commands are implemented with similar techniques to breakpoints and also do not work outside of the main python thread. If these commands are used on a non-main thread, the application will act as if a plain <code>continue</code> command was used.</p>
-<h4 id="workaround">Workaround</h4>
-<p>If you can get a non-main thread to stop in a position that you want to debug (e.g. using the <code>halt -a</code> command or setting a breakpoint in native code that it calls), the <code>print</code> command will still work. Python threads are selected as usual via the <code>thread</code> command.</p>
-<h3 id="breakpoints-are-sometimes-missing-file-names-and-line-numbers">Breakpoints are Sometimes Missing File Names and Line Numbers</h3>
-<p>Due to limitations in Python, setting a breakpoint using a function name will not show file names or line numbers.</p>
-<h4 id="workaround-1">Workaround</h4>
-<p>When setting a function name breakpoint, a “breakpoint set…” result is always returned. gdb4hpc is treating it like a pending breakpoint. The function name has not been verified to actually exist and gdb4hpc is only keeping an eye out for it. When it does encounter it, it will break as normal and generate a message with the actual location.</p>
-<p>This means that extra care should be taken when typing function names for breakpoints. If gdb4hpc doesn’t seem to hit the breakpoint, double check that the function name was spelled correctly.</p>
 <h3 id="some-features-dont-work-directly-after-a-launch">Some Features Don’t Work Directly After a Launch</h3>
 <p>After a launch, gdb4hpc stops the Python interpreter before it starts interpreting Python code to give you the chance to do debugging set up tasks like setting breakpoints. In fact, in this state, setting breakpoints is the only thing you can do. Other Python mode features require that the current thread be stopped in Python code. This requirement is not met directly after a launch since no Python code is executing yet.</p>
-<h4 id="workaround-2">Workaround</h4>
+<h4 id="workaround">Workaround</h4>
 <p>Setting line number breakpoints without a file name (e.g. <code>break 17</code>) will not work directly after launch because gdb4hpc does not know what the current Python file is (in fact, there is no current file at all). You can work around this by specifying the file name e.g. <code>break my_app.py:17</code>.</p>
 <p>Once you have stopped in the middle of Python code (e.g. via a breakpoint or <code>halt</code>), all Python mode features will work. To get access to all Python functionality before any code is interpreted, set a breakpoint at an early line of Python code before any meaningful code is executed. Import statements are good candidates.</p>
 <h3 id="stepnextfinish-can-skip-lines-in-higher-stack-frames-after-a-return">Step/Next/Finish can Skip Lines in Higher Stack Frames After a Return</h3>
 <p>Due to limitations in Python, gdb4hpc can only track Python code execution on the granularity of a line, and each line is only seen once. This has subtle consequences when stepping in and out of functions with <code>step</code>, <code>next</code>, and <code>finish</code>.</p>
 <p>Consider the following Python code:</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo():</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">1</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> bar():</span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">2</span></span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> foo() <span class="op">+</span> bar()</span>
-<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo():</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">1</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> bar():</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">2</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> foo() <span class="op">+</span> bar()</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div>
 <p>If you are stopped at the <code>result = ...</code> line and <code>step</code>, gdb4hpc will step into <code>foo</code> as expected. If you then <code>finish</code>, you will suddenly find yourself in <code>bar</code>. The usual behavior for debuggers would be to stop at the <code>result = ...</code> line for a second time before diving into <code>bar</code>.</p>
-<h4 id="workaround-3">Workaround</h4>
+<h4 id="workaround-1">Workaround</h4>
 <p>Break expressions you are interested in into multiple lines.</p>
 </body>
 </html>

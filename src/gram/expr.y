@@ -311,7 +311,7 @@ expr_lex(YYSTYPE *lv)
 int
 expr_error(const char *err)
 {
-    fprintf(stderr, "%s", err);
+    // Don't print error to stderr, store in ParseErr for exception handling
     // bison might pass a stack-allocated address as err
     if (ParseErr != nullptr) ::free(ParseErr);
     ParseErr = ::strdup(err);
@@ -319,7 +319,8 @@ expr_error(const char *err)
 }
 
 std::unique_ptr<gram::Expression>
-ParseString(const std::string& str) {
+ParseString(const std::string& str)
+{
     ExprStr = str.c_str();
     if (expr_parse()) {
         throw ParseError(ParseErr ? ParseErr : "parse failed");

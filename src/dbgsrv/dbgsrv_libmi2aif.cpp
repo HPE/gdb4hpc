@@ -1639,12 +1639,16 @@ size_t FindTemplateLength(const std::string& str, size_t pos) {
     return (end-beg)+1;
 }
 
-PTypeFields::PTypeFields(MICommand& sentCmd, bool isFortran)
+PTypeFields::PTypeFields(MICommand& sentCmd, Language lang)
     : m_typeMapper(sentCmd.output->oobs)
 {
-    if (isFortran) {
+    if (lang == Language::FORTRAN) {
         // CLIGetPtypeFieldList does not handle fortran output
         initFortranFields(sentCmd);
+        return;
+    } else if (lang == Language::RUST) {
+        // or rust either
+        initRustFields(sentCmd);
         return;
     }
     MIList* field_list = CLIGetPtypeFieldList(&sentCmd);
@@ -1741,6 +1745,33 @@ void PTypeFields::initFortranFields(MICommand& cmd) {
     }
 }
 
+// parse the output from a ptype command on a fortran type
+// (CLIGetTypeFieldList doesn't handle the format, and it's
+//  10 times easier to do in C++)
+void PTypeFields::initRustFields(MICommand& cmd) {
+    if (!cmd.completed || !cmd.output || !cmd.output->oobs)
+		return;
+
+    // Looking for type :: field   and somehow mi or libmi has replaced the
+    // newline with two characters "[backslash]n".
+    auto re = std::regex(R"(\s*(\w*)\s*:\s*(.*),(\\n)?)");
+
+    auto oobs = cmd.output->oobs;
+    for (MIListSet(oobs); auto oob = (MIOOBRecord *)MIListGet(oobs); ) {
+        auto s = std::string{oob->cstring};
+        auto match = std::smatch{};
+        DVPRINT("looking at record %s\n", s.c_str());
+        
+        if (std::regex_match(s, match, re)) {
+            std::ostringstream os;
+            os << match[2] << " " << match[1];
+            DVPRINT("got rust field \"%s\"\n", os.str().c_str());
+            m_fields.push_back(os.str()) ;
+        }
+    }
+}
+
+
 // break a data member string into its name and
 // type describe the current class/struct, fieldStr is the description of a member
 std::pair<std::string, std::string>
@@ -1760,7 +1791,7 @@ PTypeFields::parseField(const std::string&, const std::string& fieldStr) {
         t0 = 7;
         isStatic = true;
     }
-    auto fieldTypeStr = fieldStr.substr(t0,namePos-t0);
+    auto fieldTypeStr = fieldStr.substr(t0,namePos-t0-1);
     auto fieldName = fieldStr.substr(namePos);
     
     // gdb only use the class member notion of static. Here we are changing
@@ -1970,7 +2001,7 @@ std::string Mi2Aif::getPTypeAlias(const std::string& type, bool isExpression, bo
 }
 
 // Get the fields of a struct from a gdb 'ptype" query
-PTypeFields Mi2Aif::getPTypeFields(const std::string& type, bool isFortran)
+PTypeFields Mi2Aif::getPTypeFields(const std::string& type, Language lang)
 {
     // gdb can't properly parse the closure of nested templates (">>")
     // without a space in between ("> >")
@@ -1986,7 +2017,7 @@ PTypeFields Mi2Aif::getPTypeFields(const std::string& type, bool isFortran)
         return PTypeFields();
     }
 
-    auto fields = PTypeFields(*cmd, isFortran);
+    auto fields = PTypeFields(*cmd, lang);
     MICommandFree(cmd);
     return fields;
 }

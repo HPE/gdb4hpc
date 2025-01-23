@@ -1076,7 +1076,7 @@ public:
     void printIndex(int idx, std::ostream& out) const override;
     std::string getTypeName() const override;
     int getTypeId(Writer& out) const override;
-private:    
+protected:    
     std::string m_name;
     std::vector<std::pair<std::string, std::shared_ptr<Type>>> m_members;
 };
@@ -1105,7 +1105,6 @@ private:
     makeTypeName(const std::vector<std::pair<std::string,std::shared_ptr<Type>>>& elems);
 };
 
-  
 // Pointer type    
 class Pointer : public Type {
 public:
@@ -1187,6 +1186,23 @@ private:
     mdspan m_span;
     std::shared_ptr<ais::Type> m_elem_type;
     int m_dim;
+};
+
+class RustStruct : public Struct {
+public:
+    RustStruct(const std::string& name);
+
+    void parseL(InterpretStream& in, Writer& out) const override;
+};
+
+class RustVector : public Array {
+public:
+    RustVector(std::shared_ptr<Type> elemType);
+    void parseL(InterpretStream& in, Writer& out) const override;
+    //std::string getTypeName() const override;
+    //int getTypeId(Writer& writer) const override;
+
+    //std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
 };
 
 // Possible results from comparing two primitives

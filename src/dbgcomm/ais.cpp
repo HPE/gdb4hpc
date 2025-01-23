@@ -633,7 +633,7 @@ void ais::Enum::parseL(InterpretStream& in, Writer& out) const
 {
     const char* s = skipspace(in.get());
     const char* end{};
-    for (end=s; *end && !isspace(*end); ++end) {}
+    for (end=s; *end && (isalnum(*end) || *end == '_' || *end == ':'); ++end) {}
     out.writeString(std::string{s, end});
     in.setPos(end);
 }
@@ -894,7 +894,7 @@ void ais::Array::parseL(InterpretStream& in, Writer& out) const {
     s = in.get();
     for ( ;*s && isspace(*s); ++s) {}
     if (*s == ')' || *s == '}' || *s == ']') ++s;
-    else fprintf(stdout, "unexpected array end %c\n", *s);
+    else if (m_numElems) fprintf(stdout, "unexpected array end %c\n", *s);
     in.setPos(s);
 }
 
@@ -2618,6 +2618,65 @@ mdspan ais::RajaView::spanFromTemplateArgs(const std::string_view& input) {
     auto strides = parseIntSeq(input, int_seq_idxs[2]);
     return mdspan{sizes, strides};
 }
+
+ais::RustStruct::RustStruct(const std::string& name) : ais::Struct(name) {}
+
+void ais::RustStruct::parseL(InterpretStream& in, Writer& out) const {
+    // The rust struct printer puts the name of the struct first
+    auto s = in.get();
+    if (s = strchr(s, '{'); !s) {
+        fprintf(stderr, "did not find { in rust struct\n");
+        return;
+    }
+    ++s;
+    for (auto& [name, elem] : m_members) {
+        s = skipspace(s);
+        if (strncmp(s, name.c_str(), name.size()) == 0) {
+            s += name.size();
+        }
+        if (*s == ':') ++s;
+        else fprintf(stderr, "expected \":\" got \"%c\"\n", *s);
+
+        s = skipspace(s);
+        in.setPos(s);
+
+        elem->parse(in, out);
+        s = in.get();
+
+        if (*s == ',') ++s;
+    }
+    s = skipspace(s);
+    if (*s == '}') ++s;
+    in.setPos(s);
+}
+
+ais::RustVector::RustVector(std::shared_ptr<ais::Type> elemType) :
+    ais::Array(elemType) {}
+
+void ais::RustVector::parseL(InterpretStream& in, Writer& out) const {
+    const char* s = skipspace(in. get());
+    if (strstr(s, "Vec(size=") != s) {
+        throw ais::Error("could not parse rust vector");
+    }
+
+    s += 9;
+    char *end = nullptr;
+    const_cast<RustVector*>(this)->m_numElems = strtol(s, &end, 10);
+
+    if (end == s || *end != ')') {
+        throw ais::Error("could not parse rust vector length");
+    }
+
+    s = end+1;
+    if (m_numElems) {
+        // expecting "= { array }"
+        if (auto brace = strchr(s,'{')) s = brace;
+    }
+
+    in.setPos(s);
+    Array::parseL(in, out);
+}
+
 
 //===========================================================================
 

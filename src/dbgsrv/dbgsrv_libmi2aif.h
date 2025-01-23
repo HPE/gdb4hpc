@@ -27,13 +27,15 @@
 
 class AIFStream; class MIWriteBuffer; class LazyMIVar; class Chunker;
 
+enum class Language{ CPP, FORTRAN, RUST };
+
 // Class to handle templated types.   For templated classes, gdb will report some
 // types in terms of template arguments, e.g. std::shared_ptr<T> where it
 // reported the template mapping earlier with "[with T = int]"
 class PTypeFields {
     // derive class fields and parent classes from the result of a ptype command
 public:
-    PTypeFields(MICommand& sentCmd, bool isFortran);
+    PTypeFields(MICommand& sentCmd, Language lang);
     PTypeFields() = default; // construct empty
 
     const std::vector<std::string>& parentClasses() const { return m_parentClasses; }
@@ -54,6 +56,7 @@ private:
     };
     
     void initFortranFields(MICommand& sentCmd);
+    void initRustFields(MICommand& sentCmd);
 
     std::vector<std::string> m_parentClasses;
     std::vector<std::string> m_fields;
@@ -70,7 +73,7 @@ public:
     char* getVarValue(char *);
     MISession* getSession() const { return m_session; }
     std::string getPTypeAlias(const std::string& type, bool isExpression, bool strict);
-    PTypeFields getPTypeFields(const std::string& type, bool isFortran);
+    PTypeFields getPTypeFields(const std::string& type, Language lang);
 
     std::string nextChunk(Chunker& chunker, bool& isFinal);
     std::unique_ptr<Chunker> makeChunker(const std::string& var);

@@ -1,0 +1,140 @@
+
+// Demo/working program to find solutions to the HIQ peg puzzle, which
+// starts with a cross shaped board filled with pegs except for one
+// empty spot
+// ..XXX..
+// ..XXX..
+// XXXXXXX
+// XXX XXX
+// ..XXX..
+// ..XXX..
+//
+// with the usual goal of repeatedly jump one peg over an adjacent peg
+// with the goal or reducing it to a single remaining peg.
+
+#[derive(PartialEq, Clone, Copy)]
+enum Peg{ EMPTY, PEG, OUT, }
+
+#[derive(Debug)]
+struct Move {
+    i: usize,
+    j: usize,
+    dir: usize,
+}
+
+
+const NUM_PEGS: usize = 4*3 + 3*7 - 1;
+
+const DELTA_I : [i32; 4] = [ 1, 0, -1, 0 ];
+const DELTA_J : [i32; 4] = [ 0, 1, 0, -1 ];
+
+fn main() {
+
+    let mut board = init_board();
+    let mut moves : Vec<Move> = Vec::new();
+
+    while next_move(&mut board, &mut moves) {
+            //println!("{} moves", moves.len());
+            //print_board(&board);
+    }
+}
+
+fn init_board() -> [[Peg; 9]; 9] {
+    let mut board : [[Peg; 9]; 9] = [[Peg::OUT; 9]; 9];
+    let rngs : [[usize ; 2]; 9] = [ [10,10], [3,5], [3,5], [1,7], [1,7], [1,7], [3,5], [3,5], [10,10] ];
+
+    for j in 0usize..9usize {
+        let (min_c, max_c) = (rngs[j][0], rngs[j][1]);
+        for i in 0usize..9usize {
+            if i >= min_c && i <= max_c {
+                board[j][i] = Peg::PEG;
+            } 
+        }
+    }
+    board[4][4] = Peg::EMPTY;
+    return board
+}
+
+fn next_move(board : &mut[[Peg; 9]; 9], moves : &mut Vec<Move>) -> bool {
+
+    use Peg::*;
+
+    let mut i0 = 1;
+    let mut j0 = 1;
+    let mut dir0 = 0;
+    loop {
+        for j in j0..8 {
+            for i in i0..8 {
+                if board[j][i] != PEG { continue; }
+                for dir in dir0..4 {
+                    let (i1,j1) = offset(i,j,dir);
+                    let (i2,j2) = offset(i1,j1,dir);
+                    if board[j1][i1] == PEG &&
+                       board[j2][i2] == EMPTY {
+                        // got a move
+                        board[j][i] = EMPTY;
+                        board[j1][i1] = EMPTY;
+                        board[j2][i2] = PEG;
+                        let m = Move{ i: i, j: j, dir: dir};
+                        moves.push(m);
+                        return true;
+                    }
+                }
+                dir0 = 0;
+            }
+        }
+
+        if moves.len() == 0 {
+            return false;
+        }
+
+        if moves.len() == NUM_PEGS-1 {
+            println!("got a solution");
+            return false;
+        }
+
+        let last = moves.pop().unwrap();
+        let (i,j,dir) = (last.i, last.j, last.dir);
+        let (i1,j1) = offset(i,j,dir);
+        let (i2,j2) = offset(i1,j1,dir);
+
+        board[j][i]   = PEG;
+        board[j1][i1] = PEG;
+        board[j2][i2] = EMPTY;
+
+        i0 = i;
+        j0 = j;
+        dir0 = dir+1;
+    } 
+}
+
+fn offset(i : usize, j : usize, dir : usize) -> ( usize, usize) {
+    let di = DELTA_I[dir];
+    let dj = DELTA_J[dir];
+
+    let si = i as i32;
+    let sj = j as i32;
+
+    let oi = (si + di) as usize;
+    let oj = (sj + dj) as usize;
+
+    return (oi, oj)
+}
+    
+
+fn _print_board(board : &[[Peg; 9]; 9]) {
+    use Peg::*;
+
+    for j in 0..9 {
+        for i in 0..9 {
+            let v = board[j][i];
+            match v {
+                 OUT => print!("."),
+                 PEG => print!("X"),
+                 EMPTY => print!(" "),
+            }
+        }
+        println!("")
+    }
+}
+

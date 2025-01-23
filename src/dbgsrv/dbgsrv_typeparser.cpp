@@ -36,12 +36,14 @@ std::string sanitizeType(const std::string& type);
 
 std::shared_ptr<ais::Type> getCppType(Mi2Aif& mi, MIVar* var, const char* typeStr);
 std::shared_ptr<ais::Type> getFtnType(Mi2Aif& mi, const char* typeStr);
+std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr);    
 
 // Supported languages parsable by getType
 enum class Lang {
                  Unknown,
                  Cpp,
                  Ftn,
+                 Rust
 };
 
 std::shared_ptr<ais::Type> cppWrap(std::shared_ptr<ais::Type> elemType, TypeName t);
@@ -270,6 +272,11 @@ std::vector<Prim> m_fortranPrims =
  {"STRING",unimplemented}
 };
 
+std::vector<Prim> m_rustPrims =
+{
+ {"usize", PrimWrap<ais::UnsignedLong>()}
+};
+
 std::vector<std::string> m_ignore = { "const", "volatile", "shared",
                                                   "SHARED", "pointer,", "POINTER," };
 
@@ -335,6 +342,7 @@ Lang parseShowLangResult(const char* result) {
 
     if (sv.find("fortran") != npos) return Lang::Ftn;
     if (sv.find("c++") != npos) return Lang::Cpp;
+    if (sv.find("rust") != npos) return Lang::Rust;
     if (sv.find("\"c\"") != npos || sv.find("currently c\"") != npos)
         return Lang::Cpp;
 
@@ -374,6 +382,9 @@ std::shared_ptr<ais::Type> getType(Mi2Aif& mi, MIVar* var, const char* inType) {
 
         case Lang::Ftn:
             return getFtnType(mi, inType ? inType : var->type);
+
+        case Lang::Rust:
+            return getRustType(mi, inType ? inType : var->type);
 
         default:
             // getting here means that queryCurrentLang somehow returned a value outside
@@ -547,7 +558,7 @@ addStructMembers(Mi2Aif& mi, ais::Struct& stype,
         }
         DVPRINT("done processing members\n");
     } else {
-        auto ptfields = mi.getPTypeFields(type, /* true if fortran */ false);
+        auto ptfields = mi.getPTypeFields(type, Language::CPP);
         // parent classes
         for (const auto& parent : ptfields.parentClasses()) {
             stype.addMember(parent, getCppType(mi, nullptr, parent.c_str()));
@@ -613,7 +624,7 @@ std::shared_ptr<ais::Type> getFtnType(Mi2Aif& mi, const char* typeStr) {
     // (like a linked list or graph) doesn't get into infinite recursion
     mi.addKnownType(baseType, stype);
 
-    auto ptfields = mi.getPTypeFields(baseType, /* true if fortran */ true);
+    auto ptfields = mi.getPTypeFields(baseType, Language::FORTRAN);
     // parent classes
     for (const auto& parent : ptfields.parentClasses()) {
         stype->addMember(parent, getFtnType(mi, parent.c_str()));
@@ -631,6 +642,77 @@ std::shared_ptr<ais::Type> getFtnType(Mi2Aif& mi, const char* typeStr) {
 
     mi.addKnownType(baseType, stype);
     return ftnWrap(stype, TypeName{type,static_cast<size_t>(typeLen)});
+}
+
+std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr) {
+    static bool isSorted = false;
+    if (!isSorted) {
+        std::sort(m_rustPrims.begin(), m_rustPrims.end(), comparePrims);
+        isSorted = true;
+    }
+
+    // Rust Array
+    if (typeStr[0] == '[') {
+        auto type = std::string{typeStr};
+        if (auto lenPos = type.rfind(';'); lenPos != std::string::npos) {
+            auto elemTypeStr = type.substr(1,lenPos-1);
+            auto lenStr = type.substr(lenPos+1, type.size()-lenPos-2);
+            auto len = std::stoi(lenStr);
+            
+            DVPRINT("got array of len %s type %s\n", lenStr.c_str(), elemTypeStr.c_str());
+            auto elemType = getRustType(mi, elemTypeStr.c_str());
+            return std::make_shared<ais::Array>(elemType, len);
+        }
+    }
+
+    auto ftn = Prim{typeStr,0};
+    auto loc = std::lower_bound(m_rustPrims.begin(), m_rustPrims.end(), ftn, comparePrims);
+    if (loc != m_rustPrims.end() && loc->first == typeStr) {
+        DVPRINT("found a rust type for %s\n", typeStr);
+        return mi.addKnownType(typeStr, loc->second(mi, TypeName{typeStr,strlen(typeStr)}));
+    }
+
+    DVPRINT("Is it a rust enum\n");
+    auto ptype = mi.getPTypeAlias(typeStr, false, false);
+
+    DVPRINT("mi.getPTypeAlias returns %s\n", ptype.c_str());
+
+    if (ptype.starts_with("enum ")) {
+        DVPRINT("it's an enum\n");
+        return std::make_shared<ais::Enum>(typeStr);
+    }
+
+    if (ptype.starts_with("alloc::vec::Vec<")) {
+        auto subTypeBeg = ptype.find('<');
+        auto subTypeEnd = findExprMatch(ptype, subTypeBeg);
+        subTypeEnd = ptype.rfind(',', subTypeEnd);  // , alloc::alloc::Global
+        auto subTypeStr = ptype.substr(subTypeBeg+1, subTypeEnd-subTypeBeg-1);
+        
+        DVPRINT("it's a vector of %s\n", subTypeStr.c_str());
+        auto subType = getRustType(mi, subTypeStr.c_str());
+        return std::make_shared<ais::RustVector>(subType);
+    }
+
+    DVPRINT("treating as a struct\n");
+    auto ptfields = mi.getPTypeFields(typeStr, Language::RUST);
+    for (const auto& parent : ptfields.parentClasses()) {
+        DVPRINT("got parent type %s\n", parent.c_str());
+    }
+
+    // class members
+    auto stype = std::make_shared<ais::RustStruct>(ptype);
+    for (auto&& fieldStr : ptfields.fields()) {
+        auto [fieldName, fieldTypeStr] = ptfields.parseField(typeStr, fieldStr);
+        if (fieldName.empty()) continue;
+
+        DVPRINT("Got field %s of type %s\n", fieldName.c_str(), fieldTypeStr.c_str());
+
+        stype->addMember(fieldName, getRustType(mi,fieldTypeStr.c_str()));
+    }
+
+    return stype;
+
+    //return std::make_shared<ais::Unimplemented>(std::string{"unknown-rust-type-"} + typeStr);
 }
 
 // Handle decorations of the base type.  Like *,&,[], etc.

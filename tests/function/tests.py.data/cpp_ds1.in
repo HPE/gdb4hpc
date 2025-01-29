@@ -719,13 +719,13 @@ b{0..1}: inf
 306: p dndiv
 b{0..1}: -inf
 307: p di
-b{0..1}: -nan
+b{0..1}: nan
 308: p dlogz
 b{0..1}: -inf
 309: p dlogneg
 b{0..1}: -nan
 310: p darr
-b{0..1}: {inf,-inf,-nan,-inf,-nan}
+b{0..1}: {inf,-inf,nan,-inf,-nan}
 311: p fdiv
 b{0..1}: inf
 312: p fndiv

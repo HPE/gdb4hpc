@@ -268,16 +268,19 @@ a{0..2}: {0,1,2,3,4,5,6,7,8,9}
 0: p $var = $var + $var = 3
 %.*%
 Command resulted in an error: 0: p $var = $var + $var = 3
+0: # these last ones have different answers on x86_64 vs aarch. (5 vs 6)
+0: # again, we are mostly testing for a segfault here rather than a
+0: # "correct" result, so it's fine that the answers differ
 0: set $var = 2
 0: p $var = ($var = 3) + $var
-5
+%[56]%
 0: p $var
-5
+%[56]%
 0: set variable $var = 2
 0: p $var = $var + ($var = 3)
-6
+%[56]%
 0: p $var
-6
+%[56]%
 0: # check that the set command warns when it's not a plain assignment,
 0: # but still evaluate the expression (matches gdb behavior)
 0: set ($baz = 2) + 2

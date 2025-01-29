@@ -636,8 +636,8 @@ static void functionPointers() {
 
 #include <cmath>
 static void nans() {
-    double ddiv = 1.0 / 0.0, dndiv = -1.0 / 0.0, di = std::sqrt(-1.0),
-        dlogz = std::log(0.0), dlogneg = std::sqrt(-1.0);
+    double ddiv = 1.0 / 0.0, dndiv = -1.0 / 0.0, di = NAN,
+        dlogz = std::log(0.0), dlogneg = -NAN;
 
     double darr[] = { ddiv, dndiv, di, dlogz, dlogneg };
 

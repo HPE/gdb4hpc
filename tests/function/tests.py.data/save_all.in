@@ -1,7 +1,7 @@
-1: launch $a{2} bin/CRAY/c/c_type_test.x
+1: launch $a{2} --launcher-args="-N1" bin/CRAY/c/c_type_test.x
 Launch complete.
 a{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
-2: launch $b{2} bin/CRAY/c/c_cmp_diff.x
+2: launch $b{2} --launcher-args="-N1" bin/CRAY/c/c_cmp_diff.x
 Launch complete.
 b{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
 3: # stop before exiting

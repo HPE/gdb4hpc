@@ -254,25 +254,25 @@ shmemTest :
 ./bin/${PE_ENV}/cti_launch.x : ./bin/${PE_ENV}/cti_launch.o
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(CTI_LD)
 
-./bin/${PE_ENV}/raja/view-layout-decomp_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./src/raja/view-layout-decomp_solution.cpp
+./bin/${PE_ENV}/raja/view-layout-decomp_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a ./src/raja/view-layout-decomp_solution.cpp
 	mkdir -p ./bin/${PE_ENV}/raja
-	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/view-layout-decomp_solution.cpp ./raja_installation/lib/libRAJA.a -o $@
+	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/view-layout-decomp_solution.cpp ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a -o $@
 
-./bin/${PE_ENV}/raja/view-layout_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./src/raja/view-layout_solution.cpp
+./bin/${PE_ENV}/raja/view-layout_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a ./src/raja/view-layout_solution.cpp
 	mkdir -p ./bin/${PE_ENV}/raja
-	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/view-layout_solution.cpp ./raja_installation/lib/libRAJA.a -o $@
+	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/view-layout_solution.cpp ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a -o $@
 
-./bin/${PE_ENV}/raja/kernel-matrix-transpose-local-array_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./src/raja/kernel-matrix-transpose-local-array_solution.cpp
+./bin/${PE_ENV}/raja/kernel-matrix-transpose-local-array_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a ./src/raja/kernel-matrix-transpose-local-array_solution.cpp
 	mkdir -p ./bin/${PE_ENV}/raja
-	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/kernel-matrix-transpose-local-array_solution.cpp ./raja_installation/lib/libRAJA.a -o $@
+	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/kernel-matrix-transpose-local-array_solution.cpp ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a -o $@
 
-./bin/${PE_ENV}/raja/launch-matrix-transpose-local-array_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./src/raja/launch-matrix-transpose-local-array_solution.cpp
+./bin/${PE_ENV}/raja/launch-matrix-transpose-local-array_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a ./src/raja/launch-matrix-transpose-local-array_solution.cpp
 	mkdir -p ./bin/${PE_ENV}/raja
-	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/launch-matrix-transpose-local-array_solution.cpp ./raja_installation/lib/libRAJA.a -o $@
+	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/launch-matrix-transpose-local-array_solution.cpp ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a -o $@
 
-./bin/${PE_ENV}/raja/reductions_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./src/raja/reductions_solution.cpp
+./bin/${PE_ENV}/raja/reductions_solution.x: get_raja ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a ./src/raja/reductions_solution.cpp
 	mkdir -p ./bin/${PE_ENV}/raja
-	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/reductions_solution.cpp ./raja_installation/lib/libRAJA.a -o $@
+	$(CXX) $(CXXFLAGS) -I./raja_installation/include ./src/raja/reductions_solution.cpp ./raja_installation/lib/libRAJA.a ./raja_installation/lib/libcamp.a -o $@
 
 ROCM_SCRIPT = ./tests.py.data/rocm/$(HOSTNAME).sh
 CUDA_SCRIPT = ./tests.py.data/cuda/$(HOSTNAME).sh

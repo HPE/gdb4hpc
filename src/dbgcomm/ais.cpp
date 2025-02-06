@@ -213,7 +213,12 @@ void ais::Short::parseL(InterpretStream& in, Writer& out) const
     char* next = nullptr;
     auto val = strtol(str, &next, 10);
     in.setPos(next);
-    out.writeInt(val);
+
+    if (str == next) {
+        out.writeError("could not evaluate");
+    } else {
+        out.writeInt(val);
+    }
 }
 
 void ais::Short::applyL(Reader& reader, Visitor& f) const {
@@ -250,8 +255,12 @@ void ais::Int::parseL(InterpretStream& in, Writer& out) const
     char* next = nullptr;
     int val = strtol(str, &next, 10);
     in.setPos(next);
-    
-    out.writeInt(val);
+
+    if (next == str) {
+        out.writeError("could not evaluate");
+    } else {
+        out.writeInt(val);
+    }
 }
 
 void ais::Int::applyL(Reader& reader, Visitor& f) const {
@@ -287,8 +296,12 @@ void ais::Long::parseL(InterpretStream& in, Writer& out) const
     char* next = nullptr;
     long val = strtol(str, &next, 10);
     in.setPos(next);
-    
-    out.writeLong(val);
+
+    if (next == str) {
+        out.writeError("could not evaluate");
+    } else {
+        out.writeLong(val);
+    }
 }
 
 
@@ -325,8 +338,12 @@ void ais::LongLong::parseL(InterpretStream& in, Writer& out) const
     char* next = nullptr;
     long long val = strtoll(str, &next, 10);
     in.setPos(next);
-    
-    out.writeLongLong(val);
+
+    if (next == str) {
+        out.writeError("could not evaluate");
+    } else {
+        out.writeLongLong(val);
+    }
 }
 
 void ais::LongLong::applyL(Reader& reader, Visitor& f) const {
@@ -362,8 +379,12 @@ void ais::Double::parseL(InterpretStream& in, Writer& out) const
     char* next = nullptr;
     auto val = strtod(str, &next);
     in.setPos(next);
-    
-    out.writeDouble(val);
+
+    if (next == str) {
+        out.writeError("could not evaluate");
+    } else {
+        out.writeDouble(val);
+    }
 }
 
 void ais::Double::applyL(Reader& reader, Visitor& f) const {
@@ -387,8 +408,12 @@ void ais::Float::parseL(InterpretStream& in, Writer& out) const
     char* next = nullptr;
     auto val = strtof(str, &next);
     in.setPos(next);
-    
-    out.writeFloat(val);
+
+    if (next == str) {
+        out.writeError("could not evaluate");
+    } else {
+        out.writeFloat(val);
+    }
 }
 
 void ais::Float::applyL(Reader& reader, Visitor& f) const {
@@ -411,7 +436,12 @@ void ais::LongDouble::parseL(InterpretStream& in, Writer& out) const
     char* next = nullptr;
     auto val = strtold(str, &next);
     in.setPos(next);
-    out.writeLongDouble(val);
+
+    if (next == str) {
+        out.writeError("could not evaluate");
+    } else {
+        out.writeLongDouble(val);
+    }
 }
 
 void ais::LongDouble::applyL(Reader& reader, Visitor& f) const {
@@ -2200,7 +2230,7 @@ void ais::Struct::applyL(Reader& reader, Visitor& f) const {
 }
 
 std::string ais::Struct::getTypeName() const {
-    return "i_do_not_think_this_is_used";
+    return m_name;
 }
 
 ais::Union::Union(const std::string& name) : Struct(name) {}

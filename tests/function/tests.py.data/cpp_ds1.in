@@ -108,6 +108,8 @@ b{0..1}: "So this grasshopper walks into a bar.."
 b{0..1}: "hey: \"embedded quotes\""
 35: p my_null
 b{0..1}: (void*) 0x0
+35: p *(int*) my_null
+b{0..1}: could not evaluate
 36: p func1(l_tail)
 b{0..1}: 27
 37: p func1(4)

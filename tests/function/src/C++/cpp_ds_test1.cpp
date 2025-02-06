@@ -115,7 +115,7 @@ int main(int argc, char ** argv){
         rect.width++;
         rect.height++;
         rect.vec.push_back(++i);
-        rect.vec.at(0);
+        (void) rect.vec.at(0);
         area1 = rect.area();
         area2 = rectb.area();
         ll->push((i*3)%5);

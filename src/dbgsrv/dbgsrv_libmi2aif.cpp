@@ -1791,7 +1791,7 @@ PTypeFields::parseField(const std::string&, const std::string& fieldStr) {
         t0 = 7;
         isStatic = true;
     }
-    auto fieldTypeStr = fieldStr.substr(t0,namePos-t0-1);
+    auto fieldTypeStr = fieldStr.substr(t0, namePos-t0 - (fieldStr[namePos-1] == ' ' ? 1 : 0));
     auto fieldName = fieldStr.substr(namePos);
     
     // gdb only use the class member notion of static. Here we are changing

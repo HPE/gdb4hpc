@@ -92,13 +92,23 @@ public:
     const_iterator cend() { return m_loc.cend(); }
 
     LocaleSet() = default;
+    LocaleSet(const LocaleSet& other) {
+        for (const auto &loc : other.m_loc) {
+            m_loc.push_back({
+                loc.group->clone(),
+                loc.file,
+                loc.line,
+                loc.func
+            });
+        }
+    }
+
+    LocaleSet(LocaleSet&& other) = default;
     ~LocaleSet()
     {
         clear();
     }
 
-    // Delete copy/move constructors and assignment
-    LocaleSet(LocaleSet const&) = delete;
     LocaleSet& operator=(LocaleSet const&) = delete;
 
 private:
@@ -113,6 +123,11 @@ struct IDSet {
     {
         group = _group->clone();
     };
+
+    IDSet(const IDSet& other)
+        // ctor will clone the group
+        : IDSet(other.group.get(), other.id)
+    {}
 
     std::unique_ptr<Bitset> group; // the ranks with this id
     const int id;  // unique bkpt id assigned by each gdb
@@ -152,6 +167,11 @@ class MappedBreakpoint {
             group = _group->clone();
         }
 
+        DispositionSet(const DispositionSet& other)
+            // ctor will clone the group
+            : DispositionSet(other.group.get(), other.disp)
+        {}
+
         std::unique_ptr<Bitset> group;  // the ranks with this disposition
         const dbgbp_disp disp;  // disposition value
     };
@@ -161,7 +181,8 @@ public:
     // public interface
 
     MappedBreakpoint(int bp_id, const Bitset* group, const dbgbp_t &bp);
-    
+    MappedBreakpoint(const MappedBreakpoint&);
+
     int id() const;          // (logical) breakpoint number
     dbgbp_type type() const; // breakpoint type (i.e. breakpoint, watchpoint)
     bool isPending() const;  // true if this is a pending breakpoint
@@ -255,6 +276,17 @@ class BreakpointManager {
     of backend replies.
     */
 public:
+    // constructs with an empty list of breakpoints
+    BreakpointManager() = default;
+    BreakpointManager(BreakpointManager&&) = default;
+
+    // the copy operation is well defined, but is potentially expensive and should
+    // be done explicitly. use clone() instead.
+    BreakpointManager(const BreakpointManager&) = delete;
+
+    // returns a copy of this BreakpointManager
+    BreakpointManager clone() const;
+
     // returns true if there are no breakpoints in the internal list
     bool isEmpty() const;
     // record passed real breakpoint, corresponding to ranks in group, inside of

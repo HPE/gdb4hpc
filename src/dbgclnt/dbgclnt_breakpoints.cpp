@@ -42,6 +42,25 @@ MappedBreakpoint::MappedBreakpoint(int bp_id, const Bitset *group, const dbgbp_t
     }
 }
 
+MappedBreakpoint::MappedBreakpoint(const MappedBreakpoint &bp)
+    : m_logicalId{bp.m_logicalId},
+      m_type{bp.m_type},
+      m_pending{bp.m_pending},
+      m_locStmt{bp.m_locStmt},
+      m_locAddr{bp.m_locAddr},
+      m_locFile{bp.m_locFile},
+      m_locFunc{bp.m_locFunc},
+      m_locCond{bp.m_locCond},
+      m_locLine{bp.m_locLine},
+      m_watchExp{bp.m_watchExp},
+      m_watchLoc{bp.m_watchLoc},
+      m_threadId{bp.m_threadId},
+      m_ranksSet{bp.m_ranksSet->clone()},
+      m_enabledSet{bp.m_enabledSet ? bp.m_enabledSet->clone() : nullptr},
+      m_idList{bp.m_idList},
+      m_dispList{bp.m_dispList}
+{}
+
 int MappedBreakpoint::id() const {
     return m_logicalId;
 }
@@ -211,6 +230,17 @@ void MappedBreakpoint::removeGroup(const Bitset *group) {
     m_dispList.remove_if([](const MappedBreakpoint::DispositionSet &disp_set) {
         return disp_set.group->isEmpty();
     });
+}
+
+BreakpointManager BreakpointManager::clone() const {
+    BreakpointManager result;
+    // we can't simply do `result.m_breakpoints = m_breakpoints` because that
+    // invokes the operator= of MappedBreakpoint, which doesn't exist
+    for (const auto &bp : m_breakpoints) {
+        result.m_breakpoints.push_back(bp);
+    }
+    result.m_nextID = m_nextID;
+    return result;
 }
 
 bool BreakpointManager::isEmpty() const {

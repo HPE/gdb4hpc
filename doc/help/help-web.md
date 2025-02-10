@@ -6,7 +6,7 @@ see /doc/help/README.md.
 # gdb4hpc Command Reference
 
 This document contains the help text for each gdb4hpc command in gdb4hpc
-4.16.4. It is the same material you could read when using the `help`
+4.16.5. It is the same material you could read when using the `help`
 command within gdb4hpc itself.
 
 ## attach

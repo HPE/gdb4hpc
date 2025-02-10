@@ -54,14 +54,14 @@ Assertion script $twice stopped.
 No assertions were evaluated.
 21: run
 Re-launch $all? Original will be released. ([y] or n) y
-Starting application, please wait...
-Launch complete.
-tmp_clone{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
 Shutting down debugger and killing application for 'a'.
 Starting application, please wait...
 Launch complete.
-tmp_clone{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
+a{0..1}: Initial breakpoint, main at /src/c/c_type_test.c:58
 Shutting down debugger and killing application for 'b'.
+Starting application, please wait...
+Launch complete.
+b{0..1}: Initial breakpoint, main at /src/c/c_cmp_diff.c:55
 22: start $twice
 Sending continue to application...
 a{0..1}: The application has reached an exit breakpoint.

@@ -446,15 +446,20 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         return nullptr;
     }
 
-    // get convenience pointer to old procset's internal di
-    // DBGSET_INVOKE procsets should only have one di
-    assert(oldProcset->s_type == DBGSET_INVOKE);
-    assert(oldProcset->s_over_sets.size() == 1);
-    auto* oldDi = oldProcset->s_over_sets[0]->s_di.lock();
+    // check preconditions
+    //
+    // procset must be of type DBGSET_INVOKE (should have been checked by caller)
+    // and DBGSET_INVOKE procsets should only have one di
+    if (oldProcset->s_type != DBGSET_INVOKE || oldProcset->s_over_sets.size() != 1) {
+        PrintOutError("Procset doesn't support relaunch\n");
+        return nullptr;
+    }
 
-    // validate that this di can be relaunched
+    // get convenience pointer to old procset's internal di
+    auto* oldDi = oldProcset->s_over_sets[0]->s_di.lock();
     if (!oldDi) {
-        PrintOutError("Error: null di in procset\n");
+        // in theory this situation should have been caught by now, but just in case
+        PrintOutError("Procset $%s has expired.\n", oldProcset->s_over_sets[0]->s_di.c_str());
         return nullptr;
     }
 
@@ -463,8 +468,13 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         return nullptr;
     }
 
+    // cache some data from the old procset set we can reinstantiate it
+    // in the newly launched procset
+    auto oldBreakpoints = oldDi->breakpoints().clone();
+    auto oldDiName = oldDi->handle().name();
+
     auto newArgs = LaunchOpts(oldDi->launchOptions());
-    newArgs.procset_name = (cloneName ? cloneName : "$tmp_clone");
+    newArgs.procset_name = (cloneName ? cloneName : "$" + oldDiName);
     newArgs.procset_name += "{" + std::to_string(oldProcset->s_nproc) + "}";
 
     for (size_t i = 0; i < oldDi->launchOptions().job_opts.size(); i++) {
@@ -478,16 +488,26 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
         return nullptr;
     }
 
-    dbgprocset_t* newProcset = nullptr;
+    // if the user didn't give a name, we're recreating the old procset and
+    // releasing the original. otherwise we're cloning it under a new name and
+    // keeping the old one.
+    if (!cloneName) {
+        // release old app. this also frees the procset and the contained di.
+        ReleaseProc(oldProcset, DbgQuitType::Default);
+        oldProcset = nullptr;
+        oldDi = nullptr;
+    }
 
     // launch new app
-    if (!(newProcset = DoLaunch(std::move(newArgs)))) {
+    dbgprocset_t* newProcset = DoLaunch(std::move(newArgs));
+    if (!newProcset) {
         PrintOutError("Launch failed.\n");
         return nullptr;
     }
 
+    // apply old breakpoints
     bool printedHeader = false;
-    for (const auto& oldBp : oldDi->breakpoints()) {
+    for (const auto& oldBp : oldBreakpoints) {
         if (!printedHeader) {
             PrintOutMsg("Re-setting breakpoints...\n");
             printedHeader = true;
@@ -537,10 +557,7 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
             }
 
             // with the back-end mapping; the new BPs should all have the same id
-            if (!theNewBpId) theNewBpId = newBp->id();  
-            PrintOutMsg("Re-set breakpoint $%s::%d as new breakpoint $%s::%d.\n",
-                        oldDi->handle().c_str(), oldBp.id(), newProcset->s_name.c_str(),
-                        newBp->id());
+            if (!theNewBpId) theNewBpId = newBp->id();
         }
 
         if (theNewBpId && !oldBp.condition().empty()) {
@@ -548,38 +565,6 @@ static dbgprocset_t* DoRelaunchInvoke(dbgprocset_t* oldProcset, const char* clon
             auto repSet = DbgConditionBreak(recSet, theNewBpId, oldBp.condition());
             ProcessErrorInRepSet(repSet);
         }
-    }
-
-    if (!cloneName) {
-        // replace old procset with new one by making the new procset look
-        // identical to the old
-        // TODO: do this in background thead?
-
-        // claim old name and release old procset
-        auto oldName = oldProcset->s_name;
-        ReleaseProc(oldProcset, DbgQuitType::Default); // frees oldProcset
-        oldProcset = nullptr;
-
-        // Set names for the newly created procset/di. There are four names we need to update:
-        // 1. The name of the newly created di (di.handle().name())
-        // 2. The name of the newly created procset (procset.s_name)
-        // 3. The stored handle in the newly created procset, used to look up the di
-        //    (items in procset.s_over_set_list)
-
-        // update newly created di's internal name (1)
-        auto newHandle = newProcset->s_over_sets[0]->s_di;
-        newHandle = DbgInvoke::rename(newHandle, oldName.c_str());
-        if (!newHandle.lock()) {
-            PrintOutError("Error: failed to rename newly created procset.\n");
-            return nullptr;
-        }
-
-        // update newly created procset's name (2)
-        newProcset->s_name = oldName;
-
-        // update handle stored in newly created procset. (3)
-        // The new procset only has one overlay set.
-        newProcset->s_over_sets[0]->s_di = newHandle;
     }
 
     return newProcset;
@@ -1102,13 +1087,13 @@ static int cmd_rerun_cmd(rec_set_t* recSet, int argc, const char* const argv[]) 
     if (argc == 1) {
         if (procSet = CurrentProcSet(); !procSet || !recSet) {
             PrintOutError("No current process set to re-launch.\n");
-            return 1;
+            return Command::Failure;
         }
     } else {
         procSet = FindProcSet(argv[1]+1);
         if (!procSet) {
             PrintOutError("No process set %s to re-launch.\n", argv[1]);
-            return 1;
+            return Command::Failure;
         }
     }
 
@@ -1121,7 +1106,7 @@ static int cmd_rerun_cmd(rec_set_t* recSet, int argc, const char* const argv[]) 
         auto prompt = "Re-launch $"s + procSet->s_name + "? Original will be released.";
         if (!cli_query(prompt.c_str(), cli_query_default::NO, cli_query_default::YES)) {
             PrintOutMsg("Cancelled.\n");
-            return 1;
+            return Command::Success;
         }
     } else if (auto cloneSet = FindProcSet(cloneName)) {
         auto prompt = "Re-use "s + cloneName + "? Original will be released.";
@@ -1129,16 +1114,16 @@ static int cmd_rerun_cmd(rec_set_t* recSet, int argc, const char* const argv[]) 
             ReleaseProc(cloneSet, DbgQuitType::Kill);
         } else {
             PrintOutMsg("Cancelled.\n");
-            return 1;
+            return Command::Success;
         }
     }
 
     if (!DoRelaunch(procSet, cloneName)) {
         PrintOutError("Relaunch failed!\n");
-        return 0;
+        return Command::Failure;
     }
 
-    return 1;
+    return Command::Success;
 }
 
 

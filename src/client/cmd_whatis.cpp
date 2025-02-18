@@ -18,6 +18,7 @@
 #include "client.h"
 #include "useful.h"
 #include "interpreter_mi.h"
+#include <regex>
 
 static int cmd_whatis_cmd(rec_set_t *rec_set, int argc, const char* const argv[]) {
     int i;
@@ -139,47 +140,51 @@ static int cmd_info_locals_cmd_console(rec_set_t *rec_set) {
     return Command::Success;
 }
 
+extern std::string GetMiValue(const std::string& expression, const std::string& ps);
+
 static int cmd_info_locals_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set) {
     auto rep_set = DbgGetVars(rec_set);
     ProcessErrorInRepSet(rep_set);
 
     std::ostringstream result;
-
+    std::stringstream ss;
     // Process the replies
     for (auto&& reply : rep_set) {
         auto ev = reply->rep_event->ev_event;
-        if (result.tellp() == std::streampos(0)){
-            result<<",";
-        }else{
-            result<<"msgs=[";
-        }
+
         if (ev == DBGEV_VARS) {
             // point at the vars data
             auto v = EVENT_VARS(reply->rep_event);
-            std::stringstream ss;
-            ss <<"[";
-            auto comma = std::string{""};
+
             for (; v != (dbgvars_t *)NULL; v = v->var_next) {
-                ss<<comma;
-                std::string group = reply->rep_group.get()->toSetString();
-                ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<reply->rep_di.c_str()
-                                <<"\",group=\""<<group.substr(1,group.length()-2)<<"\"}";
-                comma = ","; 
+                std::string type = v->var_type;
+                auto val = type.find('[') != std::string::npos?"":GetMiValue(v->var_name,reply->rep_di.c_str());
+                static std::regex value_regex(R"((\w+)(?:\{([\d\.\,]+)\})?\:([\s\S]*?)(?:\\n)?(?=$|\w+\{[\d\.\,]+\}\:))"); 
+                std::smatch match;
+                //if value is a complex array do not display value automatically, only when requested
+                if(val == ""){
+                    std::string group = reply->rep_group.get()->toSetString();
+                    ss.tellp() == std::streampos(0) ? ss<< "[": ss<<",";
+                    ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<reply->rep_di.c_str()
+                                <<"\",group=\""<<group.substr(1,group.length()-2)
+                                <<"\",value=\""<<""<<"\"}";
+                    continue;
+                }
+                while (std::regex_search(val, match, value_regex)) {
+                    ss.tellp() == std::streampos(0) ? ss<< "[": ss<<",";
+                    ss<<"{name=\""<<v->var_name<<"\",type=\""<<v->var_type<<"\",proc_set=\""<<match[1].str()
+                                <<"\",group=\""<<match[2].str()<<"\",value=\""<<match[3].str()<<"\"}";
+                    val = match.suffix().str();
+                }
             }
-            ss<<"]";
-            std::string group = reply->rep_group.get()->toSetString();
-            result<<"{proc_set=\""<<reply->rep_di.c_str()<<"\",group=\""<<group.substr(1,group.length()-2)<<"\",variables="<<ss.str()<<"}";
         } else if (ev == DBGEV_STRING) {
             PrintMultiThreadMsg(reply->rep_di.c_str(), reply->rep_group.get(), reply->rep_event->ev_u.ev_u_string);
         } else {
             PrintOutError("unexpected result type.\n");
         }
     }
-    if (result.tellp() == std::streampos(0)){
-        result<<"msgs=[";
-    }
-
-    result<<"]";
+    ss.tellp() == std::streampos(0) ? ss<< "[]": ss<<"]";
+    result<<"{variables="<<ss.str()<<"}";
 
     mi.set_result(result.str().c_str());
 

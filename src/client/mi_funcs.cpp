@@ -147,19 +147,8 @@ std::string Vars::create(const std::string& inname, const std::string& frame,
     auto value = GetMiValue(expression, ps->s_name);
 
     if (value.empty()) return "error,unable to evaluate";
-
-    //get procset and remove it from value string
-    std::string procset="";
-    static std::regex value_regex(R"((\w+)(?:\{([\d\.]+)\})?\:[\s\S]*)"); 
-    std::smatch match;
-    if (std::regex_match(value, match, value_regex)) {
-        procset = match[1].str();
-    }
-    
-    os << "ok,name=\"" << name << "\", proc_set=\"" << procset << R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
-    // and store it
-    m_vars.insert( std::make_pair(name, Var{name, frame, expression, procset, std::move(value)}));
-
+    os << "ok,name=\"" << name <<  R"(",numchild="0",in_scope="true", has_more="0", value=")"<< value << "\"";
+    m_vars.insert( std::make_pair(name, Var{name, frame, expression, "all", std::move(value)}));
     return os.str();
 }
 

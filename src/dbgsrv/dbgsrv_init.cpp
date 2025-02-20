@@ -14,6 +14,7 @@
  *********************************************************************************/
 #include "config.h"
 
+#include "mi_utils.h"
 #include "dbgsrv_gdbmi.h"
 #include "dbgsrv_defs.h"
 #include "dbgevent.h"
@@ -596,9 +597,22 @@ dbgevent_t *DbgGdbMI::Initializer::continueToEntryPoint() {
         // now we want to issue the finish command to get back to main.
         // sometimes gdb doesn't give us a reason= item on the stopped event here for whatever reason
         DVPRINT("calling finish on initial frame\n");
-        if (auto [evt, e] = continueToEvent(FINISH); e) {
+
+        // See CPE-8194. On certain python versions on certain architectures,
+        // gdb encounters a bug in the finish command resulting in the finish
+        // operation successfully completing, but gdb never emits `*stopped` to
+        // tell us.
+        //
+        // TODO: this is only known to be a problem in certain python versions on aarch,
+        // so maybe we should add some checks and only do this on those versions/aarch,
+        // but for now I don't think it's worth the complexity.
+        auto continue_type = m_dbg.isPython() ? FINISH_PARANOID : FINISH;
+
+        // note that FINISH_PARANOID might return {nullptr, nullptr} (which
+        // indicates "successfully stopped") and fall through all of these branches
+        if (auto [evt, e] = continueToEvent(continue_type); e) {
             return e;
-        } else if (evt->type != MIEventTypeFunctionFinished && evt->type != MIEventTypeNoReason) {
+        } else if (evt && evt->type != MIEventTypeFunctionFinished && evt->type != MIEventTypeNoReason) {
             // we didn't finish the function
             return NewErrorEvent(DBGERR_DEBUGGER,
                                  "Failed to finish the entry function.");
@@ -625,6 +639,11 @@ static void console_callback(void* /*ctx*/, char *str) {
 static void log_callback(void* /*actually a DbgGdbMI* */ gdbmi, char *str) {
     DVPRINT("*** Dbg %s, %s, gdbmi %p, str %s\n", __FILE__, __func__, gdbmi, str);
 
+    if (!gdbmi || !str) {
+        DVPRINT("Error in event_callback, nullptr input\n");
+        return;
+    }
+
     constexpr auto cuda_api_error = std::string_view{"warning: Cuda API error detected:"};
 
     if (gdbmi && str && ::strncmp(cuda_api_error.data(), str, cuda_api_error.size()) == 0) {
@@ -634,9 +653,9 @@ static void log_callback(void* /*actually a DbgGdbMI* */ gdbmi, char *str) {
         // so omit the last two characters
         e->ev_u.ev_u_string = ::strndup(str, str_len - 2);
         static_cast<DbgGdbMI*>(gdbmi)->injectAsyncEvent(e);
-    } else {
-        DVPRINT("Error in event_callback, nullptr input\n");
     }
+
+    // else nothing needs to be done
 }
 
 static void target_callback(void* /*ctx*/, char *str) {
@@ -1647,7 +1666,7 @@ void DbgGdbMI::Initializer::setDataDir(const char* gdb) {
         dataDir = exec;
         free(exec);
 
-        if (auto loc = dataDir.find("/bin/")) {
+        if (auto loc = dataDir.find("/bin/"); loc != std::string::npos) {
             dataDir.replace(loc, std::string::npos, "/share/gdb");
         } else {
             dataDir.clear();
@@ -1707,7 +1726,8 @@ DbgGdbMI::Initializer::continueToEvent(ContinueType ctype) {
     switch (ctype) {
     case CONTINUE: cmd = MIExecContinueAll(); break;
     case NEXTI: cmd = MICommandNew("-exec-next-instruction", MIResultRecordRUNNING); break;
-    case FINISH: cmd = MIExecFinish(); break;
+    case FINISH: [[ fallthrough ]];
+    case FINISH_PARANOID: cmd = MIExecFinish(); break;
     }
 
     if (!cmd) {
@@ -1738,8 +1758,69 @@ DbgGdbMI::Initializer::continueToEvent(ContinueType ctype) {
     MICommandFree(cmd);
 
     DVPRINT("wait for aysnc event\n");
-    MIEvent *evt = m_dbg.waitForAsyncEvent();
-    DVPRINT("got event of type %d\n", evt->type);
+    auto* evt = std::invoke([&]() -> MIEvent* {
+        if (ctype == FINISH_PARANOID) {
+            // XXX: big ugly hack because of CPE-8194
+            DVPRINT("being paranoid about finish\n");
+
+            while (true) {
+                auto* evt = m_dbg.waitForAsyncEvent(/*timeout=*/ true);
+                if (evt) {
+                    DVPRINT("got the real event while being paranoid. phew.\n");
+                    return evt;
+                }
+
+                // evt == nullptr implies we are still running, but check if we
+                // secretly actually stopped. see CPE-8194 for why we need to do this.
+                // we use thread info to validate that we are actually running.
+
+                auto thr_cmd = make_MICmd(MIThreadInfo(nullptr /* all threads */));
+                SendMICommand(m_session, thr_cmd.get());
+
+                if (!MICommandResultOK(thr_cmd.get())) {
+                    // treat command errors as "no evidence that we're stopped". continue waiting.
+                    DVPRINT("failed to run thread info command, continuing to wait\n");
+                    continue;
+                }
+
+                auto thr_info = std::unique_ptr<MIThreadInfoResult, decltype(&MIThreadInfoResultFree)>
+                    (MIGetThreadInfoResult(thr_cmd.get()), MIThreadInfoResultFree);
+
+                if (!thr_info) {
+                    DVPRINT("failed to parse thread info, continuing to wait\n");
+                    continue;
+                }
+
+                // is the current thread stopped?
+                MIListSet(thr_info->threads);
+                for (auto* thr_it = (MIThread*)MIListGet(thr_info->threads);
+                     thr_it != nullptr;
+                     thr_it = (MIThread*)MIListGet(thr_info->threads)
+                ) {
+                    if (thr_it->id == thr_info->current_thread) {
+                        if (thr_it->state == THREADSTATE_STOPPED) {
+                            // gdb lied, we're actually stopped!
+                            // BUT, there is a race condition - if the app stopped between
+                            // the last waitForAsyncEvent and the initiation of the thread
+                            // info command, there might be an async event waiting for us
+                            // so check one last time.
+                            DVPRINT("paranoia detected that we're stopped. ending wait\n");
+                            return m_dbg.waitForAsyncEvent(/*timeout=*/ true);
+                        } else {
+                            // current thread is running. continue waiting.
+                            break;
+                        }
+                    }
+                }
+                // waitForAsyncEvent truthfully reported that we are still
+                // running. keep waiting for event.
+            }
+        } else {
+            return m_dbg.waitForAsyncEvent();
+        }
+    });
+
+    DVPRINT("got event of type %d\n", evt ? evt->type : -1);
 
     return std::make_pair(MIEventPtr{evt,MIEventFree}, nullptr);
 }

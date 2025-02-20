@@ -4285,14 +4285,20 @@ void DbgGdbMI::asyncCheck(std::function<dbgevent_t*()> rtn) {
     m_async_event_callback = rtn;
 }
 
-MIEvent* DbgGdbMI::waitForAsyncEvent()
+MIEvent* DbgGdbMI::waitForAsyncEvent(bool timeout)
 {
     // set the status to running
     Status = DBGSTAT_RUNNING;
 
     // wait for the asynch command to complete
-    while (m_pending_event == nullptr) {
+    if (timeout) {
+        // MISessionProgress has a timeout built in (set with MISessionSetTimeout),
+        // so the `timeout` argument is just specifying that we use it or not
         MISessionProgress(GDBMISession);
+    } else {
+        while (m_pending_event == nullptr) {
+            MISessionProgress(GDBMISession);
+        }
     }
 
     // grab the pending asynch

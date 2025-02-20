@@ -130,7 +130,12 @@ public:
     bool isPython() const;
     void setPython(bool isPython);
 
-    MIEvent* waitForAsyncEvent();
+    // wait for an async event to happen. if `timeout` is false, the operation
+    // is blocking and potentially will wait forever. if `timeout` is true,
+    // return nullptr if no async event happens after the timeout set in the MI
+    // session.
+    MIEvent* waitForAsyncEvent(bool timeout = false);
+
     dbgevent_t* waitAndProcessAsyncEvent();
     int flushAsyncEvents();
 
@@ -265,7 +270,24 @@ private:
     void quitGdb(bool detach);
 
     using MIEventPtr = std::unique_ptr<MIEvent,decltype(&MIEventFree)>;
-    enum ContinueType { CONTINUE, NEXTI, FINISH };
+
+    // `continueToEvent` executes a command specified by `ctype` and waits for an
+    // async event to be emitted from mi. on success, returns {event, nullptr}. On
+    // error, returns {nullptr, error}. (but see FINISH_PARANOID for a special case.)
+    enum ContinueType {
+        // execute a continue command
+        CONTINUE,
+        // execute a nexti command
+        NEXTI,
+        // execute a finish command
+        FINISH,
+        // logically the same as FINISH, but take a performance hit by manually checking
+        // if gdb has finished the function without telling us. see CPE-8194.
+        // note that if the parnoia turns out to be justified and the function detects
+        // that we stopped without an event, the function returns {nullptr, nullptr} because
+        // there was no event given to us by mi to return.
+        FINISH_PARANOID
+    };
     std::pair<MIEventPtr, dbgevent_t*> continueToEvent(ContinueType ctype=CONTINUE);
 
     DbgGdbMI& m_dbg;

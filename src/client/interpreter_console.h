@@ -1,4 +1,4 @@
-// Copyright 2023 Hewlett Packard Enterprise Development LP.
+// Copyright 2023-2025 Hewlett Packard Enterprise Development LP.
 //
 // Console Interpreter
 //
@@ -124,4 +124,5 @@ private:
     static void insert_go_commands(CommandNode& root);
     static void insert_procset_commands(CommandNode& root);
     static void insert_utils_commands(CommandNode& root);
+    static void insert_msgqueue_commands(CommandNode& root);
 };

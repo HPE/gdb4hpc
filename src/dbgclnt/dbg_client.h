@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2024 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -500,6 +500,10 @@ rep_set_t DbgPyBEGetGIL(rec_set_t* rec);
 // 3. the app isn't python and there is nothing to do. returns a DBGEV_STRING.
 //    the actual string value is meaningless and shouldn't be printed.
 rep_set_t DbgPyBEAttach(rec_set_t* rec);
+
+// Message Queue Debugging functions
+
+rep_set_t DbgMQDFoo(rec_set_t* rec);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern bool DbgSetLogDir(const std::string& logdir);

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2012 by Monash Uni.
  *
- * Copyright 2013,2020-2023 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -462,6 +462,11 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
 
             case DBGCMD_PYBEATTACH: {
                 e = DbgPyBEAttach();
+                break;
+            }
+
+            case DBGCMD_MQDFOO: {
+                e = DbgMQDFoo();
                 break;
             }
         }

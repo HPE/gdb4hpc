@@ -1,7 +1,7 @@
 /******************************************************************************\
  * dbgcmd.h - Command interface defines
  *
- * Copyright 2013-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -80,6 +80,7 @@ enum dbgcmd {
     DBGCMD_PYBEINJECT,
     DBGCMD_PYBEGETGIL,
     DBGCMD_PYBEATTACH,
+    DBGCMD_MQDFOO,
 };
 
 enum class DbgFrameDir { DOWN, UP, ABSOLUTE };

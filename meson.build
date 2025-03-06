@@ -83,6 +83,7 @@ doctest_proj = subproject(
 )
 doctest_dep = doctest_proj.get_variable('doctest_dep')
 
+dl_dep = dependency('dl') # 'dl' is a magic meson builtin
 pthread_dep = dependency('threads') # 'threads' is a magic meson builtin
 
 # from zmqnet
@@ -504,6 +505,7 @@ dbgsrv = executable(
     './src/dbgsrv/dbgsrv_zmq.cpp',
     './src/dbgsrv/dbgsrv_pybe.cpp',
     './src/dbgsrv/dbgsrv_pybe_rpc.cpp',
+    './src/dbgsrv/dbgsrv_msgqueue.cpp',
     './src/dbgsrv/pybe_comms_dbgsrv.cpp',
     './src/dbgsrv/mi_utils.cpp',
   ],
@@ -521,6 +523,7 @@ dbgsrv = executable(
     libmi_dep,
     unittest_dep,
     tinystl_dep,
+    dl_dep,
   ],
   link_with: [
     libgdb4_dbg_a,
@@ -632,6 +635,7 @@ gdb4hpc = executable(
     './src/client/mi_funcs.cpp',
     './src/client/cmd_python.cpp',
     './src/client/cmd_interpreter.cpp',
+    './src/client/cmd_msgqueue.cpp',
     './src/client/interpreter.cpp',
     './src/client/interpreter_console.cpp',
     './src/client/interpreter_mi.cpp',

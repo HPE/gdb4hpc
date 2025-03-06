@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2013,2020-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -453,6 +453,11 @@ std::vector<dbgevent_t*> DbgReleaseAsyncEvents() {
     // use libmi to process its async events, it is its responsibility to handle
     // if the app is running etc.
     return DbgBackendSW->releaseAsyncEvents();
+}
+
+dbgevent_t *DbgMQDFoo() {
+    DBG_READY();
+    return DbgBackendSW->mqdFoo();
 }
 
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {

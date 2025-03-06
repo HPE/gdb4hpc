@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -28,13 +28,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <dlfcn.h>
 #include <string>
 #include <fstream>
-#include <future>
 #include <functional>
 #include <map>
-#include <set>
 #include <vector>
 #include <regex>
 #include <iomanip>
@@ -50,9 +47,7 @@
 #include "dbgsrv_defs.h"
 #include "dbgsrv_libmi2aif.h"
 #include "dbgsrv_p2p.h"
-#include "dbgsrv_proto.h"
-#include "dbgsrv_util.h"
-#include "defs.h"
+#include "dbgsrv_msgqueue.h"
 #include "useful.h"
 #include "mi_utils.h"
 
@@ -2806,6 +2801,16 @@ dbgevent_t* DbgGdbMI::pyBEHandleAsyncStop(MIEvent* event) {
         DVPRINT("Caught error when handling pybe async event: %s\n", DbgEventErrorStr(error));
         return error;
     }
+}
+
+dbgevent_t* DbgGdbMI::mqdFoo() {
+    if (!GDBMISession) {
+        return NewErrorEvent(DBGERR_INTERNAL, "No session\n");
+    }
+
+    // XXX: obviously hard coding the path is temporary!
+    auto dll = mqd::MQD("/hpcdc/project/pe_users/sko/merge/2024-07-30/local_install/mpich/9.0.0.900/ofi/crayclang/17.0/lib/libtvmpich.so", *GDBMISession);
+    return NewEvent(DBGEV_OK);
 }
 
 /*

@@ -5,7 +5,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2024 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -125,6 +125,10 @@ public:
 
     // initialize pybe after attaching to an already running python app
     dbgevent_t* pyBEAttach();
+
+    // XXX: temporary.
+    // load the message queue debugging library and test it out
+    dbgevent_t* mqdFoo();
 
     // return true if we should prefer the pybe versions of commands when possible
     bool isPython() const;

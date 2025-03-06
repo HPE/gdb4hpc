@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2023 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -2745,6 +2745,12 @@ rep_set_t DbgPyBEGetGIL(rec_set_t* rec) {
 rep_set_t DbgPyBEAttach(rec_set_t* rec) {
     auto req = CommandToSocProto(DBGCMD_PYBEATTACH);
     auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_STRING, DBGEV_OK);
+    return result;
+}
+
+rep_set_t DbgMQDFoo(rec_set_t* rec) {
+    auto req = CommandToSocProto(DBGCMD_MQDFOO);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
     return result;
 }
 

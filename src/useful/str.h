@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2010-2020-2021 Hewlett Packard Enterprise Development LP.
+ * Copyright 2010-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -115,6 +115,7 @@ struct MallocedCharPtr {
     // `ptr` must be allocated with malloc!
     void reset(char* ptr = nullptr) { m_ptr.reset(ptr); }
     char* get() { return m_ptr.get(); }
+    const char* get() const { return m_ptr.get(); }
     char* release();
 
     explicit operator bool() const noexcept { return static_cast<bool>(m_ptr); }

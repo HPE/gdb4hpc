@@ -1,4 +1,4 @@
-// Copyright 2023 Hewlett Packard Enterprise Development LP.
+// Copyright 2023-2025 Hewlett Packard Enterprise Development LP.
 #include "interpreter_console.h"
 
 #include "str.h"
@@ -701,6 +701,7 @@ std::shared_ptr<CommandNode> ConsoleCommandsFactory::make() {
     insert_go_commands(*root);
     insert_procset_commands(*root);
     insert_utils_commands(*root);
+    insert_msgqueue_commands(*root);
 
     return root;
 }
@@ -736,6 +737,10 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
     root.addSubCmd("maint pybe", nullptr, proc_ignore,
                    nullptr, nullptr,
                    "Control the python debugger backend.");
+
+    root.addSubCmd("maint mqd", nullptr, proc_ignore,
+                   nullptr, nullptr,
+                   "Control message queue debugging features.");
 
     root.addSubCmd("unset", nullptr, proc_ignore,
                    nullptr, class_unset_help,

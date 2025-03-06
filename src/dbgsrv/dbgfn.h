@@ -3,7 +3,7 @@
  *
  * Copyright (c) 1996-2008 by Guardsoft Pty Ltd.
  *
- * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -96,6 +96,7 @@ extern dbgevent_t *DbgPyBEInject();
 extern dbgevent_t *DbgPyBEGetGIL();
 extern dbgevent_t *DbgPyBEAttach();
 
-std::vector<dbgevent_t*> DbgReleaseAsyncEvents();
+extern dbgevent_t *DbgMQDFoo();
 
+std::vector<dbgevent_t*> DbgReleaseAsyncEvents();
 #endif /* !_DBGFN_H */

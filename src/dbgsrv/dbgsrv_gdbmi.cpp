@@ -2803,13 +2803,51 @@ dbgevent_t* DbgGdbMI::pyBEHandleAsyncStop(MIEvent* event) {
     }
 }
 
+static std::string get_mqd_so_path(MISession& mi) {
+    // according to the message queue debugging whitepaper, we are supposed to read the value of the MPIR_dll_name
+    // variable from the binary. but in cray-mpich, this variable is incorrectly set (CPE-8952).
+    // a cray-specific workaround is to construct the path from the CRAY_MPICH_DIR environment variable.
+    // we still check MPIR_dll_name first since it's canonical and expected to be fixed in cray-mpich
+    // at some point and we want to support non-cray mpi implementations.
+
+    {   // try MPIR_dll_name first
+        auto cmd = make_MICmd(MIDataEvaluateExpression("MPIR_dll_name"));
+        SendMICommand(&mi, cmd.get());
+        if (MICommandResultOK(cmd.get())) {
+            auto dll_path = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+            if (std::filesystem::exists(dll_path.get_view())) {
+                DVPRINT("mqd: found dll path from MPIR_dll_name: %s\n", dll_path.get());
+                return dll_path.get_string();
+            }
+        }
+    }
+
+    // try CRAY_MPICH_DIR as backup
+    if (const char* cray_mpich_dir = std::getenv("CRAY_MPICH_DIR")) {
+        // "libtvmpich.so" is not technically specified in the whitepaper,
+        // but since we're already in a cray-specific branch we can
+        // lean on cray implementation details.
+        auto dll_path = std::string{cray_mpich_dir} + "/lib/libtvmpich.so";
+        if (std::filesystem::exists(dll_path)) {
+            DVPRINT("mqd: found dll path from CRAY_MPICH_DIR: %s\n", dll_path.c_str());
+            return dll_path;
+        }
+    }
+
+    return "";
+}
+
 dbgevent_t* DbgGdbMI::mqdFoo() {
     if (!GDBMISession) {
         return NewErrorEvent(DBGERR_INTERNAL, "No session\n");
     }
 
-    // XXX: obviously hard coding the path is temporary!
-    auto dll = mqd::MQD("/hpcdc/project/pe_users/sko/merge/2024-07-30/local_install/mpich/9.0.0.900/ofi/crayclang/17.0/lib/libtvmpich.so", *GDBMISession);
+    const auto mqd_so_path = get_mqd_so_path(*GDBMISession);
+    if (mqd_so_path.empty()) {
+        return NewErrorEvent(DBGERR_INTERNAL, "Message queue debugging component of the MPI library not found.");
+    }
+
+    auto dll = mqd::MQD(mqd_so_path.c_str(), *GDBMISession);
     return NewEvent(DBGEV_OK);
 }
 

@@ -14,7 +14,7 @@ public:
     //
     // currently nothing is implemented.
 
-    explicit MQD(const char* mqd_so_path, MISession& mi);
+    explicit MQD(const std::string& mqd_so_path, MISession& mi);
     ~MQD();
 
 private:

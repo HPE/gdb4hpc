@@ -1,6 +1,9 @@
 // Copyright 2024-2025 Hewlett Packard Enterprise Development LP.
 
+#include <algorithm>
+#include <functional>
 #include <cstdio>
+#include <cstdlib>
 #include <dlfcn.h>
 #include <iomanip>
 #include <map>
@@ -349,7 +352,7 @@ class SoIface {
 public:
     // given a path to the library .so, dlopen it, setup basic callbacks,
     // and bind the functions provided by the MQD shared library.
-    SoIface(const char* so_path);
+    SoIface(const std::string& so_path);
     ~SoIface();
 
     // these functions are described in sections 5.7 - 5.10 of the whitepaper.
@@ -401,7 +404,7 @@ private:
 };
 
 struct MQD_Impl {
-    explicit MQD_Impl(const char* mqd_so_path, MISession& mi);
+    explicit MQD_Impl(const std::string& mqd_so_path, MISession& mi);
     ~MQD_Impl() = default;
 
     MQD_Impl(const MQD_Impl&) = delete;
@@ -660,7 +663,114 @@ bool Type::operator<(const Type& rhs) const {
     return m_name < rhs.m_name;
 }
 
-MQD_Impl::MQD_Impl(const char* mqd_so_path, MISession& mi)
+static void ensure_mqd_debugging_enabled(Image& img, Process& proc, SoIface& mqd_so, MISession& mi) {
+    // use the mqd.so and other heuristics to ensure message queue debugging is available and enabled
+
+    {   // use image_has_queues to check for required symbols
+        char* msg;
+        auto r = mqd_so.image_has_queues(&img, &msg);
+        DVPRINT("img has queues (0 == success): %d\n", r);
+
+        if (msg) {
+            // the mqd whitepaper says that a message might be set on success or failure.
+            // in practice, the cray-mpich implementation seems to always provide
+            // an error message, even on success.
+            DVPRINT("mqd: ");
+            DVPRINT(msg, "default image");
+            DVPRINT("\n");
+            // mqd.so owns msg so we don't free it
+        }
+        if (r != mqs_ok) {
+            DVPRINT("mqd: mqd.so image_has_queues failed\n");
+            throw std::runtime_error("Message queue debugging not supported (missing symbols)");
+        }
+    }
+
+    // XXX: this check is useless - we ignore the result since cray-mpich always
+    // fails. but we keep it for completeness/documentation sake and hope to
+    // un-ignore it in the future.
+
+    {   // use process_has_queues to check for required runtime settings
+        char* msg2;
+        // note that process_has_queues is only safe if image_has_queues returned mqs_ok
+        auto r2 = mqd_so.process_has_queues(&proc, &msg2);
+        DVPRINT("proc has queues (0 == success): %d\n", r2);
+
+        if (msg2) {
+            // same success/failure behavior as image_has_queues
+            DVPRINT("mqd: ");
+            DVPRINT(msg2, "default process");
+            DVPRINT("\n");
+        }
+        if (r2 != mqs_ok) {
+            // XXX: this should throw and exception, but cray-mpich seems to
+            // fail every time, so ignore it for now.
+            DVPRINT("mqd: mqd.so process_has_queues failed. continuing anyway.\n");
+        }
+    }
+
+    // check that one of the appropriate environment variables are set
+    //
+    // XXX: process_has_queues is already supposed to do this check for us
+    // in a way that's agnostic to the MPI implementation, but since process_has_queues
+    // always fails for cray-mpich, we do it manually here for now.
+
+    const std::array evars = {
+        "MPICH_MSQ_QUEUE_DEBUG",
+        "MPIR_CVAR_MSG_QUEUE_DBG",
+    };
+
+    auto any_vars = std::ranges::any_of(evars, [&](const char* evar) {
+        // if the --env flag is used to launch the app, the variable will be
+        // set in the application's environment but not dbgsrv's. so we need
+        // to use gdb to check.
+
+        // get the value of the environment variable
+        const auto setting = std::invoke([&] {
+            // note that we don't use the `show env <evar>` command because it
+            // is populated with gdb's env vars, not the app's and the same --env
+            // limitation described above applies.
+            auto expr = "\"(char *)getenv(\\\"" + std::string{evar} + "\\\")\"";
+            auto cmd = make_MICmd(MIDataEvaluateExpression(expr.c_str()));
+
+            SendMICommand(&mi, cmd.get());
+            if (!MICommandResultOK(cmd.get())) {
+                DVPRINT("mqd: failed to get %s\n", evar);
+                return std::string{};
+            }
+
+            const auto result = MallocedCharPtr(MIGetDataEvaluateExpressionInfo(cmd.get()));
+
+            // e.g '$1 = 0x7ffc408ec7a4 "1"'
+            // or '$3 = 0x0'
+
+            auto result_view = result.get_view();
+            const auto quote_idx = result_view.find('"');
+            if (quote_idx == std::string_view::npos || quote_idx + 1 >= result_view.size()) {
+                return std::string{};
+            }
+
+            const auto unquoted = StripQuotes(result_view.substr(quote_idx));
+            DVPRINT("mqd: found %s = %s\n", evar, unquoted.c_str());
+            return unquoted;
+        });
+
+        return !setting.empty() && setting != "0";
+    });
+
+    if (!any_vars) {
+        DVPRINT("mqd: missing environment variable. none of these were found:\n");
+        for (const auto& evar : evars) {
+            DVPRINT("- %s\n", evar);
+        }
+        throw std::runtime_error(
+            "Message queue debugging not enabled. Try setting one of these "
+            "environment variables to '1': " +
+            std::string{evars[0]} + ", " + evars[1]);
+    }
+}
+
+MQD_Impl::MQD_Impl(const std::string& mqd_so_path, MISession& mi)
     : m_so(mqd_so_path)
     , m_mi{mi}
 {
@@ -668,37 +778,25 @@ MQD_Impl::MQD_Impl(const char* mqd_so_path, MISession& mi)
     DVPRINT("mqd compat: %d\n", m_so.version_compatibility());
     DVPRINT("mqd bitwidth: %d\n", m_so.dll_taddr_width());
 
+    // set up state
+    //
+    // TODO: img will be a member variable eventually
+    Image img { .m_valid_types = {}, .m_mqd_impl = *this };
+    if (auto r = m_so.setup_image(&img); r != mqs_ok) {
+        DVPRINT("mqd: setup_image did not return ok (got %d). continuing anyway.\n", r);
+    }
+
+    // TODO: proc will be a member variable eventually
+    Process proc { .m_image = img, .m_mqd_impl = *this };
+    if (auto r = m_so.setup_process(&proc); r != mqs_ok) {
+        DVPRINT("mqd: setup_process did not return ok (got %d). continuing anyway.\n", r);
+    }
+
+    // throws on failure
+    ensure_mqd_debugging_enabled(img, proc, m_so, mi);
+
     {
-        // temporary beta code
-
-        // for each mqs_image, call mqs_setup_image
-        Image img { .m_valid_types = {}, .m_mqd_impl = *this };
-        m_so.setup_image(&img);
-
-        {
-            char* msg;
-            auto r = m_so.image_has_queues(&img, &msg);
-            DVPRINT("img has queues (0 == success): %d\n", r);
-            if (r != mqs_ok && msg) {
-                DVPRINT("mqd: ");
-                DVPRINT(msg, "default image");
-                DVPRINT("\n");
-            }
-        }
-
-        Process proc { .m_image = img, .m_mqd_impl = *this };
-        m_so.setup_process(&proc);
-
-        {
-            char* msg2;
-            auto r2 = m_so.process_has_queues(&proc, &msg2);
-            DVPRINT("proc has queues (0 == success): %d\n", r2);
-            if (r2 != mqs_ok && msg2) {
-                DVPRINT("mqd: ");
-                DVPRINT(msg2, "default process");
-                DVPRINT("\n");
-            }
-        }
+        // temporary beta code - this will become a standalone command in CPE-5875
 
         DVPRINT("mqd: update comm list\n");
         auto update_r = m_so.update_communicator_list(&proc);
@@ -737,10 +835,11 @@ static auto bind_fn(auto& fnptr, const char* name, void* raw_so) {
     fnptr = reinterpret_cast<decltype(fnptr)>(symbol);
 }
 
-SoIface::SoIface(const char* so_path) {
-    m_raw_so = ::dlopen(so_path, RTLD_NOW | RTLD_LOCAL);
+SoIface::SoIface(const std::string& so_path) {
+    DVPRINT("mqd: opening %s\n", so_path.c_str());
+    m_raw_so = ::dlopen(so_path.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!m_raw_so) {
-        throw std::runtime_error("Failed to open mqd.so");
+        throw std::runtime_error("Failed to open " + so_path + ": " + ::dlerror());
     }
 
     // setup fns
@@ -785,7 +884,7 @@ SoIface::~SoIface() {
 // implementation of the public API
 namespace mqd {
 
-MQD::MQD(const char* mqd_so_path, MISession& mi)
+MQD::MQD(const std::string& mqd_so_path, MISession& mi)
     : m_impl{std::make_unique<MQD_Impl>(mqd_so_path, mi)}
 {}
 

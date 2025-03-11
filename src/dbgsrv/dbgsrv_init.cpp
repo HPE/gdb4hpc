@@ -55,12 +55,6 @@ static MICommand *CLIBypassc(int cmd_argc, const char *cmd_argv[]) {
     return CLIBypass(cmd_argc, const_cast<char **>(cmd_argv));
 }
 
-#ifndef ALPS
-// These are for sending the target output to the fe
-static int WRITE_fd;
-static int dbgsrv_fd;
-#endif
-
 DbgGdbMI::Initializer::Initializer(DbgGdbMI& dbg)
     : m_dbg(dbg), m_session(nullptr), m_pid(0), m_mainFunction{}
 {}
@@ -152,27 +146,9 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
     // have libmi service the output.
     *dfd = m_session->out_fd;
 
-#ifndef ALPS
-    int progio_pipe[2];
-
-    // We might want to forward output to the frontend
-    // Create a pipe to use as a control channel
-    if (pipe(progio_pipe)) {
-        EVENT_ERROR(e, DBGERR_PIPE,
-                    "Could not create a pipe for app stdout redirection.");
-        return e;
-    }
-    // set libmi's target callback end of the pipe
-    WRITE_fd = progio_pipe[1];
-    dbgsrv_fd = progio_pipe[0];
-    *iofd = dbgsrv_fd;
-
-    DVPRINT("non-alps iofd is %d\n", *iofd);
-#else
     // ALPS already forwards the stdout to the frontend for us.
     *iofd = -1;
     DVPRINT("alps iofd is %d\n", *iofd);
-#endif
 
     // set in DbgGdbMI::init
     //Status = DBGSTAT_INITIALISING;

@@ -48,7 +48,6 @@ product_description: |
 known_issues:
 notes:
 product_dependencies:
- - cray-mrnet <mrnet_version_range> installed
  - cray-cti <cti_version_range> installed
  - cdst-support <cdst_version_range> installed
 os_dependencies:

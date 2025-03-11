@@ -16,13 +16,7 @@
 
 #include "config.h"
 
-#ifdef ZMQNET
 #define DBG_PROTO "zmqnet"
-#elif MRNET
-#define DBG_PROTO "mrnet"
-#else
-#define DBG_PROTO "socket" /* "socket" or "mrnet" or "zmqnet" */
-#endif
 
 #define DBG_BACKEND "gdbmi"
 
@@ -31,9 +25,7 @@
 #define GUARD_INST_DIRECTORY "GDB4HPC_INSTALL_DIR"
 #define LIBALPS_ENABLE_DSL "LIBALPS_ENABLE_DSL"
 #define GUARD_LIBALPS_ENABLE_DSL "GDB4HPC_LIBALPS_ENABLE_DSL"
-#define GUARD_MRNET_PORT "GUARD_MRNET_PORT_BASE"
 #define GDB4HPC_DEFAULT_NUM_RANKS "GDB4HPC_DEFAULT_NUM_RANKS"
-#define DEFAULT_MRNET_PORT_BASE "20000"
 #define GDB4HPC_BE_SUPPRESSIONS "gdb4hpc_be_suppressions.txt"
 
 // CCE version 16 has a known issue where GDB may not immediately recognize Fortran

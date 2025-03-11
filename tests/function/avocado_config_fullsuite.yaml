@@ -1,3 +1,2 @@
 timeout: 150
-mrnet_flag: true # run mrnet tests
 prgenvs_flag: true # run tests under other prgenvs

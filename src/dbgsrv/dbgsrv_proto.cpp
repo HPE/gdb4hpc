@@ -38,14 +38,8 @@
  * translation units so each protocol calls its constructor and registers itself.
 */
 static void linkProtos() {
-    #ifdef MRNET
-    extern void MRNServerProtocol_link();
-    MRNServerProtocol_link();
-    #endif
-    #ifdef ZMQNET
     extern void ZMQServerProtocol_link();
     ZMQServerProtocol_link();
-    #endif
 
     // avoid "unused function" warning
     if (false)

@@ -53,10 +53,6 @@
 %global cti_pkgversion_min %(%{_sourcedir}/get_package_data --ctiversionmin)
 %global cti_pkgversion_max %(%{_sourcedir}/get_package_data --ctiversionmax)
 
-# mrnet version
-%global mrnet_pkgversion_min %(%{_sourcedir}/get_package_data --mrnetversionmin)
-%global mrnet_pkgversion_max %(%{_sourcedir}/get_package_data --mrnetversionmax)
-
 # zmqnet version
 %global zmqnet_pkgversion_min %(%{_sourcedir}/get_package_data --zmqnetversionmin)
 %global zmqnet_pkgversion_max %(%{_sourcedir}/get_package_data --zmqnetversionmax)
@@ -71,7 +67,6 @@
 # Filter requires - these all come from the cdst-support rpm
 # These should match what is excluded in the cdst-support rpm specfile!
 %global privlibs             libboost.*
-%global privlibs %{privlibs}|libmrnet.*
 %global privlibs %{privlibs}|libxplat.*
 %global privlibs %{privlibs}|libssh2
 %global privlibs %{privlibs}|libarchive
@@ -143,7 +138,7 @@ License:    HPE Proprietary
 Vendor:     Hewlett Packard Enterprise Development LP.
 Group:      Development/Tools/Debuggers
 Provides:   %{cray_name} = %{pkgversion}
-Requires:   set_default_3, cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}, cray-mrnet >= %{mrnet_pkgversion_min}, cray-mrnet < %{mrnet_pkgversion_max}, cray-zmqnet >= %{zmqnet_pkgversion_min}, cray-zmqnet < %{zmqnet_pkgversion_max}
+Requires:   set_default_3, cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}, cray-zmqnet >= %{zmqnet_pkgversion_min}, cray-zmqnet < %{zmqnet_pkgversion_max}
 Source0:    %{module_template_name}
 Source2:    %{release_notes_file}
 Source3:    %{attributions_name}
@@ -166,7 +161,7 @@ Tests for Cray gdb4hpc parallel debugger
 %setup -q -n %{name} -c -T
 %build
 # external build
-%{__sed} 's|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{version}-%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<DIST>|%{dist}.%{_target_cpu}|g;s|<ARCH>|%{_target_cpu}|g;s|<ATTRIBUTIONS_FILE_PATH>|%{cray_prefix}/%{product}/%{pkgversion}/%{attributions_name}|g;s|<cdst_version_range>|>= %{cdst_support_pkgversion_min}, < %{cdst_support_pkgversion_max}|g;s|<cti_version_range>|%{cti_pkgversion_min}, < %{cti_pkgversion_max}|g;s|<mrnet_version_range>|>= %{mrnet_pkgversion_min}, < %{mrnet_pkgversion_max}|g;s|<zmqnet_version_range>|>= %{zmqnet_pkgversion_min}, < %{zmqnet_pkgversion_max}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_notes_file}
+%{__sed} 's|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{version}-%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<DIST>|%{dist}.%{_target_cpu}|g;s|<ARCH>|%{_target_cpu}|g;s|<ATTRIBUTIONS_FILE_PATH>|%{cray_prefix}/%{product}/%{pkgversion}/%{attributions_name}|g;s|<cdst_version_range>|>= %{cdst_support_pkgversion_min}, < %{cdst_support_pkgversion_max}|g;s|<cti_version_range>|%{cti_pkgversion_min}, < %{cti_pkgversion_max}|g;s|<zmqnet_version_range>|>= %{zmqnet_pkgversion_min}, < %{zmqnet_pkgversion_max}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_notes_file}
 %{__sed} 's|<COPYRIGHT>|%{copyright}|g' %{SOURCE3} > ${RPM_BUILD_DIR}/%{attributions_name}
 
 %install
@@ -182,7 +177,6 @@ Tests for Cray gdb4hpc parallel debugger
 # Libraries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libgdb4_unittest.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
-%{__cp} -a %{external_build_dir}/lib/libgdb4_dbgagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 %{__cp} -a %{external_build_dir}/lib/libgdb4_zmqnetagg.so ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/lib
 
 # The pybe libraries require debug info to work - the rpm packaging process will strip them
@@ -205,7 +199,6 @@ Tests for Cray gdb4hpc parallel debugger
 # libexec binaries
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/dbgsrv ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
-%{__cp} -a %{external_build_dir}/libexec/dbgsrv_alps ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 %{__cp} -a %{external_build_dir}/libexec/gdb-guard ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/libexec
 
 # Binaries
@@ -486,7 +479,6 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_checkpoint2.in        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint2.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_cmp_false.in          ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_cmp_false.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_cmp_true.in           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_cmp_true.in
-%{__cp} -a %{tests_source_dir}/function/tests.py.data/c_commnode_fanout.in    ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_commnode_fanout.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_defset.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_defset.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_finish.in             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_finish.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/c_focus.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_focus.in
@@ -728,7 +720,6 @@ fi
 %ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.13.gz
 %ghost %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.13.so
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_dbgagg.so
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/lib/libgdb4_zmqnetagg.so
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/Makefile
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/mpi_example/hello_mpi.f90
@@ -741,7 +732,6 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/demos/hpcc_demo/hpcc_scripts/*.rc
 
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv
-%attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/dbgsrv_alps
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/libexec/gdb-guard
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/bin/gdb4hpc
 #gdb share
@@ -968,7 +958,6 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_checkpoint2.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_cmp_false.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_cmp_true.in
-%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_commnode_fanout.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_defset.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_finish.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/c_focus.in

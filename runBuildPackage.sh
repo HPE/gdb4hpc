@@ -21,9 +21,6 @@ check_exit_status
 module load cray-cti-devel
 check_exit_status
 
-module load cray-mrnet
-check_exit_status
-
 module load cray-zmqnet-devel
 check_exit_status
 

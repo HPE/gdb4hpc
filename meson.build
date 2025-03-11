@@ -46,13 +46,7 @@ zmqnet_dep = dependency(
   not_found_message: 'Try `module load cray-zmqnet` first.',
 )
 
-mrnet_dep = dependency(
-  'cray-mrnet',
-  method: 'pkg-config',
-  not_found_message: 'Try `module load cray-mrnet` first.',
-)
-
-# for boost (used in mrnet proto)
+# for elfutils
 cdst_support_dep = dependency(
   'cray-cdst-support',
   method: 'pkg-config',
@@ -104,10 +98,6 @@ conf = configuration_data()
 
 conf.set_quoted('GDB4HPC_VERSION', meson.project_version(), description: 'the gdb4hpc version including build number, e.g. 4.16.3.99')
 conf.set_quoted('GDB4HPC_VERSION_SHORT', version_short, description: 'the gdb4hpc version not including build number, e.g. 4.16.3')
-
-conf.set('ZMQNET', 1, description: 'legacy. always 1.')
-conf.set('MRNET', 1, description: 'legacy. always 1.')
-conf.set('ALPS', 1, description: 'legacy. always 1.')
 
 # internal dependencies ----------------------------------------------------------------
 #
@@ -251,28 +241,6 @@ libgdb4_dmr_a = static_library(
   ],
 )
 
-libgdb4_dbgagg_so = shared_library(
-  'gdb4_dbgagg',
-  sources: [
-    './src/filters/mrnet/Aggregation.cpp',
-  ],
-  include_directories: [
-    './src/filters',
-    './src/bitset',
-  ],
-  dependencies: [
-    mrnet_dep,
-    cdst_support_dep,
-    unittest_dep,
-  ],
-  link_with: [
-    libgdb4_dmr_a,
-    libgdb4_bitset_a,
-  ],
-  install: true,
-  install_dir: './lib',
-)
-
 libgdb4_zmqnetagg_so = shared_library(
   'gdb4_zmqnetagg',
   sources: [
@@ -349,9 +317,6 @@ libgdb4_dbgclnt_a = static_library(
     './src/dbgclnt/dbgoutp.cpp',
     './src/dbgclnt/observable.cpp',
     './src/dbgclnt/dwarfinfo.cpp',
-    './src/dbgclnt/dbgclnt_mrn.cpp',
-    './src/dbgclnt/dbg_mrn_network.cpp',
-    './src/dbgclnt/mrn_topgen.cpp',
     './src/dbgclnt/dbgclnt_zmq.cpp',
     './src/dbgclnt/dbg_zmq_network.cpp',
     './src/dbgclnt/launchopts.cpp',
@@ -368,32 +333,11 @@ libgdb4_dbgclnt_a = static_library(
   dependencies: [
     cti_fe_dep,
     cdst_support_dep,
-    mrnet_dep,
     zmqnet_dep,
     libmi_dep,
     unittest_dep,
   ],
 )
-
-dbgsrv_alps = executable(
-  'dbgsrv_alps',
-  ['./src/dbgsrv/dbgsrv_alps_mrn.cpp'],
-  include_directories: [
-    './src',
-    './src/useful',
-  ],
-  dependencies: [
-    cti_be_dep,
-    unittest_dep,
-  ],
-  link_with: [
-    libgdb4_useful_a,
-  ],
-  install: true,
-  install_dir: './libexec',
-)
-
-test('dbgsrv_alps unit tests', dbgsrv_alps, args: ['--test'])
 
 libgdb4_unversioned_basename = 'gdb4_pybe_'
 conf.set_quoted('PYBE_SO_UNVERSIONED_BASENAME', 'lib' + libgdb4_unversioned_basename,
@@ -499,9 +443,6 @@ dbgsrv = executable(
     './src/dbgsrv/dbgsrv_typeparser.cpp',
     './src/dbgsrv/dbgsrv_util.cpp',
     './src/dbgsrv/dbgsrv_p2p.cpp',
-    './src/dbgsrv/dbg_mrn_be.cpp',
-    './src/dbgsrv/dbgsrv_mrn.cpp',
-    './src/dbgsrv/mrn_topo.cpp',
     './src/dbgsrv/dbgsrv_zmq.cpp',
     './src/dbgsrv/dbgsrv_pybe.cpp',
     './src/dbgsrv/dbgsrv_pybe_rpc.cpp',
@@ -517,9 +458,7 @@ dbgsrv = executable(
   ],
   dependencies: [
     cti_be_dep,
-    mrnet_dep,
     zmqnet_dep,
-    cdst_support_dep,
     libmi_dep,
     unittest_dep,
     tinystl_dep,
@@ -653,9 +592,7 @@ gdb4hpc = executable(
   ],
   dependencies: [
     zmqnet_dep,
-    mrnet_dep,
     cti_fe_dep,
-    cdst_support_dep,
     system_python_dep,
     libedit_dep,
     libdw_dep,

@@ -354,10 +354,6 @@ class Gdb4hpcTest(Test):
         if not os.getenv("GDB4HPC_STARTUP_TIMEOUT"):
             os.environ["GDB4HPC_STARTUP_TIMEOUT"] = "30" # seconds
 
-    def run_under_mrnet(self):
-        os.environ["GDB4HPC_PROTO"] = "mrnet"
-        self.proto = "mrnet"
-
 class UnitTests(Gdb4hpcTest):
     def run_unit_tests(test: Gdb4hpcTest, binary: str):
         p = subprocess.run([binary, "--has-tests"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -394,12 +390,6 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_breakpoint_save"
         runTest(self)
 
-    @avocado.skipUnless(lambda t: t.params.get("mrnet_flag", default=False), "mrnet_flag not set")
-    def test_c_breakpoint_mrnet(self):
-        self.base_name = "c_breakpoint"
-        self.run_under_mrnet()
-        runTest(self)
-
     def test_c_breakpoint_pending(self):
         self.base_name = "c_breakpoint_pending"
         runTest(self)
@@ -428,12 +418,6 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_frame"
         runTest(self)
 
-    @avocado.skipUnless(lambda t: t.params.get("mrnet_flag", default=False), "mrnet_flag not set")
-    def test_c_frame_mrnet(self):
-        self.base_name = "c_frame"
-        self.run_under_mrnet()
-        runTest(self)
-        
     def test_c_gdbmode(self):
         self.base_name = "c_gdbmode"
 
@@ -611,12 +595,6 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "assert_arrays"
         runTest(self)
 
-    @avocado.skipUnless(lambda t: t.params.get("mrnet_flag", default=False), "mrnet_flag not set")
-    def test_assert_arrays_mrnet(self):
-        self.base_name = "assert_arrays"
-        self.run_under_mrnet()
-        runTest(self)
-
     def test_assert_decomp(self):
         self.base_name = "assert_decomp"
         runTest(self)
@@ -655,12 +633,6 @@ class FunctionTests(Gdb4hpcTest):
 
     def test_ftn_arrays(self):
         self.base_name = "ftn_arrays"
-        runTest(self)
-    
-    @avocado.skipUnless(lambda t: t.params.get("mrnet_flag", default=False), "mrnet_flag not set")
-    def test_ftn_arrays_mrnet(self):
-        self.base_name = "ftn_arrays"
-        self.run_under_mrnet()
         runTest(self)
     
     @avocado.skipUnless(lambda t: t.params.get("prgenvs_flag", default=False), "prgenvs_flag not set")
@@ -732,12 +704,6 @@ class FunctionTests(Gdb4hpcTest):
 
     def test_cpp_arrays_print(self):
         self.base_name = "cpp_arrays_print"
-        runTest(self)
-
-    @avocado.skipUnless(lambda t: t.params.get("mrnet_flag", default=False), "mrnet_flag not set")
-    def test_cpp_arrays_print_mrnet(self):
-        self.base_name = "cpp_arrays_print"
-        self.run_under_mrnet()
         runTest(self)
 
     @avocado.skipUnless(lambda t: t.params.get("prgenvs_flag", default=False), "prgenvs_flag not set")
@@ -1474,41 +1440,4 @@ class PythonTest(Gdb4hpcTest):
         )
         runTest(self, substitutions = subs)
 
-
-class c_commnode_fanout(Gdb4hpcTest):
-    def getLogDir(self):
-        return f"{os.path.dirname(os.path.abspath(__file__))}/mrnet_logs_{os.getpid()}"
-
-    def setUp(self):
-        super().setUp()
-        # create mrnet log dir
-        os.mkdir(self.getLogDir())
-        self.run_under_mrnet()
-
-    @avocado.skipUnless(lambda t: t.params.get("mrnet_flag", default=False), "mrnet_flag not set")
-    def test(self):
-        self.base_name = "c_commnode_fanout"
-        # set fanout env variable to force invocation of mrnet_commnode
-        os.environ["GUARD_MRNET_TOP_FANOUT"] = "2"
-        os.environ["MRNET_DEBUG_LOG_DIRECTORY"] = self.getLogDir()
-        os.environ["MRNET_OUTPUT_LEVEL"] = "3"
-
-        runTest(self)
-
-        found = False
-        for file in glob.glob(f"{self.getLogDir()}/FE_*"):
-            magic = "Using CTI to start: mrnet_commnode"
-            data = open(file, "r").read()
-            print(file)
-            print(data) # write to job log
-            if magic in data:
-                print(f"found in {file}")
-                found = True
-                break
-
-        self.assertTrue(found, f"\"{magic}\" not found in MRNET logs. Check job.log for contents")
-
-    def tearDown(self):
-        # cleanup mrnet log dir
-        shutil.rmtree(self.getLogDir())
 

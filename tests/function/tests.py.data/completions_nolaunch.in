@@ -90,6 +90,7 @@ variable
 complete
 echo
 list-cached-frames
+mqd
 pybe
 set
 show

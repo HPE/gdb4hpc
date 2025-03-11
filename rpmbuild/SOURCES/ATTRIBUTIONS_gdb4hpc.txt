@@ -192,17 +192,6 @@ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 
 
-MRNet - libmrnet
-------
-http://git.dyninst.org/
-LGPLv2.1+: GNU Lesser General Public License v2.1 or later
-
-Copyright 2011-2020 Hewlett Packard Enterprise Development LP.
-Copyright © 2003-2012 Dorian C. Arnold, Philip C. Roth, Barton P. Miller
-
-License text appended to this file.
-
-
 bitset library - libbitset
 ------
 https://www.eclipse.org/ptp/

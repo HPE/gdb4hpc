@@ -72,12 +72,6 @@ int clientPrintElements = 0;
 static int directPrintElements = 200;
 static std::string directPrintRepeats = "10";
 
-#ifndef ALPS
-// These are for sending the target output to the fe
-static int WRITE_fd;
-static int dbgsrv_fd;
-#endif
-
 extern appInfo_t other_app;
 
 static dbgevent_t *WaitEvent();

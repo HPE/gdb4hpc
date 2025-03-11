@@ -37,14 +37,8 @@
  * translation units so each protocol calls its constructor and registers itself.
 */
 void registerProtos() {
-    #ifdef MRNET
-    extern void MRNClientProtocol_init();
-    MRNClientProtocol_init();
-    #endif
-    #ifdef ZMQNET
     extern void ZMQClientProtocol_init();
     ZMQClientProtocol_init();
-    #endif
 }
 
 // Used for the protocol wait for events function

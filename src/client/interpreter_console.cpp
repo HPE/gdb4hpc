@@ -738,10 +738,6 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
                    nullptr, nullptr,
                    "Control the python debugger backend.");
 
-    root.addSubCmd("maint mqd", nullptr, proc_ignore,
-                   nullptr, nullptr,
-                   "Control message queue debugging features.");
-
     root.addSubCmd("unset", nullptr, proc_ignore,
                    nullptr, class_unset_help,
                    "Unset information in the debugger environment.");

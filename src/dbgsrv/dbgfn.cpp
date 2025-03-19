@@ -455,9 +455,9 @@ std::vector<dbgevent_t*> DbgReleaseAsyncEvents() {
     return DbgBackendSW->releaseAsyncEvents();
 }
 
-dbgevent_t *DbgMQDFoo() {
+dbgevent_t *DbgMQDGetCommunicators(bool verbose) {
     DBG_READY();
-    return DbgBackendSW->mqdFoo();
+    return DbgBackendSW->mqdGetCommunicators(verbose);
 }
 
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {

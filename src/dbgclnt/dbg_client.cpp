@@ -2748,9 +2748,9 @@ rep_set_t DbgPyBEAttach(rec_set_t* rec) {
     return result;
 }
 
-rep_set_t DbgMQDFoo(rec_set_t* rec) {
-    auto req = CommandToSocProto(DBGCMD_MQDFOO);
-    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_OK);
+rep_set_t DbgMQDGetCommunicators(rec_set_t* rec, bool verbose) {
+    auto req = CommandToSocProto(DBGCMD_MQDGETCOMMUNICATORS, verbose);
+    auto result = DbgSendCmdAndRecvReply(rec, req, DBGEV_MQD_COMMUNICATORS);
     return result;
 }
 

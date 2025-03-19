@@ -2831,18 +2831,48 @@ static std::string get_mqd_so_path(MISession& mi) {
     return "";
 }
 
-dbgevent_t* DbgGdbMI::mqdFoo() {
+mqd::MQD& DbgGdbMI::ensureMQD() {
+    if (m_mqd) return *m_mqd; // no work to do
+
     if (!GDBMISession) {
-        return NewErrorEvent(DBGERR_INTERNAL, "No session\n");
+        throw NewErrorEvent(DBGERR_INTERNAL, "No gdb connection\n");
     }
 
     const auto mqd_so_path = get_mqd_so_path(*GDBMISession);
     if (mqd_so_path.empty()) {
-        return NewErrorEvent(DBGERR_INTERNAL, "Message queue debugging component of the MPI library not found.");
+        throw NewErrorEvent(DBGERR_INTERNAL, "Message queue debugging component of the MPI library not found.");
     }
 
-    auto dll = mqd::MQD(mqd_so_path.c_str(), *GDBMISession);
-    return NewEvent(DBGEV_OK);
+    m_mqd = std::make_unique<mqd::MQD>(mqd_so_path.c_str(), *GDBMISession);
+    return *m_mqd;
+}
+
+dbgevent_t* DbgGdbMI::mqdGetCommunicators(bool verbose) {
+    DVPRINT("mqdGetCommunicators (verbose: %d)\n", verbose);
+
+    auto& mqd = ensureMQD();
+    auto comms = mqd.get_communicators();
+    auto not_shown = 0;
+
+    auto e = NewEvent(DBGEV_MQD_COMMUNICATORS);
+    e->ev_u.ev_u_mqd_communicators = new dbg_mqd_communicators_t{};
+
+    for (const auto& comm : comms) {
+        // XXX: "--unnamed--" is a non-standard cray-mpich implementation detail
+        if (verbose || std::string_view{comm.name} != "--unnamed--") {
+            e->ev_u.ev_u_mqd_communicators->communicators.push_back({
+                .rank = comm.local_rank,
+                .size = comm.size,
+                .name = comm.name,
+            });
+        } else {
+            not_shown++;
+        }
+    }
+
+    e->ev_u.ev_u_mqd_communicators->not_shown = not_shown;
+
+    return e;
 }
 
 /*

@@ -15,6 +15,7 @@
 
 #include "config.h"
 
+#include <functional>
 #include <utility>
 #include <sstream>
 
@@ -23,6 +24,7 @@
 #include <string.h>
 
 #include "dbg.h"
+#include "dbgcomm/dbgevent.h"
 #include "defs.h"
 #include "useful.h"
 
@@ -686,6 +688,39 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
         FreeEvent(e2);
         free(soc);
     }
+
+    SUBCASE("DBGEV_MQD_COMMUNICATORS") {
+        const auto reference_comms = dbg_mqd_communicators_t {
+            .communicators = {
+                { .rank = 3, .size = 4, .name = "MPI_COMM_WORLD" },
+                { .rank = 0, .size = 1, .name = "MPI_COMM_SELF" },
+            },
+            .not_shown = 5,
+        };
+
+        // create event to serialize
+        auto* e = NewEvent(DBGEV_MQD_COMMUNICATORS);
+        e->ev_u.ev_u_mqd_communicators = new dbg_mqd_communicators_t{reference_comms};
+
+        // serialize, frees e
+        auto* soc = EventToSocProto(e);
+        CAPTURE(std::string{soc});
+
+        // deserialize
+        auto* e2 = SocProtoToEvent(soc);
+
+        // check
+        REQUIRE(e2->ev_event == DBGEV_MQD_COMMUNICATORS);
+        CHECK(e2->ev_u.ev_u_mqd_communicators->not_shown == reference_comms.not_shown);
+        REQUIRE(e2->ev_u.ev_u_mqd_communicators->communicators.size() == reference_comms.communicators.size());
+        for (size_t i = 0; i < reference_comms.communicators.size(); i++) {
+            CHECK(e2->ev_u.ev_u_mqd_communicators->communicators[i] == reference_comms.communicators[i]);
+        }
+
+        // clean up
+        FreeEvent(e2);
+        ::free(soc);
+    }
 }
 
 TEST_CASE("CommandToSocProto") {
@@ -1187,6 +1222,20 @@ static char* EventPyExceptionToSocProto(dbgev ev, const dbgpyexception_t& pyexc)
     return MakeSocStr(ev, data.str().c_str());
 }
 
+static char* EventMQDCommunicatorsToSocProto(dbgev ev, const dbg_mqd_communicators_t& comms) {
+    auto data = std::ostringstream{};
+
+    data << comms.communicators.size() << ' ';
+    for (const auto& comm : comms.communicators) {
+        data << comm.rank << ' '
+             << comm.size << ' '
+             << comm.name.size() << ' ' << comm.name << ' ';
+    }
+    data << comms.not_shown;
+
+    return MakeSocStr(ev, data.str().c_str());
+}
+
 /*
 ** This is the main function that converts an event to network protocol
 */
@@ -1296,6 +1345,10 @@ char* EventToSocProto(dbgevent_t *e)
 
     case DBGEV_PYEXCEPTION:
         res = EventPyExceptionToSocProto(ev, *e->ev_u.ev_u_pyexception);
+        break;
+
+    case DBGEV_MQD_COMMUNICATORS:
+        res = EventMQDCommunicatorsToSocProto(ev, *e->ev_u.ev_u_mqd_communicators);
         break;
     }
 
@@ -1798,6 +1851,23 @@ static dbgpyexception_t* SocProtoToPyException(const char* s) {
     return result;
 }
 
+static dbg_mqd_communicators_t* SocProtoToMQDCommunicators(const char* s) {
+    auto result = new dbg_mqd_communicators_t{};
+
+    auto len_comms = getint(s);
+    if (len_comms < 0) return result;
+    for (auto i = size_t{0}; i < static_cast<size_t>(len_comms); i++) {
+        result->communicators.emplace_back(dbg_mqd_communicator_t{
+            .rank = getint(s),
+            .size = getint(s),
+            .name = getStdString(s),
+        });
+    }
+    result->not_shown = getint(s);
+
+    return result;
+}
+
 /*
 ** This is the main function that converts a network protocol string back into
 ** an event.
@@ -1985,6 +2055,12 @@ dbgevent_t *SocProtoToEvent(const char *s) {
         case DBGEV_PYEXCEPTION:
             evdata = getstring(s);
             e->ev_u.ev_u_pyexception = SocProtoToPyException(evdata);
+            ::free(evdata);
+            break;
+
+        case DBGEV_MQD_COMMUNICATORS:
+            evdata = getstring(s);
+            e->ev_u.ev_u_mqd_communicators = SocProtoToMQDCommunicators(evdata);
             ::free(evdata);
             break;
     }

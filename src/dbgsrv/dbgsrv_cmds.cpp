@@ -465,8 +465,10 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
                 break;
             }
 
-            case DBGCMD_MQDFOO: {
-                e = DbgMQDFoo();
+            case DBGCMD_MQDGETCOMMUNICATORS: {
+                bool verbose;
+                is.get(verbose);
+                e = DbgMQDGetCommunicators(verbose);
                 break;
             }
         }
@@ -475,7 +477,7 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
         e = error;
     } catch (const std::runtime_error &exc) {
         DVPRINT("Caught top level dbgsrv exception: %s\n", exc.what());
-        e = NewErrorEvent(DBGERR_INTERNAL, exc.what());
+        e = NewErrorEvent(DBGERR_INTERNAL, "%s", exc.what());
     } catch (...) {
         DVPRINT("Caught unknown top level dbgsrv error\n");
         e =  NewErrorEvent(DBGERR_INTERNAL, "Internal error");

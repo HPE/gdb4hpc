@@ -1440,4 +1440,11 @@ class PythonTest(Gdb4hpcTest):
         )
         runTest(self, substitutions = subs)
 
+    def test_mqd_comms(self):
+        self.base_name = "mqd_comms"
+        runTest(self)
+
+    def test_mqd_detect_env(self):
+        self.base_name = "mqd_detect_env"
+        runTest(self)
 

@@ -1,0 +1,52 @@
+0: maint set sync on
+0: launch $a{8} --env=MPICH_MSG_QUEUE_DBG=1 ./bin/CRAY/c/c_mpi_comms.x
+Starting application, please wait...
+Launched application...
+0/8 ranks connected... (timeout in 300 seconds)
+8/8 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0..7}: Initial breakpoint, main at /src/c/c_mpi_comms.c:5
+0: maint mpi communicators
+a{0..7}: MPI Communicators: 0
+0: break 20
+a{0..7}: Breakpoint 1: file /src/c/c_mpi_comms.c, line 21.
+0: c
+a{0..7}: Breakpoint 1, main at /src/c/c_mpi_comms.c:21
+0: maint mpi communicators
+a{0}: MPI Communicators: 3
+- MPI_COMM_WORLD: rank 0 of 8
+- MPI_COMM_SELF: rank 0 of 1
+- ROW: rank 0 of 4
+a{1}: MPI Communicators: 3
+- MPI_COMM_WORLD: rank 1 of 8
+- MPI_COMM_SELF: rank 0 of 1
+- ROW: rank 1 of 4
+a{2}: MPI Communicators: 3
+- MPI_COMM_WORLD: rank 2 of 8
+- MPI_COMM_SELF: rank 0 of 1
+- ROW: rank 2 of 4
+a{3}: MPI Communicators: 3
+- MPI_COMM_WORLD: rank 3 of 8
+- MPI_COMM_SELF: rank 0 of 1
+- ROW: rank 3 of 4
+a{4}: MPI Communicators: 3
+- MPI_COMM_WORLD: rank 4 of 8
+- MPI_COMM_SELF: rank 0 of 1
+- ROW: rank 0 of 4
+a{5}: MPI Communicators: 3
+- MPI_COMM_WORLD: rank 5 of 8
+- MPI_COMM_SELF: rank 0 of 1
+- ROW: rank 1 of 4
+a{6}: MPI Communicators: 3
+- MPI_COMM_WORLD: rank 6 of 8
+- MPI_COMM_SELF: rank 0 of 1
+- ROW: rank 2 of 4
+a{7}: MPI Communicators: 3
+- MPI_COMM_WORLD: rank 7 of 8
+- MPI_COMM_SELF: rank 0 of 1
+- ROW: rank 3 of 4
+... and %\d+% more communicators not shown. (Use -v or --verbose to see them)
+0: q
+Shutting down debugger and killing application for 'a'.

@@ -38,173 +38,12 @@ void try_send_command_impl(MISession& sess, MICommand& cmd, FN fail_callback, co
 
 namespace mqd {
 
-// the following mqs_ types are copied from the whitepaper (https://www.mpi-forum.org/docs/msgq.5.pdf).
-
-// types for target independence (whitepaper section 5.2.*)
-//
-// the MQD shared library is equipped to handle the case where the host
-// (dbgsrv) is running on a different architecture than the target (MPI
-// application). the whitepaper's given example is MPI might be compiled as 32
-// bit and dbgsrv as 64 bit. to facilitate this, the MQD shared library needs
-// to know the sizes of certain types on the host (dbgsrv). we don't support
-// mixed architectures on cray machines either way, but we still need to define
-// the types for the library to work.
-
-using mqs_tword_t = long; // whitepaper section 5.2.1
-using mqs_taddr_t = unsigned long; // whitepaper section 5.2.2
-
-struct mqs_target_type_sizes {
-    // as described in whitepaper section 5.2.3.
-    int short_size = sizeof(short);
-    int int_size = sizeof(int);
-    int long_size = sizeof(long);
-    int long_long_size = sizeof(long long);
-    int pointer_size = sizeof(void*);
-};
-
 // opaque types (whitepaper section 5.3)
 //
 // these are opaque types used by the MQD shared library.
 // we just need to pass them around.
 using mqs_image_info = void;
 using mqs_process_info = void;
-
-// constants and enums (whitepaper section 5.4)
-
-enum mqs_lang_code {
-    // as described in whitepaper section 5.4.1
-    mqs_lang_c = 'c',
-    mqs_lang_cplus = 'C',
-    mqs_lang_f77 = 'f',
-    mqs_lang_f90 = 'F'
-};
-
-enum mqs_op_class {
-    // as described in whitepaper section 5.4.2
-    mqs_pending_sends,
-    mqs_pending_receives,
-    mqs_unexpected_messages
-};
-
-enum {
-    // weird unnamed single item enum, but copied directly from whitepaper section 5.4.3
-    MQS_INTERFACE_COMPATIBILITY = 2,
-};
-
-enum mqs_status {
-    // as described in whitepaper section 5.4.4
-    mqs_st_pending,
-    mqs_st_matched,
-    mqs_st_complete
-};
-
-enum mqs_result {
-    // as described in whitepaper section 5.4.5
-    mqs_ok = 0,
-    mqs_no_information,
-    mqs_end_of_list,
-    mqs_first_user_code = 100
-};
-
-enum {
-    // weird unnamed single item enum, but copied directly from whitepaper section 5.4.6
-    MQS_INVALID_PROCESS = -1
-};
-
-// concrete types (whitepaper section 5.5)
-
-struct mqs_communicator {
-    // as described in whitepaper section 5.5.1
-    //
-    // comments in quotes are directly from the whitepaper.
-
-    // "unique_id uniquely identifies a communicator"
-    mqs_taddr_t unique_id;
-
-    // "local_rank identifies the rank of the current MPI process in this communicator."
-    mqs_tword_t local_rank;
-
-    // "size holds the size of the communicator."
-    mqs_tword_t size;
-
-    // "name contains the name of the communicator if it was given one."
-    //
-    // in practice, this seems to be "--unamed--" if there is no name,
-    // but that's not guaranteed anywhere.
-    char name[64];
-};
-
-struct mqs_pending_operation {
-    // as described in whitepaper section 5.5.2
-    //
-    // comments in quotes are directly from the whitepaper.
-    // some fields are only valid in certain situations (descibed in comments).
-
-    ////////////////////////////////////////////////////////////////////////////
-    // "fields for all messages" ///////////////////////////////////////////////
-
-    // "status stores the status of the message. The value of this field should be either mqs_-
-    // st_pending, mqs_st_matched, or mqs_st_complete as described in the enumeration
-    // mqs_status (section 5.4.4)."
-    int status;
-
-    // "desired_local_rank stores the rank of the target or the source for the communicator
-    // from which this message was initiated."
-    mqs_tword_t desired_local_rank;
-
-    // "desired_global_rank stores the rank of the target or the source with respect to
-    // MPI_COMM_WORLD."
-    mqs_tword_t desired_global_rank;
-
-    // "tag_wild is a boolean that identifies whether this message is a posted receive with
-    // tag MPI_ANY_TAG. If the receive was posted with MPI_ANY_TAG, tag_wild will be set
-    // to 1. Otherwise, it it set to 0."
-    int tag_wild;
-
-    // "desired_tag holds the tag of the message. This field is ignored if tag_wild is not set."
-    mqs_tword_t desired_tag;
-
-    // "desired_length holds the length of the message buffer in bytes."
-    mqs_tword_t desired_length;
-
-    // "system_buffer is a boolean that identifies whether this is a user or a system buffer.
-    // A value of 1 indicates that it is a system buffer. Otherwise, it is set to 0."
-    int system_buffer;
-
-    // "buffer holds the address to the beginning of the message data."
-    mqs_taddr_t buffer;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // "fields valid if status >= matched or it is a send" /////////////////////
-    //
-    // "the following fields are only meaningful if the message is a send or if the status fields
-    // indicates that this message is either matched (mqs_st_matched), or completed (mqs_st_
-    // complete)."
-
-    // "actual_local_rank holds the actual local rank within the communicator (after the
-    // message has matched)."
-    mqs_tword_t actual_local_rank;
-
-    // "actual_global_rank holds the actual global rank with respect to
-    // MPI_COMM_WORLD."
-    mqs_tword_t actual_global_rank;
-
-    // "actual_tag holds the actual tag of the message."
-    mqs_tword_t actual_tag;
-
-    // "actual_length holds the actual length of the buffer in bytes."
-    mqs_tword_t actual_length;
-
-    // "extra_text is an array of five null-terminated strings that can be used by the MQD
-    // DLL to provide more information to the user. The debugger does not interpret this
-    // field and can display it to the user. This field can be used to give the name of the
-    // function causing this request, for example."
-    char extra_text[5][64];
-};
-
-// end of whitepaper types
-
-struct MQD_Impl;
 
 // Type, Image, and Process are a containers for state associated with the MQD
 // shared library's calls to functions that start with an
@@ -219,7 +58,11 @@ struct Type {
     int get_sizeof();
 
     std::string m_name;
-    MQD_Impl& m_mqd_impl;
+
+    // having a reference to the global state is a code smell, but because we're dealing
+    // with a C api and it calls back to us with pointers to types, not the global
+    // state object, we're forced to smuggle in the global state like this.
+    MQD::State& m_mqd_impl;
 
     bool operator<(const Type& other) const;
 };
@@ -229,12 +72,16 @@ struct Image;
 struct Process {
     int get_global_rank();
     Image* get_image();
-    int fetch_data(mqs_taddr_t /* addr */, int /* size */, void* /* buf */);
-    void target_to_host(const void* /* indata */, void* /* outdata */, int /* size */);
-    void get_type_sizes(mqs_target_type_sizes* /* sizes */);
+    int fetch_data(mqs_taddr_t addr, int size, void* buf);
+    void target_to_host(const void* indata, void* outdata, int size);
+    void get_type_sizes(mqs_target_type_sizes* sizes);
 
     Image& m_image;
-    MQD_Impl& m_mqd_impl;
+
+    // having a reference to the global state is a code smell, but because we're dealing
+    // with a C api and it calls back to us with pointers to processes, not the global
+    // state object, we're forced to smuggle in the global state like this.
+    MQD::State& m_mqd_impl;
 };
 
 struct Image {
@@ -245,8 +92,13 @@ struct Image {
     // updated by find_type
     std::set<Type> m_valid_types;
 
-    MQD_Impl& m_mqd_impl;
+    // having a reference to the global state is a code smell, but because we're dealing
+    // with a C api and it calls back to us with pointers to images, not the global
+    // state object, we're forced to smuggle in the global state like this.
+    MQD::State& m_mqd_impl;
 };
+
+// bind our types to the names used in the whitepaper
 
 using mqs_image = Image;
 using mqs_process = Process;
@@ -403,24 +255,25 @@ private:
     void* m_raw_so = nullptr;
 };
 
-struct MQD_Impl {
-    explicit MQD_Impl(const std::string& mqd_so_path, MISession& mi);
-    ~MQD_Impl() = default;
+struct MQD::State {
+    State(const std::string& mqd_so_path, MISession& mi);
+    ~State() = default;
 
-    MQD_Impl(const MQD_Impl&) = delete;
-    MQD_Impl(MQD_Impl&&) = delete;
-    MQD_Impl& operator=(const MQD_Impl&) = delete;
-    MQD_Impl& operator=(MQD_Impl&&) = delete;
+    State(const State&) = delete;
+    State(State&&) = delete;
+    State& operator=(const State&) = delete;
+    State& operator=(State&&) = delete;
+
+    std::vector<Communicator> get_communicators();
 
     SoIface m_so;
     MISession& m_mi;
 
-    // maps used by MQD.so. values are opaque pointers to private data in MQD.so.
-    // the keys are raw pointers. the images and processes they reference live in ___.
-    //
-    // XXX: (At the moment "___" is "the stack", since the whole process only lives
-    //       as long as a single function call for beta purposes.)
+    Image m_image;
+    Process m_process;
 
+    // maps used by MQD.so. values are opaque pointers to private data in MQD.so.
+    // the keys are raw pointers to the Image/Process member variables.
     std::map<Image*, mqs_image_info*> m_image_map = {};
     std::map<Process*, mqs_process_info*> m_process_map = {};
 };
@@ -716,7 +569,7 @@ static void ensure_mqd_debugging_enabled(Image& img, Process& proc, SoIface& mqd
     // always fails for cray-mpich, we do it manually here for now.
 
     const std::array evars = {
-        "MPICH_MSQ_QUEUE_DEBUG",
+        "MPICH_MSG_QUEUE_DBG",
         "MPIR_CVAR_MSG_QUEUE_DBG",
     };
 
@@ -770,60 +623,57 @@ static void ensure_mqd_debugging_enabled(Image& img, Process& proc, SoIface& mqd
     }
 }
 
-MQD_Impl::MQD_Impl(const std::string& mqd_so_path, MISession& mi)
+MQD::State::State(const std::string& mqd_so_path, MISession& mi)
     : m_so(mqd_so_path)
     , m_mi{mi}
+    , m_image{ .m_valid_types = {}, .m_mqd_impl = *this }
+    , m_process { .m_image = m_image, .m_mqd_impl = *this }
 {
     DVPRINT("mqd vers: %s\n", m_so.version_string());
     DVPRINT("mqd compat: %d\n", m_so.version_compatibility());
     DVPRINT("mqd bitwidth: %d\n", m_so.dll_taddr_width());
 
     // set up state
-    //
-    // TODO: img will be a member variable eventually
-    Image img { .m_valid_types = {}, .m_mqd_impl = *this };
-    if (auto r = m_so.setup_image(&img); r != mqs_ok) {
-        DVPRINT("mqd: setup_image did not return ok (got %d). continuing anyway.\n", r);
+    if (auto r = m_so.setup_image(&m_image); r != mqs_ok) {
+        throw std::runtime_error(
+            "Message queue debugging not enabled. Internal error: setup_image failed");
     }
-
-    // TODO: proc will be a member variable eventually
-    Process proc { .m_image = img, .m_mqd_impl = *this };
-    if (auto r = m_so.setup_process(&proc); r != mqs_ok) {
-        DVPRINT("mqd: setup_process did not return ok (got %d). continuing anyway.\n", r);
+    if (auto r = m_so.setup_process(&m_process); r != mqs_ok) {
+        throw std::runtime_error(
+            "Message queue debugging not enabled. Internal error: setup_process failed");
     }
 
     // throws on failure
-    ensure_mqd_debugging_enabled(img, proc, m_so, mi);
+    ensure_mqd_debugging_enabled(m_image, m_process, m_so, mi);
+}
 
-    {
-        // temporary beta code - this will become a standalone command in CPE-5875
+std::vector<Communicator> MQD::State::get_communicators() {
+    auto result = std::vector<Communicator>{};
 
-        DVPRINT("mqd: update comm list\n");
-        auto update_r = m_so.update_communicator_list(&proc);
-        if (update_r != mqs_ok) {
-            DVPRINT("update_communicator_list did not return ok\n");
-        }
-        DVPRINT("mqd: done update comm list\n");
+    DVPRINT("mqd: update comm list\n");
+    auto update_r = m_so.update_communicator_list(&m_process);
+    if (update_r != mqs_ok) {
+        DVPRINT("update_communicator_list did not return ok\n");
+    }
+    DVPRINT("mqd: done update comm list\n");
 
-        DVPRINT("mqd: iterate comm list\n");
-        auto setup_r = m_so.setup_communicator_iterator(&proc);
-        if (setup_r == mqs_end_of_list) {
-            DVPRINT("end of list before we got into the loop\n");
-        }
-        DVPRINT("mqd: done iterate comm list\n");
+    DVPRINT("mqd: iterate comm list\n");
+    auto setup_r = m_so.setup_communicator_iterator(&m_process);
+    if (setup_r == mqs_end_of_list) {
+        DVPRINT("end of list before we got into the loop\n");
+    }
 
-        mqs_communicator comm;
-        while(m_so.get_communicator(&proc, &comm) == mqs_ok){
-            DVPRINT("mqd: communicator: %s\n", comm.name);
-            DVPRINT("mqd: - local_rank: %ld\n", comm.local_rank);
-            DVPRINT("mqd: - unique_id: 0x%lx\n", comm.unique_id);
-            DVPRINT("mqd: - size: %ld\n", comm.size);
-            auto next_r = m_so.next_communicator(&proc);
-            if (next_r == mqs_end_of_list) {
-                DVPRINT("mqd: end of list\n");
-            }
+    mqs_communicator comm;
+    while(m_so.get_communicator(&m_process, &comm) == mqs_ok){
+        result.push_back(comm);
+        auto next_r = m_so.next_communicator(&m_process);
+        if (next_r == mqs_end_of_list) {
+            DVPRINT("mqd: end of list\n");
         }
     }
+    DVPRINT("mqd: done iterate comm list\n");
+
+    return result;
 }
 
 static auto bind_fn(auto& fnptr, const char* name, void* raw_so) {
@@ -885,9 +735,13 @@ SoIface::~SoIface() {
 namespace mqd {
 
 MQD::MQD(const std::string& mqd_so_path, MISession& mi)
-    : m_impl{std::make_unique<MQD_Impl>(mqd_so_path, mi)}
+    : m_impl{std::make_unique<MQD::State>(mqd_so_path, mi)}
 {}
 
 MQD::~MQD() = default;
+
+std::vector<Communicator> MQD::get_communicators() {
+    return m_impl->get_communicators();
+}
 
 } // namespace mqd

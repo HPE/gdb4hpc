@@ -408,6 +408,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/src/c/c_not_mpi.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_not_mpi.c
 %{__cp} -a %{tests_source_dir}/function/src/c/c_nolib.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_nolib.c
 %{__cp} -a %{tests_source_dir}/function/src/c/c_libnolib.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_libnolib.c
+%{__cp} -a %{tests_source_dir}/function/src/c/c_mpi_comms.c ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_mpi_comms.c
 
 %{__cp} -a %{tests_source_dir}/function/src/C++/cpp_arrays.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays.cpp
 %{__cp} -a %{tests_source_dir}/function/src/C++/cpp_arrays_print.cpp ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays_print.cpp
@@ -581,6 +582,8 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda_break_on_launch.in                  ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_break_on_launch.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/unregistered_breakpoint.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/unregistered_breakpoint.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/unregistered_watchpoint.in               ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/unregistered_watchpoint.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mqd_comms.in                             ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mqd_comms.in
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/mqd_detect_env.in                        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mqd_detect_env.in
 
 %{__cp} -a %{tests_source_dir}/function/include/mpitest.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitest.h
 %{__cp} -a %{tests_source_dir}/function/include/mpitestconf.h ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/include/mpitestconf.h
@@ -890,6 +893,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_not_mpi.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_nolib.c
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_libnolib.c
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/c/c_mpi_comms.c
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays.cpp
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/C++/cpp_arrays_print.cpp
@@ -1059,6 +1063,8 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda_break_on_launch.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/unregistered_breakpoint.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/unregistered_watchpoint.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mqd_comms.in
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/mqd_detect_env.in
 
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/Makefile
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/src/kokkos/team_vector_loop.cpp

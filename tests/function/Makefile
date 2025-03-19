@@ -16,6 +16,7 @@ TESTS = \
    ./bin/${PE_ENV}/c/c_half_exit.x \
    ./bin/${PE_ENV}/c/c_signal.x \
    ./bin/${PE_ENV}/c/c_nolib.x \
+   ./bin/${PE_ENV}/c/c_mpi_comms.x \
    ./bin/${PE_ENV}/C++/cpp_bd_test.x \
    ./bin/${PE_ENV}/C++/cpp_cmp_diff.x \
    ./bin/${PE_ENV}/C++/cpp_ds_test1.x \
@@ -166,6 +167,9 @@ clean:
 	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/c_signal.x : ./bin/${PE_ENV}/c/c_signal.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+./bin/${PE_ENV}/c/c_mpi_comms.x : ./bin/${PE_ENV}/c/c_mpi_comms.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/c/c_libnolib.so : ./src/c/c_libnolib.c

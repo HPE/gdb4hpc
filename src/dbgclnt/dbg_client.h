@@ -503,7 +503,9 @@ rep_set_t DbgPyBEAttach(rec_set_t* rec);
 
 // Message Queue Debugging functions
 
-rep_set_t DbgMQDFoo(rec_set_t* rec);
+// `DbgMQDGetCommunicators` returns a list of communicators in the application.
+// if `verbose` is true, it also includes unnamed communicators.
+rep_set_t DbgMQDGetCommunicators(rec_set_t* rec, bool verbose);
 
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern bool DbgSetLogDir(const std::string& logdir);

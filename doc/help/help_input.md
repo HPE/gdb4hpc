@@ -2219,3 +2219,9 @@ command). If certain commands (e.g. backtrace) have a result with more\
 lines than the currently set height, gdb4hpc will use the currently set\
 pager to view the result instead of the gdb4hpc terminal.
 
+## info mpi communicators `cmd_info_mpi_communicators_help`
+Summary: Display MPI communicators\
+Usage: info mpi communicators [-v|--verbose]
+
+For each rank, show the current MPI communicators and their local ranks
+within them. If the verbose options is given, include unnamed communicators.

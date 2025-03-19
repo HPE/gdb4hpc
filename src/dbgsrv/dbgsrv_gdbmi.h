@@ -20,6 +20,7 @@
 #include "dbgcmd.h"
 #include "MI.h"
 #include "dbgsrv_pybe.h"
+#include "dbgsrv_msgqueue.h"
 
 class DbgGdbMI {
 public:
@@ -126,9 +127,8 @@ public:
     // initialize pybe after attaching to an already running python app
     dbgevent_t* pyBEAttach();
 
-    // XXX: temporary.
-    // load the message queue debugging library and test it out
-    dbgevent_t* mqdFoo();
+    // return the list of MPI communicators. if verbose is true, include unnamed communicators.
+    dbgevent_t* mqdGetCommunicators(bool verbose);
 
     // return true if we should prefer the pybe versions of commands when possible
     bool isPython() const;
@@ -214,6 +214,18 @@ private:
 
     // prefer ensurePybe instead of accessing this directly
     std::unique_ptr<Pybe> m_pybe;
+
+    // ensure that message queue debugging is ready to use. on first call,
+    // dbgsrv will load the message queue debugging library and perform first
+    // time setup.
+    //
+    // this function is idempotent and can safely be called multiple times.
+    //
+    // throws a dbgevent_t* error on failure.
+    mqd::MQD& ensureMQD();
+
+    // perfer ensureMQD instead of accessing this directly
+    std::unique_ptr<mqd::MQD> m_mqd;
 
     // latest MIEvent* waiting to be converted to dbgevent_t*. set by callback
     // installed in libmi at startup.

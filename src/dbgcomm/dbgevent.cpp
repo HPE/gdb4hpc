@@ -18,6 +18,7 @@
  *
  *********************************************************************************/
 
+#include "dbgcomm/dbgevent.h"
 #include "config.h"
 
 #include <stdarg.h>
@@ -286,6 +287,10 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
                 .backtrace = event->ev_u.ev_u_pyexception->backtrace->clone(),
                 .fatal = event->ev_u.ev_u_pyexception->fatal,
             };
+            break;
+
+        case DBGEV_MQD_COMMUNICATORS:
+            e->ev_u.ev_u_mqd_communicators = new dbg_mqd_communicators_t{*event->ev_u.ev_u_mqd_communicators};
             break;
     }
 
@@ -579,6 +584,10 @@ void FreeEvent(dbgevent_t *event) {
         case DBGEV_PYEXCEPTION:
             delete event->ev_u.ev_u_pyexception->backtrace;
             delete event->ev_u.ev_u_pyexception;
+            break;
+
+        case DBGEV_MQD_COMMUNICATORS:
+            delete event->ev_u.ev_u_mqd_communicators;
             break;
 
         // Anything that doesn't alloc should go here
@@ -1075,6 +1084,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_NONE";
         case DBGEV_ERROR:
             return "DBGEV_ERROR";
+        case DBGEV_MQD_COMMUNICATORS:
+            return "DBGEV_MQD_COMMUNICATORS";
     }
 
     return "UNKNOWN_EVENT";

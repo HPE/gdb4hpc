@@ -147,6 +147,7 @@ enum dbgev {
     DBGEV_STRING,
     DBGEV_SYMBOLS,
     DBGEV_PYEXCEPTION,
+    DBGEV_MQD_COMMUNICATORS,
 };
 typedef enum dbgev dbgev;
 
@@ -384,6 +385,21 @@ struct dbgpyexception_t {
     bool fatal;
 };
 
+struct dbg_mqd_communicator_t {
+    long rank;
+    long size;
+    std::string name;
+
+    bool operator==(const dbg_mqd_communicator_t& other) const = default;
+};
+
+struct dbg_mqd_communicators_t {
+    std::vector<dbg_mqd_communicator_t> communicators;
+    long not_shown = 0;
+
+    bool operator==(const dbg_mqd_communicators_t& other) const = default;
+};
+
 struct dbgevent_t {
     dbgev ev_event;
 
@@ -413,6 +429,7 @@ struct dbgevent_t {
         dbgpackedthreadinfo_t *ev_u_packedthreadinfo;
         dbgthreadinfo_t *ev_u_threadinfo;
         dbgpyexception_t *ev_u_pyexception;
+        dbg_mqd_communicators_t *ev_u_mqd_communicators;
     } ev_u;
 // These are generic and should not be used outside the format/event functions.
 #define ev_string ev_u.ev_u_string

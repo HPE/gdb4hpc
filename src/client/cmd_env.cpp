@@ -696,7 +696,7 @@ static int cmd_show_prompt_console(ConsoleInterpreter& console) {
 }
 
 static int cmd_show_prompt_mi(MiInterpreter& mi) {
-    mi.set_result_deprecated("value=\"%s\"", mi.get_prompt().c_str());
+    mi.set_result("value=\"%s\"", mi.get_prompt().c_str());
     return Command::Success;
 }
 
@@ -750,7 +750,7 @@ static int cmd_show_error_console() {
 }
 
 static int cmd_show_error_mi(MiInterpreter& mi) {
-    mi.set_result_deprecated("epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}", Client.cmp_lower_eps, Client.cmp_upper_eps);
+    mi.set_result("epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}", Client.cmp_lower_eps, Client.cmp_upper_eps);
     return Command::Success;
 }
 

@@ -130,7 +130,7 @@ static int cmd_info_sources_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int, c
             }
             if (ss.str().empty()) ss << "[";
             ss<<"]";
-            mi.set_result_deprecated("proc_set=\"%s\",files=%s",
+            mi.set_result("proc_set=\"%s\",files=%s",
                              recv_ptr->rec_di.handle().c_str(),ss.str().c_str());
         }
     }
@@ -165,7 +165,7 @@ static int cmd_info_source_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set) {
     auto f = EVENT_FRAME(reply->rep_event);
     auto loc = f->getLoc();
     std::string group = reply->rep_group.get()->toSetString();
-    mi.set_result_deprecated(
+    mi.set_result(
         "proc_set=\"%s\",group=\"%s\",line=\"%d\",file=\"%s\",fullname=\"%s\"",
         reply->rep_di.name().c_str(),
         group.substr(1, group.length() - 2).c_str(), loc.loc_line, loc.loc_file,

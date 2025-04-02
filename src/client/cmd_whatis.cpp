@@ -186,7 +186,7 @@ static int cmd_info_locals_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set) {
     ss.tellp() == std::streampos(0) ? ss<< "[]": ss<<"]";
     result<<"{variables="<<ss.str()<<"}";
 
-    mi.set_result_deprecated(result.str().c_str());
+    mi.set_result(result.str().c_str());
 
     return Command::Success;
 }

@@ -305,7 +305,7 @@ int cmd_info_script_cmd_mi(MiInterpreter& mi, int argc, const char* const argv[]
         if (ss.tellp()==0)
             ss<<"[";
         ss<<"]";
-        mi.set_result_deprecated("scripts=%s",ss.str().c_str());
+        mi.set_result("scripts=%s",ss.str().c_str());
         return Command::Success;
     }
 
@@ -343,7 +343,7 @@ int cmd_info_script_cmd_mi(MiInterpreter& mi, int argc, const char* const argv[]
     } else {
         // detailed summary
         // summary string has correct newlines
-        mi.set_result_deprecated("script_result=%s",mi_summarize_script(script->resultsView()).c_str());
+        mi.set_result("script_result=%s",mi_summarize_script(script->resultsView()).c_str());
     }
 
     return Command::Success;

@@ -18,10 +18,8 @@
 #include <map>
 #include <fstream>
 #include <sstream>
-#include <iomanip>
 
 #include "client.h"
-#include "dbgclnt_breakpoints.h"
 #include "useful.h"
 #include "interpreter_mi.h"
 #include "script_client.h"
@@ -239,91 +237,52 @@ static int cmd_break_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, con
 
     auto rep_set = send_break_command(rec_set, args);
 
-    struct BreakpointData {
-        DbgInvoke::Handle dih;
-        MappedBreakpoint& bp;
-
-        bool operator<(const BreakpointData& other) const {
-            return &bp < &other.bp;
-        }
-    };
-
-    auto new_breakpoints = std::set<BreakpointData>{};
-
-    // collect new breakpoints. multiple backend breakpoints might be created and mapped
-    // to a single frontend breakpoint. vscode etc work with frontend breakpoints, so that's
-    // what we want to output
-    for (const auto* reply: rep_set) {
-        if (!reply || !reply->rep_event || reply->rep_event->ev_event != DBGEV_BPSET) continue;
-
-        const auto* bp = reply->rep_event->ev_u.ev_u_bp;
-        const auto di = reply->rep_di.lock();
-
-        if (!di) [[unlikely]] {
-            // expired procset? should never happen?
-            PrintOutError("Expired procset: %s.\n", reply->rep_di.c_str());
+    for (auto&& reply : rep_set) {
+        // point at the breakpoint data
+        auto* bp = EVENT_BP(reply->rep_event);
+        auto* di = reply->rep_di.lock();
+        auto bpset = di->breakpoints().findByDbgBreakpoint(*bp);
+        if (!bpset)  // this is not supposed to happen
+        {
+            PrintErrorWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                  "ERROR: cannot find breakpoint [%d: file %s, "
+                                  "line %d] in BPSetList.\n",
+                                  bp->bp_fe_id, bp->bp_loc.loc_file,
+                                  bp->bp_loc.loc_line);
             continue;
         }
 
-        auto fe_bp = di->breakpoints().findByDbgBreakpoint(*bp);
-        if (!fe_bp) [[unlikely]] {
-            // breakpoint didn't get registered? should never happen?
-            continue;
+        // XXX: lots of leftover console behavior here, leaving it in for now to match old behavior
+
+        std::string bpThread;
+        if (!bpset->threadId().empty()) {
+            bpThread = " thread " + bpset->threadId();
         }
 
-        new_breakpoints.insert({reply->rep_di, *fe_bp});
-    }
-
-    // build output
-    auto msg_bkpts = mi::List{};
-
-    for (const auto& [dih, bp]: new_breakpoints) {
-        auto bkpt = mi::Tuple{}
-            << mi::Result{"proc_set", dih.name()}
-            << mi::Result{"number", std::to_string(bp.id())}
-            << mi::Result{"type", mi::Const{"breakpoint"}}
-            << mi::Result{"disp", mi::Const{"keep"}}
-            << mi::Result{"enabled", mi::Const{"y"}}
-        ;
-
-        auto group = std::invoke([&] {
-            if (auto* set = bp.ranksSet()) {
-                auto in_brackets = set->toSetString();
-                if (!in_brackets.starts_with("{") || !in_brackets.ends_with("}")) {
-                    return std::string{""};
-                }
-                return in_brackets.substr(1, in_brackets.size() - 2);
-            }
-            return std::string{""};
-        });
-        if (!group.empty()) bkpt << mi::Result{"group", group};
-
-        auto fullpath = std::invoke([&] {
-            if (auto* di = dih.lock()) {
-                return di->sourcePaths().getFullPath(bp.file());
-            }
-            return std::string{};
-        });
-        if (!fullpath.empty()) bkpt << mi::Result{"fullname", fullpath};
-
-        if (!bp.file().empty()) bkpt << mi::Result{"file", bp.file()};
-        if (bp.line() > 0) bkpt << mi::Result{"line", std::to_string(bp.line())};
-        if (!bp.address().empty()) bkpt << mi::Result{"addr", bp.address()};
-        if (!bp.function().empty()) bkpt << mi::Result{"func", bp.function()};
-
-        if (bp.isPending()) {
-            // even if the breakpoint statement is empty we still add the pending key as a hint
-            bkpt << mi::Result{"pending", bp.statement()};
+        if (bpset->isPending()) {
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                "Breakpoint %d: Pending at %s%s.\n",
+                                bpset->id(), bpset->statement().c_str(), bpThread.c_str());
         }
-
-        msg_bkpts << bkpt;
+        else if (bpset->line() >= 0) {
+            std::stringstream ss;
+            std::string group = reply->rep_group.get()->toSetString();
+            auto fullpath = reply->rep_di.lock()->sourcePaths().getFullPath(bpset->file());
+            ss << "proc_set=\"" << reply->rep_di.name()
+               << "\",group=\"" << group.substr(1,group.length()-2)
+               << "\",bkpt={number=\"" << bpset->id()
+               << "\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\""
+               << bpset->address() << "\",func=\"" << bpset->function()
+               << "\",file=\"" << bpset->file() <<"\",fullname=\"" << fullpath
+               << "\",line=\"" <<bpset->line() << "\"}";
+            mi.set_result("%s", ss.str().c_str());
+        }
+        else {
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                "Breakpoint %d in %s%s\n", bpset->id(),
+                                bpset->function().c_str(), bpThread.c_str());
+        }
     }
-
-    auto msg = mi::MessageContents{}
-        << mi::Result{"bkpts", msg_bkpts}
-    ;
-
-    mi.set_result(msg);
 
     return ProcessErrorInRepSet(rep_set) == 0 ? Command::Success : Command::Failure;
 }
@@ -1055,7 +1014,7 @@ static int cmd_info_breakpoints_cmd_console(rec_set_t *rec_set, int argc, const 
 
 static int cmd_info_breakpoints_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!rec_set) {
-        mi.set_result_deprecated("BreakpointTable={body=[]}");
+        mi.set_result("BreakpointTable={body=[]}");
         return Command::Success;
     }
 
@@ -1137,7 +1096,7 @@ static int cmd_info_breakpoints_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, in
         } // for (const auto &bpset : recv_ptr->rec_di.breakpoints())
 
         std::string group = recv_ptr->rec_group.get()->toSetString();
-        mi.set_result_deprecated("proc_set=\"%s\", group=\"%s\",BreakpointTable={body=[%s]}",
+        mi.set_result("proc_set=\"%s\", group=\"%s\",BreakpointTable={body=[%s]}",
                             recv_ptr->rec_di.handle().c_str(),group.substr(1,group.length()-2).c_str(),
                             ss.str().c_str());
         // clear ss stream for next recv_ptr 

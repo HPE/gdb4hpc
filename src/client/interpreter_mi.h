@@ -1,4 +1,4 @@
-// Copyright 2023-2025 Hewlett Packard Enterprise Development LP.
+// Copyright 2023 Hewlett Packard Enterprise Development LP.
 //
 // Mi Interpreter
 //
@@ -9,10 +9,10 @@
 #include <memory>
 
 #include "interpreter.h"
-#include "interpreter_mi_serialize.h"
 #include "interpreter_console.h"
 #include "cmd.h"
 #include "cli_funcs.h"
+#include "str.h"
 
 class MiInterpreter : public Interpreter {
 public:
@@ -33,14 +33,7 @@ public:
     // Set the result of the mi command. This is different from print_message.
     // print_message will immediately output a message with message format (~...),
     // this function sets the result that is attached to ^done.
-    //
-    // this function is deprecated in favor of the mi::Message version.
-    void set_result_deprecated(const char* fmt, ...) __attribute__((format (printf,2,3)));
-
-    // Set the result of the mi command. This is different from print_message.
-    // print_message will immediately output a message with message format (~...),
-    // this function sets the result that is attached to ^done.
-    void set_result(const mi::MessageContents& msg);
+    void set_result(const char* fmt, ...) __attribute__((format (printf,2,3)));
 
     void attach_observers();
 
@@ -58,7 +51,7 @@ private:
     ConsoleInterpreter m_console_intr;
 
     // set by set_result/print_error, used to output ^done/^error,... after interpret.
-    std::string m_result;        // for ^done
+    MallocedCharPtr m_result;    // for ^done
     bool m_should_print_running; // for ^running
     std::string m_error;         // for ^error
 

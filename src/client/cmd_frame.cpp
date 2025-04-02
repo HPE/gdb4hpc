@@ -123,7 +123,7 @@ static int cmd_backtrace_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, con
         ss<<"]}";
     }
     ss.str().empty()?ss<<"msgs=[]":ss<<"]";
-    mi.set_result_deprecated(ss.str().c_str());
+    mi.set_result(ss.str().c_str());
 
     return Command::Success;
 }
@@ -183,7 +183,7 @@ static int cmd_frame_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const c
             <<"\",fullname=\""<<loc.loc_file<<"\",line=\""<<loc.loc_line<<"\"}}";
     }
     ss.str().empty()?ss<<"msgs=[]":ss<<"]";
-    mi.set_result_deprecated(ss.str().c_str());
+    mi.set_result(ss.str().c_str());
 
     return Command::Success;
 }

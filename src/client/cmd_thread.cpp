@@ -315,7 +315,7 @@ static int cmd_info_threads_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int ar
     }
 
     abc<<"]";
-    mi.set_result("%s",abc.str().c_str());
+    mi.set_result_deprecated("%s",abc.str().c_str());
     return had_error ? Command::Failure : Command::Success;
 }
 

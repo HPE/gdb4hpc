@@ -80,9 +80,9 @@ bool MiInterpreter::can_interpret(std::string_view line) const {
 }
 
 bool MiInterpreter::interpret(std::string_view line) {
-    m_result.reset();
+    m_result.clear();
+    m_error.clear();
     m_should_print_running = false;
-    m_error = "";
     cli_set_prefix("");
 
     const auto result = try_interpret(line);
@@ -94,8 +94,8 @@ bool MiInterpreter::interpret(std::string_view line) {
     if (!Client.quit) {
         if (result) {
             auto leader = m_should_print_running ? "^running" : "^done";
-            if (m_result) {
-                m_printer.print_unfiltered("%s%s,%s\n", cli_get_prefix().c_str(), leader, m_result.get());
+            if (!m_result.empty()) {
+                m_printer.print_unfiltered("%s%s,%s\n", cli_get_prefix().c_str(), leader, m_result.c_str());
             } else {
                 m_printer.print_unfiltered("%s%s\n", cli_get_prefix().c_str(), leader);
             }
@@ -180,11 +180,30 @@ bool MiInterpreter::try_interpret(std::string_view line) {
     }
 }
 
-void MiInterpreter::set_result(const char* fmt, ...) {
+void MiInterpreter::set_result_deprecated(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    m_result = MallocedCharPtr(fmt, args);
+
+    // history:
+    // orginally this set_result function was the only one available. we wanted to
+    // use fprintf formatting for convenience. since C++ offers no interface to std::string
+    // that allows for printf-style formatting, m_result was a MallocedCharPtr which
+    // saved us from copying the resulting string to a std::string after vasprintf.
+    //
+    // this version of set_result is now deprecated in favor of the mi::Message version.
+    // mi::Messages work with std::strings, so m_result was changed to a std::string,
+    // forcing us to do this extra copy.
+    //
+    // this version of the function is marked as deprecated and shouldn't be used any
+    // more in new code, so adding an extra copy to allow for using std::strings and
+    // mi::Message is worth it.
+    m_result = std::string{MallocedCharPtr(fmt, args).get_string()};
+
     va_end(args);
+}
+
+void MiInterpreter::set_result(const mi::MessageContents& msg) {
+    m_result = msg.serialize();
 }
 
 void MiInterpreter::attach_observers() {
@@ -647,7 +666,7 @@ void MiCommandsFactory::insert_dummy_commands(CommandNode& root) {
             if (value.empty()) {
                 return Command::Success;
             } else {
-                mi.set_result("%s", value.c_str());
+                mi.set_result_deprecated("%s", value.c_str());
                 return Command::Success;
             }
         };

@@ -84,7 +84,7 @@ static int cmd_focus_mi(MiInterpreter& mi, int argc, const char* const argv[]) {
         std::stringstream ss;
         ss<<"{name=\""<<pset->s_name<<"\",proc_set=\""<<proc_str<<"\"}";
 
-        mi.set_result("focus=%s",ss.str().c_str());
+        mi.set_result_deprecated("focus=%s",ss.str().c_str());
         return Command::Success;
     } else {
         // error message already printed
@@ -150,7 +150,7 @@ static int cmd_viewset_mi(MiInterpreter& mi, int argc, const char* const argv[])
         ss<<"{name=\""<<procset->s_name<<"\",proc_set=\""<<proc_str.c_str()<<"\"}";
     }
     ss<<"]";
-    mi.set_result("pe_sets=%s",ss.str().c_str());
+    mi.set_result_deprecated("pe_sets=%s",ss.str().c_str());
 
     return Command::Success;
 }

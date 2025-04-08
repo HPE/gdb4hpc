@@ -18,7 +18,7 @@ static int handle_result_string(MiInterpreter& mi, std::string result) {
     if (result == "ok") {
         return Command::Success;
     } else if (result.starts_with("ok,")) {
-        mi.set_result("%s", result.substr(3).c_str());
+        mi.set_result_deprecated("%s", result.substr(3).c_str());
         return Command::Success;
     } else if (result.starts_with("error,")) {
         PrintOutError("%s\n", result.substr(6).c_str());

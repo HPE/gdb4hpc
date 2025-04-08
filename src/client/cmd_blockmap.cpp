@@ -169,7 +169,7 @@ int cmd_info_decomposition_cmd_mi(MiInterpreter& mi) {
     if (ss.tellp()==0)
         ss<<"[";
     ss<<"]";
-    mi.set_result("decompositions=%s",ss.str().c_str());
+    mi.set_result_deprecated("decompositions=%s",ss.str().c_str());
     return Command::Success;
 }
 

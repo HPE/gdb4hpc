@@ -578,6 +578,7 @@ gdb4hpc = executable(
     './src/client/interpreter.cpp',
     './src/client/interpreter_console.cpp',
     './src/client/interpreter_mi.cpp',
+    './src/client/interpreter_mi_serialize.cpp',
     './src/client/bttree.cpp',
     help_sources,
   ],

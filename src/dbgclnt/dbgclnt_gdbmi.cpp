@@ -51,7 +51,7 @@ DbgFE::DbgFE(const char* gdbPath) {
         Free(data_dir);
     }
 
-    if (MISessionStartLocal(m_session, NULL) < 0) {
+    if (MISessionStartLocal(m_session) < 0) {
         return;
     }
 

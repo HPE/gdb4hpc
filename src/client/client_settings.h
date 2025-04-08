@@ -40,7 +40,6 @@ struct clnt_settings : public ClientSettingsInterface {
     int sync_wait;                                 /* Treat asynchronous cmds as sync? */
     int sync_blocked;                              /* Current blocked on async cmd? */
     const char* proto;                             /* Default debugger protocol */
-    const char* backend;                           /* Default debug backend*/
                                                    // XXX: The cli_* streams and fds SHOULD NOT BE SET OUTSIDE OF CLI_FUNCS!!!
     FILE* cli_fpprog; // TODO this should live in cli_stream_t
     std::map<std::string, std::string> launch_env; /* Env vars applied to future job launches, modified by the set env cmd */
@@ -51,9 +50,10 @@ struct clnt_settings : public ClientSettingsInterface {
     int height;                                    // PrintOutPagedMsg will only page messages with more lines than `height`
     PyMode python;                                 // If python mode is enabled
 
+    bool gdbinit;                                  // if true, the backend gdb will read .gdbinit files
+
     // methods for ClientSettingsInterface base class
     std::string getProto() override { return proto; }
-    std::string getBackend() override { return backend; }
     bool isUnsafe() override { return static_cast<bool>(unsafe); }
     bool isEarlyEntry() override { return static_cast<bool>(early_entry); }
     bool isNonStop() override { return static_cast<bool>(non_stop); }

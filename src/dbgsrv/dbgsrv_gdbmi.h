@@ -66,9 +66,7 @@ public:
     dbgevent_t *getStatus(bool getLocation);
     dbgevent_t *quit(bool detach);
     dbgevent_t *interrupt(bool all);
-    dbgevent_t *launch(const char *host, int cp, const char *proto, const char *prog,
-                               const char *args, char **env, const char *main_function);
-    dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, const char *main_function);
+    dbgevent_t *attach(int pid, const char *prog, const char *args, char **env, const std::string& main_function);
     dbgevent_t *targetRemote(const char* target_remote);
     void finalize();
     bool isReadyForCmd();
@@ -250,7 +248,7 @@ public:
     dbgevent_t* init(int *dfd, int *iofd, char **env);
     dbgevent_t* startup();
     dbgevent_t* initDbg(const char *prog, const char *args, const char *main_function);
-    dbgevent_t* initDbgAttach(int pid, const char *prog, const char *main_function);
+    dbgevent_t* initDbgAttach(int pid, const char *prog, const std::string& main_function);
     dbgevent_t* initDbgTargetRemote(const char *target_remote);
     dbgevent_t* setArgs(const char* args);
     dbgevent_t* quit(bool detach);

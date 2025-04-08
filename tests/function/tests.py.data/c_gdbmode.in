@@ -1,5 +1,5 @@
 16: maint set sync on
-19: launch $a{1} bin/CRAY/c/c_type_test.x --gdb=./tmp/custom_gdb --gdb-data-dir=./tmp/custom_data_dir???
+19: launch $a{1} bin/CRAY/c/c_type_test.x --gdb=./tmp/custom_gdb --gdb-data-dir=./tmp/custom_data_dir --gdbinit
 Starting application, please wait...
 Creating MRNet communication network...
 Waiting for debug servers to attach to MRNet communications network...
@@ -22,6 +22,10 @@ Threshold for repeated print elements is 10.
 
 29: show source open
 Source opening is "on".
+
+0: # test that we actually read .gdbinit
+0: show print max-depth
+Maximum print depth is 123454321.
 
 31: end
 

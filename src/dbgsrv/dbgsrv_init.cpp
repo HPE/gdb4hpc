@@ -120,6 +120,10 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
         initGpu();
     }
 
+    if (gdbinit_flag) {
+        m_session->gdbinit = 1;
+    }
+
     m_dbg.setPython(python_flag);
     DVPRINT("python mode: %d\n", m_dbg.isPython());
 
@@ -135,7 +139,7 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
 
     DBEPERFLOG(SetTimerStart("DbgInitBackend: MISessionStartLocal"));
 
-    if (MISessionStartLocal(m_session, NULL) < 0) {
+    if (MISessionStartLocal(m_session) < 0) {
         EVENT_ERROR(e, DBGERR_DEBUGGER, "Could not start the debugger.");
         return e;
     }
@@ -885,14 +889,14 @@ dbgevent_t *DbgGdbMI::Initializer::initDbg(const char *prog, const char *args, c
 ** Attach debugger. Added specifically for Cray XT / ALPS, but it works
 ** for other platforms as well.
 */
-dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog, const char *main_function) {
+dbgevent_t *DbgGdbMI::Initializer::initDbgAttach(int pid, const char *prog, const std::string& main_function) {
     DVPRINT("*** Dbg %s, %s\n", __FILE__, __func__);
     dbgevent_t *e;
     MICommand *cmd;
     CLIInfoProcInfo *procInfo;
 
     // Set global main function name if provided
-    m_mainFunction = (main_function != nullptr)
+    m_mainFunction = (!main_function.empty())
         ? main_function
         : m_dbg.isPython() ? "" : "main";
 

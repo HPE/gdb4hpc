@@ -51,14 +51,6 @@ const char *ZMQNetServerProtocol::name() {
     return "zmqnet";
 }
 
-// Callbacks
-int ZMQNetServerProtocol::invokeCallback(const char *, int, 
-    const char *, int, int, int, dbgevent_t *) {
-    // we have nothing to do here
-    LOG("ZMQNetServerProtocol::invokeCallback\n");
-    return 1;
-}
-
 int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
     LOG("ZMQNetServerProtocol::eventCallback\n");
 
@@ -70,8 +62,7 @@ int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
     return 0;
 }
 
-int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char * const * argv,
-                              const char *, const char *, int) {
+int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char * const * argv) {
     LOG("ZMQNetServerProtocol::initProto\n");
 
     LOG("argc: %d\n", argc);
@@ -221,16 +212,6 @@ bool ZMQNetServerProtocol::checkEvents() const {
     // LOG("ZMQNetServerProtocol::checkEvents\n");
     std::scoped_lock<std::mutex> lock(m_command_lock);
     return m_pending_command != nullptr;
-}
-
-int ZMQNetServerProtocol::setupIo(int *, int *) { 
-    LOG("ZMQNetServerProtocol::setupIo\n");
-    return 0; 
-}
-
-int ZMQNetServerProtocol::transferIo(int, char *, int) {
-    LOG("ZMQNetServerProtocol::transferIo\n");
-    return 0;
 }
 
 void ZMQNetServerProtocol::runProto(fd_set *) {

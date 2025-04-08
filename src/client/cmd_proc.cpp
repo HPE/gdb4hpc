@@ -265,7 +265,6 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
 
             auto attachOpts = AttachOpts{.proto = Client.proto,
                                          .app_ident = pbs_job_id,
-                                         .backend = Client.backend,
                                          .gdb = args.gdb_path,
                                          .gdb_data_dir = args.gdb_data_dir,
                                          .vgdb_file = "",
@@ -335,7 +334,6 @@ static dbgprocset_t* DoLaunch(LaunchOpts&& args) {
 
             auto attachOpts = AttachOpts{.proto = Client.proto,
                                          .app_ident = slurmJobStep,
-                                         .backend = Client.backend,
                                          .gdb = args.gdb_path,
                                          .gdb_data_dir = args.gdb_data_dir,
                                          .vgdb_file = "",
@@ -687,7 +685,6 @@ static int cmd_attach_cmd(Interpreter& caller, int argc, const char* const argv[
 
     auto opts = AttachOpts{ .proto = Client.proto,
                             .app_ident = "",
-                            .backend = Client.backend,
                             .gdb = "",
                             .gdb_data_dir = "",
                             .vgdb_file = "",

@@ -75,6 +75,7 @@ cuda
 directories
 environment
 error
+gdbinit
 height
 inferior-tty
 logging
@@ -170,6 +171,7 @@ cuda
 directories
 environment
 error
+gdbinit
 height
 inferior-tty
 logging

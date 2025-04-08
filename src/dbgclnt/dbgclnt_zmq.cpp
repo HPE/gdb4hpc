@@ -284,10 +284,7 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
 
     auto dbgsrvArgs = ArgvStream(
         "dbgsrv",
-        "-h", "zmq",   // meaningless for zmqnet, but required to be non-null by dbgsrv
-        "-c", "1",     // meaningless for zmqnet, but required to be non-zero by dbgsrv
-        "-p", "zmqnet",
-        "-e", opts.backend.c_str()
+        "-p", "zmqnet"
     );
     if (prog)             dbgsrvArgs << "-f" << prog;
     if (opts.gpu_flag)    dbgsrvArgs << "--gpu";
@@ -311,6 +308,11 @@ int ZMQNetClientProtocol::internalAttach(DbgInvoke *di,
         } catch (std::exception const& ex) {
             LOG("%s\n", ex.what());
         }
+    }
+
+    if (opts.gdbinit) {
+        dbgsrvArgs << "--gdbinit";
+        PrintOutMsg("Warning: .gdbinit commands can affect gdb4hpc startup and results. Use with caution!\n");
     }
 
 #if DEBUG
@@ -469,7 +471,6 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
 
     auto attachOpts = AttachOpts{.proto = "",
                                  .app_ident = "",
-                                 .backend = opts.backend_name,
                                  .gdb = opts.gdb_path,
                                  .gdb_data_dir = opts.gdb_data_dir,
                                  .vgdb_file = "",
@@ -477,6 +478,7 @@ int ZMQNetClientProtocol::launch(DbgInvoke *di, const LaunchOpts& opts) {
                                  .debug_flag = opts.debug_flag,
                                  .debug_dir = opts.debug_dir,
                                  .python = any_python,
+                                 .gdbinit = opts.gdbinit,
     };
 
     // attach to launched application

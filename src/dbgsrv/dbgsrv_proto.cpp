@@ -93,9 +93,8 @@ int DbgSetSrvProto(const char *protoName) {
     return 1;
 }
 
-int DbgInitProto(int &procnum, int &pid, int argc, const char * const * argv, const char *key,
-                 const char *host, int port) {
-    return DbgSrvProtoSW->initProto(procnum, pid, argc, argv, key, host, port);
+int DbgInitProto(int &procnum, int &pid, int argc, const char * const * argv) {
+    return DbgSrvProtoSW->initProto(procnum, pid, argc, argv);
 }
 
 fd_set *DbgGetFdSet(int dbgFd, int ioClientFd, int ioBackendFd) { 
@@ -158,14 +157,6 @@ void DbgRunProto(fd_set *fds) { DbgSrvProtoSW->runProto(fds); }
 
 void DbgEndProto(void) { DbgSrvProtoSW->endProto(); }
 
-int DbgSetupIO(int *fd, int *port) {
-    return DbgSrvProtoSW->setupIo(fd, port);
-}
-
-int DbgTransferIO(int fd, char *buffer, int size) {
-    return DbgSrvProtoSW->transferIo(fd, buffer, size);
-}
-
 dbgevent_t *DbgInvokeNetwork(int numbe) {
     return DbgSrvProtoSW->invokeNetwork(numbe);
 }
@@ -176,11 +167,6 @@ int DbgSendReply(const char *response) {
     res = DbgSrvProtoSW->sendReply(response);
 
     return res;
-}
-
-int DbgInvokeCB(char *chost, int cprog, char *host, int prog, int pnum,
-                int port, dbgevent_t *ev) {
-    return DbgSrvProtoSW->invokeCallback(chost, cprog, host, prog, pnum, port, ev);
 }
 
 int DbgEventCB(dbgevent_t *ev) { return DbgSrvProtoSW->eventCallback(ev); }

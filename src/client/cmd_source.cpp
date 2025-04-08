@@ -20,7 +20,9 @@
 #include "client.h"
 #include "useful.h"
 
-static int cmd_source_cmd(int argc, const char* const argv[]) {
+namespace {
+
+int cmd_source_cmd(int argc, const char* const argv[]) {
     const auto [filename, echo, keep_going] = [&]() {
         struct Args {
             const char* filename = nullptr;
@@ -67,7 +69,7 @@ static int cmd_source_cmd(int argc, const char* const argv[]) {
     return Command::Success;
 }
 
-static Interpreter::Completions cmd_source_completion(
+Interpreter::Completions cmd_source_completion(
     std::string_view partial_word, std::string_view, const Interpreter&, const dbgprocset_t*, const ArgvStream&)
 {
     auto comps = Interpreter::Completions{};
@@ -75,8 +77,46 @@ static Interpreter::Completions cmd_source_completion(
     return comps;
 }
 
+int cmd_set_gdbinit_cmd(int argc, const char* const argv[]) {
+    if (argc < 2) {
+        PrintOutError("Usage: set gdbinit <true/false/on/off/yes/no>\n");
+        return Command::Failure;
+    }
+
+    auto s = std::string{argv[1]};
+    if (s == "true" || s == "on" || s == "yes") {
+        Client.gdbinit = true;
+    } else if (s == "false" || s == "off" || s == "no") {
+        Client.gdbinit = false;
+    } else {
+        PrintOutError("Expected: set gdbinit <true/false/on/off/yes/no>\n");
+        return Command::Failure;
+    }
+
+    return Command::Success;
+}
+
+int cmd_show_gdbinit_cmd() {
+    if (Client.gdbinit)
+        PrintOutMsg("GDB init file enabled.\n");
+    else
+        PrintOutMsg("GDB init file disabled.\n");
+
+    return Command::Success;
+}
+
+} // anonymous namespace
+
 void ConsoleCommandsFactory::insert_source_commands(CommandNode& root) {
     root.addSubCmd({ .name = "source", .ptype = proc_ignore,
                      .fn = cmd_source_cmd, .completion = cmd_source_completion,
                      .help = cmd_source_help, .desc = "Read debugger commands from a file." });
+
+    root.addSubCmd({ .name = "set gdbinit", .ptype = proc_ignore,
+                     .fn = cmd_set_gdbinit_cmd, .help = set_gdbinit_help,
+                     .desc = "Change if the backend gdbs read the .gdbinit/.gdbearlyinit files." });
+
+    root.addSubCmd({ .name = "show gdbinit", .ptype = proc_ignore,
+                     .fn = cmd_show_gdbinit_cmd, .help = set_gdbinit_help /* same as set */,
+                     .desc = "Show if the backend gdbs read the .gdbinit/.gdbearlyinit files." });
 }

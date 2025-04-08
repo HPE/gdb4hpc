@@ -74,14 +74,14 @@ class LaunchOpts {
   bool early_entry_flag = false;     //
   bool unsafe_flag = false;          //
   std::string proto_name = "";       // proto is a legacy setting that doesn't change
-  std::string backend_name = "";     //
+
+  bool gdbinit = false;              // --[no-]gdbinit. if true, backend gdb will read .gdbinit/.gdbearlyinit files on startup
 };
 
 // Connection options for attaching to a running process
 struct AttachOpts {
   std::string proto;
   std::string app_ident;
-  std::string backend;
   std::string gdb;
   std::string gdb_data_dir;
   std::string vgdb_file;
@@ -89,6 +89,6 @@ struct AttachOpts {
   bool debug_flag;
   std::string debug_dir;
   bool python;
+  bool gdbinit = false;
 };
-
 

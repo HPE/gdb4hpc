@@ -61,7 +61,6 @@ TEST_CASE("Parse LaunchOpts") {
         CHECK(opts.non_stop_flag == true);
         CHECK(opts.early_entry_flag == true);
         CHECK(opts.proto_name == "mock_zmqnet");
-        CHECK(opts.backend_name == "mock_gdbmi");
     }
 
     SUBCASE("Path settings: gdb4hpc: unquoted") {
@@ -493,6 +492,26 @@ TEST_CASE("Parse LaunchOpts") {
         CHECK(opts.debug_flag);
         CHECK(!opts.debug_dir.empty());
     }
+
+    SUBCASE("--gdbinit") {
+        const char* const argv[] = {
+            "launch", "$a{1}", "--gdbinit", "app",
+        };
+        auto csi = test::MockClientSettings();
+        auto opts = LaunchOpts::parse_gdb4hpc(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+        CHECK(opts.gdbinit == true);
+    }
+
+    SUBCASE("--no-gdbinit") {
+        const char* const argv[] = {
+            "launch", "$a{1}", "--no-gdbinit", "app",
+        };
+        auto csi = test::MockClientSettings();
+        auto opts = LaunchOpts::parse_gdb4hpc(sizeof(argv)/sizeof(argv[0]), argv, csi);
+
+        CHECK(opts.gdbinit == false);
+    }
 }
 
 TEST_CASE("LaunchArgs enforceValid() validates that files are present") {
@@ -616,7 +635,6 @@ TEST_CASE("LaunchOpts: parse_srun gauntlet") {
         CHECK(opts.non_stop_flag == true);
         CHECK(opts.early_entry_flag == true);
         CHECK(opts.proto_name == "mock_zmqnet");
-        CHECK(opts.backend_name == "mock_gdbmi");
     }
 
     SUBCASE("parse program names") {
@@ -933,6 +951,8 @@ static auto parse_gdb4hpc_argv_section(LaunchOpts& opts, int argc, char** argv) 
         {"gdb-data-dir", required_argument, 0, 'B'},
         {"python", no_argument, 0, 'p'},
         {"no-python", no_argument, 0, 'P'},
+        {"gdbinit", no_argument, 0, 'n'},
+        {"no-gdbinit", no_argument, 0, 'N'},
         {0, 0, 0, 0}
     };
 
@@ -1064,6 +1084,14 @@ static auto parse_gdb4hpc_argv_section(LaunchOpts& opts, int argc, char** argv) 
                 manually_specified_python_flag = true;
                 break;
 
+            case 'n':
+                opts.gdbinit = true;
+                break;
+
+            case 'N':
+                opts.gdbinit = false;
+                break;
+
             default:
                 throw std::runtime_error("Invalid launch argument provided. See \"help launch\" for usage.");
         }
@@ -1145,12 +1173,12 @@ LaunchOpts LaunchOpts::parse_gdb4hpc(int argc, const char* const argv[], ClientS
         throw std::runtime_error("Not enough command arguments.\nExpected: launch $handle ./program <args>");
     }
 
+    result.read_client_settings(csi);
+
     for (auto&& argv_section : get_mpmd_sections(argc, argv)) {
         auto job_opt = parse_gdb4hpc_argv_section(result, argv_section.size(), argv_section.data());
         result.job_opts.push_back(std::move(job_opt));
     }
-
-    result.read_client_settings(csi);
 
     return result;
 }
@@ -1436,13 +1464,13 @@ LaunchOpts LaunchOpts::parse_srun(int argc, const char* const argv[], ClientSett
     // commmand on a PALS machine and the launch will still work, as long as
     // the launcher args weren't too exotic e.g. only using -n.
 
+    result.read_client_settings(csi);
+
     for (auto&& argv_section : get_mpmd_sections(argc, argv)) {
         result.job_opts.emplace_back(
             parse_srun_section(result, argv_section.size(), argv_section.data())
         );
     }
-
-    result.read_client_settings(csi);
 
     return result;
 }
@@ -1452,7 +1480,6 @@ void LaunchOpts::read_client_settings(ClientSettingsInterface& csi) {
     this->early_entry_flag = csi.isEarlyEntry();
     this->unsafe_flag = csi.isUnsafe();
     this->proto_name = csi.getProto();
-    this->backend_name = csi.getBackend();
 
     if (csi.getPython() == PyMode::On) {
         for (auto& jopts : job_opts) {
@@ -1463,7 +1490,7 @@ void LaunchOpts::read_client_settings(ClientSettingsInterface& csi) {
             jopts.python = false;
         }
     } else {
-        // else auto detected on backend
+        // else auto detected in parse_gdb4hpc_argv_section
     }
 }
 

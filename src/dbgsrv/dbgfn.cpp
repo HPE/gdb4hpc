@@ -35,11 +35,6 @@ typedef struct backend_tab backend_tab;
 // external debug backend def
 extern DbgGdbMI* DbgGdbMIGetSingleton();
 
-// table of backend defs
-static backend_tab DbgBackendTab[] = {
-    {"gdbmi", DbgGdbMIGetSingleton()},
-    {nullptr, nullptr}};
-
 /*
 ** Set default debug backend
 ** This defines the current debug backend in use
@@ -56,31 +51,12 @@ static DbgGdbMI *DbgBackendSW = DbgGdbMIGetSingleton();
 //       talk to many different debug servers. Hence why the client handles
 //       multiple protocols at once, and the server doesn't.
 
-int DbgSetBackend(const char *backend) {
-    backend_tab *p;
-
-    for (p = DbgBackendTab; p->backend_name != NULL; p++) {
-        if (strcmp(p->backend_name, backend) == 0) {
-            // Set the current backend
-            DbgBackendSW = p->backend_def;
-            return 0;
-        }
-    }
-
-    return 1;
-}
-
 dbgevent_t *DbgInit(int *dfd, int *iofd, char **env) {
     return DbgBackendSW->init(dfd, iofd, env);
 }
 
-dbgevent_t *DbgAttach(int pid, const char *prog, const char *args, char **env, const char *main_function) {
+dbgevent_t *DbgAttach(int pid, const char *prog, const char *args, char **env, const std::string& main_function) {
     return DbgBackendSW->attach(pid, prog, args, env, main_function);
-}
-
-dbgevent_t *DbgLaunch(const char *host, int cb, const char *proto,
-                      const char *prog, const char *args, char **env, const char *main_function) {
-    return DbgBackendSW->launch(host, cb, proto, prog, args, env, main_function);
 }
 
 dbgevent_t *DbgTargetRemote(const char* target_remote) {

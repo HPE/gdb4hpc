@@ -21,8 +21,7 @@ public:
     // by the time initProto is done, procnum and pid must hold valid (non-negative)
     // values. some protocols set them inside the function, and some have them
     // set before this function is called.
-    virtual int initProto(int &procnum, int &pid, int argc, const char * const *argv,
-        const char *key, const char *host, int port) = 0;
+    virtual int initProto(int &procnum, int &pid, int argc, const char * const *argv) = 0;
     virtual void endProto() = 0;
 
     // Two ways to notify the main thread that runProto should be called are
@@ -48,13 +47,9 @@ public:
 
     virtual fd_set* getFdSet() { return nullptr; };
     virtual bool checkEvents() const { return false; };
-    
+
     virtual void runProto(fd_set *fds) = 0;
-    virtual int invokeCallback(const char *chost, int cport, const char *host, 
-        int prog, int pnum, int port, dbgevent_t *e) = 0;
     virtual int eventCallback(dbgevent_t *ev) = 0;
-    virtual int setupIo(int *fd, int *port) = 0;
-    virtual int transferIo(int fd, char *buffer, int size) = 0;
     virtual dbgevent_t* invokeNetwork(int numbe) = 0;
     virtual int sendReply(const char *response) = 0;
 
@@ -66,14 +61,11 @@ protected:
 };
 
 int DbgSetSrvProto(const char *);
-int DbgInitProto(int&, int&, int, const char * const *, const char *, const char *, int);
+int DbgInitProto(int& procnum, int& pid, int argc, const char * const * argv);
 fd_set *DbgGetFdSet(int dbgFd, int ioClientFd, int ioBackendFd);
 int DbgCheckEvents(fd_set *);
 void DbgRunProto(fd_set *);
 void DbgEndProto();
-int DbgInvokeCB(char *, int, char *, int, int, int, dbgevent_t *);
 int DbgEventCB(dbgevent_t *);
-int DbgSetupIO(int *, int *);
-int DbgTransferIO(int, char *, int);
 dbgevent_t *DbgInvokeNetwork(int);
 int DbgSendReply(const char *);

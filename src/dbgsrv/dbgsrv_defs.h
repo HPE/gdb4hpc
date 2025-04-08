@@ -28,6 +28,7 @@ extern int early_entry_flag;
 extern int debug_flag;
 extern int non_mpi_flag;
 extern int non_stop_flag;
+extern int gdbinit_flag;
 extern const char* custom_gdb;
 extern const char* custom_gdb_data;
 

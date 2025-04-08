@@ -519,8 +519,8 @@ int main(int argc, char *argv[]) {
     Client.sync_wait = 0;                  // Treat asynchronous cmds as sync?
     Client.sync_blocked = 0;               // Current blocked on async cmd?
     Client.proto = getDefaultProtocol();   // Default debugger protocol
-    Client.backend = DBG_BACKEND;          // Default debug backend
     Client.cli_fpprog = nullptr;           // only set to override the stream setting
+    Client.gdbinit = false;
     // find out the ulp for this machine
     ulp = nextafter(0.0, 0.1);
     Client.cmp_lower_eps = ulp;

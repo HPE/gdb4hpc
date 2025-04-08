@@ -436,8 +436,11 @@ class FunctionTests(Gdb4hpcTest):
         shutil.rmtree(data_dir, ignore_errors=True)
         shutil.copytree(os.environ['GDB4HPC_INSTALL_DIR'] + '/share/gdb', data_dir)
 
+        # also pretend tmp is $HOME so we can test --gdbinit
+        os.environ["HOME"] = os.getcwd() + "/tests.py.data"
+
         runTest(self)
-        
+
     def test_c_help(self):
         self.base_name = "c_help"
         runTest(self)
@@ -1094,6 +1097,14 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "unregistered_watchpoint"
         runTest(self)
 
+    def test_mqd_comms(self):
+        self.base_name = "mqd_comms"
+        runTest(self)
+
+    def test_mqd_detect_env(self):
+        self.base_name = "mqd_detect_env"
+        runTest(self)
+
 # given "Python 3.11.3" return "3.11"
 def parse_python_minor_version(full_vers: str) -> str:
     # if caller's `which python3` failed
@@ -1439,12 +1450,4 @@ class PythonTest(Gdb4hpcTest):
             ("%.*python3.*%", self.python_path),
         )
         runTest(self, substitutions = subs)
-
-    def test_mqd_comms(self):
-        self.base_name = "mqd_comms"
-        runTest(self)
-
-    def test_mqd_detect_env(self):
-        self.base_name = "mqd_detect_env"
-        runTest(self)
 

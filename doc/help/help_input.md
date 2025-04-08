@@ -423,7 +423,9 @@ Usage: launch <app_handle> <application> [application args]\
               [--gdb=<gdb_app>]\
               [--gdb-data-dir=<datadir>]\
               [--non-mpi]\
-              [--debug[=<path>]]
+              [--debug[=<path>]]\
+              [--gdbinit]\
+              [--no-gdbinit]
 
 Example command: launch $a{20000} ./helloworld ./hello_world_config.txt
 
@@ -454,6 +456,11 @@ environment variables for debugging.
 for example: --gdb=/opt/rocm-3.9.0/bin/rocgdb
 
 --gdb-data-dir is an experimental option to use a specific data directory for --gdb
+
+--[no-]gdbinit controls whether gdb4hpc will execute the ~/.gdbinit file when
+starting up. By default, the .gdbinit file is disabled because it can interfere
+with gdb4hpc's job launch process. This setting overrides that behavior. Use
+with caution! See the help text for `set gdbinit` for more information.
 
 The optional args, launcher_args, and name=value arguments should be enclosed
 with quotes. The args argument is used to pass arguments directly to the
@@ -802,6 +809,23 @@ it executes along with the line number it corresponds to in the sourced file.
 --keep-going tells gdb4hpc to continue executing the contents of a file, even
 if a command fails. If no flags are specified, the behavior is inherited from
 the current environment.
+
+## set gdbinit `set_gdbinit_help`
+Usage: `set gdbinit true`\
+       `set gdbinit false`\
+       `show gdbinit`
+
+Description:\
+By default, gdb4hpc prevents its instances of gdb from executing the ~/.gdbinit
+file when starting up because gdb4hpc relies on certain gdb settings during job
+launches.
+
+This behavior can be enabled or diabled with this setting. When enabled, the
+launched gdb instances will read the ~/.gdbinit file (and other initialization
+files, see the gdb documentation) as normal.
+
+Certain commands in the ~/.gdbinit file may interfere with gdb4hpc's job launch
+process. Use with caution!
 
 ## step `cmd_step_help`
 Summary: Step command.\

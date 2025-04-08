@@ -54,29 +54,10 @@ int early_entry_flag = 0;
 int non_stop_flag = 0;
 int non_mpi_flag = 0;
 int python_flag = 0;
+int gdbinit_flag = 0;
 
 const char* custom_gdb = nullptr;
 const char* custom_gdb_data = nullptr;
-
-const struct option long_opts[] = {
-    {"callbackHost", required_argument, 0, 'h'},
-    {"callbackPort", required_argument, 0, 'c'},
-    {"networkProtocol", required_argument, 0, 'p'},
-    {"dbgBackend", required_argument, 0, 'e'},
-    {"ranknum", required_argument, 0, 'n'},
-    {"pid", required_argument, 0, 'i'},
-    {"jobkey", required_argument, 0, 'k'},
-    {"gpu", no_argument, &gpu_flag, 1},
-    {"debug", no_argument, &debug_flag, 1},
-    {"non-mpi", no_argument, &non_mpi_flag, 1},
-    {"early-entry", no_argument, &early_entry_flag, 1},
-    {"non-stop", no_argument, &non_stop_flag, 1},
-    {"gdb", required_argument, 0, 'b'},
-    {"program", required_argument, 0, 'f'},
-    {"vgdb-command-file", required_argument, 0, 'v'},
-    {"main-function", required_argument, 0, 'm'},
-    {"python", no_argument, &python_flag, 1},
-    {0, 0, 0, 0}};
 
 int Shutdown = 0;
 int my_rank;
@@ -96,7 +77,6 @@ struct timeval tv_io;
 struct timeval tv_end;
 #endif
 
-void Usage(void);
 void Server(void);
 void EndServer();
 char *MakeStr(int, char *[]);
@@ -107,26 +87,125 @@ int AllocFifo(int *, char **, char **);
 
 extern int errno;
 extern int optind;
-extern char *optarg;
+
+const struct option long_opts[] = {
+    {"proto", required_argument, 0, 'p'},
+    {"backend", required_argument, 0, 'e'},
+    {"gpu", no_argument, 0, 'g'},
+    {"debug", no_argument, 0, 'd'},
+    {"non-mpi", no_argument, 0, 'x'},
+    {"early-entry", no_argument, 0, 'y'},
+    {"non-stop", no_argument, 0, 'z'},
+    {"gdb", required_argument, 0, 'b'},
+    {"program", required_argument, 0, 'f'},
+    {"vgdb-command-file", required_argument, 0, 'v'},
+    {"main-function", required_argument, 0, 'm'},
+    {"python", no_argument, 0, 'P'},
+    {"gdbinit", no_argument, 0, 'n'},
+    {0, 0, 0, 0}
+};
+
+static std::string get_optstring() {
+    return optstring_from_longopts(long_opts, OptstringScanningMode::PermuteArgv, /*differentiate_missing_arg*/ false);
+}
+
+TEST_CASE("dbgsrv long opts are valid") {
+    CHECK_NOTHROW(get_optstring());
+}
+
+struct DbgsrvArgv {
+    std::string proto;
+    bool gpu = false;
+    bool debug = false;
+    bool non_mpi = false;
+    bool early_entry = false;
+    bool non_stop = false;
+    std::string custom_gdb;
+    std::string program;
+    std::string vgdb_command_file;
+    std::string main_function;
+    bool python = false;
+    bool gdbinit = false;
+    ArgvStream proto_argv;
+};
+
+DbgsrvArgv parse_dbgsrv_argv(int argc, char* argv[]) {
+    DbgsrvArgv args = {};
+
+    const auto optstring = get_optstring();
+
+    int c;
+    int opt_ind = 0;
+    extern char *optarg;
+
+    while ((c = getopt_long(argc, argv, optstring.c_str(), long_opts, &opt_ind)) != -1) {
+        switch (c) {
+            case 'p':
+                args.proto = optarg;
+                break;
+            case 'g':
+                args.gpu = true;
+                break;
+            case 'd':
+                args.debug = true;
+                break;
+            case 'x':
+                args.non_mpi = true;
+                break;
+            case 'y':
+                args.early_entry = true;
+                break;
+            case 'z':
+                args.non_stop = true;
+                break;
+            case 'b':
+                args.custom_gdb = optarg;
+                break;
+            case 'm':
+                args.main_function = optarg;
+                break;
+            case 'f':
+                args.program = optarg;
+                break;
+            case 'v':
+                args.vgdb_command_file = optarg;
+                break;
+            case 'P':
+                args.python = true;
+                break;
+            case 'n':
+                args.gdbinit = true;
+                break;
+            default:
+                throw std::runtime_error(std::string{"Invalid argument:"} + char(c));
+        }
+    }
+
+    // we create new argc/argv specifically for the init proto function. argv[0]
+    // should be the binary name ("dbgsrv") and the rest will be any leftover positional
+    // arguments not processed by getopt above. getopt rearranges argv so that unprocessed
+    // arguments are left at the end, and sets the global optind to point to the
+    // first unprocessed one.
+
+    args.proto_argv << argv[0];
+    for (; optind < argc; optind++) {
+        args.proto_argv << argv[optind];
+    }
+
+    // validate that the required options are set
+    if (args.proto.empty()) {
+        // XXX: obviously since we only use zmqnet, this isn't *actually* required,
+        // but enough of the dbgsrv layers still do require *something* that we keep it for now.
+        throw std::runtime_error("Protocol (-p/--proto) not specified");
+    }
+
+    return args;
+}
 
 int main(int argc, char *argv[], char *env[]) {
-    int opt_ind = 0;
-    int c;
-    int cb = 0;
-    char *hname = NULL;
-    char *host = NULL;
-    int procnum = -1;
-    int port = -1;
-    int pnum;
-    int pid = -1;
-    const char *proto = NULL;
-    const char *backend = DBG_BACKEND;
-    const char *prog = NULL;
-    const char *jobKey = NULL;
     dbgevent_t *e = nullptr;
-    char *vgdb_command_file = nullptr;
-    char *main_function = nullptr;
 
+    // short circuit for unit tests
     if (argc >= 2 && strcmp(argv[1], "--has-tests") == 0) {
         return hasUnitTests();
     }
@@ -139,165 +218,49 @@ int main(int argc, char *argv[], char *env[]) {
     if (const auto* seconds = ::getenv("GDB4HPC_DBGSRV_STARTUP_SLEEP")) {
         std::this_thread::sleep_for(std::chrono::seconds(::atoi(seconds)));
     }
-#ifdef PERFLOG
-    gettimeofday(&tv_srv, NULL);
-#endif
 
 #ifdef DEBUG
     // hardcode the debug_flag to 1 if built with debug turned on
     debug_flag = 1;
 #endif
-    free(const_cast<char*>(custom_gdb));
-    custom_gdb = nullptr;
-
-    free(const_cast<char*>(custom_gdb_data));
-    custom_gdb_data = nullptr;
 
     DVPRINT("dbgsrv starting!\n");
 
-    if (argc < 5) Usage();
+    // parse args - invalidates argv
+    auto args = parse_dbgsrv_argv(argc, argv);
 
-    Argv0 = argv[0];
+    // apply args
+    // FIXME: a little too many globals... eventual clean up tracked in CPE-9445
+    debug_flag = args.debug;
+    early_entry_flag = args.early_entry;
+    non_stop_flag = args.non_stop;
+    non_mpi_flag = args.non_mpi;
+    python_flag = args.python;
+    gdbinit_flag = args.gdbinit;
 
-    while ((c = getopt_long(argc, argv, "p:h:c:n:i:e:k:f:v:", long_opts,
-                            &opt_ind)) != -1) {
-        switch (c) {
-            case 0:
-                // if this is a flag, do nothing
-                break;
+    if (DbgSetSrvProto(args.proto.c_str())) {
+        fprintf(stderr, "No such protocol \"%s\"\n", args.proto.c_str());
+        exit(1);
+    }
 
-            case 'c':
-                cb = atoi(optarg);
-                break;
-
-            case 'n':
-                procnum = atoi(optarg);
-                break;
-
-            case 'i':
-                pid = atoi(optarg);
-                break;
-
-            case 'e':
-                backend = optarg;
-
-                if (DbgSetBackend(backend)) {
-                    fprintf(stderr, "No such debug backend \"%s\"\n", backend);
-                    exit(1);
-                }
-                break;
-
-            case 'h':
-                host = optarg;
-                break;
-
-            case 'p':
-                proto = optarg;
-
-                if (DbgSetSrvProto(proto)) {
-                    fprintf(stderr, "No such protocol \"%s\"\n", proto);
-                    exit(1);
-                }
-                break;
-
-            case 'k':
-                jobKey = optarg;
-                break;
-
-            case 'b':
-                DVPRINT("--gdb option is %s\n", optarg);
-                if (char* colon = strchr(optarg, ':')) {
-                    custom_gdb = strndup(optarg, colon-optarg);
-                    custom_gdb_data = strdup(colon+1);
-                } else {
-                    custom_gdb = strdup(optarg);
-                    custom_gdb_data = nullptr;
-                }
-                DVPRINT("custom_gdb = %s, custom_gdb_data = %s\n", custom_gdb,
-                        custom_gdb_data ? custom_gdb_data : "nullptr");
-                break;
-
-            case 'f':
-                if (optarg == nullptr || *optarg == '\0') {
-                    fprintf(stderr, "--program passed without an argument.\n");
-                    return 1;
-                }
-                prog = strdup(optarg);
-                DVPRINT("program name: %s\n", prog);
-                break;
-
-            case 'v':
-                if (optarg == nullptr || *optarg == '\0') {
-                    fprintf(stderr, "--vgdb-command-file passed without an argument.\n");
-                    return 1;
-                }
-                vgdb_command_file = strdup(optarg);
-                DVPRINT("vgdb-command-file: %s\n", optarg);
-                break;
-
-            case 'm':
-                if (optarg == nullptr || *optarg == '\0') {
-                    fprintf(stderr, "--main-function passed without an argument.\n");
-                    return 1;
-                }
-                main_function = strdup(optarg);
-                DVPRINT("main-function: %s\n", optarg);
-                break;
-
-            default:
-                Usage();
+    if (!args.custom_gdb.empty()) {
+        DVPRINT("--gdb option is %s\n", args.custom_gdb.c_str());
+        if (const char* colon = strchr(args.custom_gdb.c_str(), ':')) {
+            custom_gdb = strndup(args.custom_gdb.c_str(), colon - args.custom_gdb.c_str());
+            custom_gdb_data = strdup(colon+1);
+        } else {
+            custom_gdb = strdup(args.custom_gdb.c_str());
+            custom_gdb_data = nullptr;
         }
+        DVPRINT("custom_gdb = %s, custom_gdb_data = %s\n", custom_gdb,
+                custom_gdb_data ? custom_gdb_data : "nullptr");
     }
 
-    if (host == NULL) {
-        fprintf(stderr, "No host specified.\n");
-        Usage();
-    }
+    // InitProto sets procnum and pid
+    int procnum = -1;
+    int pid = -1;
 
-    if (cb == 0) {
-        fprintf(stderr, "No callback specified.\n");
-        Usage();
-    }
-
-#ifdef PERFLOG
-    gettimeofday(&tv_init, NULL);
-#endif
-
-#ifdef BE_PERFLOG
-    char *envDir;
-    char logfile[PATH_MAX];
-
-    if ((envDir = getenv(DBG_LOG_ENV_VAR)) == (char *)NULL) {
-        // user didn't set the environment variable, so lets
-        // default to tmp
-        envDir = "/tmp";
-    }
-
-    // create the fullpath string to the log file using PATH_MAX plus a null
-    // term
-    snprintf(logfile, PATH_MAX + 1, "%s/ccdb_perf_backend_%d.log", envDir,
-             procnum);
-
-    DBEPERFLOG(CreateTimerLog(logfile));
-#endif
-
-    // init dbg protocol
-    DBEPERFLOG(SetTimerStart("DbgInitProto"));
-
-    // we create new argc/argv specifically for the init proto function. argv[0] 
-    // should be the binary name ("dbgsrv") and the rest will be any leftover positional
-    // arguments not processed by getopt above. getopt rearranges argv so that unprocessed
-    // arguments are left at the end, and sets the global optind to point to the
-    // first unprocessed one.
-
-    ArgvStream protoArgv;
-    protoArgv << argv[0];
-    for (; optind < argc; optind++) {
-        protoArgv << argv[optind];
-    }
-
-    // if procnum and pid are not already set, initProto sets them.
-    if ((pnum = DbgInitProto(procnum, pid, protoArgv.argc(), protoArgv.c_strs().data(), jobKey, host, cb)) < 0) {
+    if (DbgInitProto(procnum, pid, args.proto_argv.argc(), args.proto_argv.c_strs().data()) < 0) {
         fprintf(stderr, "Init of protocol failed\n");
         return 1;
     }
@@ -310,7 +273,6 @@ int main(int argc, char *argv[], char *env[]) {
         fprintf(stderr, "no pid after DbgInitProto.\n");
         return 1;
     }
-    DBEPERFLOG(SetTimerStopAndLog("DbgInitProto"));
 
     // set global my_rank
     my_rank = procnum;
@@ -341,14 +303,6 @@ int main(int argc, char *argv[], char *env[]) {
     }
     DBEPERFLOG(SetTimerStopAndLog("DbgInitBackend"));
 
-    // init backend i/o
-    DBEPERFLOG(SetTimerStart("DbgInitI/O"));
-    if (IOBackendFD != -1 && SetupProgIO(&IOClientFD, &port) < 0) {
-        DVPRINT("Could not setup program IO channel\n");
-        IOBackendFD = -1;
-    }
-    DBEPERFLOG(SetTimerStopAndLog("DbgInitI/O"));
-
 #ifdef PERFLOG
     gettimeofday(&tv_io, NULL);
 #endif
@@ -362,21 +316,20 @@ int main(int argc, char *argv[], char *env[]) {
     } else {
 
         // attach to application directly
-        if (vgdb_command_file == nullptr) {
-            DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s main_function:%s\n", pid, prog,
-                (main_function) ? main_function : "(none detected)");
+        if (args.vgdb_command_file.empty()) {
+            DVPRINT("dbgsrv: dbg_attach pid:%d prog:%s main_function:%s\n", pid, args.program.c_str(), args.main_function.c_str());
             DBEPERFLOG(SetTimerStart("DbgAttach"));
-            e = DbgAttach(pid, prog, nullptr, env, main_function);
+            e = DbgAttach(pid, args.program.c_str(), nullptr, env, args.main_function);
             DBEPERFLOG(SetTimerStopAndLog("DbgAttach"));
 
         // attach to remote GDB server
         } else {
 
             // Read connection instructions from VGDB command file
-            DVPRINT("dbgsrv: reading VGDB command file at %s\n", vgdb_command_file);
+            DVPRINT("dbgsrv: reading VGDB command file at %s\n", args.vgdb_command_file.c_str());
 
             auto vgdbCommand = std::string{};
-            { auto commandStream = std::ifstream{vgdb_command_file};
+            { auto commandStream = std::ifstream{args.vgdb_command_file};
                 auto line = std::string{};
                 while (std::getline(commandStream, line)) {
                     try {
@@ -418,34 +371,13 @@ int main(int argc, char *argv[], char *env[]) {
         DVPRINT("dbgsrv: dbg_invoke failed, error %d = %s\n", e->ev_event, e->ev_errstr);
     }
 
-#ifdef PERFLOG
-    gettimeofday(&tv_end, NULL);
-#endif
-
-    /*
-    ** Exit if the attach or invoke failed.
-    */
-    DBEPERFLOG(SetTimerStart("DbgCallBack"));
-    if (!DbgInvokeCB(host, cb, hname, pnum, procnum, port, e)) {
-        return 1;
-    }
-    DBEPERFLOG(SetTimerStopAndLog("DbgCallBack"));
-
     if (e != NULL) FreeEvent(e);
 
     Server();
     return 0;
 }
 
-void Usage(void) {
-    fprintf(stderr,
-            "usage: dbgsrv -h host -c cb -f program [-p proto] [proto args]\n");
-    exit(1);
-}
-
 void Server(void) {
-    int fd = -1;
-
     DVPRINT("dbgsrv: Server() main loop has started!\n");
 
     for (;;) {
@@ -503,43 +435,6 @@ void Server(void) {
                 }
 
                 /*
-                ** Only do this if backend i/o is connected
-                */
-                if (IOBackendFD >= 0) {
-                    /*
-                    ** Check to see if there is any data from
-                    ** the backend. If DoProgIO() fails then all
-                    ** bets are off.
-                    */
-                    if (FD_ISSET(IOBackendFD, readfds)) {
-                        FD_CLR(IOBackendFD, readfds);
-
-                        if (!DoProgIO(&IOBackendFD, fd)) IOBackendFD = -1;
-                    }
-
-                    /*
-                    ** Data on IOClientFD means that the client
-                    ** has connected to our socket. Accept
-                    ** the connection, then get rid of IOClientFD.
-                    */
-                    if (IOClientFD >= 0 && FD_ISSET(IOClientFD, readfds)) {
-                        FD_CLR(IOClientFD, readfds);
-#ifdef _AIX
-                        if ((fd = accept(IOClientFD, (struct sockaddr *)NULL,
-                                         (size_t *)NULL)) < 0)
-#else
-                        if ((fd = accept(IOClientFD, (struct sockaddr *)NULL,
-                                         0)) < 0)
-#endif
-                            perror("accept");
-
-                        close(IOClientFD);
-                        IOClientFD = -1;
-                        DVPRINT("dbgsrv: sent accept!\n");
-                    }
-                }
-
-                /*
                 ** Anything else will be debug proto calls.
                 */
                 DbgRunProto(readfds);
@@ -585,34 +480,6 @@ char *MakeStr(int argc, char *argv[]) {
     }
 
     return s;
-}
-
-/*
-** Create and bind a socket for the client to connect to.
-*/
-int SetupProgIO(int *cfd, int *port) { return DbgSetupIO(cfd, port); }
-
-/*
-** Transfer data from backend to socket connected to client.
-*/
-int DoProgIO(int *in, int out) {
-    int n;
-    char buf[BUFSIZ];
-
-    if ((n = read(*in, buf, BUFSIZ)) < 0) {
-        if (errno == EIO) {
-            if ((*in = DbgProgIOHook(*in)) < 0) return 0;
-
-            return 1;
-        }
-
-        perror("DoProgIO: read");
-        return 0;
-    }
-
-    if (DbgTransferIO(out, buf, n) < 0) return 0;
-
-    return 1;
 }
 
 /*

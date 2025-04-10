@@ -1,12 +1,15 @@
 // Copyright 2024-2025 Hewlett Packard Enterprise Development LP.
 
 #include <algorithm>
+#include <csetjmp>
+#include <csignal>
 #include <functional>
 #include <cstdio>
 #include <cstdlib>
 #include <dlfcn.h>
 #include <iomanip>
 #include <map>
+#include <mutex>
 #include <set>
 #include <sstream>
 
@@ -201,6 +204,25 @@ struct ProcessCallbacks {
 
 class SoIface {
     // interface to the MQD shared library.
+
+    // XXX: the mqd shared library is prone to segfaulting. since we dlopen it
+    // to run it, this means that a mqd segfault is a dbgsrv segfault.
+    // we handle this by setting up a signal handler for SIGSEGV when using the
+    // mqd shared library. of course, this is nasty. but it's the least nasty
+    // of the available options. see CPE-9018 for details and discussion of other options.
+
+    // thrown when a segfault happens in the MQD shared library
+    class SegfaultException : public std::runtime_error {
+    public:
+        SegfaultException() : std::runtime_error("A segmentation fault occurred in message queue debugging library provided by MPI. Further message queue debugging has been disabled.") {}
+    };
+
+    // function to execute code protected from segfaults. if a segfault happens,
+    // throws SegfaultException. further calls the the shared library will
+    // be blocked and throw a std::runtime_error.
+    template <typename FN, typename ...Args>
+    std::invoke_result_t<FN, Args...> call_catch_segv(FN fn, Args&&... args);
+
 public:
     // given a path to the library .so, dlopen it, setup basic callbacks,
     // and bind the functions provided by the MQD shared library.
@@ -210,25 +232,25 @@ public:
     // these functions are described in sections 5.7 - 5.10 of the whitepaper.
 
     // returned string is owned by MQD.so and should not be free'd
-    const char* version_string() { return m_version_string_fp(); }
+    const char* version_string() { return call_catch_segv(m_version_string_fp); }
 
-    int version_compatibility() { return m_version_compatibility_fp(); }
-    int dll_taddr_width() { return m_dll_taddr_width_fp(); }
-    const char* error_string(int error_code) { return m_dll_error_string_fp(error_code); }
+    int version_compatibility() { return call_catch_segv(m_version_compatibility_fp); }
+    int dll_taddr_width() { return call_catch_segv(m_dll_taddr_width_fp); }
+    const char* error_string(int error_code) { return call_catch_segv(m_dll_error_string_fp, error_code); }
 
     // `SoIface` must live as long as `image`.
-    int setup_image(Image* image) { return m_setup_image_fp(image, &m_image_callbacks); }
-    int image_has_queues(Image* image, char** message) { return m_image_has_queues_fp(image, message); }
-    int destroy_image_info(mqs_image_info* image_info) { return m_destroy_image_info_fp(image_info); }
+    int setup_image(Image* image) { return call_catch_segv(m_setup_image_fp, image, &m_image_callbacks); }
+    int image_has_queues(Image* image, char** message) { return call_catch_segv(m_image_has_queues_fp, image, message); }
+    int destroy_image_info(mqs_image_info* image_info) { return call_catch_segv(m_destroy_image_info_fp, image_info); }
 
-    int setup_process(Process* process) { return m_setup_process_fp(process, &m_process_callbacks); }
-    int process_has_queues(Process* process, char** message) { return m_process_has_queues_fp(process, message); }
-    int destroy_process_info(mqs_process_info* process_info) { return m_destroy_process_info_fp(process_info); }
+    int setup_process(Process* process) { return call_catch_segv(m_setup_process_fp, process, &m_process_callbacks); }
+    int process_has_queues(Process* process, char** message) { return call_catch_segv(m_process_has_queues_fp, process, message); }
+    int destroy_process_info(mqs_process_info* process_info) { return call_catch_segv(m_destroy_process_info_fp, process_info); }
 
-    int update_communicator_list(Process* process) { return m_update_communicator_list_fp(process); }
-    int setup_communicator_iterator(Process* process) { return m_setup_communicator_iterator_fp(process); }
-    int get_communicator(Process* process, mqs_communicator* comm) { return m_get_communicator_fp(process, comm); }
-    int next_communicator(Process* process) { return m_next_communicator_fp(process); }
+    int update_communicator_list(Process* process) { return call_catch_segv(m_update_communicator_list_fp, process); }
+    int setup_communicator_iterator(Process* process) { return call_catch_segv(m_setup_communicator_iterator_fp, process); }
+    int get_communicator(Process* process, mqs_communicator* comm) { return call_catch_segv(m_get_communicator_fp, process, comm); }
+    int next_communicator(Process* process) { return call_catch_segv(m_next_communicator_fp, process); }
 
 private:
     const char* (*m_version_string_fp)();
@@ -253,7 +275,52 @@ private:
     ImageCallbacks m_image_callbacks = {};
     ProcessCallbacks m_process_callbacks = {};
     void* m_raw_so = nullptr;
+
+    std::mutex m_segv_call_mutex;
+    bool m_encountered_segv = false;
 };
+
+static thread_local jmp_buf g_mqd_segfault_jmp_buf;
+
+static void handle_mqd_segfault(int /* sig */) {
+    longjmp(g_mqd_segfault_jmp_buf, 1);
+}
+
+template <typename FN, typename ...Args>
+std::invoke_result_t<FN, Args...> SoIface::call_catch_segv(FN fn, Args&&... args) {
+    if (m_encountered_segv) {
+        DVPRINT("mqd: tried to call MQD.so after segfault\n");
+        throw std::runtime_error("The message queue debugging library has been disabled due to a segmentation fault.");
+    }
+
+    // we're changing the global handler for segv, which is not thread safe
+    auto lock = std::scoped_lock(m_segv_call_mutex);
+
+    auto sa = (struct sigaction){};
+    sa.sa_handler = handle_mqd_segfault;
+    ::sigemptyset(&sa.sa_mask);
+
+    auto old_sa = (struct sigaction){};
+
+    if (sigaction(SIGSEGV, &sa, &old_sa)) {
+        throw std::runtime_error("Failed to set signal handler: " + std::string{strerror(errno)});
+    }
+
+    if (setjmp(g_mqd_segfault_jmp_buf) == 0) {
+        auto result = fn(std::forward<Args>(args)...);
+        if (sigaction(SIGSEGV, &old_sa, nullptr)) {
+            throw std::runtime_error("Failed to set signal handler: " + std::string{strerror(errno)});
+        }
+        return result;
+    } else {
+        DVPRINT("mqd: segfault in MQD.so. disabling\n");
+        m_encountered_segv = true;
+        if (sigaction(SIGSEGV, &old_sa, nullptr)) {
+            throw std::runtime_error("Failed to set signal handler: " + std::string{strerror(errno)});
+        }
+        throw SegfaultException();
+    }
+}
 
 struct MQD::State {
     State(const std::string& mqd_so_path, MISession& mi);

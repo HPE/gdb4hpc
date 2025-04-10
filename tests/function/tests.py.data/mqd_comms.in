@@ -8,13 +8,13 @@ Created network...
 Connected to application...
 Launch complete.
 a{0..7}: Initial breakpoint, main at /src/c/c_mpi_comms.c:5
-0: maint mpi communicators
+0: info mpi communicators
 a{0..7}: MPI Communicators: 0
 0: break 20
 a{0..7}: Breakpoint 1: file /src/c/c_mpi_comms.c, line 21.
 0: c
 a{0..7}: Breakpoint 1, main at /src/c/c_mpi_comms.c:21
-0: maint mpi communicators
+0: info mpi communicators
 a{0}: MPI Communicators: 3
 - MPI_COMM_WORLD: rank 0 of 8
 - MPI_COMM_SELF: rank 0 of 1

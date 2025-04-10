@@ -91,7 +91,6 @@ variable
 complete
 echo
 list-cached-frames
-mpi
 pybe
 set
 show

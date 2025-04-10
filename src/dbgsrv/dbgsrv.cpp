@@ -226,6 +226,17 @@ int main(int argc, char *argv[], char *env[]) {
 
     DVPRINT("dbgsrv starting!\n");
 
+    // XXX: due to a bug in zmqnet, dbgsrv is spawned with all signals blocked.
+    // dbgsrv was not designed with this in mind, so we fix it here at startup.
+    // the zmqnet bug has been fixed and this can be removed after 25.09. see
+    // zmqnet PR #88 and CPE-9018.
+    {
+        DVPRINT("CPE-9018: unblocking all signals\n");
+        auto all_signals = sigset_t{};
+        ::sigfillset(&all_signals);
+        ::pthread_sigmask(SIG_UNBLOCK, &all_signals, nullptr);
+    }
+
     // parse args - invalidates argv
     auto args = parse_dbgsrv_argv(argc, argv);
 

@@ -49,10 +49,8 @@ int cmd_info_mpi_communicators(rec_set_t* rec_set, int argc, const char* const a
 } // anon namespace
 
 void ConsoleCommandsFactory::insert_msgqueue_commands(CommandNode& root) {
-    // because of CPE-9016, this command can segfault dbgsrv. so for now we hide it behind maint.
-
     root.addSubCmd({
-        .name = "maint mpi",
+        .name = "info mpi",
         .ptype = proc_required,
         .fn = nullptr,
         .help = nullptr,
@@ -60,7 +58,7 @@ void ConsoleCommandsFactory::insert_msgqueue_commands(CommandNode& root) {
     });
 
     root.addSubCmd({
-        .name = "maint mpi communicators",
+        .name = "info mpi communicators",
         .ptype = proc_required,
         .fn = cmd_info_mpi_communicators,
         .help = cmd_info_mpi_communicators_help,

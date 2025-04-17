@@ -169,7 +169,13 @@
             &quot;type&quot;: &quot;gdb4hpc&quot;,
             &quot;request&quot;: &quot;launch&quot;,
             &quot;name&quot;: &quot;GDB4HPC&quot;,
-            &quot;dbgversion&quot;: &quot;&quot;,   
+            &quot;setupCommands&quot;: [&quot;module load gdb4hpc&quot;], 
+            &quot;connConfig&quot;: {
+                &quot;host&quot;: &quot;&quot;,
+                &quot;port&quot;: &quot;&quot;,
+                &quot;username&quot;:&quot;&quot;,
+                &quot;privateKey&quot;: &quot;&quot;
+            },
             &quot;apps&quot;: [
                 {
                     &quot;procset&quot;: &quot;&quot;,
@@ -186,12 +192,28 @@
 }
 </code></pre>
 <ul>
-<li>dbgversion = path to gdb4hpc</li>
-<li>procset = name and ranks for launch command i.e. “App0{10}”</li>
-<li>program = path of program to debug</li>
-<li>args = arg flags for launch command i.e “–gpu –non-mpi”</li>
-<li>cwd = current working directory</li>
-<li>env = list of any env varibales to apply. List them in this format:</li>
+<li><p>setupCommands = any commands to send to terminal before gdb4hpc is launched including pointing to the gdb4hpc executable.</p></li>
+<li><p>connConfig = setup a remote connection for GDB4HPC. For a remote connection, provide a host, port, username, and private key. Make sure the machine to connect to is accessible using a privatekey for a secure connection. For a local connection, leave host empty.</p></li>
+<li><p>apps = the list of applications to be launched: Multiple applications can be launched using the launch config by adding information for another app to the list</p></li>
+</ul>
+<pre><code>&quot;apps&quot;: [
+    {
+        &quot;procset&quot;: &quot;&quot;,
+        &quot;program&quot;: &quot;&quot;,
+        &quot;args&quot;: &quot;&quot;
+    },
+    {
+        &quot;procset&quot;: &quot;&quot;,
+        &quot;program&quot;: &quot;&quot;,
+        &quot;args&quot;: &quot;&quot;
+    }
+]</code></pre>
+<ul>
+<li><p>procset = name and ranks for launch command i.e. “App0{10}”</p></li>
+<li><p>program = path of program to debug</p></li>
+<li><p>args = arg flags for launch command i.e “–gpu –non-mpi”</p></li>
+<li><p>cwd = current working directory</p></li>
+<li><p>env = list of any env varibales to apply. This list is only used for a local connection. For a remote GDB4HPC connection, add export statements to the setupCommands or add them manually if setupCommands are not used. List environment variables in this format:</p></li>
 </ul>
 <pre><code>{
     &quot;GDB4HPC_DEBUG_INTERPRETER&quot;: &quot;1&quot;,
@@ -200,18 +222,19 @@
 <h1 id="display">Display</h1>
 <p>Open the Run and Debug panel on the left. Choose GDB4HPC in the Dropdown on the top of the panel. If GDB4HPC does not show up as an option, the extension is not installed properly or the launch.json file is not configured correctly.</p>
 <h2 id="run-and-debug">Run and Debug</h2>
-<p>Configure the launch options in the launch.json file before running the debugger. Press the green play button on the left of “GDB4HPC” to launch the debugger session. Once launched, this will be replaced by the pause, step, continue, next, and stop buttons.</p>
+<p>Configure the launch options in the launch.json file before running the debugger. There are two options for launching gdb4hpc: 1. Locally. Set “connConfig” host in the launch.json file to an empty string. 2. Remotely. Confirm the machine running gdb4hpc can be accessed using a ssh key and gdb4hpc is installed and follow the instructions for the launch.json “connConfig”.</p>
+<p>Press the green play button on the left of “GDB4HPC” to launch the debugger session. Once launched, this will be replaced by the pause, step, continue, next, and stop buttons.</p>
 <figure>
 <img src="./img/vscode_launch.gif" alt="Launching Debugger" /><figcaption aria-hidden="true">Launching Debugger</figcaption>
 </figure>
 <h2 id="consoles">Consoles</h2>
 <p>Different terminals are available on the bottom.</p>
 <h3 id="debug-console">Debug Console</h3>
-<p>The Debug Console is the output console for GDB4HPC. Any information and warnings will show up here.</p>
+<p>The Debug Console is the output console for GDB4HPC. Any information and warnings will show up here. If setupCommands is empty in the launch.json file, this Debug Console will be interactive until the “gdb4hpc” command is given which will then launch gdb4hpc. On a remote gdb4hpc connection, the Debug Console will display the remote machine information once it sets up the remote connection before the setupCommands or interactive user input can be processed.</p>
 <h3 id="output">Output</h3>
 <p>There is a drop down on the right to choose the Output Channel to view. <strong>Program Output</strong> will automatically become displayed whenever the application running produces output. <strong>Error Log</strong> will log all errors while the session is running. Errors also get displayed in a popup as they appear.</p>
 <h2 id="source-code-display">Source Code Display</h2>
-<p>The screen displays the source code automatically when launched. The current line in the file will be highlighted. You can interact with the source code to set breakpoints and get current variable values by hovering.</p>
+<p>The screen displays the source code automatically when launched. The current line in the file will be highlighted for the first application and first rank by default. To change this, you can set the desired Application and Rank in the display filter. You can interact with the source code to set breakpoints and get current variable values by hovering.</p>
 <h2 id="left-side-panel">Left Side Panel</h2>
 <p>The left side panel provides extra ways to interact with the gui. Each section of this panel is described below.</p>
 <h3 id="variables">Variables</h3>
@@ -227,10 +250,12 @@
 <img src="./img/vscode_breakpoint.gif" alt="Creating a Breakpoint" /><figcaption aria-hidden="true">Creating a Breakpoint</figcaption>
 </figure>
 <h3 id="focus">Focus</h3>
-<p>This section allows you to see the lists of pe sets. The pe set in focus is marked as with *. Choose a different pe set to focus on by pressing the <strong>select</strong> button. A new tab can be opened for each pe set describing an individual application. This new tab will display the source code location for the specific pe set as well as any other information specific to that pe set.</p>
+<p>This section allows you to see the lists of pe sets for GDB4HPC and change the focus used by GDB4HPC. The pe set in focus is marked as with *. Choose a different pe set to focus on by pressing the <strong>radio</strong> button next to it or adding it to the list by providing a name for it and its procset. If a name is omitted, the pe set will be temporary and will be removed from the list once it is no longer in focus.</p>
 <figure>
-<img src="./img/vscode_focus.gif" alt="Creating a new PE Set" /><figcaption aria-hidden="true">Creating a new PE Set</figcaption>
+<img src="./img/vscode_focus.png" alt="Creating a new PE Set" /><figcaption aria-hidden="true">Creating a new PE Set</figcaption>
 </figure>
+<h3 id="display-filter">Display Filter</h3>
+<p>This section allows the user to filter the information on the display. It does not change the focus in GDB4HPC. The user can add application and rank inforamation they want to be displayed to find information quicker. The user can set the application for the source code to highlight and focus on.</p>
 <h3 id="decompositions">Decompositions</h3>
 <p>To create a decomposition, click the add button in the Decomposition section. This will make a popup appear on the top of the screen. In the pop-up enter a name for the decomposition (i.e. $decomp1) or a full decomposition command (i.e. $decomp1 10/2). If you enter in a command, the decomposition will be added to the decomposition section. If you enter just a name for the decomposition, a new popup will appear to add a decomposition subcommand. This popup will continue to reappear until it is dismissed. When the popup is dissmised, the decomposition will be saved and shown int the decomposition section.</p>
 <figure>

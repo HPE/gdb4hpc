@@ -157,6 +157,11 @@ std::vector<Prim> m_cppPrims =
  {"double",PrimWrap<ais::Double>()},
  {"enum", wrapEnum},
  {"float",PrimWrap<ais::Float>()},
+ {"_Float16",PrimWrap<ais::Float16>()},
+ {"__fp16",PrimWrap<ais::Float16>()},
+ {"float16_t",PrimWrap<ais::Float16>()},
+ {"__bf16",PrimWrap<ais::BFloat16>()},
+ {"bfloat16_t",PrimWrap<ais::BFloat16>()},
  {"int",PrimWrap<ais::Int>()},
  {"int8_t",PrimWrap<ais::Int>()},
  {"long",PrimWrap<ais::Long>()},
@@ -1401,6 +1406,8 @@ TEST_CASE("TypeParser::getType: cpp primitive types") {
 
     SUBCASE("float") { basicTypeTest<ais::Float>(TypeParser::Lang::Cpp, "float"); }
 
+    SUBCASE("_Float16") { basicTypeTest<ais::Float>(TypeParser::Lang::Cpp, "_Float16"); }
+
     SUBCASE("int") { basicTypeTest<ais::Int>(TypeParser::Lang::Cpp, "int"); }
 
     SUBCASE("int8_t") { basicTypeTest<ais::Int>(TypeParser::Lang::Cpp, "int8_t"); }
@@ -1462,6 +1469,7 @@ TEST_CASE("TypeParser::getType: cpp pointer types") {
         SUBCASE("int") { basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "int*"); }
         SUBCASE("void") { basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "void*"); }
         SUBCASE("float") { basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "float*"); }
+        SUBCASE("_Float16") { basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "_Float16*"); }
     }
 
     SUBCASE("char pointer") { basicTypeTest<ais::CharArray>(TypeParser::Lang::Cpp, "char*"); }
@@ -1529,6 +1537,8 @@ TEST_CASE("TypeParser::getType: cpp decorated types") {
         basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "int (*) ()");
         basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "float (*) (int, int, int)");
         basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "float (*) ()");
+        basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "_Float16 (*) (int, int, int)");
+        basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "__bf16 (*) ()");
         basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "char (*) (int, int, int)");
         basicTypeTest<ais::Pointer>(TypeParser::Lang::Cpp, "char (*) ()");
 

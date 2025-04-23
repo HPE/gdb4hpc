@@ -130,6 +130,9 @@ clean:
 ./bin/${PE_ENV}/c/%.o : ./src/c/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+./bin/${PE_ENV}/C++/cpp_ds_test1.o : ./src/C++/cpp_ds_test1.cpp
+	$(CXX) $(CXXFLAGS) -std=c++23 -c $< -o $@
+
 ./bin/${PE_ENV}/C++/%.o : ./src/C++/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -196,7 +199,7 @@ shmemTest :
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_ds_test1.x : ./bin/${PE_ENV}/C++/cpp_ds_test1.o
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) -std=c++23 $^ -o $@
 
 ./bin/${PE_ENV}/C++/cpp_arrays.x : ./bin/${PE_ENV}/C++/cpp_arrays.o
 	$(CXX) $(CXXFLAGS) $^ -o $@

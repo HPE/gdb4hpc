@@ -18,6 +18,7 @@
 #include <cctype>
 #include <algorithm>
 #include <limits>
+#include <charconv>
 
 #include "dbgevent.h"
 #include "dbgsrv_defs.h"

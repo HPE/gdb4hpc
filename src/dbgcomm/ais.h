@@ -676,6 +676,20 @@ public:
     float readVal(Reader& reader) const;
 };
 
+class Float16 : public Float {
+public:
+    Float16() {}
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
+    std::string getTypeName() const override;
+};
+
+class BFloat16 : public Float {
+public:
+    BFloat16() {}
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
+    std::string getTypeName() const override;
+};
+
 class Double : public Type {
 public:
     Double() {}

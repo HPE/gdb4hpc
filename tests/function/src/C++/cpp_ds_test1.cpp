@@ -11,6 +11,8 @@
 #include <stack>
 #include <queue>
 #include <sstream>
+#include <stdfloat>
+
 struct Struct1 {
   double x;
   int y;
@@ -97,6 +99,10 @@ int main(int argc, char ** argv){
     std::queue<int> q;
     std::priority_queue<int> pq;
     std::vector<float> vf;
+    std::float16_t f16_t = static_cast<std::float16_t>(3.14159265);
+    std::bfloat16_t b16_t = static_cast<std::bfloat16_t>(2.00403123);
+    std::vector<_Float16> vf16;
+    _Float16 f16 = static_cast<_Float16>(1.234567);
     std::vector<double> vd;
     std::vector<int *> ip;
     std::vector<Rectangle > vv;
@@ -106,7 +112,8 @@ int main(int argc, char ** argv){
         vv.push_back(rect);
         ip.push_back((int*)0x1234);
         vd.push_back(i+.5);
-        vf.push_back(i+0.5);
+        vf.push_back(i+0.521232132);
+        vf16.push_back(static_cast<_Float16>(i+0.521232132));
         l.push_back(i);
         d.push_back(i);
         s.push(i);

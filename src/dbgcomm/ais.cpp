@@ -429,6 +429,31 @@ std::string ais::Float::getTypeName() const {
     return "float";
 }
 
+std::unique_ptr<ais::Printer> ais::Float16::makePrinter(Printer& parent) const {
+    struct TPrinter : public Printer {
+        TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
+        void operator()(float val) override { out << std::setprecision(4) << val; }
+    };
+    return std::make_unique<TPrinter>(parent);
+}
+
+std::string ais::Float16::getTypeName() const {
+    return "float16";
+}
+
+std::unique_ptr<ais::Printer> ais::BFloat16::makePrinter(Printer& parent) const {
+    struct TPrinter : public Printer {
+        TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
+        void operator()(float val) override { out << std::setprecision(3) << val; }
+    };
+    return std::make_unique<TPrinter>(parent);
+}
+
+std::string ais::BFloat16::getTypeName() const {
+    return "bfloat16";
+}
 
 void ais::LongDouble::parseL(InterpretStream& in, Writer& out) const
 {
@@ -805,6 +830,8 @@ std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
     std::make_shared<ais::LongLong>(),
     std::make_shared<ais::UnsignedLongLong>(),
     std::make_shared<ais::Float>(),
+    std::make_shared<ais::Float16>(),
+    std::make_shared<ais::BFloat16>(),
     std::make_shared<ais::Double>(),
     std::make_shared<ais::LongDouble>(),
     std::make_shared<ais::Pointer>(""),

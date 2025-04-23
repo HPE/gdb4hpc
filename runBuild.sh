@@ -59,95 +59,112 @@ fi
 mkdir -p $install_dir
 check_exit_status
 
-echo "############################################"
-echo "#               Building gdb               #"
-echo "############################################"
-#TODO:  Both the gdb abd cuda gdb builds take longer than we need; however,
-#       because of a non-recursive configure, both require make to run from the
-#       top in order to generate the makefiles for the gdb directory.  This is
-#       an area we could signficiantly speed up the build, but we're waiting on
-#       the release process to be defined properly; at that juncture it may be
-#       possible that we replace the gdb backend builds here with a separate rpm
-#       of gdb backends included in the build prep.
+nodeps=
+nogdb=
 
-ddt_gdb=ddt_gdb-10.0
+for arg in "$@"; do
+    if [ $arg == "--nodeps" ]; then
+	nodeps=1
+    elif [ $arg == "--nogdb" ]; then
+	nogdb=1
+    fi
+done
 
-# ensure submodule is checked out
-if [[ ! -f $top_level/external/$ddt_gdb/README ]]; then
-    echo "gdb submodule not checked out..."
-    exit 1
+if [ -z "$nodeps" -a -z "$nogdb" ]; then
+
+    echo "############################################"
+    echo "#               Building gdb               #"
+    echo "############################################"
+    #TODO:  Both the gdb abd cuda gdb builds take longer than we need; however,
+    #       because of a non-recursive configure, both require make to run from the
+    #       top in order to generate the makefiles for the gdb directory.  This is
+    #       an area we could signficiantly speed up the build, but we're waiting on
+    #       the release process to be defined properly; at that juncture it may be
+    #       possible that we replace the gdb backend builds here with a separate rpm
+    #       of gdb backends included in the build prep.
+
+    ddt_gdb=ddt_gdb-10.0
+
+    # ensure submodule is checked out
+    if [[ ! -f $top_level/external/$ddt_gdb/README ]]; then
+	echo "gdb submodule not checked out..."
+	exit 1
+    fi
+
+    cd $top_level/external/$ddt_gdb
+    check_exit_status
+
+    ./configure --prefix=$install_dir \
+		--with-gdb-datadir=$install_dir/share/gdb \
+		--with-python=$(command -v python3) \
+		--disable-werror \
+		--with-mmalloc \
+		--without-babeltrace \
+		--without-guile \
+		--without-separate-debug-dir \
+		CFLAGS="-O2" CXXFLAGS="-O2 --std=c++17 -Wno-template-id-cdtor"
+    check_exit_status
+
+    make $cdst_j_flags
+    check_exit_status
+
+    # gdb is part of binutils. We don't want all of binutils to install, only gdb.
+    cd $top_level/external/$ddt_gdb/gdb
+    check_exit_status
+    make $cdst_j_flags install
+    check_exit_status
+
+    # deliver pretty-printers
+    cp -a $top_level/external/python_extras/gdb $install_dir/share/.
+    check_exit_status
+
+    # deliver gdb-guard to libexec dir
+    mkdir -p $install_dir/libexec
+    check_exit_status
+
+    cp -a $install_dir/bin/gdb $install_dir/libexec/gdb-guard
+    check_exit_status
+
 fi
 
-cd $top_level/external/$ddt_gdb
-check_exit_status
+if [ -z "$nodeps"]; then
+    echo "############################################"
+    echo "#             Building ompd plugin         #"
+    echo "############################################"
 
-./configure --prefix=$install_dir \
-            --with-gdb-datadir=$install_dir/share/gdb \
-            --with-python=$(command -v python3) \
-            --disable-werror \
-            --with-mmalloc \
-            --without-babeltrace \
-            --without-guile \
-            --without-separate-debug-dir \
-	CFLAGS="-O2" CXXFLAGS="-O2 --std=c++17 -Wno-template-id-cdtor"
-check_exit_status
+    ompd_dir=$install_dir/share/ompd
+    ompd_build=$ompd_dir/build
 
-make $cdst_j_flags
-check_exit_status
+    mkdir -p $ompd_build
+    check_exit_status
 
-# gdb is part of binutils. We don't want all of binutils to install, only gdb.
-cd $top_level/external/$ddt_gdb/gdb
-check_exit_status
-make $cdst_j_flags install
-check_exit_status
+    mkdir -p $ompd_dir
 
-# deliver pretty-printers
-cp -a $top_level/external/python_extras/gdb $install_dir/share/.
-check_exit_status
+    cd $top_level/external/openmp/libompd/gdb-plugin
+    check_exit_status
 
-# deliver gdb-guard to libexec dir
-mkdir -p $install_dir/libexec
-check_exit_status
+    cp ../../runtime/src/include/omp-tools.h.var omp-tools.h
+    check_exit_status
+    python3 ./setup.py -v bdist_wheel -b $ompd_build -d $ompd_build
+    check_exit_status
+    python3 ./setup.py clean --all
+    check_exit_status
+    rm -R ompd.egg-info
+    check_exit_status
+    python3 -m pip install -U -t $ompd_build/python-module --no-index  . .
+    check_exit_status
+    rm omp-tools.h
+    check_exit_status
 
-cp -a $install_dir/bin/gdb $install_dir/libexec/gdb-guard
-check_exit_status
-
-echo "############################################"
-echo "#             Building ompd plugin         #"
-echo "############################################"
-
-ompd_dir=$install_dir/share/ompd
-ompd_build=$ompd_dir/build
-
-mkdir -p $ompd_build
-check_exit_status
-
-mkdir -p $ompd_dir
-
-cd $top_level/external/openmp/libompd/gdb-plugin
-check_exit_status
-
-cp ../../runtime/src/include/omp-tools.h.var omp-tools.h
-check_exit_status
-python3 ./setup.py -v bdist_wheel -b $ompd_build -d $ompd_build
-check_exit_status
-python3 ./setup.py clean --all
-check_exit_status
-rm -R ompd.egg-info
-check_exit_status
-python3 -m pip install -U -t $ompd_build/python-module --no-index  . .
-check_exit_status
-rm omp-tools.h
-check_exit_status
-
-cd $ompd_dir
-check_exit_status
-mkdir -p gdb
-check_exit_status
-cp $ompd_build/python-module/ompd/*.* gdb
-check_exit_status
-rm -R build
-check_exit_status
+    cd $ompd_dir
+    check_exit_status
+    mkdir -p gdb
+    check_exit_status
+    cp $ompd_build/python-module/ompd/*.* gdb
+    check_exit_status
+    rm -R build
+    check_exit_status
+fi
 
 echo "############################################"
 echo "#             Building gdb4hpc             #"

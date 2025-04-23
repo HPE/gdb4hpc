@@ -64,9 +64,6 @@ python_compat_dep = declare_dependency(
 )
 
 # from cdst support
-libedit_dep = dependency('libedit', method: 'pkg-config')
-
-# from cdst support
 libdw_dep = dependency('libdw', method: 'pkg-config')
 
 # from zmqnet
@@ -79,6 +76,8 @@ doctest_dep = doctest_proj.get_variable('doctest_dep')
 
 dl_dep = dependency('dl') # 'dl' is a magic meson builtin
 pthread_dep = dependency('threads') # 'threads' is a magic meson builtin
+tinfo_dep = dependency('tinfo') # magic meson
+
 
 # from zmqnet
 capnp_prog = find_program(
@@ -146,6 +145,14 @@ tinystl_dep = declare_dependency(
     './external/tinystl/include',
   ],
 )
+
+# prefer using this dependency over hard coding the path to ./external/doctest
+editline_proj = subproject(
+ 'editline',
+ default_options: [],
+)
+
+editline_dep = editline_proj.get_variable('editline_dep')
 
 # binaries ----------------------------------------------------------------------------
 
@@ -595,10 +602,11 @@ gdb4hpc = executable(
     zmqnet_dep,
     cti_fe_dep,
     system_python_dep,
-    libedit_dep,
+    editline_dep,
     libdw_dep,
     libmi_dep,
     unittest_dep,
+    tinfo_dep,
   ],
   link_with: [
     libgdb4_df_a,

@@ -50,3 +50,6 @@
 	path = external/python-headers
 	url = git@github.hpe.com:hpcde/cdst-python-headers.git
 	branch = master
+[submodule "external/editline"]
+	path = external/editline
+	url = git@github.hpe.com:hpcde/cdst-editline.git

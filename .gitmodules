@@ -6,9 +6,9 @@
 	path = external/libmi
 	url = git@github.hpe.com:hpcde/cdst-libmi.git
 	branch = master
-[submodule "external/ddt_gdb-10.0"]
-	path = external/ddt_gdb-10.0
-	url = git@github.hpe.com:hpcde/cdst-ddt-gdb-10.0.git
+[submodule "external/binutils-gdb"]
+	path = external/binutils-gdb
+	url = git@github.hpe.com:hpcde/cdst-binutils-gdb.git
 	branch = hpe
 [submodule "tests/function/cdst-test"]
 	path = tests/function/cdst-test

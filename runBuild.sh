@@ -83,17 +83,17 @@ if [ -z "$nodeps" -a -z "$nogdb" ]; then
     #       possible that we replace the gdb backend builds here with a separate rpm
     #       of gdb backends included in the build prep.
 
-    ddt_gdb=ddt_gdb-10.0
+    binutils_gdb=binutils-gdb
 
     # ensure submodule is checked out
-    if [[ ! -f $top_level/external/$ddt_gdb/README ]]; then
+    if [[ ! -f $top_level/external/$binutils_gdb/README ]]; then
 	echo "gdb submodule not checked out..."
 	exit 1
     fi
 
-    cd $top_level/external/$ddt_gdb
+    cd $top_level/external/$binutils_gdb
     check_exit_status
-
+    
     ./configure --prefix=$install_dir \
 		--with-gdb-datadir=$install_dir/share/gdb \
 		--with-python=$(command -v python3) \
@@ -109,7 +109,7 @@ if [ -z "$nodeps" -a -z "$nogdb" ]; then
     check_exit_status
 
     # gdb is part of binutils. We don't want all of binutils to install, only gdb.
-    cd $top_level/external/$ddt_gdb/gdb
+    cd $top_level/external/$binutils_gdb/gdb
     check_exit_status
     make $cdst_j_flags install
     check_exit_status

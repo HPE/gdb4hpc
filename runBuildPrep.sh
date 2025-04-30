@@ -52,7 +52,8 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
         tcl \
         which \
         xz-devel \
-        gmp-devel
+        gmp-devel \
+        mpfr-devel
     check_exit_status
 
 elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
@@ -122,9 +123,10 @@ elif [[ "$target_pm" == "$cdst_pm_yum" ]]; then
         rpm-build \
         tcl \
         texinfo \
-	wget \
+	      wget \
         which \
-        xz-devel
+        xz-devel \
+        mpfr-devel
     check_exit_status
 
     if [[ -z $BRANCH_NAME ]]; then

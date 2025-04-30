@@ -2254,3 +2254,12 @@ Usage: info mpi communicators [-v|--verbose]
 
 For each rank, show the current MPI communicators and their local ranks
 within them. If the verbose options is given, include unnamed communicators.
+
+## info mpi pending
+Summary: Display pending MPI messages\
+Usage: info mpi pending
+
+For each rank, show the contents of the pending MPI message queues. MPI has
+three message queues: pending sends, pending receives, and unexpected messages.
+There are three message queues in theory, but MPI implementations may differ
+in their actual implementation.

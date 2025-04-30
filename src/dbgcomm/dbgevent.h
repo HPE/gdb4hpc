@@ -148,6 +148,7 @@ enum dbgev {
     DBGEV_SYMBOLS,
     DBGEV_PYEXCEPTION,
     DBGEV_MQD_COMMUNICATORS,
+    DBGEV_MQD_OPERATIONS,
 };
 typedef enum dbgev dbgev;
 
@@ -400,6 +401,60 @@ struct dbg_mqd_communicators_t {
     bool operator==(const dbg_mqd_communicators_t& other) const = default;
 };
 
+struct dbg_mqd_operation_t {
+    // see mqd::PendingOperation for description of members
+
+    enum class Status : int {
+        Pending,
+        Matched,
+        Complete,
+
+        // only used in extreme cases like memory corruption etc.
+        // should never be seen if MPI is bug free.
+        Corrupted,
+    };
+
+    Status status;
+
+    enum class QueueType : int {
+        PendingSends,
+        PendingReceives,
+        UnexpectedMessages,
+    };
+
+    QueueType origin_queue;
+
+    dbg_mqd_communicator_t comm;
+
+    long desired_local_rank;
+    long desired_global_rank;
+
+    bool tag_wild;
+    long desired_tag;
+
+    long desired_length;
+    bool system_buffer;
+    unsigned long buffer_addr;
+
+    long actual_local_rank;
+    long actual_global_rank;
+    long actual_tag;
+    long actual_length;
+
+    std::vector<std::string> extra_text;
+
+    bool operator==(const dbg_mqd_operation_t& other) const = default;
+};
+
+std::string to_string(const dbg_mqd_operation_t::Status& status);
+std::string to_string(const dbg_mqd_operation_t::QueueType& queue);
+
+struct dbg_mqd_operations_t {
+    std::vector<dbg_mqd_operation_t> operations;
+
+    bool operator==(const dbg_mqd_operations_t& other) const = default;
+};
+
 struct dbgevent_t {
     dbgev ev_event;
 
@@ -430,6 +485,7 @@ struct dbgevent_t {
         dbgthreadinfo_t *ev_u_threadinfo;
         dbgpyexception_t *ev_u_pyexception;
         dbg_mqd_communicators_t *ev_u_mqd_communicators;
+        dbg_mqd_operations_t *ev_u_mqd_operations;
     } ev_u;
 // These are generic and should not be used outside the format/event functions.
 #define ev_string ev_u.ev_u_string

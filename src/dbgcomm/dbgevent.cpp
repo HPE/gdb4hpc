@@ -292,6 +292,10 @@ dbgevent_t *DupEvent(const dbgevent_t *event) {
         case DBGEV_MQD_COMMUNICATORS:
             e->ev_u.ev_u_mqd_communicators = new dbg_mqd_communicators_t{*event->ev_u.ev_u_mqd_communicators};
             break;
+
+        case DBGEV_MQD_OPERATIONS:
+            e->ev_u.ev_u_mqd_operations = new dbg_mqd_operations_t{*event->ev_u.ev_u_mqd_operations};
+            break;
     }
 
     e->save_ev_data = event->save_ev_data;
@@ -588,6 +592,10 @@ void FreeEvent(dbgevent_t *event) {
 
         case DBGEV_MQD_COMMUNICATORS:
             delete event->ev_u.ev_u_mqd_communicators;
+            break;
+
+        case DBGEV_MQD_OPERATIONS:
+            delete event->ev_u.ev_u_mqd_operations;
             break;
 
         // Anything that doesn't alloc should go here
@@ -1086,6 +1094,8 @@ const char *DbgevToStr(dbgev ev) {
             return "DBGEV_ERROR";
         case DBGEV_MQD_COMMUNICATORS:
             return "DBGEV_MQD_COMMUNICATORS";
+        case DBGEV_MQD_OPERATIONS:
+            return "DBGEV_MQD_OPERATIONS";
     }
 
     return "UNKNOWN_EVENT";
@@ -1108,6 +1118,30 @@ dbgevent_t* NewErrorEvent(dbgerr err) {
     e->ev_errno = err;
     e->ev_errstr = ::strdup("");
     return e;
+}
+
+std::string to_string(const dbg_mqd_operation_t::Status& status) {
+    switch (status) {
+        case dbg_mqd_operation_t::Status::Pending:
+            return "Pending";
+        case dbg_mqd_operation_t::Status::Matched:
+            return "Matched";
+        case dbg_mqd_operation_t::Status::Complete:
+            return "Complete";
+        default:
+            return "Corrupted";
+    }
+}
+
+std::string to_string(const dbg_mqd_operation_t::QueueType& queue) {
+    switch (queue) {
+        case dbg_mqd_operation_t::QueueType::PendingSends:
+            return "Pending Sends";
+        case dbg_mqd_operation_t::QueueType::PendingReceives:
+            return "Pending Receives";
+        default:
+            return "Unexpected Messages";
+    }
 }
 
 // get next thread,value pair from the string if any exist

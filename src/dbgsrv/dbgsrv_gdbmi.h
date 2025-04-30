@@ -128,6 +128,9 @@ public:
     // return the list of MPI communicators. if verbose is true, include unnamed communicators.
     dbgevent_t* mqdGetCommunicators(bool verbose);
 
+    // return the list of pending MPI operations.
+    dbgevent_t* mqdGetPending();
+
     // return true if we should prefer the pybe versions of commands when possible
     bool isPython() const;
     void setPython(bool isPython);

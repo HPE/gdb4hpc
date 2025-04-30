@@ -95,6 +95,7 @@ extern dbgevent_t *DbgPyBEGetGIL();
 extern dbgevent_t *DbgPyBEAttach();
 
 extern dbgevent_t *DbgMQDGetCommunicators(bool verbose);
+extern dbgevent_t *DbgMQDGetPending();
 
 std::vector<dbgevent_t*> DbgReleaseAsyncEvents();
 #endif /* !_DBGFN_H */

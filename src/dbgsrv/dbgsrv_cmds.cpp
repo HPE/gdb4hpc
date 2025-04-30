@@ -471,6 +471,11 @@ std::unique_ptr<char, decltype(&std::free)> dbgsrv_dispatch_cmds(const char *msg
                 e = DbgMQDGetCommunicators(verbose);
                 break;
             }
+
+            case DBGCMD_MQDGETPENDING: {
+                e = DbgMQDGetPending();
+                break;
+            }
         }
     } catch (dbgevent_t* error) {
         DVPRINT("Caught top level dbgsrv error: %s\n", DbgEventErrorStr(error));

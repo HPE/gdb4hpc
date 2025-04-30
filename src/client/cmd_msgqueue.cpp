@@ -46,6 +46,58 @@ int cmd_info_mpi_communicators(rec_set_t* rec_set, int argc, const char* const a
     return had_error ? Command::Failure : Command::Success;
 }
 
+void print_pending_operation(const dbg_mqd_operation_t& p) {
+    PrintOutMsg("Pending operation:\n");
+    PrintOutMsg("  status: %s\n", to_string(p.status).c_str());
+    PrintOutMsg("  queue: %s\n", to_string(p.origin_queue).c_str());
+    PrintOutMsg("  comm.rank: %ld\n", (long)p.comm.rank);
+    PrintOutMsg("  comm.size: %ld\n", (long)p.comm.size);
+    PrintOutMsg("  comm.name: %s\n", p.comm.name.c_str());
+    PrintOutMsg("  desired_local_rank: %ld\n", (long)p.desired_local_rank);
+    PrintOutMsg("  desired_global_rank: %ld\n", (long)p.desired_global_rank);
+    PrintOutMsg("  tag_wild: %d\n", (int)p.tag_wild);
+    PrintOutMsg("  desired_tag: %d\n", (int)p.desired_tag);
+    PrintOutMsg("  desired_length: %ld\n", (long)p.desired_length);
+    PrintOutMsg("  system_buffer: %s\n", p.system_buffer ? "true" : "false");
+    PrintOutMsg("  buffer_addr: %#lx\n", p.buffer_addr);
+    PrintOutMsg("  actual_local_rank: %ld\n", (long)p.actual_local_rank);
+    PrintOutMsg("  actual_global_rank: %ld\n", (long)p.actual_global_rank);
+    PrintOutMsg("  actual_tag: %d\n", (int)p.actual_tag);
+    PrintOutMsg("  actual_length: %ld\n", (long)p.actual_length);
+
+    auto i = 0;
+    for (const auto& txt : p.extra_text) {
+        PrintOutMsg("  extra_text[%d]: %s\n", i++, txt.c_str());
+    }
+}
+
+int cmd_info_mpi_pending(rec_set_t* rec_set) {
+    auto rep_set = DbgMQDGetPending(rec_set);
+
+    {
+        auto pager = cli_pager{};
+
+        for (const auto& reply : rep_set) {
+            if (reply->rep_event->ev_event != DBGEV_MQD_OPERATIONS ||
+                reply->rep_event->ev_u.ev_u_mqd_operations == nullptr)
+            {
+                continue;
+            }
+
+            const auto& ops = *reply->rep_event->ev_u.ev_u_mqd_operations;
+            PrintMsgWithSetInfo(reply->rep_di.c_str(), reply->rep_group.get(),
+                                "Pending MPI Operations: %lu\n", ops.operations.size());
+
+            for (const auto& op : ops.operations) {
+                print_pending_operation(op);
+            }
+        }
+    }
+
+    auto had_error = ProcessErrorInRepSet(rep_set);
+    return had_error ? Command::Failure : Command::Success;
+}
+
 } // anon namespace
 
 void ConsoleCommandsFactory::insert_msgqueue_commands(CommandNode& root) {
@@ -63,5 +115,13 @@ void ConsoleCommandsFactory::insert_msgqueue_commands(CommandNode& root) {
         .fn = cmd_info_mpi_communicators,
         .help = cmd_info_mpi_communicators_help,
         .desc = "List MPI communicators.",
+    });
+
+    root.addSubCmd({
+        .name = "info mpi pending",
+        .ptype = proc_required,
+        .fn = cmd_info_mpi_pending,
+        .help = cmd_info_mpi_pending_help,
+        .desc = "List pending MPI messages.",
     });
 }

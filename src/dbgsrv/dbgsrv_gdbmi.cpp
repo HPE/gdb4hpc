@@ -2843,8 +2843,16 @@ mqd::MQD& DbgGdbMI::ensureMQD() {
         throw NewErrorEvent(DBGERR_INTERNAL, "Message queue debugging component of the MPI library not found.");
     }
 
-    m_mqd = std::make_unique<mqd::MQD>(mqd_so_path.c_str(), *GDBMISession);
+    m_mqd = std::make_unique<mqd::MQD>(mqd_so_path.c_str(), my_rank, *GDBMISession);
     return *m_mqd;
+}
+
+static dbg_mqd_communicator_t to_dbg_mqd_communicator(const mqd::mqs_communicator& comm) {
+    return dbg_mqd_communicator_t{
+        .rank = comm.local_rank,
+        .size = comm.size,
+        .name = comm.name,
+    };
 }
 
 dbgevent_t* DbgGdbMI::mqdGetCommunicators(bool verbose) {
@@ -2860,17 +2868,80 @@ dbgevent_t* DbgGdbMI::mqdGetCommunicators(bool verbose) {
     for (const auto& comm : comms) {
         // XXX: "--unnamed--" is a non-standard cray-mpich implementation detail
         if (verbose || std::string_view{comm.name} != "--unnamed--") {
-            e->ev_u.ev_u_mqd_communicators->communicators.push_back({
-                .rank = comm.local_rank,
-                .size = comm.size,
-                .name = comm.name,
-            });
+            e->ev_u.ev_u_mqd_communicators->communicators.push_back(to_dbg_mqd_communicator(comm));
         } else {
             not_shown++;
         }
     }
 
     e->ev_u.ev_u_mqd_communicators->not_shown = not_shown;
+
+    return e;
+}
+
+static dbg_mqd_operation_t to_dbg_mqd_operation(const mqd::PendingOperation& op) {
+    return dbg_mqd_operation_t{
+        .status = std::invoke([&](){
+            using enum dbg_mqd_operation_t::Status;
+            switch (op.op.status) {
+                case mqd::mqs_st_pending:
+                    return Pending;
+                case mqd::mqs_st_matched:
+                    return Matched;
+                case mqd::mqs_st_complete:
+                    return Complete;
+            }
+            return Corrupted;
+        }),
+        .origin_queue = std::invoke([&](){
+            using enum dbg_mqd_operation_t::QueueType;
+            switch (op.queue) {
+                case mqd::mqs_pending_sends:
+                    return PendingSends;
+                case mqd::mqs_pending_receives:
+                    return PendingReceives;
+                default:
+                    return UnexpectedMessages;
+            }
+        }),
+        .comm = to_dbg_mqd_communicator(op.comm),
+        .desired_local_rank = op.op.desired_local_rank,
+        .desired_global_rank = op.op.desired_global_rank,
+        .tag_wild = static_cast<bool>(op.op.tag_wild),
+        .desired_tag = op.op.desired_tag,
+        .desired_length = op.op.desired_length,
+        .system_buffer = static_cast<bool>(op.op.system_buffer),
+        .buffer_addr = op.op.buffer,
+        .actual_local_rank = op.op.actual_local_rank,
+        .actual_global_rank = op.op.actual_global_rank,
+        .actual_tag = op.op.actual_tag,
+        .actual_length = op.op.actual_length,
+        .extra_text = std::invoke([&](){
+            auto extra_text = std::vector<std::string>{};
+            for (auto i = 0u; i < sizeof(op.op.extra_text) / sizeof(op.op.extra_text[0]); i++) {
+                // extra_text is a static array of chars so we
+                // don't need to check if the i index is nullptr
+                if (op.op.extra_text[i][0] != '\0') {
+                    extra_text.push_back(op.op.extra_text[i]);
+                }
+            }
+            return extra_text;
+        })
+    };
+}
+
+dbgevent_t* DbgGdbMI::mqdGetPending() {
+    DVPRINT("mqdGetPending\n");
+
+    auto& mqd = ensureMQD();
+    auto ops = mqd.get_pending_operations();
+
+    auto e = NewEvent(DBGEV_MQD_OPERATIONS);
+    e->ev_u.ev_u_mqd_operations = new dbg_mqd_operations_t{};
+
+    for (const auto& op : ops) {
+        e->ev_u.ev_u_mqd_operations->operations.push_back(to_dbg_mqd_operation(op));
+    }
 
     return e;
 }

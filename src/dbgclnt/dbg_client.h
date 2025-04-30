@@ -507,6 +507,9 @@ rep_set_t DbgPyBEAttach(rec_set_t* rec);
 // if `verbose` is true, it also includes unnamed communicators.
 rep_set_t DbgMQDGetCommunicators(rec_set_t* rec, bool verbose);
 
+// `DbgMQDGetPending` returns a list of pending MPI operations in the application.
+rep_set_t DbgMQDGetPending(rec_set_t* rec);
+
 extern int PrintMultiThreadMsg(const char* diName, const Bitset* group, const std::string& msg);
 extern bool DbgSetLogDir(const std::string& logdir);
 #endif /* !_DBG_CLIENT_H */

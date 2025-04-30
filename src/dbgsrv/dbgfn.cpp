@@ -436,6 +436,11 @@ dbgevent_t *DbgMQDGetCommunicators(bool verbose) {
     return DbgBackendSW->mqdGetCommunicators(verbose);
 }
 
+dbgevent_t *DbgMQDGetPending() {
+    DBG_READY();
+    return DbgBackendSW->mqdGetPending();
+}
+
 dbgevent_t *DbgDirectCmd(int cmd_argc, char **cmd_argv) {
     DBG_READY();
     return DbgBackendSW->directCmd(cmd_argc, cmd_argv);

@@ -721,6 +721,69 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
         FreeEvent(e2);
         ::free(soc);
     }
+
+    SUBCASE("DBGEV_MQD_OPERATIONS") {
+        const dbg_mqd_operations_t reference_mqd_ops {
+            .operations = {
+                {
+                    .status = dbg_mqd_operation_t::Status::Pending,
+                    .origin_queue = dbg_mqd_operation_t::QueueType::PendingSends,
+                    .comm = { .rank = 3, .size = 4, .name = "MPI_COMM_WORLD1" },
+                    .desired_local_rank = 4,
+                    .desired_global_rank = 99,
+                    .tag_wild = false,
+                    .desired_tag = 1234,
+                    .desired_length = 512,
+                    .system_buffer = true,
+                    .buffer_addr = 0xDEADBEEF,
+                    .actual_local_rank = 1,
+                    .actual_global_rank = 2,
+                    .actual_tag = 1234,
+                    .actual_length = 512,
+                    .extra_text = {"op1 text 1", "op1 text 2"}
+                },
+                {
+                    .status = dbg_mqd_operation_t::Status::Complete,
+                    .origin_queue = dbg_mqd_operation_t::QueueType::PendingReceives,
+                    .comm = { .rank = 5, .size = 6, .name = "MPI_COMM_WORLD2" },
+                    .desired_local_rank = 10,
+                    .desired_global_rank = 20,
+                    .tag_wild = true,
+                    .desired_tag = 999,
+                    .desired_length = 1024,
+                    .system_buffer = false,
+                    .buffer_addr = 0xFEEDBEEF,
+                    .actual_local_rank = 11,
+                    .actual_global_rank = 21,
+                    .actual_tag = 999,
+                    .actual_length = 1024,
+                    .extra_text = {"op2 text 1", "op2 text 2"}
+                }
+            }
+        };
+
+        // Create event to serialize
+        auto* e = NewEvent(DBGEV_MQD_OPERATIONS);
+        e->ev_u.ev_u_mqd_operations = new dbg_mqd_operations_t{reference_mqd_ops};
+
+        // Serialize, frees e
+        auto* soc = EventToSocProto(e);
+        CAPTURE(std::string{soc});
+
+        // Deserialize
+        auto* e2 = SocProtoToEvent(soc);
+
+        // Check
+        REQUIRE(e2->ev_event == DBGEV_MQD_OPERATIONS);
+        REQUIRE(e2->ev_u.ev_u_mqd_operations->operations.size() == reference_mqd_ops.operations.size());
+        for (size_t i = 0; i < reference_mqd_ops.operations.size(); i++) {
+            CHECK(e2->ev_u.ev_u_mqd_operations->operations[i] == reference_mqd_ops.operations[i]);
+        }
+
+        // Clean up
+        FreeEvent(e2);
+        ::free(soc);
+    }
 }
 
 TEST_CASE("CommandToSocProto") {
@@ -1236,6 +1299,38 @@ static char* EventMQDCommunicatorsToSocProto(dbgev ev, const dbg_mqd_communicato
     return MakeSocStr(ev, data.str().c_str());
 }
 
+static char* EventMQDOperationsToSocProto(dbgev ev, const dbg_mqd_operations_t& ops) {
+    auto data = std::ostringstream{};
+
+    data << ops.operations.size() << ' ';
+
+    for (const auto& op : ops.operations) {
+        data << static_cast<int>(op.status) << ' '
+             << static_cast<int>(op.origin_queue)  << ' '
+             << op.comm.rank               << ' '
+             << op.comm.size               << ' '
+             << op.comm.name.size()        << ' ' << op.comm.name << ' '
+             << op.desired_local_rank      << ' '
+             << op.desired_global_rank     << ' '
+             << op.tag_wild                << ' '
+             << op.desired_tag             << ' '
+             << op.desired_length          << ' '
+             << op.system_buffer           << ' '
+             << op.buffer_addr             << ' '
+             << op.actual_local_rank       << ' '
+             << op.actual_global_rank      << ' '
+             << op.actual_tag              << ' '
+             << op.actual_length           << ' '
+             << op.extra_text.size()       << ' '
+        ;
+        for (const auto& txt : op.extra_text) {
+            data << txt.size() << ' ' << txt << ' ';
+        }
+    }
+
+    return MakeSocStr(ev, data.str().c_str());
+}
+
 /*
 ** This is the main function that converts an event to network protocol
 */
@@ -1349,6 +1444,10 @@ char* EventToSocProto(dbgevent_t *e)
 
     case DBGEV_MQD_COMMUNICATORS:
         res = EventMQDCommunicatorsToSocProto(ev, *e->ev_u.ev_u_mqd_communicators);
+        break;
+
+    case DBGEV_MQD_OPERATIONS:
+        res = EventMQDOperationsToSocProto(ev, *e->ev_u.ev_u_mqd_operations);
         break;
     }
 
@@ -1868,6 +1967,46 @@ static dbg_mqd_communicators_t* SocProtoToMQDCommunicators(const char* s) {
     return result;
 }
 
+static dbg_mqd_operations_t* SocProtoToMQDOperations(const char* s) {
+    auto result = new dbg_mqd_operations_t{};
+
+    auto len_ops = getint(s);
+    if (len_ops < 0) return result;
+    for (auto i = size_t{0}; i < static_cast<size_t>(len_ops); i++) {
+        result->operations.emplace_back(dbg_mqd_operation_t{
+            .status = static_cast<dbg_mqd_operation_t::Status>(getint(s)),
+            .origin_queue = static_cast<dbg_mqd_operation_t::QueueType>(getint(s)),
+            .comm = {
+                .rank = getint(s),
+                .size = getint(s),
+                .name = getStdString(s),
+            },
+            .desired_local_rank = getint(s),
+            .desired_global_rank = getint(s),
+            .tag_wild = static_cast<bool>(getint(s)),
+            .desired_tag = getint(s),
+            .desired_length = getint(s),
+            .system_buffer = static_cast<bool>(getint(s)),
+            .buffer_addr = getUnsignedInt(s),
+            .actual_local_rank = getint(s),
+            .actual_global_rank = getint(s),
+            .actual_tag = getint(s),
+            .actual_length = getint(s),
+            .extra_text = std::invoke([&]() {
+                auto result = std::vector<std::string>{};
+                auto len = getint(s);
+                if (len <= 0) return result;
+                for (auto i = size_t{0}; i < static_cast<size_t>(len); i++) {
+                    result.emplace_back(getStdString(s));
+                }
+                return result;
+            }),
+        });
+    }
+
+    return result;
+}
+
 /*
 ** This is the main function that converts a network protocol string back into
 ** an event.
@@ -2061,6 +2200,12 @@ dbgevent_t *SocProtoToEvent(const char *s) {
         case DBGEV_MQD_COMMUNICATORS:
             evdata = getstring(s);
             e->ev_u.ev_u_mqd_communicators = SocProtoToMQDCommunicators(evdata);
+            ::free(evdata);
+            break;
+
+        case DBGEV_MQD_OPERATIONS:
+            evdata = getstring(s);
+            e->ev_u.ev_u_mqd_operations = SocProtoToMQDOperations(evdata);
             ::free(evdata);
             break;
     }

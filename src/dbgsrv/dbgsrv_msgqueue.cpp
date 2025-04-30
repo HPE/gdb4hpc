@@ -252,6 +252,9 @@ public:
     int get_communicator(Process* process, mqs_communicator* comm) { return call_catch_segv(m_get_communicator_fp, process, comm); }
     int next_communicator(Process* process) { return call_catch_segv(m_next_communicator_fp, process); }
 
+    int setup_operation_iterator(Process* process, mqs_op_class op) { return call_catch_segv(m_setup_operation_iterator_fp, process, op); }
+    int next_operation(Process* process, mqs_pending_operation* op) { return call_catch_segv(m_next_operation_fp, process, op); }
+
 private:
     const char* (*m_version_string_fp)();
     int (*m_version_compatibility_fp)();
@@ -270,6 +273,9 @@ private:
     int (*m_setup_communicator_iterator_fp)(Process*);
     int (*m_get_communicator_fp)(Process*, mqs_communicator*);
     int (*m_next_communicator_fp)(Process*);
+
+    int (*m_setup_operation_iterator_fp)(Process*, mqs_op_class);
+    int (*m_next_operation_fp)(Process*, mqs_pending_operation*);
 
     BasicCallbacks m_basic_callbacks = {};
     ImageCallbacks m_image_callbacks = {};
@@ -323,7 +329,7 @@ std::invoke_result_t<FN, Args...> SoIface::call_catch_segv(FN fn, Args&&... args
 }
 
 struct MQD::State {
-    State(const std::string& mqd_so_path, MISession& mi);
+    State(const std::string& mqd_so_path, int my_rank, MISession& mi);
     ~State() = default;
 
     State(const State&) = delete;
@@ -331,9 +337,11 @@ struct MQD::State {
     State& operator=(const State&) = delete;
     State& operator=(State&&) = delete;
 
-    std::vector<Communicator> get_communicators();
+    std::vector<mqs_communicator> get_communicators();
+    std::vector<PendingOperation> get_pending_operations();
 
     SoIface m_so;
+    int m_rank;
     MISession& m_mi;
 
     Image m_image;
@@ -363,7 +371,9 @@ void BasicCallbacks::dprints(const char* msg) {
 const char* BasicCallbacks::errorstring(int error_code) {
     DVPRINT("mqd: errorstring\n");
     (void)error_code;
-    return "sorry mqd, unimplemented";
+    // we never returned a custom error code so we never expect mqd to call errorstring.
+    // see the mqs_result enum.
+    return "unspecified error";
 }
 
 void BasicCallbacks::put_image_info(mqs_image* image, mqs_image_info* info) {
@@ -422,7 +432,7 @@ mqs_process_info* BasicCallbacks::get_process_info(mqs_process* process) {
 
 int Process::get_global_rank() {
     DVPRINT("mqd: process get_global_rank(%p)\n", this);
-    return 1; // TODO
+    return m_mqd_impl.m_rank;
 }
 
 Image* Process::get_image() {
@@ -690,8 +700,9 @@ static void ensure_mqd_debugging_enabled(Image& img, Process& proc, SoIface& mqd
     }
 }
 
-MQD::State::State(const std::string& mqd_so_path, MISession& mi)
+MQD::State::State(const std::string& mqd_so_path, int my_rank, MISession& mi)
     : m_so(mqd_so_path)
+    , m_rank{my_rank}
     , m_mi{mi}
     , m_image{ .m_valid_types = {}, .m_mqd_impl = *this }
     , m_process { .m_image = m_image, .m_mqd_impl = *this }
@@ -714,8 +725,8 @@ MQD::State::State(const std::string& mqd_so_path, MISession& mi)
     ensure_mqd_debugging_enabled(m_image, m_process, m_so, mi);
 }
 
-std::vector<Communicator> MQD::State::get_communicators() {
-    auto result = std::vector<Communicator>{};
+std::vector<mqs_communicator> MQD::State::get_communicators() {
+    auto result = std::vector<mqs_communicator>{};
 
     DVPRINT("mqd: update comm list\n");
     auto update_r = m_so.update_communicator_list(&m_process);
@@ -733,6 +744,60 @@ std::vector<Communicator> MQD::State::get_communicators() {
     mqs_communicator comm;
     while(m_so.get_communicator(&m_process, &comm) == mqs_ok){
         result.push_back(comm);
+
+        for (auto op : {mqs_pending_sends, mqs_pending_receives, mqs_unexpected_messages}) {
+            DVPRINT("mqd: setup_operation_iterator: %d\n", op);
+            if (auto r = m_so.setup_operation_iterator(&m_process, op); r != mqs_ok) {
+                DVPRINT("mqd: setup_operation_iterator failed (%d)\n", r);
+            }
+
+            mqs_pending_operation mqs_op;
+            while (m_so.next_operation(&m_process, &mqs_op) == mqs_ok) {
+                DVPRINT("mqd: got operation\n");
+            }
+        }
+
+        auto next_r = m_so.next_communicator(&m_process);
+        if (next_r == mqs_end_of_list) {
+            DVPRINT("mqd: end of list\n");
+        }
+    }
+    DVPRINT("mqd: done iterate comm list\n");
+
+    return result;
+}
+
+std::vector<PendingOperation> MQD::State::get_pending_operations() {
+    auto result = std::vector<PendingOperation>{};
+
+    DVPRINT("mqd: update comm list\n");
+    auto update_r = m_so.update_communicator_list(&m_process);
+    if (update_r != mqs_ok) {
+        DVPRINT("update_communicator_list did not return ok\n");
+    }
+    DVPRINT("mqd: done update comm list\n");
+
+    DVPRINT("mqd: iterate comm list\n");
+    auto setup_r = m_so.setup_communicator_iterator(&m_process);
+    if (setup_r == mqs_end_of_list) {
+        DVPRINT("end of list before we got into the loop\n");
+    }
+
+    mqs_communicator comm;
+    while(m_so.get_communicator(&m_process, &comm) == mqs_ok){
+        for (auto op : {mqs_pending_sends, mqs_pending_receives, mqs_unexpected_messages}) {
+            DVPRINT("mqd: setup_operation_iterator: %d\n", op);
+            if (auto r = m_so.setup_operation_iterator(&m_process, op); r != mqs_ok) {
+                DVPRINT("mqd: setup_operation_iterator failed (%d)\n", r);
+            }
+
+            mqs_pending_operation mqs_op;
+            while (m_so.next_operation(&m_process, &mqs_op) == mqs_ok) {
+                DVPRINT("mqd: got operation\n");
+                result.emplace_back(PendingOperation{ .op = mqs_op, .queue = op, .comm = comm });
+            }
+        }
+
         auto next_r = m_so.next_communicator(&m_process);
         if (next_r == mqs_end_of_list) {
             DVPRINT("mqd: end of list\n");
@@ -781,6 +846,10 @@ SoIface::SoIface(const std::string& so_path) {
     bind_fn(m_get_communicator_fp, "mqs_get_communicator", m_raw_so);
     bind_fn(m_next_communicator_fp, "mqs_next_communicator", m_raw_so);
 
+    // operation fns
+    bind_fn(m_setup_operation_iterator_fp, "mqs_setup_operation_iterator", m_raw_so);
+    bind_fn(m_next_operation_fp, "mqs_next_operation", m_raw_so);
+
     // basic callbacks. this is called only once, so we don't need to store the function
     // pointer or expose the function as part of the API. so we just bind it, call it, and forget it here.
     void (*setup_basic_callbacks_fp)(const BasicCallbacks* cbs);
@@ -801,14 +870,18 @@ SoIface::~SoIface() {
 // implementation of the public API
 namespace mqd {
 
-MQD::MQD(const std::string& mqd_so_path, MISession& mi)
-    : m_impl{std::make_unique<MQD::State>(mqd_so_path, mi)}
+MQD::MQD(const std::string& mqd_so_path, int my_rank, MISession& mi)
+    : m_impl{std::make_unique<MQD::State>(mqd_so_path, my_rank, mi)}
 {}
 
 MQD::~MQD() = default;
 
-std::vector<Communicator> MQD::get_communicators() {
+std::vector<mqs_communicator> MQD::get_communicators() {
     return m_impl->get_communicators();
+}
+
+std::vector<PendingOperation> MQD::get_pending_operations() {
+    return m_impl->get_pending_operations();
 }
 
 } // namespace mqd

@@ -64,7 +64,7 @@ enum mqs_result {
     mqs_ok = 0,
     mqs_no_information,
     mqs_end_of_list,
-    mqs_first_user_code = 100
+    mqs_first_user_code = 100 // we never actually use this
 };
 
 enum {
@@ -162,10 +162,5 @@ struct mqs_pending_operation {
     // function causing this request, for example."
     char extra_text[5][64];
 };
-
-// names that fit our codebase style better
-
-using Communicator = mqs_communicator;
-using PendingOperation = mqs_pending_operation;
 
 } // namespace mqd

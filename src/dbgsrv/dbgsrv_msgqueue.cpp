@@ -250,6 +250,7 @@ public:
     int update_communicator_list(Process* process) { return call_catch_segv(m_update_communicator_list_fp, process); }
     int setup_communicator_iterator(Process* process) { return call_catch_segv(m_setup_communicator_iterator_fp, process); }
     int get_communicator(Process* process, mqs_communicator* comm) { return call_catch_segv(m_get_communicator_fp, process, comm); }
+    int get_comm_group(Process* process, int* ranks) { return call_catch_segv(m_get_comm_group_fp, process, ranks); }
     int next_communicator(Process* process) { return call_catch_segv(m_next_communicator_fp, process); }
 
     int setup_operation_iterator(Process* process, mqs_op_class op) { return call_catch_segv(m_setup_operation_iterator_fp, process, op); }
@@ -272,6 +273,7 @@ private:
     int (*m_update_communicator_list_fp)(Process*);
     int (*m_setup_communicator_iterator_fp)(Process*);
     int (*m_get_communicator_fp)(Process*, mqs_communicator*);
+    int (*m_get_comm_group_fp)(Process*, int*);
     int (*m_next_communicator_fp)(Process*);
 
     int (*m_setup_operation_iterator_fp)(Process*, mqs_op_class);
@@ -337,7 +339,8 @@ struct MQD::State {
     State& operator=(const State&) = delete;
     State& operator=(State&&) = delete;
 
-    std::vector<mqs_communicator> get_communicators();
+    std::vector<mqs_communicator_group> get_communicators();
+    std::vector<int> get_comm_groups();
     std::vector<PendingOperation> get_pending_operations();
 
     SoIface m_so;
@@ -725,8 +728,8 @@ MQD::State::State(const std::string& mqd_so_path, int my_rank, MISession& mi)
     ensure_mqd_debugging_enabled(m_image, m_process, m_so, mi);
 }
 
-std::vector<mqs_communicator> MQD::State::get_communicators() {
-    auto result = std::vector<mqs_communicator>{};
+std::vector<mqs_communicator_group> MQD::State::get_communicators() {
+    auto result = std::vector<mqs_communicator_group>{};
 
     DVPRINT("mqd: update comm list\n");
     auto update_r = m_so.update_communicator_list(&m_process);
@@ -743,7 +746,14 @@ std::vector<mqs_communicator> MQD::State::get_communicators() {
 
     mqs_communicator comm;
     while(m_so.get_communicator(&m_process, &comm) == mqs_ok){
-        result.push_back(comm);
+        result.push_back({
+            .comm = comm,
+            .ranks = std::invoke([&](){
+                auto result = std::vector<int>(comm.size, -1);
+                m_so.get_comm_group(&m_process, result.data());
+                return result;
+            })
+        });
 
         for (auto op : {mqs_pending_sends, mqs_pending_receives, mqs_unexpected_messages}) {
             DVPRINT("mqd: setup_operation_iterator: %d\n", op);
@@ -844,6 +854,7 @@ SoIface::SoIface(const std::string& so_path) {
     bind_fn(m_update_communicator_list_fp, "mqs_update_communicator_list", m_raw_so);
     bind_fn(m_setup_communicator_iterator_fp, "mqs_setup_communicator_iterator", m_raw_so);
     bind_fn(m_get_communicator_fp, "mqs_get_communicator", m_raw_so);
+    bind_fn(m_get_comm_group_fp, "mqs_get_comm_group", m_raw_so);
     bind_fn(m_next_communicator_fp, "mqs_next_communicator", m_raw_so);
 
     // operation fns
@@ -876,7 +887,7 @@ MQD::MQD(const std::string& mqd_so_path, int my_rank, MISession& mi)
 
 MQD::~MQD() = default;
 
-std::vector<mqs_communicator> MQD::get_communicators() {
+std::vector<mqs_communicator_group> MQD::get_communicators() {
     return m_impl->get_communicators();
 }
 

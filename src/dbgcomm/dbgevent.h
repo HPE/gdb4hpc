@@ -394,8 +394,15 @@ struct dbg_mqd_communicator_t {
     bool operator==(const dbg_mqd_communicator_t& other) const = default;
 };
 
+struct dbg_mqd_communicator_group_t {
+    dbg_mqd_communicator_t comm;
+    std::vector<int> ranks;
+
+    bool operator==(const dbg_mqd_communicator_group_t& other) const = default;
+};
+
 struct dbg_mqd_communicators_t {
-    std::vector<dbg_mqd_communicator_t> communicators;
+    std::vector<dbg_mqd_communicator_group_t> communicators;
     long not_shown = 0;
 
     bool operator==(const dbg_mqd_communicators_t& other) const = default;

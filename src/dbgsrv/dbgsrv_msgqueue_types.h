@@ -95,6 +95,12 @@ struct mqs_communicator {
     char name[64];
 };
 
+struct mqs_communicator_group {
+    mqs_communicator comm;
+    
+    std::vector<int> ranks;
+};
+
 struct mqs_pending_operation {
     // as described in whitepaper section 5.5.2
     //

@@ -32,7 +32,7 @@ public:
     ~MQD();
 
     // `get_communicators` returns a list of the communicators that currently exist.
-    std::vector<mqs_communicator> get_communicators();
+    std::vector<mqs_communicator_group> get_communicators();
 
     // `get_pending_operations` returns a list of the currently pending MPI operations.
     // these are the message queues in message queue debugging.

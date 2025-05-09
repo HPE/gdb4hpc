@@ -2867,8 +2867,11 @@ dbgevent_t* DbgGdbMI::mqdGetCommunicators(bool verbose) {
 
     for (const auto& comm : comms) {
         // XXX: "--unnamed--" is a non-standard cray-mpich implementation detail
-        if (verbose || std::string_view{comm.name} != "--unnamed--") {
-            e->ev_u.ev_u_mqd_communicators->communicators.push_back(to_dbg_mqd_communicator(comm));
+        if (verbose || std::string_view{comm.comm.name} != "--unnamed--") {
+            e->ev_u.ev_u_mqd_communicators->communicators.push_back({
+                .comm = to_dbg_mqd_communicator(comm.comm),
+                .ranks= comm.ranks
+            });
         } else {
             not_shown++;
         }

@@ -692,8 +692,8 @@ TEST_CASE("EventToSocProto/SocProtoToEvent") {
     SUBCASE("DBGEV_MQD_COMMUNICATORS") {
         const auto reference_comms = dbg_mqd_communicators_t {
             .communicators = {
-                { .rank = 3, .size = 4, .name = "MPI_COMM_WORLD" },
-                { .rank = 0, .size = 1, .name = "MPI_COMM_SELF" },
+                { .comm = {.rank = 3, .size = 4, .name = "MPI_COMM_WORLD"}, .ranks = {0,1,2,3} },
+                { .comm = {.rank = 0, .size = 1, .name = "MPI_COMM_SELF"}, .ranks = {0} },
             },
             .not_shown = 5,
         };
@@ -960,6 +960,24 @@ static char *getstring(const char *&res_buf) {
     res_buf = endptr + len;
 
     return res;
+}
+
+static std::vector<int> getIntVector(const char *&res_buf) {
+    std::vector<int> result = {};
+
+    res_buf = skipspace(res_buf);
+
+    if (res_buf[0] == '{'){
+        res_buf++;
+
+        while (res_buf[1] != '}'){
+            int i = getint(res_buf);
+            result.emplace_back(i);
+        }
+        res_buf++;
+        res_buf++;
+    }
+    return result;
 }
 
 static std::string getStdString(const char *&res_buf) {
@@ -1290,9 +1308,14 @@ static char* EventMQDCommunicatorsToSocProto(dbgev ev, const dbg_mqd_communicato
 
     data << comms.communicators.size() << ' ';
     for (const auto& comm : comms.communicators) {
-        data << comm.rank << ' '
-             << comm.size << ' '
-             << comm.name.size() << ' ' << comm.name << ' ';
+        data << comm.comm.rank << ' '
+             << comm.comm.size << ' '
+             << comm.comm.name.size() << ' ' << comm.comm.name << ' '
+             << '{' << ' ';
+        for (const auto rank : comm.ranks) {
+            data << rank << ' ';
+        }
+        data << '}' << ' ';
     }
     data << comms.not_shown;
 
@@ -1952,18 +1975,15 @@ static dbgpyexception_t* SocProtoToPyException(const char* s) {
 
 static dbg_mqd_communicators_t* SocProtoToMQDCommunicators(const char* s) {
     auto result = new dbg_mqd_communicators_t{};
-
     auto len_comms = getint(s);
     if (len_comms < 0) return result;
     for (auto i = size_t{0}; i < static_cast<size_t>(len_comms); i++) {
-        result->communicators.emplace_back(dbg_mqd_communicator_t{
-            .rank = getint(s),
-            .size = getint(s),
-            .name = getStdString(s),
+        result->communicators.emplace_back(dbg_mqd_communicator_group_t{
+            .comm = {.rank = getint(s), .size = getint(s), .name = getStdString(s) },
+            .ranks = getIntVector(s),
         });
     }
     result->not_shown = getint(s);
-
     return result;
 }
 

@@ -28,8 +28,8 @@ Assertion script $earlyexit stopped.
 No assertions were evaluated.
 13: frame
 a{1}: #0  exit from %.*%
-a{2..3}: #0  main at /src/c/c_half_exit.c:22
-a{0}: #0  main at /src/c/c_half_exit.c:23
+a{2..3}: #0  main (int argc = 1, char ** argv = ...) at /src/c/c_half_exit.c:22
+a{0}: #0  main (int argc = 1, char ** argv = ...) at /src/c/c_half_exit.c:23
 14: info break
 Procset         Num Type           Disp Enb What
 a{0..3}         1   breakpoint     keep y   in main at /src/c/c_half_exit.c:22
@@ -50,9 +50,9 @@ Assertion script $unknbp stopped.
 No assertions were evaluated.
 22: frame
 a{1}: #0  exit from %.*%
-a{2}: #0  foo at /src/c/c_half_exit.c:6
-a{0}: #0  main at /src/c/c_half_exit.c:23
-a{3}: #0  main at /src/c/c_half_exit.c:26
+a{2}: #0  foo () at /src/c/c_half_exit.c:6
+a{0}: #0  main (int argc = 1, char ** argv = ...) at /src/c/c_half_exit.c:23
+a{3}: #0  main (int argc = 1, char ** argv = ...) at /src/c/c_half_exit.c:26
 23: info break
 Procset         Num Type           Disp Enb What
 a{0..3}         1   breakpoint     keep y   in main at /src/c/c_half_exit.c:22

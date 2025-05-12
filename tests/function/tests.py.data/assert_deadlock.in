@@ -25,6 +25,6 @@ Assertion script reached a point where every rank is stopped and no assertions c
 Assertion script $deadlock stopped.
 No assertions were evaluated.
 9: frame
-a{0..1}: #0  main at /src/c/c_inc.c:14
+a{0..1}: #0  main (int argc = 1, char ** argv = ...) at /src/c/c_inc.c:14
 10: q
 Shutting down debugger and killing application for 'a'.

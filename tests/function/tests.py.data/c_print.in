@@ -90,8 +90,8 @@ a{0..2}: 27.1
 Copying output to tmp/c_print.log.
 41: p one_d_i
 a{0..2}: {0,1,2,3,4,5,6,7,8,9}
-42: frame
-a{0..2}: #0  main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:247
+42: frame 
+a{0..2}: #0  main (int argc = 1, char ** argv = ...) at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/c/c_type_test.c:247
 43: set logging enabled off
 Logging disabled.
 44: shell wc -l tmp/c_print.log

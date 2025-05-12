@@ -49,10 +49,10 @@ bigname{3}: 10
 24: check
 Created checkpoint 4 on $bigname{3}.
 25: focus $all
-26: frame
-bigname{2}: #0  main at /.../src/c/c_inc.c:16
-bigname{3}: #0  main at /.../src/c/c_inc.c:17
-bigname{0..1}: #0  main at /.../src/c/c_inc.c:19
+26: frame 
+bigname{2}: #0  main (int argc = 1, char ** argv = ...) at /.../src/c/c_inc.c:16
+bigname{3}: #0  main (int argc = 1, char ** argv = ...) at /.../src/c/c_inc.c:17
+bigname{0..1}: #0  main (int argc = 1, char ** argv = ...) at /.../src/c/c_inc.c:19
 27: info check
 Checkpoint Procset          Location
 0          $bigname{0..3} * $bigname{0..3}

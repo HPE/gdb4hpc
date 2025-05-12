@@ -32,13 +32,9 @@
 void PrintFrameSet(const char *setname, Bitset *group, const dbgframe_t *frame) {
     for (auto f = frame; f ; f = f->getNextThreadFrame()) {
         PrintMsgWithSetAndThreadInfo(setname, group, f->getThreads(), "#%-2d ", f->getLevel());
-        // we omit args because they are not included in the output of the gdbmi
-        // -stack-info-frame command and trying to print them would incorrectly
-        // label the function as one that takes 0 arguments. see CPE-6427
-        //
         // we can always set with_addr to true since the address will be absent
         // unless the user uses the -v option in the frame command.
-        PrintOutMsg("%s\n", f->getLocationString(/*with_args=*/ false, /*with_addr=*/ true).c_str());
+        PrintOutMsg("%s\n", f->getLocationString(/*with_args=*/ true, /*with_addr=*/ true).c_str());
     }
 }
 
@@ -146,6 +142,30 @@ static int cmd_frame_console(rec_set_t *rec_set, int argc, const char* const arg
     auto maybe_frame_args = cmd_frame_parse_args(argc, argv);
     if (!maybe_frame_args) return Command::Failure; // error already emitted in parse
     auto& frame_args = *maybe_frame_args;
+    
+    auto rep_set_args = DbgGetArgs(rec_set);
+    ProcessErrorInRepSet(rep_set_args);
+
+    struct Line {
+        const char* app;
+        Bitset* group;
+        const char* lines;
+    };
+
+    std::vector<Line> frame_args_list;
+
+    // Process the replies
+    for (auto&& reply : rep_set_args) {
+        auto ev = reply->rep_event->ev_event;
+        if (ev != DBGEV_STRING) {
+            PrintOutError("unexpected result type.\n");
+            continue;
+        }
+
+        Line item(reply->rep_di.c_str(), reply->rep_group.get(), reply->rep_event->ev_u.ev_u_string);
+ 
+        frame_args_list.push_back(item);
+    }
 
     auto rep_set = DbgGetFrame(rec_set, frame_args.verbose);
 
@@ -156,6 +176,24 @@ static int cmd_frame_console(rec_set_t *rec_set, int argc, const char* const arg
     for (auto&& reply : rep_set) {
         // Point at the frame data
         auto fp = EVENT_FRAME(reply->rep_event);
+        auto it = std::find_if(frame_args_list.begin(), frame_args_list.end(),
+            [&](const Line& t){
+                return std::strcmp(t.app,reply->rep_di.c_str())==0 && t.group->hasCommonBits(*reply->rep_group);
+            }
+        );
+
+        if(it!=frame_args_list.end()){
+            auto is = std::istringstream{it->lines};
+            auto line = std::string{};
+            while (std::getline(is,line)) {
+                size_t pos = line.find("=");
+                fp->addArg({
+                    .name = line.substr(0,pos),
+                    .value = pos != std::string::npos?line.substr(pos+1):""
+                });
+            }
+        }
+
         PrintFrameSet(reply->rep_di.c_str(), reply->rep_group.get(), fp);
     }
 

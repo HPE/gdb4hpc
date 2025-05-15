@@ -1,6 +1,7 @@
 // Copyright 2025 Hewlett Packard Enterprise Development LP.
 #include "mpi.h"
 #include <stdio.h>
+#include <string.h>
 
 int main(int argc, char* argv[]) {
     MPI_Init(&argc, &argv);
@@ -23,6 +24,37 @@ int main(int argc, char* argv[]) {
 
     printf("WORLD RANK/SIZE: %d/%d \t ROW RANK/SIZE: %d/%d\n",
             world_rank, world_size, row_rank, row_size);
+
+    if (row_rank % 2 == 0) {
+        MPI_Request request;
+        char message[128];
+        sprintf(message,"Hello World! from process %d", row_rank);
+
+        MPI_Isend(message, strlen(message)+1, MPI_CHAR, row_rank + 1, 7, row_comm, &request);
+        printf("%d: Sent async message to %d: %s\n", world_rank, row_rank + 1, message);
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        MPI_Wait(&request, MPI_STATUS_IGNORE);
+        printf("Called MPI_Wait\n");
+    } else {
+        MPI_Request request;
+        char message[128];
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+        
+        for (volatile int i = 0; i<10; i++);
+        
+        MPI_Irecv(message, 100, MPI_CHAR, row_rank - 1, 7, row_comm, &request);
+        printf("Called Irecv\n");
+
+        MPI_Wait(&request, MPI_STATUS_IGNORE);
+        printf("%d: Got message from %d: %s\n", world_rank, row_rank - 1, message);
+    }
 
     MPI_Comm_free(&row_comm);
 

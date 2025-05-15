@@ -81,10 +81,18 @@ void print_pending_operation(const dbg_mqd_operation_t& p) {
                 (long)p.desired_length, (long)p.actual_length,
                 tag.c_str());
 
-    auto i = 0;
+    std::ostringstream oss;
     for (const auto& txt : p.extra_text) {
-        PrintOutMsg("Extra Text %d: %s\n", i++, txt.c_str());
+        if(!oss.str().empty() && oss.str().back() != ',') oss << ",";
+        for(char c: txt){
+            if(std::isprint(static_cast<unsigned char>(c))){
+                oss << c;
+            }else{
+                break;
+            }
+        }
     }
+    PrintOutMsg("Extra Text: %s\n", oss.str().c_str());
 }
 
 int cmd_info_mpi_pending(rec_set_t* rec_set) {

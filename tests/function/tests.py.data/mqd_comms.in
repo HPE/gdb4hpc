@@ -1,22 +1,54 @@
 0: maint set sync on
-0: launch $a{8} --env=MPICH_MSG_QUEUE_DBG=1 ./bin/CRAY/c/c_mpi_comms.x
+0: launch $a{8} --launcher-args="--time=5:00 --exclusive" --env=MPICH_MSG_QUEUE_DBG=1 ./bin/CRAY/c/c_mpi_comms.x
 Starting application, please wait...
 Launched application...
 0/8 ranks connected... (timeout in 300 seconds)
-8/8 ranks connected.
+.
+8/8 ranks connected
+Creating network... (timeout in 300 seconds)
 Created network...
 Connected to application...
 Launch complete.
-a{0..7}: Initial breakpoint, main at /src/c/c_mpi_comms.c:5
-0: info mpi communicators
-a{0..7}: MPI Communicators: 0
-0: break 20
-a{0..7}: Breakpoint 1: file /src/c/c_mpi_comms.c, line 21.
+a{0..7}: Initial breakpoint, main at /src/c/c_mpi_comms.c:7
+0: focus $a{0,2,4,6}
+0: break 40
+a{0,2,4,6}: Breakpoint 1: file /src/c/c_mpi_comms.c, line 40.
+0: focus $a{1,3,5,7}
+0: break 55
+a{1,3,5,7}: Breakpoint 2: file /src/c/c_mpi_comms.c, line 55.
+0: focus $all
 0: c
-a{0..7}: Breakpoint 1, main at /src/c/c_mpi_comms.c:21
+a{1,3,5,7}: Breakpoint 2, main at /src/c/c_mpi_comms.c:55
+a{0,2,4,6}: Breakpoint 1, main at /src/c/c_mpi_comms.c:40
 0: info mpi communicators
 MPI_COMM_SELF:a{0},a{1},a{2},a{3},a{4},a{5},a{6},a{7}
 MPI_COMM_WORLD:a{0..7}
 ROW:a{0..3},a{4..7}
+0: info mpi pending
+              Status                Queue               Buffer                Local Rank(D/A)     Global Rank(D/A)          Length(D/A)             Tag(D/A)
+a{0}:
+ROW (0/4):     Complete        Pending Sends       User(%.*%)          1/1                    1/1                   28/28                   7/7
+Extra Text:%.*%
+a{1}:
+ROW (1/4):     Complete     Pending Receives       User(%.*%)          0/0                    0/0                  100/100                   7/7
+Extra Text:%.*%
+a{2}:
+ROW (2/4):     Complete        Pending Sends       User(%.*%)          3/3                    3/3                   28/28                   7/7
+Extra Text:%.*%
+a{3}:
+ROW (3/4):     Complete     Pending Receives       User(%.*%)          2/2                    2/2                  100/100                   7/7
+Extra Text:%.*%
+a{4}:
+ROW (0/4):     Complete        Pending Sends       User(%.*%)          1/1                    5/5                   28/28                   7/7
+Extra Text:%.*%
+a{5}:
+ROW (1/4):     Complete     Pending Receives       User(%.*%)          0/0                    4/4                  100/100                   7/7
+Extra Text:%.*%
+a{6}:
+ROW (2/4):     Complete        Pending Sends       User(%.*%)          3/3                    7/7                   28/28                   7/7
+Extra Text:%.*%
+a{7}:
+ROW (3/4):     Complete     Pending Receives       User(%.*%)          2/2                    6/6                  100/100                   7/7
+Extra Text:%.*%
 0: q
 Shutting down debugger and killing application for 'a'.

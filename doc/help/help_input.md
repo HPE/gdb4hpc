@@ -408,6 +408,16 @@ Description:\
 Display help information about commands. If no argument is given,
 display a list of all valid commands.
 
+## apropos `cmd_apropos_help`
+Summary: Apropos command.\
+Usage: apropos [<expression>]\
+Example command: apropos info\
+
+Arguments: expression (expression to search)
+
+Description:\
+Display help information about commands whose names or descriptions contain the specified expression.
+
 ## launch `cmd_launch_help`
 Summary: Launch an application.\
 Usage: launch <app_handle> <application> [application args]\

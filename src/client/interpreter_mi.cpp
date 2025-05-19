@@ -682,3 +682,8 @@ MiInterpreter::complete_text(std::string_view /*partial_word*/, std::string_view
     // unimplemented
     return {};
 }
+
+bool MiInterpreter::apropos(std::string_view){
+    // unimplemented
+    return true;
+}

@@ -1,4 +1,4 @@
-// Copyright 2023 Hewlett Packard Enterprise Development LP.
+// Copyright 2023-2025 Hewlett Packard Enterprise Development LP.
 //
 // Interpreter interface
 #pragma once
@@ -61,6 +61,7 @@ public:
     // Given `text`, interpret the text and interface with gdb4hpc. Returns true if the
     // text was successfully interpreted with no errors.
     virtual bool interpret(std::string_view text) = 0;
+    virtual bool apropos(std::string_view line) = 0;
 
     virtual ~Interpreter() = default;
 

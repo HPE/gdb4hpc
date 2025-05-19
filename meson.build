@@ -555,6 +555,7 @@ gdb4hpc = executable(
     './src/client/cmd.cpp',
     './src/client/command_invoke.cpp',
     './src/client/command_invoke_tests.cpp',
+    './src/client/cmd_apropos.cpp',
     './src/client/cmd_assign.cpp',
     './src/client/cmd_break.cpp',
     './src/client/cmd_checkpoint.cpp',

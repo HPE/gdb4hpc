@@ -1,0 +1,15 @@
+1: maint set sync on
+2: apropos show info
+info mpi         Show information about the state of MPI internals.
+maint show       Show information about the debugger environment.
+show             Show information about the debugger environment.
+show breakpoint  Show information about breakpoints.
+show print       Show information about how things get printed.
+3: apropos help
+apropos          Display help information about commands.
+decomposition dim_order Display help about using decomposition "dim_order" command.
+decomposition dimension Display help about using decomposition "dimension" command.
+decomposition distribute Display help about using decomposition "distribute" command.
+decomposition proc_grid Display help about using decomposition "proc_grid" command.
+help             Display help information about commands.
+4: q

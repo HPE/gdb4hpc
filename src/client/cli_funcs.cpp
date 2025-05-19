@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cli_funcs.c - Command line interface routines.
  *
- * Copyright 2011-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2011-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -139,6 +139,11 @@ bool DbgInterpret(std::string_view text) {
 Interpreter::Completions DbgComplete(std::string_view partial_word, std::string_view buffer) {
     // cs_current_interpreter will never be null after the cli_stream_t ctor
     return CurrentStream->cs_current_interpreter->complete_text(partial_word, buffer);
+}
+
+bool DbgApropos(std::string_view text) {
+    // cs_current_interpreter will never be null after the cli_stream_t ctor
+    return CurrentStream->cs_current_interpreter->apropos(text);
 }
 
 std::string DbgGetPrompt() {

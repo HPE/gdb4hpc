@@ -1,7 +1,7 @@
 /******************************************************************************\
  * cli_funcs.c - Command line interface definitions.
  *
- * Copyright 2013-2022 Hewlett Packard Enterprise Development LP.
+ * Copyright 2013-2025 Hewlett Packard Enterprise Development LP.
  *
  * Unpublished Proprietary Information.
  * This unpublished work is protected to trade secret, copyright and other laws.
@@ -389,6 +389,9 @@ extern bool DbgInterpret(std::string_view text);
 // `DbgComplete` asks the current stream's current interpreter to generate
 // completions for the `partial_word` that is contained in `buffer`.
 extern Interpreter::Completions DbgComplete(std::string_view partial_word, std::string_view buffer);
+
+extern bool DbgApropos(std::string_view text);
+
 // `DbgGetPrompt` returns the current interpreter prompt
 extern std::string DbgGetPrompt();
 

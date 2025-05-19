@@ -6,6 +6,8 @@
 #include "cmd.h"
 #include "bttree.h"
 
+#include <regex>
+
 using namespace std::string_literals;
 namespace {
 
@@ -691,6 +693,7 @@ std::shared_ptr<CommandNode> ConsoleCommandsFactory::make() {
     insert_assign_commands(*root);
     insert_checkpoint_commands(*root);
     insert_source_commands(*root);
+    insert_apropos_commands(*root);
     insert_whatis_commands(*root);
     insert_break_commands(*root);
     insert_proc_commands(*root);
@@ -716,6 +719,10 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
     };
     root.addSubCmd("help", "h", proc_ignore,
                     dummy_help, cmd_help_help,
+                    "Display help information about commands.");
+
+    root.addSubCmd("apropos", "a", proc_ignore,
+                    nullptr, cmd_apropos_help,
                     "Display help information about commands.");
 
     root.addSubCmd("info", "i", proc_ignore,
@@ -801,3 +808,32 @@ Interpreter::Completions ConsoleInterpreter::complete_help(std::string_view part
     return complete_text(partial_word, buffer.substr(help_chars.size()));
 }
 
+bool ConsoleInterpreter::apropos(std::string_view line) {
+    
+    auto apropos_helper = [line](std::shared_ptr<CommandNode> root, const auto& self){
+        if (!root) return;
+        
+        auto searchCompare = [line](std::string_view og){
+            if(line.empty()) return true;
+
+            auto caseCompare = [](char a,char b){
+                return std::tolower((unsigned char)a) == std::tolower((unsigned char)b);
+            };
+
+            auto it = std::search(og.begin(),og.end(),line.begin(),line.end(),caseCompare);
+            return it!=og.end();
+        };
+        for(auto cmd : root->getSubCmds()){
+            if (cmd && cmd->getDesc()) {
+                std::string_view sub = cmd->getFullName();
+                std::string_view subDes = cmd->getDesc();
+                if(searchCompare(sub)||searchCompare(subDes)){
+                    PrintOutMsg("%-16s %s\n", cmd->getFullName().c_str(), cmd->getDesc());
+                }
+                self(cmd,self);
+            }
+        }
+    };
+    apropos_helper(m_commands_stack.back().tree, apropos_helper);
+    return true;
+}

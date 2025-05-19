@@ -23,6 +23,7 @@ public:
     bool can_interpret(std::string_view line) const override;
     bool interpret(std::string_view line) override;
     Interpreter::Printer& get_printer() override;
+    bool apropos(std::string_view line) override;
 
     // console specific:
 
@@ -113,6 +114,7 @@ private:
     static void insert_assign_commands(CommandNode& root);
     static void insert_checkpoint_commands(CommandNode& root);
     static void insert_source_commands(CommandNode& root);
+    static void insert_apropos_commands(CommandNode& root);
     static void insert_whatis_commands(CommandNode& root);
     static void insert_break_commands(CommandNode& root);
     static void insert_proc_commands(CommandNode& root);

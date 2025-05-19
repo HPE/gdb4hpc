@@ -160,6 +160,7 @@ public:
     Completions complete_text(std::string_view, std::string_view) const override { return {}; };
     bool can_interpret(std::string_view) const override { return true; }
     bool interpret(std::string_view) override { return true; }
+    bool apropos(std::string_view) override { return true; }
     std::string get_prompt() const override { return "test> "; }
     ~TestInterpreter() override = default;
 

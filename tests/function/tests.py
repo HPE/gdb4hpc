@@ -445,6 +445,10 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "c_help"
         runTest(self)
         
+    def test_c_apropos(self):
+        self.base_name = "c_apropos"
+        runTest(self)
+        
     def test_c_info(self):
         self.base_name = "c_info"
         runTest(self)

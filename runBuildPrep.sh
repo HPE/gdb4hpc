@@ -143,7 +143,10 @@ fi
 # Install the common PE components
 install_common_pe
 
-# Install CDST support, CTI, zmqnet
+# Install dyninst, CTI, zmqnet
+install_dyninst
+check_exit_status
+
 install_zmqnet
 check_exit_status
 

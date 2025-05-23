@@ -45,10 +45,6 @@
 # attributions file
 %global attributions_name ATTRIBUTIONS_gdb4hpc.txt
 
-# cdst-support version
-%global cdst_support_pkgversion_min %(%{_sourcedir}/get_package_data --cdstversionmin)
-%global cdst_support_pkgversion_max %(%{_sourcedir}/get_package_data --cdstversionmax)
-
 # cti version
 %global cti_pkgversion_min %(%{_sourcedir}/get_package_data --ctiversionmin)
 %global cti_pkgversion_max %(%{_sourcedir}/get_package_data --ctiversionmax)
@@ -64,8 +60,8 @@
 # System strip command may be too old, use current path
 %global __strip strip
 
-# Filter requires - these all come from the cdst-support rpm
-# These should match what is excluded in the cdst-support rpm specfile!
+# Filter requires - these all come from the dyninst rpm
+# These should match what is excluded in the dyninst rpm specfile!
 %global privlibs             libboost.*
 %global privlibs %{privlibs}|libxplat.*
 %global privlibs %{privlibs}|libssh2
@@ -135,7 +131,7 @@ License:    HPE Proprietary
 Vendor:     Hewlett Packard Enterprise Development LP.
 Group:      Development/Tools/Debuggers
 Provides:   %{cray_name} = %{pkgversion}
-Requires:   set_default_3, cray-cdst-support >= %{cdst_support_pkgversion_min}, cray-cdst-support < %{cdst_support_pkgversion_max}, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}, cray-zmqnet >= %{zmqnet_pkgversion_min}, cray-zmqnet < %{zmqnet_pkgversion_max}
+Requires:   set_default_3, cray-cti >= %{cti_pkgversion_min}, cray-cti < %{cti_pkgversion_max}, cray-zmqnet >= %{zmqnet_pkgversion_min}, cray-zmqnet < %{zmqnet_pkgversion_max}
 Source0:    %{module_template_name}
 Source2:    %{release_notes_file}
 Source3:    %{attributions_name}
@@ -158,7 +154,7 @@ Tests for Cray gdb4hpc parallel debugger
 %setup -q -n %{name} -c -T
 %build
 # external build
-%{__sed} 's|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{version}-%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<DIST>|%{dist}.%{_target_cpu}|g;s|<ARCH>|%{_target_cpu}|g;s|<ATTRIBUTIONS_FILE_PATH>|%{cray_prefix}/%{product}/%{pkgversion}/%{attributions_name}|g;s|<cdst_version_range>|>= %{cdst_support_pkgversion_min}, < %{cdst_support_pkgversion_max}|g;s|<cti_version_range>|%{cti_pkgversion_min}, < %{cti_pkgversion_max}|g;s|<zmqnet_version_range>|>= %{zmqnet_pkgversion_min}, < %{zmqnet_pkgversion_max}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_notes_file}
+%{__sed} 's|<VERSION>|%{pkgversion}|g;s|<RELEASE>|%{version}-%{release}|g;s|<COPYRIGHT>|%{copyright}|g;s|<NAME>|%{cray_name}|g;s|<CRAY_PREFIX>|%{cray_prefix}|g;s|<DIST>|%{dist}.%{_target_cpu}|g;s|<ARCH>|%{_target_cpu}|g;s|<ATTRIBUTIONS_FILE_PATH>|%{cray_prefix}/%{product}/%{pkgversion}/%{attributions_name}|g;s|<cti_version_range>|%{cti_pkgversion_min}, < %{cti_pkgversion_max}|g;s|<zmqnet_version_range>|>= %{zmqnet_pkgversion_min}, < %{zmqnet_pkgversion_max}|g' %{SOURCE2} > ${RPM_BUILD_DIR}/%{release_notes_file}
 %{__sed} 's|<COPYRIGHT>|%{copyright}|g' %{SOURCE3} > ${RPM_BUILD_DIR}/%{attributions_name}
 
 %install

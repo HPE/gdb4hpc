@@ -47,10 +47,10 @@ zmqnet_dep = dependency(
 )
 
 # for elfutils
-cdst_support_dep = dependency(
-  'cray-cdst-support',
+dyninst_dep = dependency(
+  'cray-dyninst',
   method: 'pkg-config',
-  not_found_message: 'Try `module load cray-cdst-support` first.',
+  not_found_message: 'Try `module load cray-dyninst` first.',
 )
 
 py_module = import('python')
@@ -339,7 +339,7 @@ libgdb4_dbgclnt_a = static_library(
   ],
   dependencies: [
     cti_fe_dep,
-    cdst_support_dep,
+    dyninst_dep,
     zmqnet_dep,
     libmi_dep,
     unittest_dep,

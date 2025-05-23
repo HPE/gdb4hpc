@@ -21,7 +21,7 @@ source ./external/cdst_build_library/build_lib_gcc
 
 setup_modules
 
-module load cray-cdst-support
+module load cray-dyninst
 check_exit_status
 
 module load cray-cti-devel
@@ -93,6 +93,10 @@ if [ -z "$nodeps" -a -z "$nogdb" ]; then
 
     cd $top_level/external/$binutils_gdb
     check_exit_status
+
+    # this module doesn't like to rebuild
+    git clean -dfx
+    check_exit_status
     
     ./configure --prefix=$install_dir \
 		--with-gdb-datadir=$install_dir/share/gdb \
@@ -102,7 +106,7 @@ if [ -z "$nodeps" -a -z "$nogdb" ]; then
 		--without-babeltrace \
 		--without-guile \
 		--without-separate-debug-dir \
-		CFLAGS="-O2" CXXFLAGS="-O2 --std=c++17 -Wno-template-id-cdtor"
+		CFLAGS="-O2 -I$CRAY_DYNINST_INSTALL_DIR/include" CXXFLAGS="-O2 --std=c++17 -Wno-template-id-cdtor"
     check_exit_status
 
     make $cdst_j_flags
@@ -172,6 +176,9 @@ echo "############################################"
 
 cd $top_level
 check_exit_status
+
+echo $PKG_CONFIG_PATH
+pkg-config --cflags cray-dyninst
 
 # we explicitly set CC/CXX here to their full paths so that the full paths are
 # baked into the meson build configuration and meson doesn't use whatever gcc/g++ is

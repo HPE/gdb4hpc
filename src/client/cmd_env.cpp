@@ -754,7 +754,22 @@ static int cmd_show_error_console() {
 }
 
 static int cmd_show_error_mi(MiInterpreter& mi) {
-    mi.set_result_deprecated("epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}", Client.cmp_lower_eps, Client.cmp_upper_eps);
+    std::ostringstream fmt_lower;
+    fmt_lower << std::setprecision(16);
+    fmt_lower << Client.cmp_lower_eps;
+    
+    std::ostringstream fmt_upper;
+    fmt_upper << std::setprecision(16);
+    fmt_upper << Client.cmp_upper_eps;
+
+    auto msg = mi::MessageContents{}
+        << mi::Result{"epsilon", mi::Tuple{}
+            << mi::Result{"warnEps", mi::Const{fmt_lower.str()}}
+            << mi::Result{"errEps", mi::Const{fmt_upper.str()}}}
+    ;
+    
+    mi.set_result(msg);
+    
     return Command::Success;
 }
 

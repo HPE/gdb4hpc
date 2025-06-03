@@ -696,7 +696,11 @@ static int cmd_show_prompt_console(ConsoleInterpreter& console) {
 }
 
 static int cmd_show_prompt_mi(MiInterpreter& mi) {
-    mi.set_result_deprecated("value=\"%s\"", mi.get_prompt().c_str());
+    auto msg = mi::MessageContents{}
+        << mi::Result{"value", mi::Const(mi.get_prompt())}
+    ;
+    mi.set_result(msg);
+    
     return Command::Success;
 }
 

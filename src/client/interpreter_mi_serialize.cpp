@@ -7,6 +7,7 @@
 
 #include <iomanip>
 #include <sstream>
+#include <regex>
 #include <variant>
 
 TEST_CASE("Value and Message serialization") {
@@ -175,7 +176,13 @@ std::string Value::serialize() const {
 std::string Const::serialize() const {
     std::ostringstream oss;
     oss << std::quoted(str);
-    return oss.str();
+    // the output of cmd_compare_cmd_mi contains "\n". std::quoted converts
+    // this to \\n. This needs to be replaced by 
+    // a single n for the output to have "\n" as it did using the 
+    // deprecated method.
+    std::string serialized = oss.str();
+    serialized = std::regex_replace(serialized, std::regex(R"(\\n)"), "n");
+    return serialized;
 }
 
 std::string Result::serialize() const {

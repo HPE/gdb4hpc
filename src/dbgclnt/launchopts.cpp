@@ -1036,7 +1036,7 @@ static auto parse_gdb4hpc_argv_section(LaunchOpts& opts, int argc, char** argv) 
                         + "\". Expected \"KEY=VALUE\"");
                 }
 
-                opts.env << optarg;
+                opts.env << withoutQuotes(optarg);
                 break;
             }
 

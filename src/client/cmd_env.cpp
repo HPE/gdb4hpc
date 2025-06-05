@@ -754,20 +754,13 @@ static int cmd_show_error_console() {
 }
 
 static int cmd_show_error_mi(MiInterpreter& mi) {
-    std::ostringstream fmt_lower;
-    fmt_lower << std::setprecision(16);
-    fmt_lower << Client.cmp_lower_eps;
-    
-    std::ostringstream fmt_upper;
-    fmt_upper << std::setprecision(16);
-    fmt_upper << Client.cmp_upper_eps;
 
     auto msg = mi::MessageContents{}
         << mi::Result{"epsilon", mi::Tuple{}
-            << mi::Result{"warnEps", mi::Const{fmt_lower.str()}}
-            << mi::Result{"errEps", mi::Const{fmt_upper.str()}}}
+            << mi::Result{"warnEps", mi::Value(Client.cmp_lower_eps, 16)}
+            << mi::Result{"errEps", mi::Value(Client.cmp_upper_eps, 16)}}
     ;
-    
+     
     mi.set_result(msg);
     
     return Command::Success;

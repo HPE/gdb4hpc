@@ -161,6 +161,16 @@ Value::Value(Tuple tuple)
 Value::Value(Result result)
     : data(std::make_shared<const Value::Variant>(std::move(result))) {}
 
+//Value::Value(double val, int prec=16)
+//    : data(std::make_shared<
+    
+std::string Value::doubleToString(double value, int prec) {
+    std::ostringstream msg;
+    msg << std::setprecision(prec);
+    msg << value;
+    return msg.str();
+}
+
 std::string Value::serialize() const {
     // we intentionally leave `data` as a public member of the struct, so it's
     // technically possible the user sets it to nullptr... for some reason

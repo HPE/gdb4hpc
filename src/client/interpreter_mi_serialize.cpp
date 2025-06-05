@@ -191,7 +191,11 @@ std::string Const::serialize() const {
     // a single n for the output to have "\n" as it did using the 
     // deprecated method.
     std::string serialized = oss.str();
-    serialized = std::regex_replace(serialized, std::regex(R"(\\n)"), "n");
+    for (;;) {
+        size_t idx = serialized.find(R"(\\n)");
+        if (idx == std::string::npos) break;
+        serialized.replace(idx, 3, "\\n");
+    }
     return serialized;
 }
 

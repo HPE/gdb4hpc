@@ -103,6 +103,24 @@ TEST_CASE("ArgvStream.parseAndAppendArgs()") {
         CHECK(args.asString() == R"(hello world my name is "\"scooby doo\"")");
         CHECK(std::string(args[5]) == R"("scooby doo")");
     }
+
+    SUBCASE("Longopt and quotes") {
+        args.parseAndAppendArgs(R"(--my-name "scooby doo")");
+        CHECK(args.argc() == 4);
+        // asString escapes the quotes and adds another layer around them
+        CHECK(args.asString() == R"(hello world --my-name "\"scooby doo\"")");
+        CHECK(std::string(args[2]) == "--my-name");
+        CHECK(std::string(args[3]) == R"("scooby doo")");
+    }
+
+    SUBCASE("Longopt, equals, and quotes") {
+        args.parseAndAppendArgs(R"(--my-name="scooby doo")");
+        CHECK(args.argc() == 4);
+        // asString escapes the quotes and adds another layer around them
+        CHECK(args.asString() == R"(hello world --my-name "\"scooby doo\"")");
+        CHECK(std::string(args[2]) == "--my-name");
+        CHECK(std::string(args[3]) == R"("scooby doo")");
+    }
 }
 
 TEST_CASE("ArgvStream.argc(), .clear(), []") {
@@ -201,6 +219,7 @@ void ArgvStream::parseAndAppendArgs(std::string_view args) {
         bool single_quote = false;
         bool double_quote = false;
         bool backslash = false;
+        bool in_opt = (args[i] == '-');
 
         for (; i < args.size(); i++) {
             if (isspace(args[i]) && !single_quote && !double_quote && !backslash) break;
@@ -213,6 +232,11 @@ void ArgvStream::parseAndAppendArgs(std::string_view args) {
                 single_quote = false;
             } else if (double_quote && args[i] == '"') {
                 double_quote = false;
+
+            // Strip equals from --long-opt="arg1 arg2" to properly unquote arguments
+            } else if (in_opt && (args[i] == '=')) {
+                break;
+
             } else {
                 if (args[i] == '\'')
                     single_quote = true;

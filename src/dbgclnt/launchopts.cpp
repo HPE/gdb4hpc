@@ -130,17 +130,19 @@ TEST_CASE("Parse LaunchOpts") {
         const char* const argv[] = {
             "launch", "$a{1}", "./bin/c_inc",
             "--launcher=/tmp/fake_mpiexec",
-            "--launcher-args=\"-n3 -N1 --exclusive \"multi word arg\"\"",
+            "--launcher-args=\"-n3 -N1 --exclusive \"multi word arg\" --task-prolog=\"/path\"\"",
         };
         auto csi = test::MockClientSettings();
         auto opts = LaunchOpts::parse_gdb4hpc(sizeof(argv)/sizeof(argv[0]), argv, csi);
 
         REQUIRE(opts.job_opts.size() == 1);
-        REQUIRE(opts.job_opts[0].launcher_args.argc() == 4);
+        REQUIRE(opts.job_opts[0].launcher_args.argc() == 6);
         CHECK(opts.job_opts[0].launcher_args[0] == "-n3");
         CHECK(opts.job_opts[0].launcher_args[1] == "-N1");
         CHECK(opts.job_opts[0].launcher_args[2] == "--exclusive");
         CHECK(opts.job_opts[0].launcher_args[3] == "multi word arg"); // should have no quotes
+        CHECK(opts.job_opts[0].launcher_args[4] == "--task-prolog");
+        CHECK(opts.job_opts[0].launcher_args[5] == "/path");
     }
 
     SUBCASE("App args") {

@@ -1424,6 +1424,37 @@ TEST_CASE("TypeParser::sanitizeType") {
     CHECK(st("@abcd char") == std::string("char"));
 }
 
+TEST_CASE("TypeParser::getType: rust primitive types") {
+    SUBCASE("bool") { basicTypeTest<ais::Bool>(TypeParser::Lang::Rust, "bool"); }
+
+    // TODO change this to UnicodeChar.
+    SUBCASE("char") { basicTypeTest<ais::Char>(TypeParser::Lang::Rust, "char"); }
+
+    SUBCASE("i64") { basicTypeTest<ais::LongLong>(TypeParser::Lang::Rust, "i64"); }
+
+    SUBCASE("i32") { basicTypeTest<ais::Long>(TypeParser::Lang::Rust, "i32"); }
+
+    SUBCASE("i16") { basicTypeTest<ais::Short>(TypeParser::Lang::Rust, "i16"); }
+
+    SUBCASE("i8") { basicTypeTest<ais::Short>(TypeParser::Lang::Rust, "i8"); }
+
+    SUBCASE("u64") { basicTypeTest<ais::UnsignedLongLong>(TypeParser::Lang::Rust, "u64"); }
+
+    SUBCASE("u32") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Rust, "u32"); }
+
+    SUBCASE("u16") { basicTypeTest<ais::UnsignedShort>(TypeParser::Lang::Rust, "u16"); }
+
+    SUBCASE("u8") { basicTypeTest<ais::UnsignedShort>(TypeParser::Lang::Rust, "u8"); }
+
+    SUBCASE("usize") { basicTypeTest<ais::UnsignedLongLong>(TypeParser::Lang::Rust, "usize"); }
+
+    SUBCASE("isize") { basicTypeTest<ais::LongLong>(TypeParser::Lang::Rust, "isize"); }
+
+    SUBCASE("f64") { basicTypeTest<ais::Double>(TypeParser::Lang::Rust, "f64"); }
+
+    SUBCASE("f32") { basicTypeTest<ais::Float>(TypeParser::Lang::Rust, "f32"); }
+}
+
 TEST_CASE("TypeParser::getType: cpp primitive types") {
     SUBCASE("bool") { basicTypeTest<ais::Bool>(TypeParser::Lang::Cpp, "bool"); }
 

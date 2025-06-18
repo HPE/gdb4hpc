@@ -279,8 +279,35 @@ std::vector<Prim> m_fortranPrims =
 
 std::vector<Prim> m_rustPrims =
 {
- {"usize", PrimWrap<ais::UnsignedLong>()}
+ {"bool", PrimWrap<ais::Bool>()},
+ // TODO this should use a custom UnicodeChar type or something to properly support unicode chars rather than just printing the int value. 
+ // currently, if this happens to be a unicode character ie: (result in rust-gdb): '\u{002124}', (result in gdb4hpc): 36 '$'
+ // it just prints the least significant bytes
+ {"char", PrimWrap<ais::Char>()},
+ // an array of 2 64 bit integers would probably be the best solution for this.
+ //{"i128", PrimWrap<ais::UnsignedLong>()},
+ //{"u128", PrimWrap<ais::UnsignedLong>()},
+ {"i64", PrimWrap<ais::LongLong>()},
+ {"i32", PrimWrap<ais::Long>()},
+ {"i16", PrimWrap<ais::Short>()},
+ {"i8", PrimWrap<ais::Short>()},
+ {"u64", PrimWrap<ais::UnsignedLongLong>()},
+ {"u32", PrimWrap<ais::UnsignedLong>()},
+ {"u16", PrimWrap<ais::UnsignedShort>()},
+ {"u8", PrimWrap<ais::UnsignedShort>()},
+ {"usize", PrimWrap<ais::UnsignedLongLong>()},
+ {"isize", PrimWrap<ais::LongLong>()},
+ {"f64", PrimWrap<ais::Double>()},
+ {"f32", PrimWrap<ais::Float>()},
 };
+
+// enums seem to just work as well. 
+// structs seem to "just work" except they break when there are Strings in them.
+// TODO add suport for rust strings, &str and String.
+// TODO add support for tuples... maybe something from fortran will work? ex: print: (500, 6.4000000000000004, 1), ptype: (i32, f64, u8)
+// explicitly adding support for Vec like in cppstdlib is not necessary because getRustType detects that it is a vec and
+// converts it to a RustArray<type> which is mapped to Array<type>. It will probably be necessary to add a ruststbLib however for more
+// complex types like Hashmaps ex: std::collections::hash::map::HashMap<alloc::string::String, alloc::string::String, std::hash::random::RandomState>
 
 std::vector<std::string> m_ignore = { "const", "volatile", "shared",
                                                   "SHARED", "pointer,", "POINTER," };
@@ -1319,6 +1346,8 @@ std::shared_ptr<ais::Type> basicTypeTest(TypeParser::Lang lang, const char *inpu
                 return TypeParser::getCppType(mi, nullptr, input);
             case TypeParser::Lang::Ftn:
                 return TypeParser::getFtnType(mi, input);
+            case TypeParser::Lang::Rust:
+                return TypeParser::getRustType(mi, input);
             default:
                 FAIL("Specify a valid language to test the type parser");
                 return nullptr;

@@ -1,4 +1,3 @@
-use std::time::Duration;
 use std::collections::HashMap;
 // Demo/working program to find solutions to the HIQ peg puzzle, which
 // starts with a cross shaped board filled with pegs except for one
@@ -28,27 +27,6 @@ const NUM_PEGS: usize = 4*3 + 3*7 - 1;
 
 const DELTA_I : [i32; 4] = [ 1, 0, -1, 0 ];
 const DELTA_J : [i32; 4] = [ 0, 1, 0, -1 ];
-
-struct User {
-    active: bool,
-    moves: Vec<Move>,
-    ip: IpAddr,
-    username: String,
-    email: String,
-    sign_in_count: u64,
-}
-struct UserNoStrings {
-    active: bool,
-    sign_in_count: u64,
-}
-enum IpAddrKind {
-    V4,
-    V6,
-}
-struct IpAddr {
-    kind: IpAddrKind,
-    address: String,
-}
 
 
 fn main() {
@@ -241,4 +219,5 @@ fn _print_board(board : &[[Peg; 9]; 9]) {
         println!("")
     }
 }
+
 

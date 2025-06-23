@@ -169,6 +169,7 @@ std::vector<Prim> m_cppPrims =
  {"long long",PrimWrap<ais::LongLong>()},
  {"long double",PrimWrap<ais::LongDouble>()},
  {"std::size_t",PrimWrap<ais::Long>()},
+ {"ptrdif_t",PrimWrap<ais::Long>()},
  {"size_t",PrimWrap<ais::UnsignedLong>()},
  {"short",PrimWrap<ais::Short>()},
  {"short int",PrimWrap<ais::Short>()},

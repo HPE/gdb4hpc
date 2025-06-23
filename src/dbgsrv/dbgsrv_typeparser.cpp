@@ -287,16 +287,16 @@ std::vector<Prim> m_rustPrims =
  // an array of 2 64 bit integers would probably be the best solution for this.
  //{"i128", PrimWrap<ais::UnsignedLong>()},
  //{"u128", PrimWrap<ais::UnsignedLong>()},
- {"i64", PrimWrap<ais::LongLong>()},
- {"i32", PrimWrap<ais::Long>()},
+ {"i64", PrimWrap<ais::Long>()},
+ {"i32", PrimWrap<ais::Int>()},
  {"i16", PrimWrap<ais::Short>()},
  {"i8", PrimWrap<ais::Short>()},
- {"u64", PrimWrap<ais::UnsignedLongLong>()},
- {"u32", PrimWrap<ais::UnsignedLong>()},
+ {"u64", PrimWrap<ais::UnsignedLong>()},
+ {"u32", PrimWrap<ais::UnsignedInt>()},
  {"u16", PrimWrap<ais::UnsignedShort>()},
  {"u8", PrimWrap<ais::UnsignedShort>()},
- {"usize", PrimWrap<ais::UnsignedLongLong>()},
- {"isize", PrimWrap<ais::LongLong>()},
+ {"usize", PrimWrap<ais::UnsignedLong>()},
+ {"isize", PrimWrap<ais::Long>()},
  {"f64", PrimWrap<ais::Double>()},
  {"f32", PrimWrap<ais::Float>()},
 };
@@ -1430,25 +1430,25 @@ TEST_CASE("TypeParser::getType: rust primitive types") {
     // TODO change this to UnicodeChar.
     SUBCASE("char") { basicTypeTest<ais::Char>(TypeParser::Lang::Rust, "char"); }
 
-    SUBCASE("i64") { basicTypeTest<ais::LongLong>(TypeParser::Lang::Rust, "i64"); }
+    SUBCASE("i64") { basicTypeTest<ais::Long>(TypeParser::Lang::Rust, "i64"); }
 
-    SUBCASE("i32") { basicTypeTest<ais::Long>(TypeParser::Lang::Rust, "i32"); }
+    SUBCASE("i32") { basicTypeTest<ais::Int>(TypeParser::Lang::Rust, "i32"); }
 
     SUBCASE("i16") { basicTypeTest<ais::Short>(TypeParser::Lang::Rust, "i16"); }
 
     SUBCASE("i8") { basicTypeTest<ais::Short>(TypeParser::Lang::Rust, "i8"); }
 
-    SUBCASE("u64") { basicTypeTest<ais::UnsignedLongLong>(TypeParser::Lang::Rust, "u64"); }
+    SUBCASE("u64") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Rust, "u64"); }
 
-    SUBCASE("u32") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Rust, "u32"); }
+    SUBCASE("u32") { basicTypeTest<ais::UnsignedInt>(TypeParser::Lang::Rust, "u32"); }
 
     SUBCASE("u16") { basicTypeTest<ais::UnsignedShort>(TypeParser::Lang::Rust, "u16"); }
 
     SUBCASE("u8") { basicTypeTest<ais::UnsignedShort>(TypeParser::Lang::Rust, "u8"); }
 
-    SUBCASE("usize") { basicTypeTest<ais::UnsignedLongLong>(TypeParser::Lang::Rust, "usize"); }
+    SUBCASE("usize") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Rust, "usize"); }
 
-    SUBCASE("isize") { basicTypeTest<ais::LongLong>(TypeParser::Lang::Rust, "isize"); }
+    SUBCASE("isize") { basicTypeTest<ais::Long>(TypeParser::Lang::Rust, "isize"); }
 
     SUBCASE("f64") { basicTypeTest<ais::Double>(TypeParser::Lang::Rust, "f64"); }
 

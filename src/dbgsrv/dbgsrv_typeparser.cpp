@@ -169,7 +169,6 @@ std::vector<Prim> m_cppPrims =
  {"long long",PrimWrap<ais::LongLong>()},
  {"long double",PrimWrap<ais::LongDouble>()},
  {"std::size_t",PrimWrap<ais::Long>()},
- {"ptrdiff_t",PrimWrap<ais::Long>()},
  {"size_t",PrimWrap<ais::UnsignedLong>()},
  {"short",PrimWrap<ais::Short>()},
  {"short int",PrimWrap<ais::Short>()},
@@ -1485,8 +1484,6 @@ TEST_CASE("TypeParser::getType: cpp primitive types") {
 
     SUBCASE("size_t") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Cpp, "size_t"); }
     
-    SUBCASE("ptrdiff_t") { basicTypeTest<ais::Long>(TypeParser::Lang::Cpp, "ptrdiff_t"); }
-
     SUBCASE("short") { basicTypeTest<ais::Short>(TypeParser::Lang::Cpp, "short"); }
 
     SUBCASE("short int") { basicTypeTest<ais::Short>(TypeParser::Lang::Cpp, "short int"); }

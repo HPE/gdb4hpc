@@ -279,8 +279,35 @@ std::vector<Prim> m_fortranPrims =
 
 std::vector<Prim> m_rustPrims =
 {
- {"usize", PrimWrap<ais::UnsignedLong>()}
+ {"bool", PrimWrap<ais::Bool>()},
+ // TODO this should use a custom UnicodeChar type or something to properly support unicode chars rather than just printing the int value. 
+ // currently, if this happens to be a unicode character ie: (result in rust-gdb): '\u{002124}', (result in gdb4hpc): 36 '$'
+ // it just prints the least significant bytes
+ {"char", PrimWrap<ais::Char>()},
+ // an array of 2 64 bit integers would probably be the best solution for this.
+ //{"i128", PrimWrap<ais::UnsignedLong>()},
+ //{"u128", PrimWrap<ais::UnsignedLong>()},
+ {"i64", PrimWrap<ais::Long>()},
+ {"i32", PrimWrap<ais::Int>()},
+ {"i16", PrimWrap<ais::Short>()},
+ {"i8", PrimWrap<ais::Short>()},
+ {"u64", PrimWrap<ais::UnsignedLong>()},
+ {"u32", PrimWrap<ais::UnsignedInt>()},
+ {"u16", PrimWrap<ais::UnsignedShort>()},
+ {"u8", PrimWrap<ais::UnsignedShort>()},
+ {"usize", PrimWrap<ais::UnsignedLong>()},
+ {"isize", PrimWrap<ais::Long>()},
+ {"f64", PrimWrap<ais::Double>()},
+ {"f32", PrimWrap<ais::Float>()},
 };
+
+// enums seem to just work as well. 
+// structs seem to "just work" except they break when there are Strings in them.
+// TODO add suport for rust strings, &str and String.
+// TODO add support for tuples... maybe something from fortran will work? ex: print: (500, 6.4000000000000004, 1), ptype: (i32, f64, u8)
+// explicitly adding support for Vec like in cppstdlib is not necessary because getRustType detects that it is a vec and
+// converts it to a RustArray<type> which is mapped to Array<type>. It will probably be necessary to add a ruststbLib however for more
+// complex types like Hashmaps ex: std::collections::hash::map::HashMap<alloc::string::String, alloc::string::String, std::hash::random::RandomState>
 
 std::vector<std::string> m_ignore = { "const", "volatile", "shared",
                                                   "SHARED", "pointer,", "POINTER," };
@@ -1319,6 +1346,8 @@ std::shared_ptr<ais::Type> basicTypeTest(TypeParser::Lang lang, const char *inpu
                 return TypeParser::getCppType(mi, nullptr, input);
             case TypeParser::Lang::Ftn:
                 return TypeParser::getFtnType(mi, input);
+            case TypeParser::Lang::Rust:
+                return TypeParser::getRustType(mi, input);
             default:
                 FAIL("Specify a valid language to test the type parser");
                 return nullptr;
@@ -1395,6 +1424,37 @@ TEST_CASE("TypeParser::sanitizeType") {
     CHECK(st("@abcd char") == std::string("char"));
 }
 
+TEST_CASE("TypeParser::getType: rust primitive types") {
+    SUBCASE("bool") { basicTypeTest<ais::Bool>(TypeParser::Lang::Rust, "bool"); }
+
+    // TODO change this to UnicodeChar.
+    SUBCASE("char") { basicTypeTest<ais::Char>(TypeParser::Lang::Rust, "char"); }
+
+    SUBCASE("i64") { basicTypeTest<ais::Long>(TypeParser::Lang::Rust, "i64"); }
+
+    SUBCASE("i32") { basicTypeTest<ais::Int>(TypeParser::Lang::Rust, "i32"); }
+
+    SUBCASE("i16") { basicTypeTest<ais::Short>(TypeParser::Lang::Rust, "i16"); }
+
+    SUBCASE("i8") { basicTypeTest<ais::Short>(TypeParser::Lang::Rust, "i8"); }
+
+    SUBCASE("u64") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Rust, "u64"); }
+
+    SUBCASE("u32") { basicTypeTest<ais::UnsignedInt>(TypeParser::Lang::Rust, "u32"); }
+
+    SUBCASE("u16") { basicTypeTest<ais::UnsignedShort>(TypeParser::Lang::Rust, "u16"); }
+
+    SUBCASE("u8") { basicTypeTest<ais::UnsignedShort>(TypeParser::Lang::Rust, "u8"); }
+
+    SUBCASE("usize") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Rust, "usize"); }
+
+    SUBCASE("isize") { basicTypeTest<ais::Long>(TypeParser::Lang::Rust, "isize"); }
+
+    SUBCASE("f64") { basicTypeTest<ais::Double>(TypeParser::Lang::Rust, "f64"); }
+
+    SUBCASE("f32") { basicTypeTest<ais::Float>(TypeParser::Lang::Rust, "f32"); }
+}
+
 TEST_CASE("TypeParser::getType: cpp primitive types") {
     SUBCASE("bool") { basicTypeTest<ais::Bool>(TypeParser::Lang::Cpp, "bool"); }
 
@@ -1423,7 +1483,7 @@ TEST_CASE("TypeParser::getType: cpp primitive types") {
     SUBCASE("std::size_t") { basicTypeTest<ais::Long>(TypeParser::Lang::Cpp, "std::size_t"); }
 
     SUBCASE("size_t") { basicTypeTest<ais::UnsignedLong>(TypeParser::Lang::Cpp, "size_t"); }
-
+    
     SUBCASE("short") { basicTypeTest<ais::Short>(TypeParser::Lang::Cpp, "short"); }
 
     SUBCASE("short int") { basicTypeTest<ais::Short>(TypeParser::Lang::Cpp, "short int"); }

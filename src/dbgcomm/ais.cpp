@@ -906,9 +906,12 @@ void ais::Array::parseL(InterpretStream& in, Writer& out) const {
     auto outptr = &out;
     auto locOut = std::unique_ptr<Writer>{};
 
+    if (m_numElems<0) return;
+
     // assuming something like {val,val,val}
     for (int i=0; i<m_numElems; ++i) {
         s = in.get();
+        if (s==NULL) break;
         for ( ;*s && isspace(*s); ++s) {}
         if (i ? (*s == ',') : (*s == '(' || *s == '{' || *s == '[')) ++s;
         else if (i && (*s == ')' || *s == '}' || *s == ']') && !*(s+1)) {
@@ -1593,7 +1596,7 @@ void ais::Vector::parseL(InterpretStream& in, Writer& out) const {
     const_cast<Vector*>(this)->m_numElems = len;
     out.writeInt(capacity);
 
-    if (len == 0) {
+    if (len <= 0) {
         // duplicate the header for a 0 length array since
         // ArrayParse is looking for "{}"
         in.setPos(s+chars);

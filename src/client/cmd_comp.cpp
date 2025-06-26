@@ -121,7 +121,11 @@ static int cmd_compare_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, c
             val.erase(0, pos+look.size());
             val[0] = std::toupper(val[0]);
         }
-        mi.set_result_deprecated("compare={result=\"%s\"}", val.c_str());
+        auto msg = mi::MessageContents{}
+            << mi::Result{"compare", mi::Tuple{}
+                << mi::Result{"result", mi::Const{val}}}
+        ;
+        mi.set_result(msg);
     } catch (EvalError& err) {
         auto msg = std::string{err.what()} + "\n";
         PrintOutError("%s", msg.c_str());

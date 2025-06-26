@@ -696,7 +696,11 @@ static int cmd_show_prompt_console(ConsoleInterpreter& console) {
 }
 
 static int cmd_show_prompt_mi(MiInterpreter& mi) {
-    mi.set_result_deprecated("value=\"%s\"", mi.get_prompt().c_str());
+    auto msg = mi::MessageContents{}
+        << mi::Result{"value", mi::Const(mi.get_prompt())}
+    ;
+    mi.set_result(msg);
+    
     return Command::Success;
 }
 
@@ -750,7 +754,15 @@ static int cmd_show_error_console() {
 }
 
 static int cmd_show_error_mi(MiInterpreter& mi) {
-    mi.set_result_deprecated("epsilon={warnEps=\"%.16lg\", errEps=\"%.16lg\"}", Client.cmp_lower_eps, Client.cmp_upper_eps);
+
+    auto msg = mi::MessageContents{}
+        << mi::Result{"epsilon", mi::Tuple{}
+            << mi::Result{"warnEps", mi::Value(Client.cmp_lower_eps, 16)}
+            << mi::Result{"errEps", mi::Value(Client.cmp_upper_eps, 16)}}
+    ;
+     
+    mi.set_result(msg);
+    
     return Command::Success;
 }
 

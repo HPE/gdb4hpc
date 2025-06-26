@@ -1058,7 +1058,11 @@ static int cmd_info_breakpoints_cmd_console(rec_set_t *rec_set, int argc, const 
 
 static int cmd_info_breakpoints_cmd_mi(MiInterpreter& mi, rec_set_t *rec_set, int argc, const char* const argv[]) {
     if (!rec_set) {
-        mi.set_result_deprecated("BreakpointTable={body=[]}");
+        auto msg = mi::MessageContents{}
+            << mi::Result{"BreakpointTable", mi::Tuple{}
+              << mi::Result{"body", mi::List{}}}
+        ;
+        mi.set_result(msg);
         return Command::Success;
     }
 

@@ -7,6 +7,7 @@
 
 #include <iomanip>
 #include <sstream>
+#include <regex>
 #include <variant>
 
 TEST_CASE("Value and Message serialization") {
@@ -160,6 +161,16 @@ Value::Value(Tuple tuple)
 Value::Value(Result result)
     : data(std::make_shared<const Value::Variant>(std::move(result))) {}
 
+//Value::Value(double val, int prec=16)
+//    : data(std::make_shared<
+    
+std::string Value::doubleToString(double value, int prec) {
+    std::ostringstream msg;
+    msg << std::setprecision(prec);
+    msg << value;
+    return msg.str();
+}
+
 std::string Value::serialize() const {
     // we intentionally leave `data` as a public member of the struct, so it's
     // technically possible the user sets it to nullptr... for some reason
@@ -175,7 +186,17 @@ std::string Value::serialize() const {
 std::string Const::serialize() const {
     std::ostringstream oss;
     oss << std::quoted(str);
-    return oss.str();
+    // the output of cmd_compare_cmd_mi contains "\n". std::quoted converts
+    // this to \\n. This needs to be replaced by 
+    // a single n for the output to have "\n" as it did using the 
+    // deprecated method.
+    std::string serialized = oss.str();
+    for (;;) {
+        size_t idx = serialized.find(R"(\\n)");
+        if (idx == std::string::npos) break;
+        serialized.replace(idx, 3, "\\n");
+    }
+    return serialized;
 }
 
 std::string Result::serialize() const {

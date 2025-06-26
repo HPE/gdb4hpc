@@ -39,6 +39,7 @@ struct Value {
     Value(std::string str) : Value(Const{str}) {}
     Value(std::string_view str) : Value(Const{std::string{str}}) {}
     Value(const char* str) : Value(str ? std::string{str} : "") {}
+    Value(double val, int prec=16) : Value(Const{doubleToString(val, prec)}) {}
 
     Value(Result result);
     Value(List list);
@@ -51,6 +52,7 @@ struct Value {
 
     // serialize the underlying value
     std::string serialize() const;
+    std::string doubleToString(double value, int prec=16);
 };
 
 struct Result {

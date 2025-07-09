@@ -626,6 +626,14 @@ public:
     int readVal(Reader& reader) const;
 };
 
+class Utf32Char : public Int {
+public:
+    Utf32Char() {}
+    void parseL(InterpretStream& in, Writer& out) const override;
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
+    std::string getTypeName() const override;
+};
+
 class UnsignedInt : public Int {
 public:
     UnsignedInt() {}
@@ -1211,12 +1219,23 @@ public:
 
 class RustVector : public Array {
 public:
+    RustVector();
     RustVector(std::shared_ptr<Type> elemType);
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     void parseL(InterpretStream& in, Writer& out) const override;
-    //std::string getTypeName() const override;
-    //int getTypeId(Writer& writer) const override;
+    std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
+    std::string getTypeName() const override;
+    int getTypeId(Writer& writer) const override;
+};
 
-    //std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
+class RustArray : public Array {
+public:
+    RustArray();
+    RustArray(std::shared_ptr<Type> elemType, int len=0, int idx0=0);
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
+    std::shared_ptr<Array> makeTyped(std::shared_ptr<ais::Type> elemType) const override;
+    std::string getTypeName() const override;
+    int getTypeId(Writer& writer) const override;
 };
 
 // Possible results from comparing two primitives

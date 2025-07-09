@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Hewlett Packard Enterprise Development LP.
+// Copyright 2023-2025 Hewlett Packard Enterprise Development LP.
 
 #include "ais.h"
 #include <string>
@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <variant>
 #include <charconv>
+#include <cuchar>
 #include "dbgevent.h"
 #include "parse.h"
 
@@ -246,6 +247,85 @@ ais::UnsignedShort::makePrinter(ais::Printer& parent) const {
 
 std::string ais::UnsignedShort::getTypeName() const {
     return "unsigned short";
+}
+
+void ais::Utf32Char::parseL(InterpretStream& in, Writer& out) const
+{
+    const char* str = in.get();
+
+    // these are print as integer value potentially followed by a 'char'
+    char* next = nullptr;
+    int val = strtol(str, &next, 10);
+    bool gotVal = (next != str);
+
+    // parse a single character surrounded by single quotes
+    next = const_cast<char*>(skipspace(next));
+    
+    if (*next == '\'') {
+        // matches the char on next.
+        const char* end = findExprMatch(next);
+        if (!*end) throw ais::Error("no end quote in character constant");
+        in.setPos(end+1);
+    } else if (gotVal) {
+        // it just printed in integer
+        in.setPos(next);
+    } else {
+        throw ais::Error("expected value after a character");
+    }
+    
+    out.writeInt(val);
+}
+
+// this function will be included in RustString when that is created.
+std::string to_utf8(char32_t codepoint)
+{
+    // MB_LEN_MAX is the maximum number of bytes needed to represent a single wide character in any supported locale.
+    char arr[MB_LEN_MAX+1] = {0};
+    
+    // query the current locale
+    const char *prev_loc = std::setlocale(LC_ALL, nullptr);
+    
+    std::setlocale(LC_ALL, "en_US.utf8");
+    std::mbstate_t state{};
+    std::c32rtomb(arr, codepoint, &state);
+    std::setlocale(LC_ALL, prev_loc);
+    return std::string(arr);
+}
+
+std::unique_ptr<ais::Printer> ais::Utf32Char::makePrinter(Printer& parent) const {
+    struct TPrinter : public Printer {
+        TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
+        void operator()(int val) { 
+            if (val > 256) {
+                out << std::dec << val << " " << "\'\\u{" << std::hex << std::setw(6) << std::setfill('0') << static_cast<int>(val) << "}\'"; 
+            }
+            else {
+                char c = static_cast<char>(val);
+                std::string escaped;
+                switch (c) {
+                    case '\'': escaped = "\\'"; break;
+                    case '\"': escaped = "\\\""; break;
+                    case '\\': escaped = "\\\\"; break;
+                    case '\a': escaped = "\\a"; break;
+                    case '\b': escaped = "\\b"; break;
+                    case '\f': escaped = "\\f"; break;
+                    case '\n': escaped = "\\n"; break;
+                    case '\r': escaped = "\\r"; break;
+                    case '\t': escaped = "\\t"; break;
+                    case '\v': escaped = "\\v"; break;
+                    case '\0': escaped = "\\0"; break;
+                    default: escaped = std::string(1, c); break;
+                }
+                out << std::dec << val << " '" << escaped << "'"; 
+            }
+        }
+    };
+    return std::make_unique<TPrinter>(parent);
+}
+
+std::string ais::Utf32Char::getTypeName() const {
+    return "Utf32Char";
 }
 
 void ais::Int::parseL(InterpretStream& in, Writer& out) const
@@ -817,6 +897,7 @@ ais::Reader::~Reader() {}
 // these shared_ptr's can be passed around freely.
 std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
     std::make_shared<ais::Bool>(),
+    std::make_shared<ais::Utf32Char>(),
     std::make_shared<ais::Char>(),
     std::make_shared<ais::CharArray>(),
     std::make_shared<ais::SignedChar>(),
@@ -858,6 +939,8 @@ std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
 std::vector<std::shared_ptr<ais::Array>> ais::Reader::m_arrayTypes =
 {
  std::make_shared<ais::Array>(),
+ std::make_shared<ais::RustVector>(),
+ std::make_shared<ais::RustArray>(),
  std::make_shared<ais::FtnArray>(),
  std::make_shared<ais::Vector>(),
  std::make_shared<ais::Deque>(),
@@ -958,6 +1041,30 @@ void ais::Array::parseL(InterpretStream& in, Writer& out) const {
     in.setPos(s);
 }
 
+void ais::RustVector::parseL(InterpretStream& in, Writer& out) const {
+    const char* s = skipspace(in. get());
+    if(strncmp(s, "Vec(size=", 9) != 0) {
+        throw ais::Error("could not parse rust vector");
+    }
+    s += 9;
+
+    char *end = nullptr;
+    const_cast<RustVector*>(this)->m_numElems = strtol(s, &end, 10);
+
+    if (end == s || *end != ')') {
+        throw ais::Error("could not parse rust vector length");
+    }
+
+    s = end+1;
+    if (m_numElems) {
+        // expecting "= { array }"
+        if (auto brace = strchr(s,'{')) s = brace;
+    }
+
+    in.setPos(s);
+    Array::parseL(in, out);
+}
+
 namespace ais {
     struct ArrayPrinter : public Printer {
         ArrayPrinter(Printer& parent,
@@ -983,7 +1090,6 @@ namespace ais {
         std::string open, sep, close;
     };
 }
-
 
 std::unique_ptr<ais::Printer> ais::Array::makePrinter(Printer& parent) const {
     static const char* arr[3] = { "{", ",", "}" };  // open, separator, close
@@ -1105,9 +1211,41 @@ ais::FilteredArray::Filter::Filter() {}
 ais::FilteredArray::Filter::~Filter() {}
 
 ais::FtnArray::FtnArray() { m_idx0 = 1; }
+ais::RustVector::RustVector() { m_idx0 = 1; }
+ais::RustArray::RustArray() { m_numElems = 0; }
 
 ais::FtnArray::FtnArray(std::shared_ptr<Type> elemType, int len) :
     ais::Array(elemType, len, 1) {}
+
+ais::RustVector::RustVector(std::shared_ptr<ais::Type> elemType) :
+    ais::Array(elemType) {}
+
+ais::RustArray::RustArray(std::shared_ptr<ais::Type> elemType, int len, int idx0) :
+    ais::Array(elemType, len, idx0) {}
+
+
+std::unique_ptr<ais::Printer> ais::RustVector::makePrinter(Printer& parent) const {
+    struct TPrinter: public ArrayPrinter {
+        TPrinter(Printer& parent) : ArrayPrinter(parent, "", ", ", "}") {}
+        virtual void nest(const Type* t, int refIdx) override {
+            ArrayPrinter::nest(t, refIdx);
+            out << "Vec(size=" << m_len << ") = {";
+        }
+    };
+        
+    auto& fmt = parent.format();
+    if (fmt.csv || fmt.onePerLine) return ais::Array::makePrinter(parent);
+    else {
+        return std::make_unique<TPrinter>(parent);
+    }
+}
+std::unique_ptr<ais::Printer> ais::RustArray::makePrinter(Printer& parent) const {
+    auto& fmt = parent.format();
+    if (fmt.csv || fmt.onePerLine) return ais::Array::makePrinter(parent);
+    else {
+        return std::make_unique<ArrayPrinter>(parent, "[", ", ", "]");
+    }
+}
 
 std::string ais::FtnArray::getTypeName() const {
     return m_elemType ? "^fortran[" + m_elemType->getTypeName() : "^fortran[";
@@ -1625,16 +1763,38 @@ void ais::Vector::applyL(Reader& reader, Visitor& f) const {
 std::string ais::Vector::getTypeName() const {
     return "std::vector[" + (m_elemType ? m_elemType->getTypeName() : "");
 }
+std::string ais::RustVector::getTypeName() const {
+    return "alloc::vec::Vec[" + (m_elemType ? m_elemType->getTypeName() : "");
+}
+std::string ais::RustArray::getTypeName() const {
+    return "std::array[" + (m_elemType ? m_elemType->getTypeName() : "");
+}
 
 int ais::Vector::getTypeId(Writer& writer) const {
     auto elemIdx = getElemTypeId(writer);
     auto name = "std::vector[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
 }
+int ais::RustVector::getTypeId(Writer& writer) const {
+    auto elemIdx = getElemTypeId(writer);
+    auto name = "alloc::vec::Vec[" + std::to_string(elemIdx);
+    return writer.getTypeId(name);
+}
+int ais::RustArray::getTypeId(Writer& writer) const {
+    auto elemIdx = getElemTypeId(writer);
+    auto name = "std::array[" + std::to_string(elemIdx);
+    return writer.getTypeId(name);
+}
 
 // generate a typed vector from a factory instance
 std::shared_ptr<ais::Array> ais::Vector::makeTyped(std::shared_ptr<ais::Type> elemType) const {
     return std::make_shared<ais::Vector>(elemType);
+}
+std::shared_ptr<ais::Array> ais::RustVector::makeTyped(std::shared_ptr<ais::Type> elemType) const {
+    return std::make_shared<ais::RustVector>(elemType);
+}
+std::shared_ptr<ais::Array> ais::RustArray::makeTyped(std::shared_ptr<ais::Type> elemType) const {
+    return std::make_shared<ais::RustArray>(elemType);
 }
 
 void ais::Vector::applyOne(Reader& reader, std::vector<ApplyOneIdx>& location, int level,
@@ -2709,34 +2869,6 @@ void ais::RustStruct::parseL(InterpretStream& in, Writer& out) const {
     if (*s == '}') ++s;
     in.setPos(s);
 }
-
-ais::RustVector::RustVector(std::shared_ptr<ais::Type> elemType) :
-    ais::Array(elemType) {}
-
-void ais::RustVector::parseL(InterpretStream& in, Writer& out) const {
-    const char* s = skipspace(in. get());
-    if (strstr(s, "Vec(size=") != s) {
-        throw ais::Error("could not parse rust vector");
-    }
-
-    s += 9;
-    char *end = nullptr;
-    const_cast<RustVector*>(this)->m_numElems = strtol(s, &end, 10);
-
-    if (end == s || *end != ')') {
-        throw ais::Error("could not parse rust vector length");
-    }
-
-    s = end+1;
-    if (m_numElems) {
-        // expecting "= { array }"
-        if (auto brace = strchr(s,'{')) s = brace;
-    }
-
-    in.setPos(s);
-    Array::parseL(in, out);
-}
-
 
 //===========================================================================
 

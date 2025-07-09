@@ -280,10 +280,7 @@ std::vector<Prim> m_fortranPrims =
 std::vector<Prim> m_rustPrims =
 {
  {"bool", PrimWrap<ais::Bool>()},
- // TODO this should use a custom UnicodeChar type or something to properly support unicode chars rather than just printing the int value. 
- // currently, if this happens to be a unicode character ie: (result in rust-gdb): '\u{002124}', (result in gdb4hpc): 36 '$'
- // it just prints the least significant bytes
- {"char", PrimWrap<ais::Char>()},
+ {"char", PrimWrap<ais::Utf32Char>()},
  // an array of 2 64 bit integers would probably be the best solution for this.
  //{"i128", PrimWrap<ais::UnsignedLong>()},
  //{"u128", PrimWrap<ais::UnsignedLong>()},
@@ -693,7 +690,7 @@ std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr) {
             
             DVPRINT("got array of len %s type %s\n", lenStr.c_str(), elemTypeStr.c_str());
             auto elemType = getRustType(mi, elemTypeStr.c_str());
-            return std::make_shared<ais::Array>(elemType, len);
+            return std::make_shared<ais::RustArray>(elemType, len);
         }
     }
 
@@ -1428,7 +1425,7 @@ TEST_CASE("TypeParser::getType: rust primitive types") {
     SUBCASE("bool") { basicTypeTest<ais::Bool>(TypeParser::Lang::Rust, "bool"); }
 
     // TODO change this to UnicodeChar.
-    SUBCASE("char") { basicTypeTest<ais::Char>(TypeParser::Lang::Rust, "char"); }
+    SUBCASE("char") { basicTypeTest<ais::Utf32Char>(TypeParser::Lang::Rust, "char"); }
 
     SUBCASE("i64") { basicTypeTest<ais::Long>(TypeParser::Lang::Rust, "i64"); }
 

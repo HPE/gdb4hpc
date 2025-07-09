@@ -90,6 +90,9 @@ fn main() {
     // expected (result in rust-gdb): $9 = 8484 '\u{002124}'
     // result in gdb4hpc: 36 '$' (looks like its interpreting the first hex "24").
     let _chariffy: char = 'ℤ';
+    let _v = vec!['h', 'e', 'l', 'l', 'o'];
+    let _vararr1 = vec![char::from_digit(1, 10).unwrap(), 'ȝ', '\'', '\n', '\t', 'ǿ', '⛞', '⛄'];
+    let _vararr2 = [char::from_digit(1, 10).unwrap(), 'ȝ', '\'', '\n', '\t', 'ǿ', '⛞', '⛄'];
     // does not currently work
     let tup: (i32, f64, u8) = (500, 6.4, 1);
     // all three of these work. _vector.len returns 3. I am not sure why the vector one works tbh.
@@ -109,7 +112,7 @@ fn main() {
         string.push_str(", ");
     }
 
-    let _alice = String::from("Alice");
+    let _alice = String::from("Alℤiℤcℤe");
 
     // just adding this so when running locally gdb4hpc is able to connect.
     std::thread::sleep(Duration::from_millis(5000));

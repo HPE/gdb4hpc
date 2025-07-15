@@ -108,7 +108,7 @@ a{0..2}: {{1,2},{3...}}
 46: p intarray2d2
 a{0..2}: {{1,2},{3...}...}
 47: p two_d
-a{0..2}: {"Hel"...}
+a{0..2}: {"Hello","World!\n","Empty ->"...}
 54: set print elements 0
 55: assign intarray2d[1][0] 271
 56: assign intarray2d[1][1] -1
@@ -130,14 +130,14 @@ Command resulted in an error: 61: p/n intarray2d
 63: print /csv floatarray
 "a{0..2}",1.1,2.2,3.3,4.4,5.5
 64: p/1 intarray2d2
-a{0..2}: 1
+1
 2
 3
 4
 5
 6
 65: print /1 two_d
-a{0..2}: "Hello"
+"Hello"
 "World!\n"
 "Empty ->"
 ""

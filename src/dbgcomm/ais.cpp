@@ -3136,7 +3136,7 @@ namespace ais {
         void nest(const Type* t, int refIdx) override {
             if (m_top) m_top->nest(t, refIdx);
             else {
-                out << m_label;
+                if(!m_formatter.onePerLine) out << m_label;
                 if (refIdx > 0) out << "\n  <" << refIdx << ">:";
                 Printer::nest(t,-1);
 

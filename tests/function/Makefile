@@ -34,7 +34,8 @@ TESTS = \
    ./bin/${PE_ENV}/fortran/ftn_cmp_diff.x \
    ./bin/${PE_ENV}/fortran/ftn_arrays.x \
    ./bin/${PE_ENV}/fortran/ftn_decomp.x \
-   ./bin/${PE_ENV}/fortran/ftn_bd_dt.x
+   ./bin/${PE_ENV}/fortran/ftn_bd_dt.x \
+   make_ds
 
 # tests which require CTI development libraries to build
 CTI_TESTS = \
@@ -122,6 +123,7 @@ dirs:
 	mkdir -p ./bin/${PE_ENV}/fortran
 	mkdir -p ./bin/${PE_ENV}/kokkos
 	mkdir -p ./bin/${PE_ENV}/cuda
+	mkdir -p ./bin/${PE_ENV}/rust
 
 clean:
 	rm -rf ./bin
@@ -335,3 +337,7 @@ Kokkos/kokkos/core/src/libcokkoscore.a: Kokkos/kokkos/Makefile
 	$(MAKE) -C src/kokkos
 	mv src/kokkos/TeamVectorLoop.host ./bin/${PE_ENV}/kokkos/TeamVectorLoop.host
 
+make_ds : ./bin/${PE_ENV}/rust/rust_ds
+
+./bin/${PE_ENV}/rust/rust_ds: ./src/rust/rust_ds.rs
+	-rustc -g $< -o $@

@@ -654,6 +654,7 @@ public:
 class UnsignedLong : public Long {
 public:
     UnsignedLong() {}
+    void parseL(InterpretStream& in, Writer& out) const override;
     std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
     std::string getTypeName() const override;
 };

@@ -1109,6 +1109,11 @@ class FunctionTests(Gdb4hpcTest):
         self.base_name = "mqd_detect_env"
         runTest(self)
 
+    @avocado.skipIf(not os.path.exists("./bin/CRAY/rust/rust_ds"), "No rust compiler.")
+    def test_rust_ds(self):
+        self.base_name = "rust_ds"
+        runTest(self)
+
 # given "Python 3.11.3" return "3.11"
 def parse_python_minor_version(full_vers: str) -> str:
     # if caller's `which python3` failed

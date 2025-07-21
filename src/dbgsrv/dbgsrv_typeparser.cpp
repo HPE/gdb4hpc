@@ -701,7 +701,6 @@ std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr) {
         return mi.addKnownType(typeStr, loc->second(mi, TypeName{typeStr,strlen(typeStr)}));
     }
 
-    DVPRINT("Is it a rust enum\n");
     auto ptype = mi.getPTypeAlias(typeStr, false, false);
 
     DVPRINT("mi.getPTypeAlias returns %s\n", ptype.c_str());

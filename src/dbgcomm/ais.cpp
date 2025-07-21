@@ -298,7 +298,10 @@ std::unique_ptr<ais::Printer> ais::Utf32Char::makePrinter(Printer& parent) const
         using Printer::operator();
         void operator()(int val) { 
             if (val > 256) {
+                std::ios init(nullptr);
+                init.copyfmt(out);
                 out << std::dec << val << " " << "\'\\u{" << std::hex << std::setw(6) << std::setfill('0') << static_cast<int>(val) << "}\'"; 
+                out.copyfmt(init);
             }
             else {
                 char c = static_cast<char>(val);
@@ -369,6 +372,20 @@ std::string ais::UnsignedInt::getTypeName() const {
     return "unsigned int";
 }
 
+void ais::UnsignedLong::parseL(InterpretStream& in, Writer& out) const
+{
+    const char* str = in.get();
+
+    char* next = nullptr;
+    long val = strtoul(str, &next, 10);
+    in.setPos(next);
+
+    if (next == str) {
+        out.writeError("could not evaluate");
+    } else {
+        out.writeLong(val);
+    }
+}
 void ais::Long::parseL(InterpretStream& in, Writer& out) const
 {
     const char* str = in.get();
@@ -939,8 +956,8 @@ std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
 std::vector<std::shared_ptr<ais::Array>> ais::Reader::m_arrayTypes =
 {
  std::make_shared<ais::Array>(),
- std::make_shared<ais::RustVector>(),
  std::make_shared<ais::RustArray>(),
+ std::make_shared<ais::RustVector>(),
  std::make_shared<ais::FtnArray>(),
  std::make_shared<ais::Vector>(),
  std::make_shared<ais::Deque>(),
@@ -1043,11 +1060,11 @@ void ais::Array::parseL(InterpretStream& in, Writer& out) const {
 
 void ais::RustVector::parseL(InterpretStream& in, Writer& out) const {
     const char* s = skipspace(in. get());
-    if(strncmp(s, "Vec(size=", 9) != 0) {
+    if (strstr(s, "Vec(size=") != s) {
         throw ais::Error("could not parse rust vector");
     }
-    s += 9;
 
+    s += 9;
     char *end = nullptr;
     const_cast<RustVector*>(this)->m_numElems = strtol(s, &end, 10);
 
@@ -1223,7 +1240,6 @@ ais::RustVector::RustVector(std::shared_ptr<ais::Type> elemType) :
 ais::RustArray::RustArray(std::shared_ptr<ais::Type> elemType, int len, int idx0) :
     ais::Array(elemType, len, idx0) {}
 
-
 std::unique_ptr<ais::Printer> ais::RustVector::makePrinter(Printer& parent) const {
     struct TPrinter: public ArrayPrinter {
         TPrinter(Printer& parent) : ArrayPrinter(parent, "", ", ", "}") {}
@@ -1239,6 +1255,7 @@ std::unique_ptr<ais::Printer> ais::RustVector::makePrinter(Printer& parent) cons
         return std::make_unique<TPrinter>(parent);
     }
 }
+
 std::unique_ptr<ais::Printer> ais::RustArray::makePrinter(Printer& parent) const {
     auto& fmt = parent.format();
     if (fmt.csv || fmt.onePerLine) return ais::Array::makePrinter(parent);

@@ -103,7 +103,8 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
 
         if (custom_gdb_data) {
             MISessionSetGDBDataDirectory(m_session, custom_gdb_data);
-        } else {
+        } else if (!strstr(custom_gdb, "rust-gdb")) {
+            // for rust-gdb always get the pretty printers from the rust package.
             setDataDir(custom_gdb);
         }
 

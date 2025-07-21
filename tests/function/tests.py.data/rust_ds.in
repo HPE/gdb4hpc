@@ -1,0 +1,99 @@
+0: maint set sync on
+0: launch $a{1} ./bin/CRAY/rust/rust_ds --gdb=rust-gdb
+Starting application, please wait...
+Launched application...
+0/1 ranks connected... (timeout in 300 seconds)
+1/1 ranks connected.
+Created network...
+Connected to application...
+Launch complete.
+a{0}: Initial breakpoint, in main
+0: b rust_ds.rs:112
+a{0}: Breakpoint 1: file /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs, line 112.
+0: c
+a{0}: Breakpoint 1, rust_ds::main at /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs:112
+0: p _boolean
+a{0}: true
+0: p _float64
+a{0}: 1.23456789
+0: p _float32
+a{0}: -9.87654
+0: p _archisize
+a{0}: -500000000000000000
+0: p _archusize
+a{0}: 9000000000000000000
+0: p _sinteger64
+a{0}: -9000000000000000000
+0: p _sinteger32
+a{0}: -2000000000
+0: p _sinteger16
+a{0}: -31999
+0: p _sinteger8
+a{0}: -100
+0: p _uinteger64
+a{0}: 18000000000000000000
+0: p _uinteger32
+a{0}: 4000000000
+0: p _uinteger16
+a{0}: 65000
+0: p _uinteger8
+a{0}: 200
+0: p _char_safe
+a{0}: 122 'z'
+0: p _char_unicode
+a{0}: 8484 '\u{002124}'
+0: p _vec_ascii
+a{0}: Vec(size=5) = {104 'h', 101 'e', 108 'l', 108 'l', 111 'o'}
+0: p _vec_complex
+a{0}: Vec(size=8) = {49 '1', 63 '?', 39 '\'', 10 '\n', 9 '\t', 63 '?', 10 '\n', 9924 '\u{0026c4}'}
+0: p _arr_complex
+a{0}: [49 '1', 541 '\u{00021d}', 39 '\'', 10 '\n', 9 '\t', 511 '\u{0001ff}', 9950 '\u{0026de}', 9924 '\u{0026c4}']
+0: p _tup_object_i32
+a{0}: 500
+0: p *_pint
+a{0}: -31999
+0: p *_my_num_raw
+a{0}: -9000000000000000000
+0: p _four
+a{0}: rust_ds::IpAddrKind::V4
+0: p _user2
+a{0}: {_active = true, _sign_in_count = 10}
+0: ptype _user2
+a{0}: struct rust_ds::UserNoStrings {
+  _active: bool,
+  _sign_in_count: u64,
+}
+0: whatis _user2
+a{0}: rust_ds::UserNoStrings
+0: ptype _four
+a{0}: enum rust_ds::IpAddrKind {
+  V4,
+  V6,
+}
+0: whatis _four
+a{0}: rust_ds::IpAddrKind
+0: ptype _vec_complex
+a{0}: struct alloc::vec::Vec<char, alloc::alloc::Global> {
+  buf: alloc::raw_vec::RawVec<char, alloc::alloc::Global>,
+  len: usize,
+}
+0: whatis _vec_complex
+a{0}: alloc::vec::Vec<char, alloc::alloc::Global>
+0: ptype _arr_complex
+a{0}: [char; 8]
+0: whatis _arr_complex
+a{0}: [char; 8]
+0: whatis _char_unicode
+a{0}: char
+0: gdb ptype _char_unicode
+a{0}: char
+0: ptype _uinteger64
+a{0}: u64
+0: whatis _uinteger64
+a{0}: u64
+0: ptype _float64
+a{0}: f64
+0: whatis _float64
+a{0}: f64
+0: q
+Shutting down debugger and killing application for 'a'.

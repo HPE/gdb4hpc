@@ -276,22 +276,6 @@ void ais::Utf32Char::parseL(InterpretStream& in, Writer& out) const
     out.writeInt(val);
 }
 
-// this function will be included in RustString when that is created.
-std::string to_utf8(char32_t codepoint)
-{
-    // MB_LEN_MAX is the maximum number of bytes needed to represent a single wide character in any supported locale.
-    char arr[MB_LEN_MAX+1] = {0};
-    
-    // query the current locale
-    const char *prev_loc = std::setlocale(LC_ALL, nullptr);
-    
-    std::setlocale(LC_ALL, "en_US.utf8");
-    std::mbstate_t state{};
-    std::c32rtomb(arr, codepoint, &state);
-    std::setlocale(LC_ALL, prev_loc);
-    return std::string(arr);
-}
-
 std::unique_ptr<ais::Printer> ais::Utf32Char::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
@@ -740,6 +724,40 @@ void ais::FtnString::applyL(Reader& reader, Visitor& f) const {
     String::applyL(reader, f);
 }
 
+// converts string octal codes to unicode.
+std::string ais::RustString::decodeOctalEscapes(const std::string& input) {
+    std::string decoded_string;
+    for (size_t i = 0; i < input.length(); ++i) {
+        if (input[i] == '\\' && i + 3 < input.length() &&
+            isdigit(input[i+1]) && isdigit(input[i+2]) && isdigit(input[i+3])) {
+            int byte_val = 0;
+            std::from_chars_result res = std::from_chars(&input[i+1], &input[i+4], byte_val, 8); 
+
+            if (res.ec == std::errc() && byte_val >= 0 && byte_val <= 255) {
+                decoded_string.push_back(static_cast<char>(byte_val));
+                // octal digits are always 3 long.
+                i += 3; 
+            } else {
+                decoded_string.push_back(input[i]);
+            }
+        } else {
+            decoded_string.push_back(input[i]);
+        }
+    }
+    return decoded_string;
+}
+
+std::unique_ptr<ais::Printer> ais::RustString::makePrinter(Printer& parent) const {
+    struct TPrinter : public Printer {
+        TPrinter(Printer& parent) : Printer(parent) {}
+        using Printer::operator();
+        void operator()(const std::string& val) override { 
+            out << "\"" << ais::RustString::decodeOctalEscapes(val) << "\""; 
+        }
+    };
+    return std::make_unique<TPrinter>(parent);
+}
+
 std::unique_ptr<ais::Printer> ais::FtnString::makePrinter(Printer& parent) const {
     struct TPrinter : public Printer {
         TPrinter(Printer& parent) : Printer(parent) {}
@@ -750,6 +768,9 @@ std::unique_ptr<ais::Printer> ais::FtnString::makePrinter(Printer& parent) const
     return std::make_unique<TPrinter>(parent);
 }
 
+std::string ais::RustString::getTypeName() const {
+    return "^RustString";
+}
 
 std::string ais::FtnString::getTypeName() const {
     return "^FtnString";
@@ -936,6 +957,7 @@ std::vector<std::shared_ptr<ais::Type>> ais::Reader::m_primitives {
     std::make_shared<ais::SmartPointer>("",""),
     std::make_shared<ais::Logical>(),
     std::make_shared<ais::String>(),
+    std::make_shared<ais::RustString>(),
     std::make_shared<ais::FtnString>(),
     std::make_shared<ais::Literal>(),
     std::make_shared<ais::Enum>(),

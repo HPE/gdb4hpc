@@ -8,10 +8,10 @@ Created network...
 Connected to application...
 Launch complete.
 a{0}: Initial breakpoint, in main
-0: b rust_ds.rs:112
-a{0}: Breakpoint 1: file /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs, line 112.
+0: b rust_ds.rs:137
+a{0}: Breakpoint 1: file /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs, line 137.
 0: c
-a{0}: Breakpoint 1, rust_ds::main at /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs:112
+a{0}: Breakpoint 1, rust_ds::main at /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs:137
 0: p _boolean
 a{0}: true
 0: p _float64
@@ -58,13 +58,70 @@ a{0}: -9000000000000000000
 a{0}: rust_ds::IpAddrKind::V4
 0: p _user2
 a{0}: {_active = true, _sign_in_count = 10}
+0: p _alice_ascii
+a{0}: "Alice"
+0: p _alice_unicode
+a{0}: "Alℤiℤcℤe"
+0: p _string_messy
+a{0}: "ℤ⛔mix⭐⚾⽸inℋ☕⛍⚻some⛲⤅⛄⋹Ω✨ascii✨ⱗ╁⏞⛽ⱴ"
+0: p pangram
+a{0}: "the quick brown fox jumps over the lazy dog"
+0: p _vec_static_str
+a{0}: Vec(size=3) = {"the quick brown fox jumps over the lazy dog", "the quick brown fox jumps over the lazy dog", "the quick brown fox jumps over the lazy dog"}
+0: p _vec_string
+a{0}: Vec(size=3) = {"Alℤiℤcℤe", "ℤ⛔mix⭐⚾⽸inℋ☕⛍⚻some⛲⤅⛄⋹Ω✨ascii✨ⱗ╁⏞⛽ⱴ", "Alice"}
+0: p _arr_string
+a{0}: ["Alℤiℤcℤe", "ℤ⛔mix⭐⚾⽸inℋ☕⛍⚻some⛲⤅⛄⋹Ω✨ascii✨ⱗ╁⏞⛽ⱴ", "Alice"]
+0: p _complex
+a{0}: {_ipaddr = rust_ds::IpAddrKind::V4, _name = "Alℤiℤcℤe", _hobbies = Vec(size=6) = {"baseball⚾", "a static hobby", "⛽racing🏎️", "☃️🌨️skiing ⛷️", "another static hobby", "hiking 🏔️"}, _favorite_numbers = Vec(size=4) = {40, 11, 45, 73}, _address = "1234 home lane", _static_state = "minnesota", _string_country = "USA"}
+0: p _inf
+a{0}: inf
+0: p _inf_neg
+a{0}: -inf
+0: p _nan
+a{0}: -nan
+0: ptype _complex
+a{0}: struct rust_ds::Complex {
+  _ipaddr: rust_ds::IpAddrKind,
+  _name: alloc::string::String,
+  _hobbies: alloc::vec::Vec<alloc::string::String, alloc::alloc::Global>,
+  _favorite_numbers: alloc::vec::Vec<u32, alloc::alloc::Global>,
+  _address: alloc::string::String,
+  _static_state: &str,
+  _string_country: alloc::string::String,
+}
+0: whatis _complex
+a{0}: rust_ds::Complex
+0: ptype pangram
+a{0}: struct &str {
+  data_ptr: *mut u8,
+  length: usize,
+}
+0: ptype _vec_string
+a{0}: struct alloc::vec::Vec<alloc::string::String, alloc::alloc::Global> {
+  buf: alloc::raw_vec::RawVec<alloc::string::String, alloc::alloc::Global>,
+  len: usize,
+}
+0: ptype _vec_static_str
+a{0}: struct alloc::vec::Vec<&str, alloc::alloc::Global> {
+  buf: alloc::raw_vec::RawVec<&str, alloc::alloc::Global>,
+  len: usize,
+}
+0: ptype _arr_string
+a{0}: [alloc::string::String; 3]
 0: ptype _user2
 a{0}: struct rust_ds::UserNoStrings {
   _active: bool,
   _sign_in_count: u64,
 }
+0: whatis pangram
+a{0}: &str
+0: whatis _arr_string
+a{0}: [alloc::string::String; 3]
 0: whatis _user2
 a{0}: rust_ds::UserNoStrings
+0: whatis _vec_string
+a{0}: alloc::vec::Vec<alloc::string::String, alloc::alloc::Global>
 0: ptype _four
 a{0}: enum rust_ds::IpAddrKind {
   V4,
@@ -85,7 +142,7 @@ a{0}: [char; 8]
 a{0}: [char; 8]
 0: whatis _char_unicode
 a{0}: char
-0: gdb ptype _char_unicode
+0: ptype _char_unicode
 a{0}: char
 0: ptype _uinteger64
 a{0}: u64

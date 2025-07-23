@@ -26,7 +26,15 @@ struct IpAddr {
     _kind: IpAddrKind,
     _address: String,
 }
-
+struct Complex<'a> {
+    _ipaddr: IpAddrKind,
+    _name: String,
+    _hobbies: Vec<String>,
+    _favorite_numbers: Vec<u32>,
+    _address: String,
+    _static_state: &'a str,
+    _string_country: String,
+}
 
 fn main() {
     let mut book_reviews: HashMap<String, String> = HashMap::new();
@@ -94,7 +102,6 @@ fn main() {
     // all three of these work. _vector.len returns 3. 
     let _tup_object_i32 = tup.0;
 
-    // does not currently work
     let pangram: &'static str = "the quick brown fox jumps over the lazy dog";
     let _pint = &mut _sinteger16;
     let _my_num_raw: *const i64 = &_sinteger64;
@@ -107,7 +114,24 @@ fn main() {
         string.push_str(", ");
     }
 
-    // does not currently work
-    let _alice = String::from("Alℤiℤcℤe");
+    let _complex = Complex {
+        _name: String::from("Alℤiℤcℤe"),
+        _ipaddr: _four,
+        _hobbies: vec![String::from("baseball⚾"), "a static hobby".to_string(), String::from("⛽racing🏎️"), String::from("☃️🌨️skiing ⛷️"), "another static hobby".to_string(), String::from("hiking 🏔️")],
+        _favorite_numbers: vec![40, 11, 45, 73],
+        _address: "1234 home lane".to_string(),
+        _static_state: "minnesota",
+        _string_country: "USA".to_string(),
+    };
+
+    let _alice_unicode = String::from("Alℤiℤcℤe");
+    let _string_messy = String::from("ℤ⛔mix⭐⚾⽸inℋ☕⛍⚻some⛲⤅⛄⋹Ω✨ascii✨ⱗ╁⏞⛽ⱴ");
+    let _alice_ascii = String::from("Alice");
+    let _vec_static_str = vec![pangram, pangram, pangram];
+    let _vec_string = vec![_alice_unicode.clone(), _string_messy.clone(), _alice_ascii.clone()];
+    let _arr_string = [_alice_unicode, _string_messy, _alice_ascii];
+    let _inf = 100.0/0.0;
+    let _inf_neg = -100.0/0.0;
+    let _nan = (-1.0_f32).sqrt();
 }
 

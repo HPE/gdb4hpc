@@ -626,6 +626,7 @@ public:
     int readVal(Reader& reader) const;
 };
 
+
 class Utf32Char : public Int {
 public:
     Utf32Char() {}
@@ -741,6 +742,15 @@ public:
     std::string getTypeName() const override;
 
     std::string readVal(Reader& reader) const;
+};
+
+// has unicode support.
+class RustString : public String {
+public:
+    RustString() {}
+    std::unique_ptr<Printer> makePrinter(Printer& parent) const override;
+    std::string getTypeName() const override;
+    static std::string decodeOctalEscapes(const std::string& input);
 };
 
 // A string that should be displayed without quotes

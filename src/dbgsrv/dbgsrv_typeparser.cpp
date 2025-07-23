@@ -709,6 +709,11 @@ std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr) {
         DVPRINT("it's an enum\n");
         return std::make_shared<ais::Enum>(typeStr);
     }
+    
+    if (ptype.starts_with("alloc::string::String") or ptype.starts_with("&str")) {
+        DVPRINT("it's a string.\n");
+        return std::make_shared<ais::RustString>();
+    }
 
     if (ptype.starts_with("alloc::vec::Vec<")) {
         auto subTypeBeg = ptype.find('<');

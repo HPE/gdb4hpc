@@ -516,6 +516,13 @@ int PybeImpl::trace_line(PyFrameObject& pyframe) {
     auto next_frame = to_frame(pyframe, 0);
     // log("[LINE] %s in %s:%d\n", next_frame.location.function_name.c_str(), next_frame.location.file_name.c_str(), next_frame.location.line_number);
 
+    if (m_temp_breakpoint.has_value()) {
+        m_last_hit_breakpoint = std::make_unique<Breakpoint>(std::move(*m_temp_breakpoint));
+        m_temp_breakpoint.reset();
+        stop_and_notify_gdb();
+        return 0;
+    }
+
     auto matching_breakpoint = [&]() -> std::unique_ptr<Breakpoint> {
         for (const auto& bp : m_breakpoints) {
             // if a filename was set, assume that it was the basename.
@@ -566,6 +573,43 @@ int PybeImpl::trace_exception(PyFrameObject& /*frame*/, PyTypeObject& exception_
     }
 
     return 0;
+}
+
+void PybeImpl::set_temp_breakpoint(const Breakpoint& breakpoint) {
+    m_temp_breakpoint = breakpoint;
+}
+
+static PyObject* breakpoint_hook_func(PyObject* self, PyObject* /*args*/) {
+    log("breakpoint hook\n");
+    // Get the PybeImpl instance from the capsule
+    auto* impl = static_cast<PybeImpl*>(PyCapsule_GetPointer(self, "PybeImpl"));
+    if (!impl) {
+        log("failed to get PybeImpl from capsule\n");
+        Py_RETURN_NONE;
+    }
+    
+    // Get current location
+    auto* frame = PyEval_GetFrame();
+    if (frame) {
+        auto* code = PyFrame_GetCode(frame);
+        if (code && code->co_filename) {
+            const char* filename = PyUnicode_AsUTF8(code->co_filename);
+            int line_number = PyFrame_GetLineNumber(frame);
+
+            Breakpoint temp_breakpoint{
+                .feid = -1,
+                .location = {
+                    .function_name = "breakpoint()",
+                    .file_name = basename(filename),
+                    .line_number = line_number,
+                }
+            };
+            
+            impl->set_temp_breakpoint(temp_breakpoint);
+        }
+    }
+    
+    Py_RETURN_NONE;
 }
 
 bool PybeImpl::init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc, PyCFunction wrapped_exceptionfunc) {
@@ -635,6 +679,36 @@ bool PybeImpl::init_trace(Py_tracefunc tracefunc, PyCFunction wrapped_tracefunc,
 
         if (PyObject_SetAttrString(module_sys.ptr, "excepthook", exception_method.ptr)) {
             log("failed to set excepthook\n");
+            return false;
+        }
+    }
+
+    {
+        auto module_sys = StrongRef<PyObject>{nullptr};
+        if (module_sys = PyImport_ImportModule("sys"); !module_sys) {
+            log("failed to import sys\n");
+            return false;
+        }
+
+        // Create a capsule containing 'this' pointer
+        auto* capsule = PyCapsule_New(this, "PybeImpl", nullptr);
+        if (!capsule) {
+            log("failed to create PybeImpl capsule\n");
+            return false;
+        }
+
+        static auto gdb4hpc_breakpoint_method = PyMethodDef{
+            .ml_name = "gdb4hpc_breakpoint_hook",
+            .ml_meth = breakpoint_hook_func,
+            .ml_flags = METH_VARARGS,
+            .ml_doc = "gdb4hpc python breakpoint hook function",
+        };
+
+        // Pass the capsule as the 'self' parameter
+        auto breakpoint_method = StrongRef<PyObject>(PyCFunction_New(&gdb4hpc_breakpoint_method, capsule));
+
+        if (PyObject_SetAttrString(module_sys.ptr, "breakpointhook", breakpoint_method.ptr)) {
+            log("failed to set breakpointhook\n");
             return false;
         }
     }

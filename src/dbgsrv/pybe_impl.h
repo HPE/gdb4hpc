@@ -5,6 +5,7 @@
 #include "pybe_comms_pybe.h"
 
 #include <memory>
+#include <optional>
 
 namespace pybe {
 
@@ -41,7 +42,8 @@ public:
     bool install_step_trap(unsigned long py_thread_id, bool step_in);
     bool install_finish_trap(unsigned long py_thread_id);
     void notify_uncaught_exception(PyTypeObject& exception_type, PyObject& exception_instance, PyTracebackObject* backtrace);
-
+    void set_temp_breakpoint(const Breakpoint& breakpoint);
+    
 private:
     void stop_and_notify_gdb();
 
@@ -84,6 +86,7 @@ private:
 
     std::unique_ptr<Breakpoint> m_last_hit_breakpoint = nullptr;
     std::unique_ptr<Exception> m_last_exception = nullptr;
+    std::optional<Breakpoint> m_temp_breakpoint;
 
     // true if the user runs `catch throw` or `catch raise` in python mode
     bool m_catch_exceptions = false;

@@ -33,6 +33,7 @@ struct Complex<'a> {
     _favorite_numbers: Vec<u32>,
     _address: String,
     _static_state: &'a str,
+    _tuples: ((i32, f64, u8), (char, char), (String, String)),
     _string_country: String,
 }
 
@@ -68,9 +69,11 @@ fn main() {
 
     let _four = IpAddrKind::V4;
     let _six = IpAddrKind::V6;
-
+    let _six_ref = &_six;
+    let _six_ref_ref = &_six_ref;
+    let _ref_array = [_six_ref, _six_ref_ref, _six_ref];
     
-    let _home = IpAddr {
+    let home = IpAddr {
         _kind: IpAddrKind::V4,
         _address: String::from("127.0.0.1"),
     };
@@ -97,9 +100,26 @@ fn main() {
     let _vec_ascii = vec!['h', 'e', 'l', 'l', 'o'];
     let _vec_complex = vec![char::from_digit(1, 10).unwrap(), '?', '\'', '\n', '\t', '?', '\n', '⛄'];
     let _arr_complex = [char::from_digit(1, 10).unwrap(), 'ȝ', '\'', '\n', '\t', 'ǿ', '⛞', '⛄'];
-    // does not currently work
     let tup: (i32, f64, u8) = (500, 6.4, 1);
-    // all three of these work. _vector.len returns 3. 
+    let tup2: (char,char) = (_char_unicode.clone(), _char_safe.clone());
+    let tup3: (String, String) = ("⛲⤅⛄⋹Ω✨ascii✨ⱗ".to_string(), "world".to_string());
+    let _nested_tuple = (tup, tup2, tup3);
+    let tup_vector = vec![_nested_tuple.clone(), _nested_tuple.clone()];
+    let _tup_array = [tup2.clone(), tup2.clone()];
+    let _int_struct = (10, home);
+    let _int_vectortup = (10, tup_vector.clone());
+    let _vectortup_int = (tup_vector, 10);
+    let triple_tuple = (_nested_tuple.clone(), _nested_tuple.clone());
+    let double_int_tuple = (1, 10);
+    let _tuple_int = (double_int_tuple, 100);
+    let _int_tuple = (100, double_int_tuple);
+    let _int_weird1 = (double_int_tuple, 100, double_int_tuple, 100);
+    let _int_weird2 = (double_int_tuple, 100, double_int_tuple);
+    let _int_weird3 = (100, double_int_tuple, 100);
+    let _int_weird4 = (100, double_int_tuple, 100, double_int_tuple);
+    let _int_weird5 = (100, triple_tuple.clone(), double_int_tuple);
+    let _int_weird6 = (100, triple_tuple.clone(), double_int_tuple, 100);
+    let _int_weird7 = (triple_tuple, double_int_tuple, 100);
     let _tup_object_i32 = tup.0;
 
     let pangram: &'static str = "the quick brown fox jumps over the lazy dog";
@@ -121,6 +141,7 @@ fn main() {
         _favorite_numbers: vec![40, 11, 45, 73],
         _address: "1234 home lane".to_string(),
         _static_state: "minnesota",
+        _tuples: _nested_tuple.clone(),
         _string_country: "USA".to_string(),
     };
 
@@ -133,5 +154,6 @@ fn main() {
     let _inf = 100.0/0.0;
     let _inf_neg = -100.0/0.0;
     let _nan = (-1.0_f32).sqrt();
+    *_pint += 0;
 }
 

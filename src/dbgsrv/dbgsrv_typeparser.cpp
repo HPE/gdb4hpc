@@ -56,6 +56,7 @@ std::shared_ptr<ais::Type> stlContainer(Mi2Aif& mi, const ais::Array& contType,
 std::shared_ptr<ais::Type> stdArray(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdPair(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdTuple(Mi2Aif& mi, TypeName t);
+std::shared_ptr<ais::Type> rustTuple(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> kokkosView(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> rajaView(Mi2Aif& mi, TypeName t);
 std::shared_ptr<ais::Type> stdConditional(Mi2Aif& mi, TypeName t);
@@ -679,6 +680,14 @@ std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr) {
         std::sort(m_rustPrims.begin(), m_rustPrims.end(), comparePrims);
         isSorted = true;
     }
+    if (typeStr[0] == '*') {
+        auto derefType = typeStr + 5;
+        return mi.addKnownType(derefType, std::make_shared<ais::Pointer>(derefType));
+    }
+    // Rust Tuple
+    if (typeStr[0] == '(') {
+        return mi.addKnownType(typeStr, rustTuple(mi, TypeName{"rustTuple::", typeStr}));
+    }
 
     // Rust Array
     if (typeStr[0] == '[') {
@@ -690,7 +699,7 @@ std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr) {
             
             DVPRINT("got array of len %s type %s\n", lenStr.c_str(), elemTypeStr.c_str());
             auto elemType = getRustType(mi, elemTypeStr.c_str());
-            return std::make_shared<ais::RustArray>(elemType, len);
+            return mi.addKnownType(typeStr, std::make_shared<ais::RustArray>(elemType, len));
         }
     }
 
@@ -707,12 +716,12 @@ std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr) {
 
     if (ptype.starts_with("enum ")) {
         DVPRINT("it's an enum\n");
-        return std::make_shared<ais::Enum>(typeStr);
+        return mi.addKnownType(typeStr, std::make_shared<ais::Enum>(typeStr));
     }
     
     if (ptype.starts_with("alloc::string::String") or ptype.starts_with("&str")) {
         DVPRINT("it's a string.\n");
-        return std::make_shared<ais::RustString>();
+        return mi.addKnownType(typeStr, std::make_shared<ais::RustString>());
     }
 
     if (ptype.starts_with("alloc::vec::Vec<")) {
@@ -723,7 +732,7 @@ std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr) {
         
         DVPRINT("it's a vector of %s\n", subTypeStr.c_str());
         auto subType = getRustType(mi, subTypeStr.c_str());
-        return std::make_shared<ais::RustVector>(subType);
+        return mi.addKnownType(typeStr, std::make_shared<ais::RustVector>(subType));
     }
 
     DVPRINT("treating as a struct\n");
@@ -743,6 +752,7 @@ std::shared_ptr<ais::Type> getRustType(Mi2Aif& mi, const char* typeStr) {
         stype->addMember(fieldName, getRustType(mi,fieldTypeStr.c_str()));
     }
 
+    return mi.addKnownType(typeStr, stype);
     return stype;
 
     //return std::make_shared<ais::Unimplemented>(std::string{"unknown-rust-type-"} + typeStr);
@@ -985,6 +995,70 @@ std::shared_ptr<ais::Type> stdPair(Mi2Aif& mi, TypeName t) {
 
     auto vtype = std::make_shared<ais::Pair>(first, firstType, second, secondType);
     return cppWrap(vtype, t2);
+}
+
+std::shared_ptr<ais::Type> rustTuple(Mi2Aif& mi, TypeName t) {
+    DVPRINT("parsing rustTuple container type %s\n", t.decoration.c_str());
+
+    // expecting a decoration like: (f64, i32, 8) RUST
+
+    auto elems = std::vector<std::pair<std::string, std::shared_ptr<ais::Type>>>{};
+
+    auto beg = size_t{1}, end = beg;
+    const auto& d = t.decoration;
+    // base case
+    if (d.find(", (") == std::string::npos and d.find("),") == std::string::npos) {
+        for ( ; end<d.size(); ++end) {
+            auto c = d[end];
+            // if you have found the end of the subitem, add it to elems.
+            if (c == ',' || c == ')') {
+                auto typeStr = d.substr(beg, end-beg);
+                auto type = getType(mi, nullptr, typeStr.c_str());
+                elems.emplace_back(typeStr, type);
+                if (c == ')') break;
+                else if ((beg = d.find_first_not_of(" ",end+1)) != std::string::npos) end=beg;
+            } 
+        }
+    }
+    else {
+        // at least one element of the tuple is a tuple.
+        auto elems_to_parse = true;
+        while(elems_to_parse) {
+            if (d[end] == '(') {
+                end = findExprMatch(d, end);
+                auto typeStr = d.substr(beg, end-beg+1);
+                elems.emplace_back(typeStr, rustTuple(mi, TypeName{typeStr, 0}));
+                if (d[end+1] == ')') elems_to_parse = false;
+                beg = end+3;
+                end = beg;
+            }
+            else if (end == d.find("alloc::vec::Vec<", end)) {
+                end = d.find("Global>", end);
+                end += 6;
+                auto typeStr = d.substr(beg, end-beg);
+                auto type = getType(mi, nullptr, typeStr.c_str());
+                elems.emplace_back(typeStr, type);
+                if (d[end+1] == ')') elems_to_parse = false;
+                beg = end + 3;
+                end = beg;
+            }
+            else {
+                auto end_prev = end;
+                end = d.find(",", end);
+                if (end == std::string::npos) {
+                    end = d.find(')', end_prev);
+                    elems_to_parse = false;
+                }
+                auto typeStr = d.substr(beg, end-beg);
+                auto type = getType(mi, nullptr, typeStr.c_str());
+                elems.emplace_back(typeStr, type);
+                beg = end + 2;
+                end = beg;
+            }
+        }
+        DVPRINT("DONE PARSING NESTED rustTuple container type %s\n", t.decoration.c_str());
+    }
+    return std::make_shared<ais::RustTuple>(elems);
 }
 
 std::shared_ptr<ais::Type> stdTuple(Mi2Aif& mi, TypeName t) {

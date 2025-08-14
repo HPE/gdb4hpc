@@ -28,6 +28,12 @@
 class AIFStream; class MIWriteBuffer; class LazyMIVar; class Chunker;
 
 enum class Language{ CPP, FORTRAN, RUST };
+enum class Lang {
+                 Unknown,
+                 Cpp,
+                 Ftn,
+                 Rust
+};
 
 // Class to handle templated types.   For templated classes, gdb will report some
 // types in terms of template arguments, e.g. std::shared_ptr<T> where it
@@ -87,6 +93,8 @@ public:
     std::pair<std::string, std::string> extractMetaInfo(const char* expr);
 
 private:
+    Lang parseShowLangResult(const char* result);
+    Lang queryCurrentLang();
     void writeVal(std::shared_ptr<MIVar> var, int refIdx);
     void sendMICommand(MICommand* command);
     std::shared_ptr<MIVar> createMIVarWithMetaInfo(const char* expr, const std::string& metaInfo);

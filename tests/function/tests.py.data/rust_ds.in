@@ -8,10 +8,10 @@ Created network...
 Connected to application...
 Launch complete.
 a{0}: Initial breakpoint, in main
-0: b rust_ds.rs:137
-a{0}: Breakpoint 1: file /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs, line 137.
+0: b rust_ds.rs:157
+a{0}: Breakpoint 1: file /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs, line 157.
 0: c
-a{0}: Breakpoint 1, rust_ds::main at /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs:137
+a{0}: Breakpoint 1, rust_ds::main at /home/users/rickertr/cdst-gdb4hpc/tests/function/src/rust/rust_ds.rs:157
 0: p _boolean
 a{0}: true
 0: p _float64
@@ -73,13 +73,54 @@ a{0}: Vec(size=3) = {"Alℤiℤcℤe", "ℤ⛔mix⭐⚾⽸inℋ☕⛍⚻some⛲�
 0: p _arr_string
 a{0}: ["Alℤiℤcℤe", "ℤ⛔mix⭐⚾⽸inℋ☕⛍⚻some⛲⤅⛄⋹Ω✨ascii✨ⱗ╁⏞⛽ⱴ", "Alice"]
 0: p _complex
-a{0}: {_ipaddr = rust_ds::IpAddrKind::V4, _name = "Alℤiℤcℤe", _hobbies = Vec(size=6) = {"baseball⚾", "a static hobby", "⛽racing🏎️", "☃️🌨️skiing ⛷️", "another static hobby", "hiking 🏔️"}, _favorite_numbers = Vec(size=4) = {40, 11, 45, 73}, _address = "1234 home lane", _static_state = "minnesota", _string_country = "USA"}
+a{0}: {_ipaddr = rust_ds::IpAddrKind::V4, _name = "Alℤiℤcℤe", _hobbies = Vec(size=6) = {"baseball⚾", "a static hobby", "⛽racing🏎️", "☃️🌨️skiing ⛷️", "another static hobby", "hiking 🏔️"}, _favorite_numbers = Vec(size=4) = {40, 11, 45, 73}, _address = "1234 home lane", _static_state = "minnesota", _tuples = {[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}, _string_country = "USA"}
 0: p _inf
 a{0}: inf
 0: p _inf_neg
 a{0}: -inf
 0: p _nan
 a{0}: -nan
+0: p tup
+a{0}: {[1] = 500, [2] = 6.4, [3] = 1}
+0: p tup2
+a{0}: {[1] = 8484 '\u{002124}', [2] = 122 'z'}
+0: p tup3
+a{0}: {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}
+0: p _nested_tuple
+a{0}: {[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}
+0: p triple_tuple
+a{0}: {[1] = {[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}, [2] = {[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}}
+0: p tup_vector
+a{0}: Vec(size=2) = {{[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}, {[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}}
+0: p _tup_array
+a{0}: [{[1] = 8484 '\u{002124}', [2] = 122 'z'}, {[1] = 8484 '\u{002124}', [2] = 122 'z'}]
+0: p _int_struct
+a{0}: {[1] = 10, [2] = {_kind = rust_ds::IpAddrKind::V4, _address = "127.0.0.1"}}
+0: p _int_vectortup
+a{0}: {[1] = 10, [2] = Vec(size=2) = {{[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}, {[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}}}
+0: p _vectortup_int
+a{0}: {[1] = Vec(size=2) = {{[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}, {[1] = {[1] = 500, [2] = 6.4, [3] = 1}, [2] = {[1] = 8484 '\u{002124}', [2] = 122 'z'}, [3] = {[1] = "⛲⤅⛄⋹Ω✨ascii✨ⱗ", [2] = "world"}}}, [2] = 10}
+0: p _six_ref
+a{0}: (rust_ds::IpAddrKind*) <1>
+  <1>:rust_ds::IpAddrKind::V6
+0: p _six_ref_ref
+a{0}: (*mut rust_ds::IpAddrKind*) <1>
+  <1>:(rust_ds::IpAddrKind*) <2>
+  <2>:rust_ds::IpAddrKind::V6
+0: p _ref_array
+a{0}: [(rust_ds::IpAddrKind*) <2>, (rust_ds::IpAddrKind*) <2>, (rust_ds::IpAddrKind*) <2>]
+  <2>:rust_ds::IpAddrKind::V6
+0: p _pint
+a{0}: (i16*) <1>
+  <1>:-31999
+0: ptype _pint
+a{0}: *mut i16
+0: ptype _vectortup_int
+a{0}: (alloc::vec::Vec<((i32, f64, u8), (char, char), (alloc::string::String, alloc::string::String)), alloc::alloc::Global>, i32)
+0: ptype triple_tuple
+a{0}: (((i32, f64, u8), (char, char), (alloc::string::String, alloc::string::String)), ((i32, f64, u8), (char, char), (alloc::string::String, alloc::string::String)))
+0: whatis triple_tuple
+a{0}: (((i32, f64, u8), (char, char), (alloc::string::String, alloc::string::String)), ((i32, f64, u8), (char, char), (alloc::string::String, alloc::string::String)))
 0: ptype _complex
 a{0}: struct rust_ds::Complex {
   _ipaddr: rust_ds::IpAddrKind,
@@ -88,6 +129,7 @@ a{0}: struct rust_ds::Complex {
   _favorite_numbers: alloc::vec::Vec<u32, alloc::alloc::Global>,
   _address: alloc::string::String,
   _static_state: &str,
+  _tuples: ((i32, f64, u8), (char, char), (alloc::string::String, alloc::string::String)),
   _string_country: alloc::string::String,
 }
 0: whatis _complex

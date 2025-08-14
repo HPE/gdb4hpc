@@ -2528,6 +2528,14 @@ ais::Tuple::Tuple(const std::vector<std::pair<std::string, std::shared_ptr<Type>
     }
 }
 
+void ais::RustTuple::parseL(InterpretStream& in, Writer& out) const {
+    // skip over the empty base class
+    auto s = in.get();
+
+    if (auto t = strchr(s,'(')) in.setPos(s=t);
+    Struct::parseL(in, out);
+}
+
 void ais::Tuple::parseL(InterpretStream& in, Writer& out) const {
     // skip over the empty base class
     auto s = in.get();

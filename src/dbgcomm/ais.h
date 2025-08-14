@@ -1128,6 +1128,7 @@ public:
     void parseL(InterpretStream& in, Writer& out) const override;
 };
 
+
 // C++ std::tuple
 class Tuple : public Struct {
 public:
@@ -1136,6 +1137,12 @@ public:
 private:
     static std::string
     makeTypeName(const std::vector<std::pair<std::string,std::shared_ptr<Type>>>& elems);
+};
+
+class RustTuple : public ais::Tuple {
+public:
+    using Tuple::Tuple;
+    void parseL(InterpretStream& in, Writer& out) const override;
 };
 
 // Pointer type    

@@ -2050,6 +2050,47 @@ std::shared_ptr<ais::Type> Mi2Aif::addKnownType(const std::string& name,
     return type;
 }
 
+Lang Mi2Aif::parseShowLangResult(const char* result) {
+    // Examples:
+    //   The current source language is "auto; currently c++".
+    //   The current source language is "fortran".
+
+    if (!result) return Lang::Unknown;
+
+    auto sv = std::string_view(result);
+    auto npos = std::string_view::npos;
+
+    if (sv.find("fortran") != npos) return Lang::Ftn;
+    if (sv.find("c++") != npos) return Lang::Cpp;
+    if (sv.find("rust") != npos) return Lang::Rust;
+    if (sv.find("\"c\"") != npos || sv.find("currently c\"") != npos)
+        return Lang::Cpp;
+
+    return Lang::Unknown;
+}
+
+Lang Mi2Aif::queryCurrentLang() {
+    auto mi = this->getSession();
+    if (!mi) return Lang::Unknown;
+
+    const char* argv[] = {"show", "lang"};
+    MICommand* cmd = CLIBypass(2, const_cast<char **>(argv));
+    SendMICommand(mi, cmd);
+
+    auto result = Lang::Unknown;
+
+    if (MICommandResultOK(cmd)) {
+        auto result_str = MICommandConsoleOOBMessages(cmd);
+        if (result_str) {
+            result = parseShowLangResult(result_str);
+        }
+        free(result_str);
+    }
+
+    MICommandFree(cmd);
+
+    return result;
+}
 // Map a pointer value to a reference index.  If the index is a new one,
 // potentially put the object onto the queue of objects to be traversed.
 // This allows a data structure to be aggegated independently of the
@@ -2108,8 +2149,14 @@ size_t Mi2Aif::swizzlePointer(const std::string& type, void* p)
         
     } else {
         // regular pointer
+        auto lang = this->queryCurrentLang();
         auto derefExpr = std::ostringstream{};
-        derefExpr << "\"*(" << type << "*)" << p << "\"";
+        if (lang == Lang::Rust) {
+            derefExpr << "\"*(" << p << " as *" << type << ")\"";
+        }
+        else {
+            derefExpr << "\"*(" << type << "*)" << p << "\"";
+        }
         DVPRINT("Creating new MIVar with %s\n", derefExpr.str().c_str());
         m_refs.emplace_back(std::make_shared<LazyMIVar>(*this, createMIVar(derefExpr.str().c_str())));
     }

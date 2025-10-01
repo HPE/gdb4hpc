@@ -248,6 +248,7 @@ int main(int argc, char *argv[], char *env[]) {
     non_mpi_flag = args.non_mpi;
     python_flag = args.python;
     gdbinit_flag = args.gdbinit;
+    gpu_flag = args.gpu;
 
     if (DbgSetSrvProto(args.proto.c_str())) {
         fprintf(stderr, "No such protocol \"%s\"\n", args.proto.c_str());

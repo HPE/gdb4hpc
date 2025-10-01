@@ -119,6 +119,8 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
         // try to initialize a gpu back-end, if this fails, gdb_vers will
         // be set to GDB
         initGpu();
+    } else {
+        DVPRINT("no --gpu flag, using default\n");
     }
 
     if (gdbinit_flag) {
@@ -186,10 +188,14 @@ void DbgGdbMI::Initializer::initGpu()
     // Need to determine the version of the driver to start the proper gdb
     //-----------------------------------------------------------------------
 
-    if (custom_gdb) {}
-    else if (auto vers = fopen("/proc/driver/nvidia/version", "r")) {
+    DVPRINT("in initGpu\n");
+
+    if (custom_gdb) {
+        DVPRINT("custom gdb %s given as argument\n", custom_gdb);
+    } else if (auto vers = fopen("/proc/driver/nvidia/version", "r")) {
         // We are on an nvidia node.  This code used to *check* the version, but
         // that code was so ancient it only exclude graphics card that ran on steam.
+        DVPRINT("found /proc/driver/nvidia/version\n");
         fclose(vers);
         gdb_vers = GdbVersion::CUDA;
     } else if (hasAmdGpus()) {
@@ -267,6 +273,7 @@ void DbgGdbMI::Initializer::initGpu()
 }
 
 bool DbgGdbMI::Initializer::hasAmdGpus() {
+    DVPRINT("checking for amd gpus\n");
     auto command = "rocminfo";
 
     auto path = std::unique_ptr<char, decltype(&free)>{pathFind(command, nullptr), free};

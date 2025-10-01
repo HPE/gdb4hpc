@@ -8,11 +8,11 @@ Creating network... (timeout in 300 seconds)
 Created network...
 Connected to application...
 Launch complete.
-a{0..1}: Initial breakpoint, main at ./src/c/c_mpi_comms.c:5
+a{0..1}: Initial breakpoint, main at ./src/c/c_mpi_comms.c:7
 0: break 9
-a{0..1}: Breakpoint 1: file /src/c/c_mpi_comms.c, line 9.
+a{0..1}: Breakpoint 1: file /src/c/c_mpi_comms.c, line 10.
 0: c
-a{0..7}: Breakpoint 1, main at /src/c/c_mpi_comms.c:9
+a{0..7}: Breakpoint 1, main at /src/c/c_mpi_comms.c:10
 0: info mpi communicators
 a{0..1}: Internal error: Message queue debugging not enabled. Try setting one of these environment variables to '1': %.+%
 Command resulted in an error: 0: info mpi communicators

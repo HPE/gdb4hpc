@@ -7,7 +7,7 @@ Connected to application...
 Attach complete.
 a{0}: Enabling python debugging. To disable, use `set python off`
 Current rank location:
-a{0}: #0  <module> at /src/python/spin.py:1%[0-3]%
+a{0}: #0  <module> () at /src/python/spin.py:1%[0-3]%
 0: bt
 a{0}: #0  <module> at /src/python/spin.py:1%[0-3]%
 

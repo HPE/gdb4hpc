@@ -52,7 +52,7 @@ a{0}: '__main__'
 0: print "string literal"
 a{0}: 'string literal'
 0: up
-a{0}: #1  main at /src/python/scopes.py:14
+a{0}: #1  main () at /src/python/scopes.py:14
 0: list
 a{0}: 9    	    local = "your friendly neighborhood string"
 a{0}: 10   	    time.sleep(seconds)
@@ -68,7 +68,7 @@ a{0}: 19   	    main()
 0: p pi
 a{0}: 3.14159
 0: up
-a{0}: #2  <module> at /src/python/scopes.py:19
+a{0}: #2  <module> () at /src/python/scopes.py:19
 0: list
 a{0}: 14   	    sleep(int(sys.argv[1]))
 a{0}: 15

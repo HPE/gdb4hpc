@@ -18,19 +18,19 @@ a{0}: #1  <module> at /src/python/breaks.py:14
 a{0}: #0  breaks_main at /src/python/breaks.py:7
 
 0: frame
-a{0}: #0  breaks_main at /src/python/breaks.py:7
+a{0}: #0  breaks_main () at /src/python/breaks.py:7
 0: next
 a{0}: breaks_main at /src/python/breaks.py:8
 0: frame
-a{0}: #0  breaks_main at /src/python/breaks.py:8
+a{0}: #0  breaks_main () at /src/python/breaks.py:8
 0: step
 a{0}: calc at /src/python/breaks.py:3
 0: frame
-a{0}: #0  calc at /src/python/breaks.py:3
+a{0}: #0  calc () at /src/python/breaks.py:3
 0: finish
 a{0}: breaks_main at /src/python/breaks.py:9
 0: frame
-a{0}: #0  breaks_main at /src/python/breaks.py:9
+a{0}: #0  breaks_main () at /src/python/breaks.py:9
 0: step
 a{0}: magic at /src/python/lib.py:1
 0: finish

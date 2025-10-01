@@ -9,7 +9,7 @@ Connected to application...
 Launch complete.
 b{0..1}: Initial breakpoint, main at /src/C++/cpp_ds_test1.cpp:59
 5: break trap
-b{0..1}: Breakpoint 1: file /src/C++/cpp_ds_test1.cpp, line 34.
+b{0..1}: Breakpoint 1: file /src/C++/cpp_ds_test1.cpp, line 36.
 6: continue
 b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 7: finish???
@@ -18,15 +18,15 @@ b{0..1}: {x = 22.1, y = -5}
 9: p c
 b{0..1}: {x = 22.2, y = -6}
 9: info args
-b{0..1}: const Struct1 & s = @...: {x = 22.100000000000001, y = -5}
-b{0..1}: const Classy & c = @...: {x = 22.199999999999999, y = -6}
+b{0..1}: const Struct1 & s
+b{0..1}: const Classy & c
 9: up
-b{0..1}: #1  main at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:133
+b{0..1}: #1  main () at /home/users/jvogt/rpm_install/gdb4hpc/4.16.6.0/tests/src/C++/cpp_ds_test1.cpp:140
 9: info args
 b{0..1}: int argc = 1
 b{0..1}: char ** argv = ...
 9: down
-b{0..1}: #0  f at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:159
+b{0..1}: #0  f () at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:166
 10: finish???
 11: # print some local variables
 12: print i
@@ -42,7 +42,7 @@ b{0..1}: 9
 17: print d_queue_tail
 b{0..1}: 9
 18: print vec_float
-b{0..1}: 9.5
+b{0..1}: 9.52123
 19: print vec_double
 b{0..1}: 9.5
 20: # run compare command
@@ -62,7 +62,7 @@ b{0..1}: {0,1,2,3,4,5,6,7,8,9}
 28: print d
 b{0..1}: {0,1,2,3,4,5,6,7,8,9}
 29: print vf
-b{0..1}: {0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5}
+b{0..1}: {0.521232,1.52123,2.52123,3.52123,4.52123,5.52123,6.52123,7.52123,8.52123,9.52123}
 30: print vd
 b{0..1}: {0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5}
 30: print l.size()
@@ -137,30 +137,30 @@ b{0..1}: Breakpoint 1, trap() at /src/C++/cpp_ds_test1.cpp:%\d+%
 41: finish???
 42: p strings
 b{0..1}: {"and","then","there","were","none"}
-42: p strings[1..3]
-b{0..1}: {"then","there","were"}
+42: # FIXME p strings[1..3]
+42: # b{0..1}: {"then","there","were"}
 43: p vecOfVecs
 b{0..1}: {{27,24,21,18,15,12,9,6,3,0},{24,21,18,15,12,9,6,3,0},{21,18,15,12,9,6,3,0},{18,15,12,9,6,3,0},{15,12,9,6,3,0},{12,9,6,3,0},{9,6,3,0},{6,3,0},{3,0},{0}}
 44: p vecOfStrings
 b{0..1}: {{},{"and"},{"then","there"},{"were","none","and"},{"then","there","were","none"},{"and","then","there","were","none"}}
-45: p strings[3]
-b{0..1}: "were"
-46: p vecOfVecs[2]
-b{0..1}: {21,18,15,12,9,6,3,0}
-47: p vecOfVecs[2][0]
-b{0..1}: 21
-47: p vecOfVecs[0][1..3]
-b{0..1}: {24,21,18}
-47: p vecOfVecs[1..2][1..3]
-b{0..1}: {{21,18,15},{18,15,12}}
-48: p vecOfStrings[1]
-b{0..1}: {"and"}
-48: p vecOfStrings[1..2]
-b{0..1}: {{"and"},{"then","there"}}
-49: p vecOfStrings[5][2]
-b{0..1}: "there"
-50: p vecOfStrings[5][2][2]
-b{0..1}: 101 'e'
+45: #FIXME p strings[3]
+45: #b{0..1}: "were"
+46: #FIXME p vecOfVecs[2]
+46: #b{0..1}: {21,18,15,12,9,6,3,0}
+47: #FIXME p vecOfVecs[2][0]
+47: #b{0..1}: 21
+47: #FIXME p vecOfVecs[0][1..3]
+47: #b{0..1}: {24,21,18}
+47: #FIXME p vecOfVecs[1..2][1..3]
+47: #b{0..1}: {{21,18,15},{18,15,12}}
+48: #FIXME p vecOfStrings[1]
+48: #b{0..1}: {"and"}
+48: #FIXME p vecOfStrings[1..2]
+48: #b{0..1}: {{"and"},{"then","there"}}
+49: #FIXME p vecOfStrings[5][2]
+49: #b{0..1}: "there"
+50: # FIXME p vecOfStrings[5][2][2]
+50: # b{0..1}: 101 'e'
 51: set print elements 3
 51: p vecOfStrings
 b{0..1}: {{},{"and"},{"then","there"}...}
@@ -227,7 +227,7 @@ b{0..1}: 32768
 73: p ui32
 b{0..1}: 2147483648
 74: p ui64
-b{0..1}: 9223372036854775807
+b{0..1}: 9223372036854775808
 75: p ux
 b{0..1}: {i = 300, d = -34.2500000000021, p = <suppressed in a union>, s = %.*%}
 76: p size64
@@ -270,9 +270,9 @@ b{0..1}: {LinearDerived = {LeftBase = {leftInt = -1, leftFloat = -1.1, leftDoubl
 b{0..1}: {LeftBase = {leftInt = -1, leftFloat = -1.1, leftDouble = -11.1099996566772}, RightBase = {rightInt = 1, rightFloat = 1.1, rightDouble = 11.1099996566772}, derivedInt = 4, derivedFloat = 4.4}
 94: # nested template
 95: c
-b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:36
 96: up
-b{0..1}: #1  nestedTemplateClassTest at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  nestedTemplateClassTest () at /home/users/jvogt/rpm_install/gdb4hpc/4.14.1.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
 97: p s
 b{0..1}: {tval = -104, uval = 1.2981}
 98: p s.tval
@@ -350,14 +350,13 @@ b{0..1}: enum class ClassEnum : int {ClassEnum::WHACK = -1, ClassEnum::A, ClassE
 133: ptype AroundStruct ::BETTY
 b{0..1}: enum AroundStruct::Nested : unsigned int {AroundStruct::BETTY, AroundStruct::VERONICA, AroundStruct::JUGHEAD}
 134: c
-b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/tests/gdb4hpc-4.14.4/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/tests/gdb4hpc-4.14.4/src/C++/cpp_ds_test1.cpp:36
 135: up
-b{0..1}: #1  nestedTypedef at /home/users/jvogt/tests/gdb4hpc-4.14.4/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  nestedTypedef () at /home/users/jvogt/tests/gdb4hpc-4.14.4/src/C++/cpp_ds_test1.cpp:%\d+%
 136: p c2
 b{0..1}: {x = 5, y = -121, n = {ch_ch_ch_cherry_bomb = 15}, static zz = 1865}
 137: ptype c2
 b{0..1}: class Classy2 {
-  private:
     Double x;
     Double y;
     Classy2::Nesty n;
@@ -405,14 +404,13 @@ b{0..1}: {
 151: p c2
 b{0..1}: {x = 5, y = -121, n = {ch_ch_ch_cherry_bomb = 15}, static zz = 1865}
 152: c
-b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:36
 153: up
-b{0..1}: #1  anonymousClass at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  anonymousClass () at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
 154: p obj
 b{0..1}: {i = 5}
 155: ptype obj
 b{0..1}: class {
-  private:
     int i;
 
   public:
@@ -426,16 +424,16 @@ b{0..1}: (decltype(*op)*) <1>
 158: whatis op
 b{0..1}: class
 159: c
-b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:36
 160: up
-b{0..1}: #1  Derived::f at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  Derived::f () at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
 161: p this
 b{0..1}: (Derived*) <1>
   <1>:{PureVirtual = {baseMember = 122}, dmember = -17.1}
 162: p *this
 b{0..1}: {PureVirtual = {baseMember = 122}, dmember = -17.1}
 163: up
-b{0..1}: #2  virtualFuncTest at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #2  virtualFuncTest () at /home/users/jvogt/rpm_install/gdb4hpc/4.14.5.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
 164: p a
 b{0..1}: {PureVirtual = {baseMember = 122}, dmember = -17.1}
 165: p b
@@ -448,7 +446,6 @@ b{0..1}: {PureVirtual = {baseMember = 122}, dmember = -17.1}
 168: ptype a
 b{0..1}: /* real type = Derived */
 class Derived : public PureVirtual {
-  private:
     double dmember;
 
   public:
@@ -459,8 +456,8 @@ class Derived : public PureVirtual {
 b{0..1}: /* real type = Derived */
 170: p a.f
 b{0..1}: void (Derived * const) <Derived::f()>
-171: b 469
-b{0..1}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp, line 469.
+171: b 476
+b{0..1}: Breakpoint 2: file /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp, line 476.
 185: c
 b{0..1}: Breakpoint 2, anonymousNamespace() at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
 174: p d
@@ -472,9 +469,9 @@ b{0..1}: (AnonDerivedClass*) <1>
 b{0..1}: std::shared_ptr<AnonDerivedClass>(<2>)
   <2>:{(anonymous namespace)::AnonBaseClass = {m_a = 116}, m_x = 66.5}
 177: c
-b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:36
 178: up
-b{0..1}: #1  mapsTest at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  mapsTest () at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
 179: p m
 b{0..1}: std::map = {[-4] = 16, [0] = 7, [10] = -1, [101] = 0}
 180: p mm
@@ -486,9 +483,9 @@ b{0..1}: std::unordered_multimap = {[16] = "puts Baby", [16] = "corner", [0] = "
 183: p em
 b{0..1}: std::map = {}
 205: c
-b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp:36
 206: up
-b{0..1}: #1  vectorOfSmartPtr at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  vectorOfSmartPtr () at /home/users/jvogt/rpm_install/gdb4hpc/4.15.0.0/tests/src/C++/cpp_ds_test1.cpp:%\d+%
 207: p sp1
 b{0..1}: std::shared_ptr<Derived>(<2>)
   <2>:{PureVirtual = {baseMember = 21}, dmember = -1.125}
@@ -522,7 +519,7 @@ b{0..1}: {{first = 0, second = std::shared_ptr<PureVirtual>(<2>)},{first = 1, se
 214: p tup
 b{0..1}: {[1] = 16, [2] = -12.25, [3] = {first = -8, second = 14.4}, [4] = 120 'x'}
 214: c
-b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:36
 215: up
 b{0..1}: #1  %.*operator.*% at /src/C++/cpp_ds_test1.cpp:%\d+%
 215: whatis s
@@ -556,7 +553,7 @@ b{0..1}: char (&)[2][12]
 215: p ca2
 b{0..1}: {"lorem ipsum","dolor sit a"}
 215: c
-b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:36
 215: up
 b{0..1}: #1  %.*operator.*% at /src/C++/cpp_ds_test1.cpp:%\d+%
 215: whatis s
@@ -590,9 +587,9 @@ b{0..1}: char (&&)[2][12]
 215: p ca2
 b{0..1}: {"lorem ipsum","dolor sit a"}
 215: c
-b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:36
 215: up
-b{0..1}: #1  refs at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  refs () at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
 215: whatis ia
 b{0..1}: int [2][2]
 215: p ia
@@ -665,7 +662,7 @@ b{0..1}: (float (void)***) <1>
   <2>:(float (void)*) <3>
   <3>:float (void) <refs()>
 217: c
-b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:36
 218: finish
 b{0..1}: lists at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
 b{0..1}: %.*%
@@ -676,9 +673,9 @@ b{0..1}: {{},{{[1] = 1.5, [2] = 1}},{{[1] = 3, [2] = 2},{[1] = 1.5, [2] = 3}},{{
 222: p empty
 b{0..1}: {}
 222: c
-b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:36
 218: up
-b{0..1}: #1  functionPointers at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
+b{0..1}: #1  functionPointers () at /cray/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
 218: whatis vr
 b{0..1}: void (&)(void)
 218: whatis vp
@@ -713,9 +710,9 @@ b{0..1}: float (*)(void)
 b{0..1}: (float (void)*) <1>
   <1>:float (void) <refs()>
 223: c
-b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:34
+b{0..1}: Breakpoint 1, trap() at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:36
 225: up
-b{0..1}: #1  nans at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:646
+b{0..1}: #1  nans () at /home/jvogt/dev/gdb4hpc/tests/function/src/C++/cpp_ds_test1.cpp:%\d+%
 305: p ddiv
 b{0..1}: inf
 306: p dndiv

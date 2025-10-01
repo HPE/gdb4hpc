@@ -27,7 +27,7 @@ private:
 static void f(const Struct1& s, const Classy& c);
 static void variableSizeDataTest();
 static void templateClassTest(), templateClassTest2(), nestedTemplateClassTest();
-static void obscureDataTypes(), virtualFuncTest();
+static void obscureDataTypes(), virtualFuncTest(), smallFloats();
 static void inheritanceTest(), enumTest(), nestedTypedef(),anonymousClass();
 static void anonymousNamespace(), mapsTest(), vectorOfSmartPtr(), lists(), functionPointers(), nans();
 static float refs();
@@ -99,8 +99,8 @@ int main(int argc, char ** argv){
     std::queue<int> q;
     std::priority_queue<int> pq;
     std::vector<float> vf;
-    std::float16_t f16_t = static_cast<std::float16_t>(3.14159265);
-    std::bfloat16_t b16_t = static_cast<std::bfloat16_t>(2.00403123);
+    //std::float16_t f16_t = static_cast<std::float16_t>(3.14159265);
+    //std::bfloat16_t b16_t = static_cast<std::bfloat16_t>(2.00403123);
     std::vector<_Float16> vf16;
     _Float16 f16 = static_cast<_Float16>(1.234567);
     std::vector<double> vd;
@@ -152,7 +152,7 @@ int main(int argc, char ** argv){
     anonymousNamespace();
     mapsTest();
     vectorOfSmartPtr();
-    refs(); lists(); functionPointers(); nans();
+    refs(); lists(); functionPointers(); nans(); smallFloats();
     
     delete ll;
     MPI_Finalize();
@@ -652,3 +652,20 @@ static void nans() {
 
     trap();
 }
+
+static void smallFloats() {
+#ifdef __STDCPP_FLOAT16_T__
+    std::float16_t f16_t = static_cast<std::float16_t>(3.14159265);
+#else
+    float flt16_t = 2.0;
+#endif
+#ifdef __STDCPP_BFLOAT16_T__	
+    std::bfloat16_t b16_t = static_cast<std::bfloat16_t>(2.00403123);
+#else
+    float b16_t = 2.0;
+#endif
+
+    trap();
+}
+
+ 

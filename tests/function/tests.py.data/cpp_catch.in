@@ -35,7 +35,7 @@ a{0..2}: #0  %.*%dl_%.*%
 15: c
 a{0..2}: Catchpoint 4 (fork)
 16: frame
-a{0..2}: #0  %.*%fork%.*%
+a{0..2}: #0  %.*[fF]ork.*%
 17: c
 <$a>: In libfoo
 <$a>: In libbar

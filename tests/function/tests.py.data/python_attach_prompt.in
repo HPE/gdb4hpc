@@ -8,7 +8,7 @@ Connected to application...
 Attach complete.
 p{0..1}: Enabling python debugging. To disable, use `set python off`
 Current rank location:
-p{0..1}: #0  <module> at /src/python/spin.py:1%[0-3]%
+p{0..1}: #0  <module> () at /src/python/spin.py:1%[0-3]%
 0: show prompt
 python all>
 0: set python off

@@ -1132,7 +1132,7 @@ public:
 // C++ std::tuple
 class Tuple : public Struct {
 public:
-    Tuple(const std::vector<std::pair<std::string,std::shared_ptr<Type>>>& elems);
+    Tuple(const std::vector<std::pair<std::string,std::shared_ptr<Type>>>& elems, int idx0);
     void parseL(InterpretStream& in, Writer& out) const override;
 private:
     static std::string

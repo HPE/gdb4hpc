@@ -1058,7 +1058,7 @@ std::shared_ptr<ais::Type> rustTuple(Mi2Aif& mi, TypeName t) {
         }
         DVPRINT("DONE PARSING NESTED rustTuple container type %s\n", t.decoration.c_str());
     }
-    return std::make_shared<ais::RustTuple>(elems);
+    return std::make_shared<ais::RustTuple>(elems,1);
 }
 
 std::shared_ptr<ais::Type> stdTuple(Mi2Aif& mi, TypeName t) {
@@ -1084,7 +1084,7 @@ std::shared_ptr<ais::Type> stdTuple(Mi2Aif& mi, TypeName t) {
     }
 
     auto t2 = TypeName{t, end+1};
-    auto vtype = std::make_shared<ais::Tuple>(elems);
+    auto vtype = std::make_shared<ais::Tuple>(elems, 0);
     return cppWrap(vtype, t2);
 }
 

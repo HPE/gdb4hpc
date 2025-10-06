@@ -237,6 +237,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
 %{__cp} -a %{external_build_dir}/share/gdb/python/libstdcxx/v6/__init__.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
 %{__cp} -a %{external_build_dir}/share/gdb/python/libstdcxx/v6/printers.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
+%{__cp} -a %{external_build_dir}/share/gdb/python/libstdcxx/v6/xmethods.py ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6
 %{__cp} -a %{external_build_dir}/share/gdb/syscalls/*.xml ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/syscalls
 %{__cp} -a %{external_build_dir}/share/gdb/syscalls/gdb-syscalls.dtd ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/syscalls
 %{__install} -d ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit
@@ -618,15 +619,15 @@ else
     %{__sed} -i "/^prepend-path[[:space:]]*LD_LIBRARY_PATH.*/d" ${RPM_INSTALL_PREFIX}/lmod/modulefiles/core/%{cray_name}/%{pkgversion}.lua
 fi
 
-%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.5.gz
-%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.gz
-%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.7.gz
-%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.gz
-%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.gz
-%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.gz
-%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.gz
-%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.gz
-%{__gzip} -d -k -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.13.gz
+%{__gzip} -d -k -f -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.5.gz
+%{__gzip} -d -k -f -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.6.gz
+%{__gzip} -d -k -f -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.7.gz
+%{__gzip} -d -k -f -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.8.gz
+%{__gzip} -d -k -f -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.9.gz
+%{__gzip} -d -k -f -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.10.gz
+%{__gzip} -d -k -f -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.11.gz
+%{__gzip} -d -k -f -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.12.gz
+%{__gzip} -d -k -f -N ${RPM_INSTALL_PREFIX}/%{cray_product}/%{pkgversion}/lib/libgdb4_pybe_3.13.gz
 
 %preun
 default_link="${RPM_INSTALL_PREFIX}/%{cray_product}/default"
@@ -758,6 +759,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/__init__.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6/__init__.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6/printers.py
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/python/libstdcxx/v6/xmethods.py
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/syscalls/*.xml
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/syscalls/gdb-syscalls.dtd
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/share/gdb/system-gdbinit/elinos.py

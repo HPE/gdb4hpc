@@ -2520,11 +2520,12 @@ void ais::Pair::parseL(InterpretStream& in, Writer& out) const {
 }
 
 //===========================================================================
-ais::Tuple::Tuple(const std::vector<std::pair<std::string, std::shared_ptr<Type>>>& elems) :
+ais::Tuple::Tuple(const std::vector<std::pair<std::string, std::shared_ptr<Type>>>& elems,
+                  int idx0) :
     ais::Struct(makeTypeName(elems)) {
-    int idx = 0;
+    int idx = idx0;
     for (const auto& [name, type] : elems) {
-        addMember("[" + std::to_string(++idx) + "]", type);
+        addMember("[" + std::to_string(idx++) + "]", type);
     }
 }
 
@@ -2626,18 +2627,20 @@ void ais::SmartPointer::parseL(InterpretStream& in, Writer& out) const {
         // <No data fields>}}}, <No data fields>}}
         s = skipspace(s);
 
-        if (strncmp(s,"std::shared_ptr",15) == 0) {
-            if (auto s2 = strchr(s+15,')'))
-                s = skipspace(s2+1);
-        } else if (strncmp(s,"std::unique_ptr",15) == 0) {
-            if (auto s2 = strstr(s+15,"> containing ")) {
-                s = skipspace(s2+13);
+        if (strncmp(s,"std::shared_ptr",15) == 0 ||
+            strncmp(s,"std::unique_ptr",15) == 0) {
+            if (auto s2 = strstr(s+15, "{get()")) {
+                if ((s2 = strchr(s2,'='))) {
+                    s = skipspace(s2+1);
+                }
             }
         }
         int chars, n = sscanf(s, "%p%n", &p, &chars);
         if (n == 1) {
             parsed = true;
-            in.setPos(s+chars);
+            s = skipspace(s+chars);
+            if (s[0] == '}') ++s;
+            in.setPos(s);
         }                
     }
 

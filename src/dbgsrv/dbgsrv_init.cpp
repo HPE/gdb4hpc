@@ -1341,7 +1341,9 @@ void DbgGdbMI::Initializer::setup_pretty_printing() {
     script << "import sys\n";
     //script << "sys.path.insert(0,'" << prettyDir << "')\n";  (see DbgMRNInvoke)
     script << "from libstdcxx.v6.printers import register_libstdcxx_printers\n";
+    script << "from libstdcxx.v6.xmethods import register_libstdcxx_xmethods\n";
     script << "register_libstdcxx_printers (None)\n";
+    script << "register_libstdcxx_xmethods (None)\n";
     script << "end\n";
 
     script.close();

@@ -409,9 +409,14 @@ std::string LazyMIVar::getSharedPtrType(const std::string& exprType) {
         auto val = std::unique_ptr<char, decltype(&std::free)>(getArrayDataString(), std::free);;
         if (!val) return exprType;
 
-        if (auto addr = strstr(val.get(), "0x")) {
+        auto sv = std::string_view{val.get()};
+
+        if (auto addr = sv.find("0x"); addr != std::string::npos) {
+            auto addrEnd = sv.find_first_not_of("0123456789abcdefABCDEF",addr+2);
+            auto addrLen = (addrEnd == std::string::npos ? std::string::npos :
+                            addrEnd-addr);
             auto os = std::ostringstream{};
-            os << "(" << ptrType << "*)" << addr;
+            os << "(" << ptrType << "*)" << sv.substr(addr, addrLen);
             auto subType = sendWhatIs(os.str());
 
             retVal = getSmartPtrType(exprType, subType);
@@ -429,9 +434,12 @@ std::string LazyMIVar::getUniquePtrType(const std::string& exprType) {
         auto val = std::unique_ptr<char, decltype(&std::free)>(getArrayDataString(), std::free);;
         if (!val) return retVal;
 
-        static const auto typeValRE = std::regex{R"(.*std::unique_ptr<(.*)>\s+containing\s+(0x.*))"};
+        static const auto typeValRE1 = std::regex{R"(.*std::unique_ptr<(.*)>\s+containing\s+(0x.*))"};
+        static const auto typeValRE2 = std::regex{R"(.*std::unique_ptr<(.*)>\s*=\s*\{get\(\)\s*=\s*(0x[[:xdigit:]]+)\s*\})"};
+
         auto tvMatch = std::cmatch{};
-        if (!std::regex_match(val.get(), tvMatch, typeValRE)) return retVal;
+        if (!std::regex_match(val.get(), tvMatch, typeValRE1) &&
+            !std::regex_match(val.get(), tvMatch, typeValRE2)) return retVal;
 
         auto os = std::ostringstream{};
         os << "(" << tvMatch[1].str() << "*)" << tvMatch[2].str();
@@ -1727,7 +1735,7 @@ PTypeFields::PTypeFields(MICommand& sentCmd, Language lang)
 //  10 times easier to do in C++)
 void PTypeFields::initFortranFields(MICommand& cmd) {
     if (!cmd.completed || !cmd.output || !cmd.output->oobs)
-		return;
+        return;
 
     // Looking for type :: field   and somehow mi or libmi has replaced the
     // newline with two characters "[backslash]n".
@@ -1751,7 +1759,7 @@ void PTypeFields::initFortranFields(MICommand& cmd) {
 //  10 times easier to do in C++)
 void PTypeFields::initRustFields(MICommand& cmd) {
     if (!cmd.completed || !cmd.output || !cmd.output->oobs)
-		return;
+        return;
 
     // Looking for type :: field   and somehow mi or libmi has replaced the
     // newline with two characters "[backslash]n".

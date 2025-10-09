@@ -145,7 +145,7 @@ Command resulted in an error: 61: p/n intarray2d
 "a{0..2}",0x1,0x2
 "a{0..2}",0x10f,0xffffffff
 67: p/x1 intarray2d
-a{0..2}: 0x1
+0x1
 0x2
 0x10f
 0xffffffff

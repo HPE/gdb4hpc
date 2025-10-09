@@ -721,10 +721,6 @@ void ConsoleCommandsFactory::insert_class_commands(CommandNode& root) {
                     dummy_help, cmd_help_help,
                     "Display help information about commands.");
 
-    root.addSubCmd("apropos", "a", proc_ignore,
-                    nullptr, cmd_apropos_help,
-                    "Display help information about commands.");
-
     root.addSubCmd("info", "i", proc_ignore,
                    nullptr, class_info_help,
                    "Display information about the application being debugged.");

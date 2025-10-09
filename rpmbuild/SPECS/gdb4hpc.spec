@@ -529,6 +529,7 @@ Tests for Cray gdb4hpc parallel debugger
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/rocmGpu.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocmGpu.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cudaGpu.in              ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/qsub.template           ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
+%{__cp} -a %{tests_source_dir}/function/tests.py.data/.gdbinit        ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/.gdbinit
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/rocm/pinoak-login1.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda/pinoak-login1.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pinoak-login1.sh
 %{__cp} -a %{tests_source_dir}/function/tests.py.data/cuda/simpleMPI_pinoak-login1.sh   ${RPM_BUILD_ROOT}/%{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/simpleMPI_pinoak-login1.sh
@@ -1012,6 +1013,7 @@ fi
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocmGpu.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cudaGpu.in
 %attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/qsub.template
+%attr(644, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/.gdbinit
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/rocm/pinoak-login1.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/pinoak-login1.sh
 %attr(755, root, root) %{prefix}/%{cray_product}/%{pkgversion}/tests/tests.py.data/cuda/simpleMPI_pinoak-login1.sh

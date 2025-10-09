@@ -37,7 +37,6 @@ Connected to application...
 Launch complete.
 a{0}: Initial breakpoint, main at c_list.c:7
 9: list 7
-a{0}: 2    	c_list.c: No such file or directory.
 10: dir ./src/c
 a{0}: Source directory search path set to: %.*%/src/c:$cdir:$cwd
 11: list
@@ -59,7 +58,6 @@ a{0}: Source directory search path set to: $cdir:$cwd
 14: show directories
 a{0}: Source directories searched: $cdir:$cwd
 15: list 7
-a{0}: 2    	c_list.c: No such file or directory.
 16: set substitute-path CURRENT_DIRECTORY/src/C++ CURRENT_DIRECTORY/src/c
 a{0}: Source directory search path set to: List of all source path substitution rules:
   `CURRENT_DIRECTORY/src/C++' -> `CURRENT_DIRECTORY/src/c'.
@@ -105,6 +103,5 @@ a{0}: 11		MPI_Finalize();
 a{0}: Source directory search path set to: List of all source path substitution rules:
 
 26: list
-a{0}: 11   	c_list.c: No such file or directory.
 27: q
 Shutting down debugger and killing application for 'a'.

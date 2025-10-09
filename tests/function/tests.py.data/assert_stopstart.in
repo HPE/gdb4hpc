@@ -54,8 +54,8 @@ Assertion 3: $a::ush@"c_type_test.c":234 > $b::ush@"c_cmp_diff.c":229 failed. St
 Assertion script $stopstart stopped.
 Use "info script $stopstart results" to view results.
 17: frame 
-a{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:234
-b{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:229
+a{0..1}: #0  main (int argc = 1, char ** argv = ...) at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:234
+b{0..1}: #0  main (int argc = 1, char ** argv = ...) at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:229
 19: info script $stopstart results
 Results summary for script $stopstart:
 
@@ -110,8 +110,8 @@ $a::c@"c_type_test.c":235 != $b::one_d_i_init[1]@"c_cmp_diff.c":230
 Passes: 0, Passes with warnings: 0, Failures: 1.
 
 20: frame
-a{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:235
-b{0..1}: #0  main at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:230
+a{0..1}: #0  main (int argc = 1, char ** argv = ...) at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_type_test.c:235
+b{0..1}: #0  main (int argc = 1, char ** argv = ...) at /CRAY/css/users/chandlej/home/chandlej/gdb4hpc/gdb4hpc-PE40740/tests/function/src/c/c_cmp_diff.c:230
 21: q
 Shutting down debugger and killing application for 'a'.
 Shutting down debugger and killing application for 'b'.

@@ -6,7 +6,7 @@ show             Show information about the debugger environment.
 show breakpoint  Show information about breakpoints.
 show print       Show information about how things get printed.
 3: apropos help
-apropos          Display help information about commands.
+apropos          Search help for matching commands.
 decomposition dim_order Display help about using decomposition "dim_order" command.
 decomposition dimension Display help about using decomposition "dimension" command.
 decomposition distribute Display help about using decomposition "distribute" command.

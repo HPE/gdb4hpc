@@ -34,5 +34,5 @@ int cmd_apropos_cmd(int argc, const char* const argv[]) {
 void ConsoleCommandsFactory::insert_apropos_commands(CommandNode& root) {
     root.addSubCmd({ .name = "apropos", .ptype = proc_ignore,
                      .fn = cmd_apropos_cmd, .help = cmd_apropos_help, 
-                     .desc = "Read debugger commands from a file." });
+                     .desc = "Search help for matching commands." });
 }

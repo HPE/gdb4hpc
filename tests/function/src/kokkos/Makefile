@@ -28,6 +28,7 @@ DEPFLAGS = -M
 OBJ = $(SRC:.cpp=.o)
 LIB =
 
+KOKKOS_USE_DEPRECATED_MAKEFILES=1
 include $(KOKKOS_PATH)/Makefile.kokkos
 
 build: $(EXE)

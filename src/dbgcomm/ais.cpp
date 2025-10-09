@@ -1806,7 +1806,7 @@ std::string ais::RustVector::getTypeName() const {
     return "alloc::vec::Vec[" + (m_elemType ? m_elemType->getTypeName() : "");
 }
 std::string ais::RustArray::getTypeName() const {
-    return "std::array[" + (m_elemType ? m_elemType->getTypeName() : "");
+    return "rust_array[" + (m_elemType ? m_elemType->getTypeName() : "");
 }
 
 int ais::Vector::getTypeId(Writer& writer) const {
@@ -1821,7 +1821,7 @@ int ais::RustVector::getTypeId(Writer& writer) const {
 }
 int ais::RustArray::getTypeId(Writer& writer) const {
     auto elemIdx = getElemTypeId(writer);
-    auto name = "std::array[" + std::to_string(elemIdx);
+    auto name = "rust_array[" + std::to_string(elemIdx);
     return writer.getTypeId(name);
 }
 
@@ -2062,10 +2062,19 @@ ais::StdArray::StdArray(std::shared_ptr<Type> elemType, int len) : ais::Array(el
 void ais::StdArray::parseL(InterpretStream& in, Writer& out) const {
     const char* s = in.get();
 
-    if (auto eq = strchr(s, '=')) {
+	s = skipspace(s);
+	if (s[0] == '{' && s[1] != '_') {
+		// a portion of array looks like "{elem,elem,elem..}"
+		in.setPos(s);
+		Array::parseL(in,out);
+	} else if (auto eq = strchr(s, '=')) {
+		// expecting "{_M_elem = {elem,elem,..}}"
         s = skipspace(eq+1);
         in.setPos(s);
         Array::parseL(in, out);
+
+		s = skipspace(in.get());
+		if (s[0] == '}') in.setPos(s+1);
     } else {
         fprintf(stderr, "could not parse %s\n", s);
         out.writeString("std::array-parse-failed");

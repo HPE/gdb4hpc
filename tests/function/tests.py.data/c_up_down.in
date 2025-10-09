@@ -18,10 +18,10 @@ a{0..2}: Breakpoint 1: file /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c
 a{0..2}: Breakpoint 1, test_stack at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:253
 28: # Test up command - back to calling location
 29: up
-a{0..2}: #1  main (int argc = 1, char ** argv = ...) at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:228
+a{0..2}: #1  main () at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:228
 32: # Test down command - back at line 247
 33: down
-a{0..2}: #0  test_stack at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:253
+a{0..2}: #0  test_stack () at /lus/scratch/jvogt/tests/gdb4hpc/src/c/c_type_test.c:253
 36: #exit lgdb
 37: q
 Shutting down debugger and killing application for 'a'.

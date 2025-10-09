@@ -1,4 +1,5 @@
 0: maint complete <>
+apropos
 assign
 attach
 backtrace
@@ -102,6 +103,7 @@ earlyentry
 sync
 unsafe
 0: maint complete help <>
+apropos
 assign
 attach
 backtrace

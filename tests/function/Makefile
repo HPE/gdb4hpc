@@ -328,13 +328,13 @@ Kokkos/kokkos: Kokkos
 	mkdir Kokkos/kokkos
 
 Kokkos/kokkos/Makefile: Kokkos/kokkos
-	( cd Kokkos/kokkos; cmake .. )
+	( cd Kokkos/kokkos; cmake -DCMAKE_CXX_COMPILER=CC .. )
 
 Kokkos/kokkos/core/src/libcokkoscore.a: Kokkos/kokkos/Makefile
 	$(MAKE) -C Kokkos/kokkos
 
 ./bin/${PE_ENV}/kokkos/TeamVectorLoop.host : src/kokkos/team_vector_loop.cpp Kokkos/kokkos/core/src/libcokkoscore.a
-	$(MAKE) -C src/kokkos
+	$(MAKE) CXX=CC -C src/kokkos
 	mv src/kokkos/TeamVectorLoop.host ./bin/${PE_ENV}/kokkos/TeamVectorLoop.host
 
 make_ds : ./bin/${PE_ENV}/rust/rust_ds

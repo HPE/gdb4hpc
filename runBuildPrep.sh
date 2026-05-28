@@ -44,6 +44,7 @@ if [[ "$target_pm" == "$cdst_pm_zypper" ]]; then
         ncurses \
         ncurses-devel \
         libbz2-devel \
+        libdw-devel \
         liblzma5 \
         libtool \
         python3-devel \
@@ -151,12 +152,6 @@ install_zmqnet
 check_exit_status
 
 python3 -m ensurepip --upgrade
-check_exit_status
-
-# building openmp relies on bdist_wheel - install from arti location
-python3 -m pip install wheel --trusted-host https://arti.hpc.amslabs.hpecorp.net \
-      --extra-index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/dst-pip-master-local/simple \
-      --index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/pypi-remote/simple
 check_exit_status
 
 echo "############################################"

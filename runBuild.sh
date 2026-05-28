@@ -149,6 +149,19 @@ if [ -z "$nodeps"]; then
 
     cp ../../runtime/src/include/omp-tools.h.var omp-tools.h
     check_exit_status
+
+    if [ ! -d buildenv ]; then
+        python3 -m venv buildenv
+	source ./buildenv/bin/activate
+	python3 -m pip install wheel --trusted-host https://arti.hpc.amslabs.hpecorp.net \
+		--extra-index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/dst-pip-master-local/simple \
+		--index-url https://arti.hpc.amslabs.hpecorp.net:443/artifactory/api/pypi/pypi-remote/simple
+	check_exit_status
+    else
+	source ./buildenv/bin/activate
+    fi
+    check_exit_status
+
     python3 ./setup.py -v bdist_wheel -b $ompd_build -d $ompd_build
     check_exit_status
     python3 ./setup.py clean --all
@@ -168,6 +181,8 @@ if [ -z "$nodeps"]; then
     check_exit_status
     rm -R build
     check_exit_status
+
+    deactivate
 fi
 
 echo "############################################"

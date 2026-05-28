@@ -51,3 +51,9 @@ meson test [--verbose] -C build
 ```
 BUILD_METADATA=0 ./runBuildPackage.sh
 ```
+
+## For develoment and debugging information
+
+See files in doc/internal
+
+

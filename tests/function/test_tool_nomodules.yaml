@@ -1,0 +1,48 @@
+---
+# config for build time
+build:
+  # target specific checks and rules
+  targets:
+    all:
+      j: 16
+    raja:
+      can-fail: yes
+    gnu:
+      j: 16
+      can-fail: yes
+    amd:
+      j: 16
+      can-fail: yes
+    nvidia:
+      j: 16
+      can-fail: yes
+    intel:
+      j: 16
+      can-fail: yes
+
+# config for test time
+test:
+  parallel-jobs: 1
+
+# launcher config
+launch:
+  # use arguments without spaces to make automatic batch script creation easy.
+  # for example, use "--time=5:00" instead of "-t 5:00".
+  # rank/node count args are defined per test in gdb4hpc, so avoid -n and -N here.
+  args:
+    slurm: "--time=5:00 --exclusive"
+    alps: ""
+    ssh: ""
+    aprun: ""
+    mpiexec: ""
+    localhost: ""
+  allocation:
+    slurm: "-n20 -N4 -t 3:00:00 --exclusive"
+    alps: "-l place=scatter,select=1:nodetype=mom-x86_64+4:nodetype=BW36+4:nodetype=SK48"
+
+# having to do with the test tool itself
+meta:
+  keep: # don't delete these files upon -r option
+    - Makefile
+  avocado-version: "100.0"
+

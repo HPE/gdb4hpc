@@ -64,8 +64,3 @@ meta:
     - Makefile
   avocado-version: "100.0"
 
-pegasus:
-  launch:
-    allocation:
-      # Multi-node MPI launches break if they include node007 or node008
-      slurm: "-n20 -N4 -t 3:00:00 --exclude=node007,node008 --exclusive"

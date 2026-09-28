@@ -104,6 +104,15 @@ char *pathFind(const char *file, const char *envPath) {
     return (char *)NULL;
 }
 
+bool pathHas(const char* file, const char* path) {
+    if (auto loc = pathFind(file,path)) {
+        free(loc);
+        return true;
+    } else {
+        return false;
+    }
+}
+
 /*
  * Try to locate 'library' using LD_LIBRARY_PATH.
  *
@@ -319,7 +328,7 @@ char *getinstallbase(void) {
         // function
         free(needle);
         needle = NULL;
-        if (asprintf(&needle, "/libexec/%s", exe_name) == -1) {
+        if (asprintf(&needle, "/" GDB4HPC_LIBEXEC_DIR "/%s", exe_name) == -1) {
             free(tmp);
             free(exe_path);
             return NULL;

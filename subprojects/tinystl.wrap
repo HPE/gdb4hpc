@@ -1,0 +1,11 @@
+[wrap-git]
+directory = tinystl
+url = https://github.com/mendsley/tinystl.git
+revision = 77bfd2f32c373180ac01798a1faa95142d65288b
+depth = 1
+patch_directory = tinystl
+diff_files = tinystl/hpe.patch
+
+[provide]
+dependency_names = tinystl_dep
+

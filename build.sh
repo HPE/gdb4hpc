@@ -1,5 +1,6 @@
 #!/bin/bash
-
+# This file is part of the the HPE build pipeline that is required to stay
+# in the top level directory.
 set -e
 
 export PRODUCT=${PRODUCT:-pe-base}

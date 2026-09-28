@@ -16,7 +16,6 @@ TESTS = \
    ./bin/${PE_ENV}/c/c_half_exit.x \
    ./bin/${PE_ENV}/c/c_signal.x \
    ./bin/${PE_ENV}/c/c_nolib.x \
-   ./bin/${PE_ENV}/c/c_mpi_comms.x \
    ./bin/${PE_ENV}/C++/cpp_bd_test.x \
    ./bin/${PE_ENV}/C++/cpp_cmp_diff.x \
    ./bin/${PE_ENV}/C++/cpp_ds_test1.x \
@@ -32,10 +31,18 @@ TESTS = \
    ./bin/${PE_ENV}/C++/c_moved.x \
    ./bin/${PE_ENV}/C++/cpp_points.x \
    ./bin/${PE_ENV}/fortran/ftn_cmp_diff.x \
-   ./bin/${PE_ENV}/fortran/ftn_arrays.x \
-   ./bin/${PE_ENV}/fortran/ftn_decomp.x \
-   ./bin/${PE_ENV}/fortran/ftn_bd_dt.x \
-   make_ds
+   ./bin/${PE_ENV}/fortran/ftn_bd_dt.x
+
+ifndef LOCALHOST
+   TESTS := $(TESTS) \
+      ./bin/${PE_ENV}/c/c_mpi_comms.x \
+      ./bin/${PE_ENV}/fortran/ftn_arrays.x \
+      ./bin/${PE_ENV}/fortran/ftn_decomp.x \
+      make_ds
+
+
+
+endif
 
 # tests which require CTI development libraries to build
 CTI_TESTS = \
@@ -74,8 +81,10 @@ ifneq (${CTI_INSTALL_DIR}no,no)
 	TESTS += $(CTI_TESTS)
 endif
 
+ifndef LOCALHOST
 ifeq ($(PE_ENV),CRAY)
 	TESTS += $(GPU_TESTS) $(OMPD_TESTS)
+endif
 endif
 
 ifdef LOCALHOST
@@ -96,7 +105,11 @@ endif
 IN_YELLOW = \033[1;33m
 NO_COLOR = \033[0m
 
-all: dirs $(TESTS) kokkosTest shmemTest
+ifndef LOCALHOST
+ADDITIONAL_TESTS = kokkosTest shmemTest
+endif
+
+all: dirs $(TESTS) $(ADDITIONAL_TESTS)
 
 ifeq (${CTI_INSTALL_DIR}no,no)
 	@echo -e "$(IN_YELLOW)CTI development libraries not found, skipping tests that require them."

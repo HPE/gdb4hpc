@@ -1,0 +1,13 @@
+This is a library for managing communication with gdb using
+the MI interface.
+
+This is the Cray Inc. fork of the libmi library.
+
+-- Aug 17, 2026 John Vogt john.leroy.vogt@hpe
+
+The fork for libmi was created on or before Dec 6, 2013, and was modified freely since with
+no consideration for upstreaming.  At this point I can find no sign of a publicly available 
+version of this package and it is entirely possible that gdb4hpc is the only active user of
+this library.    As there is no intention of keeping libmi as a separate package and no
+repository to upstream to, I've just pulled the current version of this code directly into
+the gdb4hpc repository.  The original license and copyright requirements would still apply.

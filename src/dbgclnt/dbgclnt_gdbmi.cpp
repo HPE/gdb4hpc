@@ -40,7 +40,13 @@ DbgFE::DbgFE(const char* gdbPath) {
 #endif
 
     // set the gdb path to use gdb-guard
-    MISessionSetGDBPath(m_session, gdbPath ? gdbPath : "gdb-guard");
+    const char* useGdb = "gdb";
+    if (gdbPath) {
+        useGdb = gdbPath;
+    } else if (pathHas("gdb-guard")) {
+        useGdb = "gdb-guard";
+    }
+    MISessionSetGDBPath(m_session, useGdb);
 
     // Get the base dir env var and setup data-dir if the env var is set
     char *env_base_dir = getenv(GUARD_INST_DIRECTORY);

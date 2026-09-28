@@ -25,7 +25,6 @@
 #include "debug.h"
 #include "error.h"
 #include "exec.h"
-#include "hashfunctions.h"
 #include "log.h"
 #include "maths.h"
 #include "onscopeexit.h"

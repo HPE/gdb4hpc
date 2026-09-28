@@ -199,8 +199,8 @@ static void SetupEnvironment(void) {
         exit(1);
     }
     // create the path strings
-    Asprintf(&lib_dir, "%s/lib", inst_base);
-    Asprintf(&libexec_dir, "%s/libexec", inst_base);
+    Asprintf(&lib_dir, "%s/" GDB4HPC_LIB_DIR, inst_base);
+    Asprintf(&libexec_dir, "%s/" GDB4HPC_LIBEXEC_DIR, inst_base);
 
     // Set the environment variables
     adjustLibPath(lib_dir);

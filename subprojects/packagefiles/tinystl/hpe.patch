@@ -1,0 +1,210 @@
+diff --git a/include/TINYSTL/allocator.h b/include/TINYSTL/allocator.h
+index 685d98c..45cd34b 100644
+--- a/include/TINYSTL/allocator.h
++++ b/include/TINYSTL/allocator.h
+@@ -39,6 +39,14 @@ namespace tinystl {
+ 		static void static_deallocate(void* ptr, size_t /*bytes*/) {
+ 			operator delete(ptr);
+ 		}
++
++		void* allocate(size_t bytes) const {
++			return static_allocate(bytes);
++		}
++
++		void deallocate(void* ptr, size_t bytes) const {
++			static_deallocate(ptr, bytes);
++		}
+ 	};
+ }
+ 
+diff --git a/include/TINYSTL/buffer.h b/include/TINYSTL/buffer.h
+index 7ec5d19..35b5cd4 100644
+--- a/include/TINYSTL/buffer.h
++++ b/include/TINYSTL/buffer.h
+@@ -27,6 +27,8 @@
+ #ifndef TINYSTL_BUFFER_H
+ #define TINYSTL_BUFFER_H
+ 
++#include <utility>
++
+ #include <TINYSTL/allocator.h>
+ #include <TINYSTL/new.h>
+ #include <TINYSTL/traits.h>
+@@ -35,9 +37,13 @@ namespace tinystl {
+ 
+ 	template<typename T, typename Alloc = TINYSTL_ALLOCATOR>
+ 	struct buffer {
++		Alloc alloc;
+ 		T* first;
+ 		T* last;
+ 		T* capacity;
++
++		buffer() : alloc{} {}
++		buffer(Alloc const& ref) : alloc{ref} {}
+ 	};
+ 
+ 	template<typename T>
+@@ -136,7 +142,7 @@ namespace tinystl {
+ 	template<typename T, typename Alloc>
+ 	static inline void buffer_destroy(buffer<T, Alloc>* b) {
+ 		buffer_destroy_range(b->first, b->last);
+-		Alloc::static_deallocate(b->first, (size_t)((char*)b->capacity - (char*)b->first));
++		b->alloc.deallocate(b->first, (size_t)((char*)b->capacity - (char*)b->first));
+ 	}
+ 
+ 	template<typename T, typename Alloc>
+@@ -146,9 +152,9 @@ namespace tinystl {
+ 
+ 		typedef T* pointer;
+ 		const size_t size = (size_t)(b->last - b->first);
+-		pointer newfirst = (pointer)Alloc::static_allocate(sizeof(T) * capacity);
++		pointer newfirst = (pointer)b->alloc.allocate(sizeof(T) * capacity);
+ 		buffer_move_urange(newfirst, b->first, b->last);
+-		Alloc::static_deallocate(b->first, sizeof(T) * capacity);
++		b->alloc.deallocate(b->first, sizeof(T) * capacity);
+ 
+ 		b->first = newfirst;
+ 		b->last = newfirst + size;
+@@ -178,14 +184,14 @@ namespace tinystl {
+ 		if (b->capacity != b->last) {
+ 			if (b->last == b->first) {
+ 				const size_t capacity = (size_t)(b->capacity - b->first);
+-				Alloc::static_deallocate(b->first, sizeof(T)*capacity);
++				b->alloc.deallocate(b->first, sizeof(T)*capacity);
+ 				b->capacity = b->first = b->last = nullptr;
+ 			} else {
+ 				const size_t capacity = (size_t)(b->capacity - b->first);
+ 				const size_t size = (size_t)(b->last - b->first);
+-				T* newfirst = (T*)Alloc::static_allocate(sizeof(T) * size);
++				T* newfirst = (T*)b->alloc.allocate(sizeof(T) * size);
+ 				buffer_move_urange(newfirst, b->first, b->last);
+-				Alloc::static_deallocate(b->first, sizeof(T) * capacity);
++				b->alloc.deallocate(b->first, sizeof(T) * capacity);
+ 				b->first = newfirst;
+ 				b->last = newfirst + size;
+ 				b->capacity = b->last;
+@@ -298,12 +304,14 @@ namespace tinystl {
+ 		const pointer tfirst = b->first, tlast = b->last, tcapacity = b->capacity;
+ 		b->first = other->first, b->last = other->last, b->capacity = other->capacity;
+ 		other->first = tfirst, other->last = tlast, other->capacity = tcapacity;
++		std::swap(b->alloc, other->alloc);
+ 	}
+ 
+ 	template<typename T, typename Alloc>
+ 	static inline void buffer_move(buffer<T, Alloc>* dst, buffer<T, Alloc>* src) {
+ 		dst->first = src->first, dst->last = src->last, dst->capacity = src->capacity;
+ 		src->first = src->last = src->capacity = nullptr;
++		dst->alloc = std::move(src->alloc);
+ 	}
+ }
+ 
+diff --git a/include/TINYSTL/string.h b/include/TINYSTL/string.h
+index 3fe45d1..ed93f3a 100644
+--- a/include/TINYSTL/string.h
++++ b/include/TINYSTL/string.h
+@@ -27,6 +27,9 @@
+ #ifndef TINYSTL_STRING_H
+ #define TINYSTL_STRING_H
+ 
++#include <cstddef>
++#include <cstring>
++
+ #include <TINYSTL/allocator.h>
+ #include <TINYSTL/stddef.h>
+ #include <TINYSTL/hash.h>
+@@ -48,6 +51,7 @@ namespace tinystl {
+ 
+ 		const char* c_str() const;
+ 		size_t size() const;
++		bool empty() const;
+ 
+ 		void reserve(size_t size);
+ 		void resize(size_t size);
+@@ -56,6 +60,9 @@ namespace tinystl {
+ 		void append(const char* first, const char* last);
+ 		void assign(const char* s, size_t n);
+ 
++		void append(const char* s);
++		basic_string operator+(const char* s) const;
++
+ 		void shrink_to_fit();
+ 		void swap(basic_string& other);
+ 
+@@ -160,6 +167,12 @@ namespace tinystl {
+ 		return (size_t)(m_last - m_first);
+ 	}
+ 
++	template<typename allocator>
++	inline bool basic_string<allocator>::empty() const
++	{
++		return size() == 0;
++	}
++
+ 	template<typename allocator>
+ 	inline void basic_string<allocator>::reserve(size_t capacity) {
+ 		if (m_first + capacity + 1 <= m_capacity)
+@@ -207,6 +220,18 @@ namespace tinystl {
+ 		*m_last = 0;
+ 	}
+ 
++	template<typename allocator>
++	inline void basic_string<allocator>::append(const char* s) {
++                append(s, s + strlen(s));
++	}
++
++	template<typename allocator>
++	inline basic_string<allocator> basic_string<allocator>::operator+(const char* s) const {
++		basic_string<allocator> result = *this;
++		result.append(s);
++		return result;
++	}
++
+ 	template<typename allocator>
+ 	inline void basic_string<allocator>::assign(const char* sz, size_t n) {
+ 		clear();
+diff --git a/include/TINYSTL/vector.h b/include/TINYSTL/vector.h
+index 32eae1f..68c1b73 100644
+--- a/include/TINYSTL/vector.h
++++ b/include/TINYSTL/vector.h
+@@ -42,6 +42,7 @@ namespace tinystl {
+ 		vector(size_t size);
+ 		vector(size_t size, const T& value);
+ 		vector(const T* first, const T* last);
++		vector(Alloc const& alloc);
+ 		~vector();
+ 
+ 		vector& operator=(const vector& other);
+@@ -91,6 +92,7 @@ namespace tinystl {
+ 
+ 		void insert(iterator where);
+ 		void insert(iterator where, const T& value);
++		void insert(iterator where, size_t count, const T& value);
+ 		void insert(iterator where, const T* first, const T* last);
+ 
+ 		template<typename Param>
+@@ -141,6 +143,11 @@ namespace tinystl {
+ 		buffer_insert(&m_buffer, m_buffer.last, first, last);
+ 	}
+ 
++	template<typename T, typename Alloc>
++	inline vector<T, Alloc>::vector(Alloc const& alloc) : m_buffer{alloc} {
++		buffer_init(&m_buffer);
++	}
++
+ 	template<typename T, typename Alloc>
+ 	inline vector<T, Alloc>::~vector() {
+ 		buffer_destroy(&m_buffer);
+@@ -301,6 +308,13 @@ namespace tinystl {
+ 		buffer_insert(&m_buffer, where, &value, &value + 1);
+ 	}
+ 
++	template<typename T, typename Alloc>
++	inline void vector<T, Alloc>::insert(iterator where, size_t count, const T& value) {
++		for (size_t i = 0; i < count; i++) {
++			buffer_insert(&m_buffer, where, &value, &value + 1);
++		}
++	}
++
+ 	template<typename T, typename Alloc>
+ 	inline void vector<T, Alloc>::insert(iterator where, const T* first, const T* last) {
+ 		buffer_insert(&m_buffer, where, first, last);

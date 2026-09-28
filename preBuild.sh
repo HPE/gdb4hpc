@@ -1,4 +1,6 @@
 #!/bin/bash
+# This file is part of the the HPE build pipeline that is required to stay
+# in the top level directory.
 set -xe
 echo Entering $0
 
@@ -9,6 +11,6 @@ set | grep TARGET || true
 ln -s /workspace /home/jenkins 
 git config --global --add safe.directory /workspace
 
-test -f ./runBuildPrep.sh && ./runBuildPrep.sh
+test -f ./hpe/runBuildPrep.sh && ./hpe/runBuildPrep.sh
 
 echo Exiting $0

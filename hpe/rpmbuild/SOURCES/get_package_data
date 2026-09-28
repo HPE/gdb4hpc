@@ -1,0 +1,54 @@
+#!/bin/sh
+basedir=$(dirname $0)
+
+. ${basedir}/../../../release_versioning
+
+crayversion=
+branch=
+if [ ! -z ${build_number} ]; then
+ # This version was built from a non-release branch
+  crayversion="${major:-0}.${minor:-0}.${revision}.${build_number}"
+  branch="master"
+else
+  # This version was built from a release branch
+  crayversion="${major:-0}.${minor:-0}.${revision}"
+  branch="release"
+fi
+
+pythonversion=$(/usr/bin/python3 --version | cut -d' ' -f2 | cut -d'.' -f1-2 | tr -d '.' | xargs)
+if [[ "${pythonversion}" == "36" ]]; then
+  pythonversion="${pythonversion}m"
+fi
+
+cdstsupportversionmin=$(echo ${CRAY_CDST_SUPPORT_VERSION} | awk -F . '{ print $1"."$2 }')
+tmpver=$(echo ${CRAY_CDST_SUPPORT_VERSION} | awk -F . '{ print $1 }')
+cdstsupportversionmax=$(($tmpver+1))
+
+ctiversionmin=$(echo ${CTI_VERSION} | awk -F . '{ print $1"."$2 }')
+tmpver=$(echo ${CTI_VERSION} | awk -F . '{ print $1 }')
+ctiversionmax=$(($tmpver+1))
+
+zmqnetversionmin=$(echo ${ZMQNET_DEVEL_VERSION} | awk -F . '{ print $1"."$2 }')
+tmpver=$(echo ${ZMQNET_DEVEL_VERSION} | awk -F . '{ print $1 }')
+zmqnetversionmax=$(($tmpver+1))
+
+#arguments=$(getopt -o csmtxdefgb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,mrnetversionmin,mrnetversionmax,zmqnetversionmin,zmqnetversionmax,branch -n ${0} -- "$@")
+
+arguments=$(getopt -o csmtxdefgpb --long crayversion,cdstversionmin,cdstversionmax,ctiversionmin,ctiversionmax,zmqnetversionmin,zmqnetversionmax,pythonversion,branch -n ${0} -- "$@")
+
+if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+
+while true ; do
+    case "$1" in
+        -c|--crayversion) echo "${crayversion}" ; shift ;;
+        -s|--cdstversionmin) echo "${cdstsupportversionmin}" ;shift ;;
+        -m|--cdstversionmax) echo "${cdstsupportversionmax}" ; shift ;;
+        -t|--ctiversionmin) echo "${ctiversionmin}" ; shift ;;
+        -x|--ctiversionmax) echo "${ctiversionmax}" ; shift ;;
+        -f|--zmqnetversionmin) echo "${zmqnetversionmin}" ; shift ;;
+        -g|--zmqnetversionmax) echo "${zmqnetversionmax}" ; shift ;;
+        -p|--pythonversion) echo "${pythonversion}" ; shift ;;
+        -b|--branch) echo "${branch}" ; shift ;;
+        *) break ;;
+    esac
+done

@@ -131,7 +131,11 @@ dbgevent_t *DbgGdbMI::Initializer::init(int *dfd, int *iofd, char **) {
     DVPRINT("python mode: %d\n", m_dbg.isPython());
 
     if (gdb_vers == GdbVersion::GDB) {
-        MISessionSetGDBPath(m_session, "gdb-guard");
+        if (pathHas("gdb-guard")) {
+            MISessionSetGDBPath(m_session, "gdb-guard");
+        } else {
+            MISessionSetGDBPath(m_session, "gdb");
+        }
         setDataDir(nullptr);
     }
 
@@ -276,7 +280,7 @@ bool DbgGdbMI::Initializer::hasAmdGpus() {
     DVPRINT("checking for amd gpus\n");
     auto command = "rocminfo";
 
-    auto path = std::unique_ptr<char, decltype(&free)>{pathFind(command, nullptr), free};
+    auto path = std::unique_ptr<char, decltype(&free)>{pathFind(command), free};
     if (!path) {
         DVPRINT("did not find %s in path\n", command);
         return false;
@@ -1651,7 +1655,7 @@ void DbgGdbMI::Initializer::setDataDir(const char* gdb) {
         if (auto baseDir = getenv(GUARD_INST_DIRECTORY)) {
             dataDir = std::string{baseDir} + "/share/gdb";
         }
-    } else if (auto exec = pathFind(gdb, nullptr)) {
+    } else if (auto exec = pathFind(gdb)) {
         // try to infer the location from the binary
         dataDir = exec;
         free(exec);

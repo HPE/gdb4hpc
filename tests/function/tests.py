@@ -428,7 +428,7 @@ class FunctionTests(Gdb4hpcTest):
         if gdb4_root is None:
             self.cancel("Couldn't find gdb4hpc install dir")
 
-        guard = f"{gdb4_root}/libexec/gdb-guard"
+        guard = f"{gdb4_root}/libexec/gdb4hpc/gdb-guard"
 
         shutil.copy2(guard, "./tmp/custom_gdb")
 

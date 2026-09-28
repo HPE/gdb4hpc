@@ -51,9 +51,16 @@ std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
             serverGdb += ":";
             serverGdb += dataDir;
         }
-    } else if (cti_addManifestBinary(manifest, serverGdb.c_str())) {
-        PrintOutError("Failed to add gdb-guard to manifest.\n");
-        PrintOutError("CTI error: %s\n", cti_error_str());
+    } else if (pathHas(serverGdb.c_str())) {
+        if (cti_addManifestBinary(manifest, serverGdb.c_str())) {
+            PrintOutError("Failed to add gdb-guard to manifest.\n");
+            PrintOutError("CTI error: %s\n", cti_error_str());
+            return {};
+        }
+    } else if (pathFind("gdb")) {
+        serverGdb = "gdb";
+    } else {
+        PrintOutError("gdb is not installed");
         return {};
     }
 
@@ -65,9 +72,8 @@ std::optional<std::string> shipGdb(cti_manifest_id_t manifest,
 bool shipGpuGdbs(cti_manifest_id_t manifest) {
     // The backend code will determine which version of cuda-gdb to use
     //if (cti_addManifestBinary(manifest, "cuda110-gdb-guard")) {
-    if (char* cudaGdb = pathFind("cuda-gdb", nullptr)) {
-        if (cti_addManifestBinary(manifest, "cuda-gdb")) {
-            free(cudaGdb);
+    if (char* cudaGdb = pathFind("cuda-gdb")) {
+        if (cti_addManifestBinary(manifest, cudaGdb)) {
             return false;
         }
         free(cudaGdb);
@@ -85,7 +91,7 @@ bool shipGpuGdbs(cti_manifest_id_t manifest) {
     // continuously and a typical machine might have 3 or 4 versions available.   So it
     // make sense to just let the user select the rocgdb version they want by
     // loading the right module or otherwise manipulationg PATH.
-    if (char* rocgdb = pathFind("rocgdb", nullptr)) {
+    if (char* rocgdb = pathFind("rocgdb")) {
         if (cti_addManifestBinary(manifest, rocgdb)) {
             free(rocgdb);
             return false;
@@ -93,7 +99,7 @@ bool shipGpuGdbs(cti_manifest_id_t manifest) {
         free(rocgdb);
     }
 
-    if (char* rocminfo = pathFind("rocminfo", nullptr)) {
+    if (char* rocminfo = pathFind("rocminfo")) {
         if (cti_addManifestBinary(manifest, rocminfo)) {
             free(rocminfo);
             return false;

@@ -15,6 +15,7 @@ project(
   ],
 )
 
+
 # for use in generated documentation. since cpedocs requires that we commit documentation to
 # gdb4hpc's repo for easy fetching, we never want the master branch to contain docs that say
 # e.g. "for gdb4hpc 4.16.3.9999".
@@ -26,48 +27,56 @@ version_short = run_command(
   check: true,
 ).stdout().strip()
 
+# layout out result in cray cpe structure gdb4hpc/[version]/lib etc.
+libdir = get_option('libdir')
+if libdir.endswith('lib')
+  libexecdir = libdir + 'exec'
+  libexec_libdir = '../lib'
+else  
+  libexecdir = libdir.replace('lib/', 'libexec/')
+  libexec_libdir = '../../lib/gdb4hpc'  
+endif  
+
 # external dependencies ----------------------------------------------------------------
 
 cti_fe_dep = dependency(
   'common_tools_fe',
   method: 'pkg-config',
+  fallback: ['cti', 'common_tools_fe_dep'],
   not_found_message: 'Try `module load cray-cti-devel` first.',
 )
 
 cti_be_dep = dependency(
   'common_tools_be',
   method: 'pkg-config',
+  fallback: ['cti', 'common_tools_be_dep'],
   not_found_message: 'Try `module load cray-cti-devel` first.',
 )
 
 zmqnet_dep = dependency(
   'libzmqnet',
   method: 'pkg-config',
+  fallback: ['zmqnet', 'zmqnet_dep'],
   not_found_message: 'Try `module load cray-zmqnet` first.',
 )
 
-# for elfutils
-dyninst_dep = dependency(
-  'cray-dyninst',
+lrlebitset_dep = dependency(
+  'libLrleBitset',
   method: 'pkg-config',
-  not_found_message: 'Try `module load cray-dyninst` first.',
+  fallback: ['zmqnet', 'libLrleBitset_dep'],
+)
+
+zmq_dep = dependency(
+  'libzmq',
+  method: 'pkg-config',
+  fallback: ['zmqnet', 'libzmq_dep'],
+  not_found_message: 'Try `module load cray-zmqnet` first.',
 )
 
 py_module = import('python')
 
-# the system python installation is used for the python interpreter embedded in
-# the client. for pybe, we are more explicit about the versions we use (see libgdb4_pybe below).
-system_python_installation = py_module.find_installation('python3')
-system_python_dep = system_python_installation.dependency(embed: true)
-python_compat_dep = declare_dependency(
-  include_directories: ['./external/pythoncapi-compat'],
-)
-
 # from cdst support
 libdw_dep = dependency('libdw', method: 'pkg-config')
-
-# from zmqnet
-libLrleBitset_dep = dependency('libLrleBitset', method: 'pkg-config')
 
 doctest_proj = subproject(
   'doctest',
@@ -83,9 +92,13 @@ tinfo_dep = dependency('tinfo') # magic meson
 capnp_prog = find_program(
   [
     'capnp', # in PATH
-    zmqnet_dep.get_variable(pkgconfig: 'prefix') + '/support/bin/capnp',
+    zmqnet_dep.get_variable(pkgconfig: 'prefix', default_value: meson.current_build_dir()) + '/support/bin/capnp',
+    zmqnet_dep.get_variable(pkgconfig: 'prefix', default_value: meson.current_build_dir()) + '/bin/capnp',
+    zmqnet_dep.get_variable(internal: 'capnp_path', default_value: meson.current_build_dir()) / 'capnp',
   ],
 )
+
+
 
 bison_prog = find_program('bison')
 
@@ -97,6 +110,8 @@ conf = configuration_data()
 
 conf.set_quoted('GDB4HPC_VERSION', meson.project_version(), description: 'the gdb4hpc version including build number, e.g. 4.16.3.99')
 conf.set_quoted('GDB4HPC_VERSION_SHORT', version_short, description: 'the gdb4hpc version not including build number, e.g. 4.16.3')
+conf.set_quoted('GDB4HPC_LIB_DIR', libdir, description: 'relative path for the lib files')
+conf.set_quoted('GDB4HPC_LIBEXEC_DIR', libexecdir, description: 'relative path for the libexec files')
 
 # internal dependencies ----------------------------------------------------------------
 #
@@ -115,10 +130,10 @@ libgdb4_unittest_so = shared_library(
     doctest_dep,
   ],
   install: true,
-  install_dir: './lib',
+  install_dir: libdir,
 )
 
-# prefer using this dependency over hard coding the path to ./external/doctest
+# prefer using this dependency over hard coding the path to ../external/doctest
 unittest_dep = declare_dependency(
   include_directories: [
     './src/unittest',
@@ -139,20 +154,24 @@ libmi_proj = subproject(
 )
 libmi_dep = libmi_proj.get_variable('libmi_dep')
 
-# prefer using this dependency over hard coding the path to ./external/tinystl
-tinystl_dep = declare_dependency(
-  include_directories: [
-    './external/tinystl/include',
-  ],
-)
+# prefer using this dependency over hard coding the path to subprojects/tinystl
+tinystl_proj = subproject('tinystl')
+tinystl_dep = tinystl_proj.get_variable('tinystl_dep')
 
-# prefer using this dependency over hard coding the path to ./external/doctest
+# prefer using this dependency over hard coding the path to ../external/doctest
 editline_proj = subproject(
  'editline',
  default_options: [],
 )
 
 editline_dep = editline_proj.get_variable('editline_dep')
+
+# the system python installation is used for the python interpreter embedded in
+# the client. for pybe, we are more explicit about the versions we use (see libgdb4_pybe below).
+system_python_installation = py_module.find_installation('python3')
+system_python_dep = system_python_installation.dependency(embed: true)
+python_compat_proj = subproject('pythoncapi-compat')
+python_compat_dep = python_compat_proj.get_variable('python_compat_dep')
 
 # binaries ----------------------------------------------------------------------------
 
@@ -168,7 +187,7 @@ libgdb4_bitset_a = static_library(
   include_directories: [
     './src',
   ],
-  dependencies: [libLrleBitset_dep, unittest_dep],
+  dependencies: [lrlebitset_dep, unittest_dep],
 )
 
 libgdb4_useful_a = static_library(
@@ -179,7 +198,6 @@ libgdb4_useful_a = static_library(
     './src/useful/debug.cpp',
     './src/useful/error.cpp',
     './src/useful/exec.cpp',
-    './src/useful/hashfunctions.cpp',
     './src/useful/log.cpp',
     './src/useful/maths.cpp',
     './src/useful/path.cpp',
@@ -203,7 +221,10 @@ dbg_zmq_capnp = custom_target(
   ],
   env: {
     # the capnp binary expects its individual language plugins to be in PATH
-    'PATH': zmqnet_dep.get_variable(pkgconfig: 'prefix') + '/support/bin',
+    'PATH': ':'.join([
+         zmqnet_dep.get_variable(pkgconfig: 'prefix', default_value: meson.current_build_dir()) + '/bin',
+	 zmqnet_dep.get_variable(pkgconfig: 'prefix', default_value: meson.current_build_dir()) + '/support/bin'
+	 ]),
   },
   command: [
     capnp_prog,
@@ -259,14 +280,13 @@ libgdb4_zmqnetagg_so = shared_library(
   ],
   dependencies: [
     zmqnet_dep,
-    libLrleBitset_dep,
     unittest_dep,
   ],
   link_with: [
     libgdb4_bitset_a,
   ],
   install: true,
-  install_dir: './lib',
+  install_dir: libdir,
 )
 
 expr_tab = custom_target(
@@ -339,8 +359,8 @@ libgdb4_dbgclnt_a = static_library(
   ],
   dependencies: [
     cti_fe_dep,
-    dyninst_dep,
     zmqnet_dep,
+    zmq_dep,
     libmi_dep,
     unittest_dep,
   ],
@@ -371,7 +391,25 @@ libgdb4_pybe_deps = [
   tinystl_dep,
 ]
 
-supported_python_versions = ['3.5', '3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+# supported python versions are inferred from the python[version] directories present in
+# hpe/external/python-headers/include, since that's what determines which versions we can
+# actually build pybe against.
+python_headers_include_dir = 'hpe/external/python-headers/include'
+fs = import('fs')
+supported_python_versions = []
+if fs.is_dir(python_headers_include_dir)
+  ls_result = run_command(
+    'bash',
+    '-c', 'ls -1 ' + meson.current_source_dir() / python_headers_include_dir + ' | sort -V',
+    check: true,
+  )
+  foreach entry : ls_result.stdout().strip().split('\n')
+    if entry.startswith('python')
+      supported_python_versions += [entry.substring(6)]
+    endif
+  endforeach
+endif
+
 conf.set('SUPPORTED_PYTHON_VERSIONS', '{"' + '", "'.join(supported_python_versions) + '"}', description: 'Initializer list of supported python versions')
 conf.set_quoted('SUPPORTED_PYTHON_VERSIONS_STR', ', '.join(supported_python_versions), description: 'String of supported python versions')
 
@@ -380,7 +418,7 @@ foreach py_vers : supported_python_versions
     libgdb4_unversioned_basename + py_vers,
     sources: libgdb4_pybe_sources,
     include_directories: [
-      './external/python-headers/include/python' + py_vers,
+      'hpe/external/python-headers/include/python' + py_vers,
       './src/useful'
     ],
     override_options: [
@@ -400,14 +438,14 @@ foreach py_vers : supported_python_versions
     link_with: [],
     gnu_symbol_visibility: 'hidden',
     install: true,
-    install_dir: './lib',
+    install_dir: libdir,
   )
 
   pybe_unittest = executable(
     'pybe_unittest_' + py_vers,
     ['./src/dbgsrv/pybe_unittest.cpp'],
     include_directories: [
-      './external/python-headers/include/python' + py_vers,
+      'hpe/external/python-headers/include/python' + py_vers,
     ],
     dependencies: [
       unittest_dep,
@@ -477,8 +515,12 @@ dbgsrv = executable(
     libgdb4_bitset_a,
   ],
   install: true,
-  install_rpath: '$ORIGIN/../lib',
-  install_dir: './libexec',
+  install_rpath: ':'.join([
+    '$ORIGIN' / libexec_libdir,
+    cti_fe_dep.get_variable(pkgconfig: 'libdir', internal: 'libdir'),
+    zmqnet_dep.get_variable(pkgconfig: 'libdir', internal: 'libdir'),
+  ]),
+  install_dir: './' + libexecdir,
 )
 
 test('server unit tests', dbgsrv, args: ['--test'])
@@ -618,7 +660,41 @@ gdb4hpc = executable(
     libgdb4_bitset_a,
   ],
   install: true,
-  install_rpath: '$ORIGIN/../lib',
+  install_rpath: ':'.join([
+    '$ORIGIN/../' + libdir,
+    cti_fe_dep.get_variable(pkgconfig: 'libdir', internal: 'libdir'),
+    zmqnet_dep.get_variable(pkgconfig: 'libdir', internal: 'libdir'),
+  ]),
+)
+
+install_subdir('subprojects/python_extras/gdb',
+    install_dir: './share/gdb'
+)
+
+# Install man page
+install_man('doc/man/gdb4hpc.1')
+
+# Install guide documentation
+install_data(
+  'doc/guides/cuda-debugging.html',
+  'doc/guides/cuda-debugging.md',
+  'doc/guides/getting-started.html',
+  'doc/guides/getting-started.md',
+  'doc/guides/handling-arrays.html',
+  'doc/guides/handling-arrays.md',
+  'doc/guides/kokkos-support.html',
+  'doc/guides/kokkos-support.md',
+  'doc/guides/multi-rank-arrays.html',
+  'doc/guides/multi-rank-arrays.md',
+  'doc/guides/python-mode.html',
+  'doc/guides/python-mode.md',
+  'doc/guides/raja-support.html',
+  'doc/guides/raja-support.md',
+  'doc/guides/tutorial.html',
+  'doc/guides/tutorial.md',
+  'doc/guides/vscode-plugin.html',
+  'doc/guides/vscode-plugin.md',
+  install_dir: 'share/doc',
 )
 
 test('client unit tests', gdb4hpc, args: ['--test'])

@@ -3,7 +3,7 @@ directory = doctest
 url = https://github.com/doctest/doctest.git
 revision = 86892fc480f80fb57d9a3926cb506c0e974489d8
 depth = 1
+patch_directory = doctest
 
 [provide]
-dependency_names = doctest_dep
-
+doctest = doctest_dep

@@ -4,7 +4,7 @@
 #include "config.h"
 
 #define DOCTEST_CONFIG_IMPLEMENTATION_IN_DLL
-#include "doctest.h"
+#include <doctest/doctest.h>
 
 // Test writers should include this file to get access to doctest macros like TEST_CASE
 // etc. DOCTEST_CONFIG_IMPLEMENTATION_IN_DLL tells doctest to look for the test

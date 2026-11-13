@@ -78,10 +78,12 @@ py_module = import('python')
 # from cdst support
 libdw_dep = dependency('libdw', method: 'pkg-config')
 
-doctest_proj = subproject(
+doctest_dep = dependency(
   'doctest',
+  method: 'cmake',
+  modules: ['doctest::doctest'],
+  fallback: ['doctest', 'doctest_dep'],
 )
-doctest_dep = doctest_proj.get_variable('doctest_dep')
 
 dl_dep = dependency('dl') # 'dl' is a magic meson builtin
 pthread_dep = dependency('threads') # 'threads' is a magic meson builtin
@@ -89,6 +91,7 @@ tinfo_dep = dependency('tinfo') # magic meson
 
 
 # from zmqnet
+fs = import('fs')
 capnp_prog = find_program(
   [
     'capnp', # in PATH
@@ -98,6 +101,12 @@ capnp_prog = find_program(
   ],
 )
 
+capnpc_cpp_prog = find_program(
+  [
+    fs.parent(capnp_prog.full_path()) / 'capnpc-c++',
+    'capnpc-c++',
+  ],
+)
 
 
 bison_prog = find_program('bison')
@@ -219,17 +228,10 @@ dbg_zmq_capnp = custom_target(
     'dbg_zmq.capnp.h',
     'dbg_zmq.capnp.c++',
   ],
-  env: {
-    # the capnp binary expects its individual language plugins to be in PATH
-    'PATH': ':'.join([
-         zmqnet_dep.get_variable(pkgconfig: 'prefix', default_value: meson.current_build_dir()) + '/bin',
-	 zmqnet_dep.get_variable(pkgconfig: 'prefix', default_value: meson.current_build_dir()) + '/support/bin'
-	 ]),
-  },
   command: [
     capnp_prog,
     'compile',
-    '-oc++',
+    '-o' + capnpc_cpp_prog.full_path(),
     '--src-prefix', meson.current_source_dir() + '/src/dbgcomm',
     '@INPUT@',
   ],
@@ -395,7 +397,6 @@ libgdb4_pybe_deps = [
 # hpe/external/python-headers/include, since that's what determines which versions we can
 # actually build pybe against.
 python_headers_include_dir = 'hpe/external/python-headers/include'
-fs = import('fs')
 supported_python_versions = []
 if fs.is_dir(python_headers_include_dir)
   ls_result = run_command(

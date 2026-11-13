@@ -5,7 +5,7 @@
 
 #define DOCTEST_CONFIG_IMPLEMENTATION_IN_DLL
 #define DOCTEST_CONFIG_IMPLEMENT
-#include "doctest.h"
+#include <doctest/doctest.h>
 
 // By defining both DOCTEST_CONFIG_IMPLEMENTATION_IN_DLL and DOCTEST_CONFIG_IMPLEMENT in
 // this file, doctest will generate the test registration/runner functions/symbols in this

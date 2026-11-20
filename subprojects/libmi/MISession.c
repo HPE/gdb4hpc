@@ -792,7 +792,6 @@ DoOOBCallbacks(MISession *sess, MIList *oobs)
 {
 	MIOOBRecord *	oob;
 	MIResult *		res;
-	MIValue *		val;
 
 	for (MIListSet(oobs); (oob = (MIOOBRecord *)MIListGet(oobs)) != NULL; ) {
 		switch (oob->type) {
@@ -863,7 +862,7 @@ DoOOBCallbacks(MISession *sess, MIList *oobs)
  * Check if there is an oob that is the result of an -exec-interrupt
  */
 static int
-IsExecAsyncStopped(MISession *sess, MIList *oobs)
+IsExecAsyncStopped(MISession */*sess*/, MIList *oobs)
 {
 	MIOOBRecord *	oob;
 

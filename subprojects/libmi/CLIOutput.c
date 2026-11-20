@@ -354,7 +354,7 @@ static char *add_multi_line_type(char* multiline, char* text) {
 		}
 	}
 	// remove trailing space - there can be only one
-	if (r != res && res[-1] == ' ') --r;
+	if (r != res && r[-1] == ' ') --r;
 	*r = '\0';
 			
 	free(multiline);

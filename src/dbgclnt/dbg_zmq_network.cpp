@@ -337,7 +337,7 @@ ZMQNetNetwork::StreamTable::CommandStream& ZMQNetNetwork::StreamTable::getComman
     command.setEventStreamId(eventStreamId);
 
     auto words = capnp::messageToFlatArray(builder);
-    auto bytes = words.forceReleaseAsBytes();
+    auto bytes = words.asBytes();
     m_internalCommandStream.sendCommand(bytes.asChars().begin(), bytes.size());
     m_internalCommandStream.extractResultWait(); // ignoring result; just waiting for a ping
 

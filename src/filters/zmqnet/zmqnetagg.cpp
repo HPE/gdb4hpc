@@ -42,7 +42,7 @@ struct HashKey {
 	};
 };
 
-zmqnet::ByteArray run(std::vector<zmqnet::ByteArray> const& inputs) {
+kj::Array<capnp::word> run(std::vector<zmqnet::ByteArray> const& inputs) {
 	// any reader created from a flat array reader will have pointers into the
 	// flat array reader, thus it must be kept alive until everything derived
 	// from it is done using it.
@@ -104,9 +104,7 @@ zmqnet::ByteArray run(std::vector<zmqnet::ByteArray> const& inputs) {
 		i++;
 	}
 
-	auto flat = capnp::messageToFlatArray(outgoingBuilder);
-
-	return flat.forceReleaseAsBytes();
+	return capnp::messageToFlatArray(outgoingBuilder);
 }
 
 } // extern C

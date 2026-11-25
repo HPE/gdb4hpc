@@ -30,7 +30,7 @@ private:
     using CommandDispatchFunc = std::packaged_task<ResultPtr ()>;
 
     // take a result and use capnp to serialize it
-    zmqnet::ByteArray packResult(ResultPtr result);
+    zmqnet::ByteArrayHolder packResult(ResultPtr result);
 
     std::unique_ptr<zmqnet::AsyncBackend> m_network;
 

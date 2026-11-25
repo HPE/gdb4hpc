@@ -18,7 +18,7 @@ enum class ZMQNetStream : zmqnet::Stream::Id {
     FirstArbitraryStreamId
 };
 
-inline capnp::UnalignedFlatArrayMessageReader getReaderFromData(const zmqnet::ByteArray &data) {
+inline capnp::UnalignedFlatArrayMessageReader getReaderFromData(zmqnet::ByteArrayPtr data) {
     assert(data.size() != 0);
     assert(data.size() % sizeof(capnp::word) == 0);
     auto words_ptr = reinterpret_cast<capnp::word const *>(data.begin());

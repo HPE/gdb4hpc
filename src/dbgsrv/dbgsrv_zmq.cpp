@@ -57,7 +57,7 @@ int ZMQNetServerProtocol::eventCallback(dbgevent_t *ev) {
     // pack result
     auto eventResult = ResultPtr(EventToSocProto(ev), std::free);
 
-    m_network->sendResult(m_event_stream_id, packResult(std::move(eventResult)));
+    m_network->sendResult(m_event_stream_id, packResult(std::move(eventResult)).asPtr());
 
     return 0;
 }
@@ -85,7 +85,7 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
 
     { // register command stream callback
         const auto commandStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastCommandStream);
-        const auto commandCallback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+        const auto commandCallback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr command) {
             LOG("zmqnet: command callback %lu got command \"%s\" of size %lu from stream %d\n", m_rank, command.begin(), command.size(), streamId);
             
             /*    Two locks are needed here to handle the (unlikely) edge case 
@@ -152,7 +152,7 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
 
         // register event stream callback
         const auto eventStreamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::BroadcastEventStream);
-        const auto eventCallback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArray command) {
+        const auto eventCallback = [this](zmqnet::Stream::Id const& streamId, zmqnet::ByteArrayPtr command) {
             // Nothing should be sent on this stream from the client; it is used to
             // send async events back to the client for processing. We still need
             // to register a callback to use it this way, though.
@@ -160,14 +160,14 @@ int ZMQNetServerProtocol::initProto(int &procnum, int &pid, int argc, const char
             LOG("zmqnet: event callback %lu got command \"%s\" from stream %d\n", m_rank, command.begin(), streamId);
             LOG("zmqnet: WARNING: client shouldn't be sending data on the event stream.\n");
 
-            return zmqnet::ByteArray{};
+            return zmqnet::ByteArrayHolder(std::move(zmqnet::ByteArray{}));
         };
 
         m_network->registerCallback(eventStreamId, eventCallback);
 
         // register internal command stream
         const auto streamId = static_cast<zmqnet::Stream::Id>(ZMQNetStream::InternalCommandStream);
-        const auto internalCmdCallback = [this, commandCallback, eventCallback](zmqnet::Stream::Id const&, zmqnet::ByteArray packedCommand) {
+        const auto internalCmdCallback = [this, commandCallback, eventCallback](zmqnet::Stream::Id const&, zmqnet::ByteArrayPtr packedCommand) {
             LOG("zmqnet: new stream cmd\n");
             
             // unpack command
@@ -254,7 +254,7 @@ int ZMQNetServerProtocol::sendReply(const char *) {
 
 // private /////////////////////////////////////////////////////////////////////
 
-zmqnet::ByteArray ZMQNetServerProtocol::packResult(ResultPtr result) {
+zmqnet::ByteArrayHolder ZMQNetServerProtocol::packResult(ResultPtr result) {
     DVPRINT("server: packing up \"%s\"\n", result.get());
     
     capnp::MallocMessageBuilder builder;
@@ -273,7 +273,5 @@ zmqnet::ByteArray ZMQNetServerProtocol::packResult(ResultPtr result) {
     memcpy(bitset.begin(), m_rank_serialized.get(), m_rank_serialized_size); // copy
 
     // pack
-    auto flat = capnp::messageToFlatArray(builder);
-
-    return flat.forceReleaseAsBytes();
-}
+    return capnp::messageToFlatArray(builder);
+ }
